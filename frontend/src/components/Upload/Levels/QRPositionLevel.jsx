@@ -1,0 +1,665 @@
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../../contexts/AuthContext';
+import { uploadAPI } from '../../../utils/api';
+import { QrCode, CheckCircle, AlertCircle, MapPin } from 'lucide-react';
+import toast from 'react-hot-toast';
+
+const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFromLevel1 = false }) => {
+  const { user, updateUser } = useAuth();
+  const [qrPosition, setQrPosition] = useState({
+    x: currentPosition?.x || user?.qrPosition?.x || 100,
+    y: currentPosition?.y || user?.qrPosition?.y || 100,
+    width: currentPosition?.width || user?.qrPosition?.width || 100,
+    height: currentPosition?.height || user?.qrPosition?.height || 100
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
+
+  const designImageUrl = designUrl || user?.uploadedFiles?.design?.url;
+  
+  // Handle image load to get dimensions
+  const handleImageLoad = (e) => {
+    const img = e.target;
+    const dimensions = {
+      width: img.naturalWidth,
+      height: img.naturalHeight
+    };
+    setImageDimensions(dimensions);
+    console.log('Image loaded with dimensions:', dimensions);
+    console.log('Displayed image dimensions:', {
+      width: img.offsetWidth,
+      height: img.offsetHeight
+    });
+    
+    // Adjust QR position if it's outside the image boundaries
+    setQrPosition(prev => {
+      const constrainedPosition = constrainPositionToImage(prev, dimensions);
+      if (constrainedPosition !== prev) {
+        console.log('QR position constrained to image boundaries:', constrainedPosition);
+      }
+      return constrainedPosition;
+    });
+  };
+  
+  // Function to constrain position to image boundaries
+  const constrainPositionToImage = (position, imgDims = imageDimensions) => {
+    if (imgDims.width === 0 || imgDims.height === 0) return position;
+    
+    const maxX = Math.max(0, imgDims.width - position.width);
+    const maxY = Math.max(0, imgDims.height - position.height);
+    
+    return {
+      x: Math.max(0, Math.min(position.x, maxX)),
+      y: Math.max(0, Math.min(position.y, maxY)),
+      width: Math.max(50, Math.min(position.width, imgDims.width)),
+      height: Math.max(50, Math.min(position.height, imgDims.height))
+    };
+  };
+
+  // Convert screen coordinates to image coordinates
+  const screenToImageCoords = (screenX, screenY, imageElement) => {
+    if (!imageElement || imageDimensions.width === 0 || imageDimensions.height === 0) {
+      return { x: screenX, y: screenY };
+    }
+
+    const rect = imageElement.getBoundingClientRect();
+    
+    // Calculate scale factors
+    const scaleX = imageDimensions.width / rect.width;
+    const scaleY = imageDimensions.height / rect.height;
+    
+    // Convert to image coordinates
+    const imageX = (screenX - rect.left) * scaleX;
+    const imageY = (screenY - rect.top) * scaleY;
+    
+    console.log('Coordinate conversion:', {
+      screen: { x: screenX, y: screenY },
+      rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
+      scale: { x: scaleX, y: scaleY },
+      image: { x: imageX, y: imageY },
+      natural: imageDimensions,
+      percentage: {
+        x: (imageX / imageDimensions.width) * 100,
+        y: (imageY / imageDimensions.height) * 100
+      }
+    });
+    
+    return { x: imageX, y: imageY };
+  };
+
+  // Convert image coordinates to percentage
+  const imageToPercentage = (x, y) => {
+    if (imageDimensions.width === 0 || imageDimensions.height === 0) {
+      return { x: 0, y: 0 };
+    }
+    return {
+      x: (x / imageDimensions.width) * 100,
+      y: (y / imageDimensions.height) * 100
+    };
+  };
+  
+  // Debug logging
+  React.useEffect(() => {
+    console.log('QRPositionLevel initialized with:', {
+      currentPosition,
+      userQrPosition: user?.qrPosition,
+      designUrl,
+      designImageUrl,
+      qrPosition,
+      imageDimensions
+    });
+    
+    // Add debug function to window for testing
+    if (process.env.NODE_ENV === 'development') {
+      window.debugQRPosition = {
+        testSave: () => {
+          console.log('Testing QR position save...');
+          saveQRPosition();
+        },
+        getCurrentPosition: () => qrPosition,
+        getImageDimensions: () => imageDimensions,
+        getUser: () => user,
+        getToken: () => localStorage.getItem('token')
+      };
+      console.log('Debug functions available at window.debugQRPosition');
+    }
+  }, [currentPosition, user?.qrPosition, designUrl, designImageUrl, qrPosition, imageDimensions]);
+
+  // Add global mouse listeners to handle mouse events outside the image
+  React.useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      if (isDragging) {
+        console.log('Global mouse up - stopping drag');
+        setIsDragging(false);
+      }
+    };
+
+    const handleGlobalMouseMove = (e) => {
+      if (isDragging) {
+        // Find the image element to get its bounding rect
+        const imageElement = document.querySelector('img[alt="Design preview"]');
+        if (imageElement && imageDimensions.width > 0 && imageDimensions.height > 0) {
+          // Convert mouse position to image coordinates
+          const imageCoords = screenToImageCoords(e.clientX, e.clientY, imageElement);
+          
+          // Calculate new position with constraints
+          const newX = Math.max(0, Math.min(imageCoords.x - dragStart.x, imageDimensions.width - qrPosition.width));
+          const newY = Math.max(0, Math.min(imageCoords.y - dragStart.y, imageDimensions.height - qrPosition.height));
+          
+          console.log('Global mouse move - new position:', { x: newX, y: newY });
+          
+          setQrPosition(prev => ({
+            ...prev,
+            x: newX,
+            y: newY
+          }));
+        }
+      }
+    };
+
+    if (isDragging) {
+      document.addEventListener('mouseup', handleGlobalMouseUp);
+      document.addEventListener('mouseleave', handleGlobalMouseUp);
+      document.addEventListener('mousemove', handleGlobalMouseMove);
+    }
+
+    return () => {
+      document.removeEventListener('mouseup', handleGlobalMouseUp);
+      document.removeEventListener('mouseleave', handleGlobalMouseUp);
+      document.removeEventListener('mousemove', handleGlobalMouseMove);
+    };
+  }, [isDragging, dragStart, qrPosition.width, qrPosition.height, imageDimensions]);
+
+  // Handle mouse down on QR area
+  const handleMouseDown = (e) => {
+    e.preventDefault();
+    console.log('Mouse down on QR area');
+    setIsDragging(true);
+    
+    // Find the image element
+    const imageElement = document.querySelector('img[alt="Design preview"]');
+    
+    if (imageElement && imageDimensions.width > 0 && imageDimensions.height > 0) {
+      // Convert mouse position to image coordinates
+      const imageCoords = screenToImageCoords(e.clientX, e.clientY, imageElement);
+      
+      setDragStart({
+        x: imageCoords.x - qrPosition.x,
+        y: imageCoords.y - qrPosition.y
+      });
+      
+      console.log('Mouse down - drag start calculated:', {
+        mouse: { x: e.clientX, y: e.clientY },
+        image: imageCoords,
+        qrPosition,
+        dragStart: { x: imageCoords.x - qrPosition.x, y: imageCoords.y - qrPosition.y }
+      });
+    } else {
+      // Fallback to original behavior if image dimensions not available
+      const rect = e.currentTarget.getBoundingClientRect();
+      setDragStart({
+        x: e.clientX - rect.left - qrPosition.x,
+        y: e.clientY - rect.top - qrPosition.y
+      });
+    }
+  };
+
+  // Handle mouse move
+  const handleMouseMove = (e) => {
+    if (!isDragging) return;
+    
+    e.preventDefault();
+    
+    // Find the image element
+    const imageElement = document.querySelector('img[alt="Design preview"]');
+    
+    if (imageElement && imageDimensions.width > 0 && imageDimensions.height > 0) {
+      // Convert mouse position to image coordinates
+      const imageCoords = screenToImageCoords(e.clientX, e.clientY, imageElement);
+      
+      // Calculate new position with constraints
+      const newX = Math.max(0, Math.min(imageCoords.x - dragStart.x, imageDimensions.width - qrPosition.width));
+      const newY = Math.max(0, Math.min(imageCoords.y - dragStart.y, imageDimensions.height - qrPosition.height));
+      
+      console.log('Mouse move - new position:', { x: newX, y: newY });
+      
+      setQrPosition(prev => ({
+        ...prev,
+        x: newX,
+        y: newY
+      }));
+    }
+  };
+
+  // Handle mouse up
+  const handleMouseUp = () => {
+    console.log('Mouse up - stopping drag');
+    setIsDragging(false);
+  };
+
+  // Save QR position
+  const saveQRPosition = async () => {
+    try {
+      setIsSaving(true);
+      console.log('=== QR Position Save Debug ===');
+      console.log('Saving QR position:', qrPosition);
+      console.log('User token available:', !!localStorage.getItem('token'));
+      console.log('User token value:', localStorage.getItem('token')?.substring(0, 20) + '...');
+      console.log('Current user:', user);
+      
+      // Check if user is authenticated
+      if (!user || !localStorage.getItem('token')) {
+        console.error('User not authenticated');
+        toast.error('Please login to save QR position');
+        return;
+      }
+      
+      // Validate QR position data
+      if (!qrPosition || typeof qrPosition.x !== 'number' || typeof qrPosition.y !== 'number') {
+        console.error('Invalid QR position data:', qrPosition);
+        toast.error('Invalid QR position data');
+        return;
+      }
+      
+      console.log('QR position data validation passed:', qrPosition);
+      
+      const response = await uploadAPI.setQRPosition(qrPosition);
+      console.log('QR position save response:', response);
+      console.log('Response data:', response.data);
+      console.log('Response status:', response.status);
+      
+      // Update user context with the response data
+      if (response.data?.data?.user) {
+        console.log('Updating user with response data');
+        updateUser(response.data.data.user);
+      } else {
+        console.log('Using fallback: updating qrPosition field only');
+        updateUser({ qrPosition });
+      }
+      
+      toast.success('📍 QR position saved!');
+      
+      // Complete the level - ensure we pass the correct data structure
+      console.log('Calling onComplete with qrPosition:', qrPosition);
+      onComplete(qrPosition);
+      console.log('onComplete called successfully');
+      
+      // Add a small delay to ensure the level completion is processed
+      setTimeout(() => {
+        console.log('QR position save completed, should advance to next level');
+      }, 500);
+      
+    } catch (error) {
+      console.error('=== QR Position Save Error ===');
+      console.error('QR position save error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers
+        }
+      });
+      
+      // Handle specific error cases
+      if (error.response?.status === 401) {
+        console.error('Authentication failed - token may be invalid or expired');
+        toast.error('Authentication failed. Please login again.');
+        // Optionally redirect to login
+        // window.location.href = '/login';
+      } else if (error.response?.status === 400) {
+        console.error('Validation error:', error.response?.data);
+        toast.error(error.response?.data?.message || 'Invalid QR position data');
+      } else {
+        const errorMessage = error.response?.data?.message || 'Failed to save QR position';
+        toast.error(errorMessage);
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // If position already exists and we're not forcing a fresh start, show completion and auto-advance
+  if (!forceStartFromLevel1 && (currentPosition || user?.qrPosition)) {
+    const position = currentPosition || user.qrPosition;
+    
+    // Auto-complete the level if not already completed (only once)
+    React.useEffect(() => {
+      if (!currentPosition && user?.qrPosition) {
+        console.log('Auto-completing Level 2 with existing QR position');
+        toast.success('📍 QR position found! Level 2 completed automatically.');
+        onComplete(user.qrPosition);
+      }
+    }, [user?.qrPosition?.x, user?.qrPosition?.y, currentPosition, onComplete]); // Include onComplete in dependencies
+    
+    return (
+      <div className="text-center py-8">
+        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-neon-green/20 mb-6 shadow-glow-green">
+          <CheckCircle className="w-10 h-10 text-neon-green" />
+        </div>
+        
+        <h3 className="text-2xl font-bold text-neon-green mb-4">
+          🎉 Level 2 Complete!
+        </h3>
+        
+        <div className="bg-green-900/20 border border-neon-green/30 rounded-lg p-6 mb-6">
+          <div className="flex items-center justify-center mb-4">
+            <QrCode className="w-8 h-8 text-neon-green mr-3" />
+            <span className="font-semibold text-neon-green">QR Position Set</span>
+          </div>
+          <p className="text-slate-200">
+            X: {position.x}px, Y: {position.y}px
+          </p>
+          <p className="text-sm text-slate-300">
+            Size: {position.width} × {position.height}px
+          </p>
+        </div>
+        
+        {designImageUrl && (
+          <div className="max-w-md mx-auto relative">
+            <img
+              src={designImageUrl}
+              alt="Design with QR position"
+              className="w-full h-auto rounded-lg shadow-dark-large"
+            />
+            <div
+              className="absolute border-2 border-neon-green bg-neon-green bg-opacity-20"
+              style={{
+                left: `${position.x}px`,
+                top: `${position.y}px`,
+                width: `${position.width}px`,
+                height: `${position.height}px`
+              }}
+            >
+              <div className="absolute -top-6 left-0 text-xs bg-neon-green text-slate-900 px-2 py-1 rounded">
+                QR Code Area
+              </div>
+            </div>
+          </div>
+        )}
+        
+        <p className="text-slate-300 mt-6">
+          ✨ Perfect! Your QR code position is set for the next level.
+        </p>
+        
+        <div className="mt-6">
+          <button
+            onClick={() => onComplete(position)}
+            className="btn-primary px-6 py-3"
+          >
+            Continue to Next Level →
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!designImageUrl) {
+    return (
+      <div className="text-center py-12">
+        <AlertCircle className="mx-auto h-16 w-16 text-slate-400 mb-4" />
+        <h3 className="text-xl font-semibold text-slate-100 mb-2">
+          Design Required
+        </h3>
+        <p className="text-slate-300">
+          Please complete Level 1 (Upload Design) first to set QR code position.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      <div className="text-center mb-8">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-neon-blue/20 mb-4 shadow-glow-blue">
+          <QrCode className="w-8 h-8 text-neon-blue" />
+        </div>
+        <h3 className="text-xl font-semibold text-slate-100 mb-2">
+          Position Your QR Code
+        </h3>
+        <p className="text-slate-300">
+          Click and drag the QR code area to position it on your design
+        </p>
+      </div>
+
+      {/* Interactive Design Preview */}
+      <div className="bg-slate-800/50 border-2 border-slate-600/30 rounded-xl p-3 sm:p-6 mb-4 sm:mb-6">
+        <div className="relative inline-block">
+          <img
+            src={designImageUrl}
+            alt="Design preview"
+            className="max-w-full h-auto rounded-lg shadow-sm touch-manipulation"
+            onLoad={handleImageLoad}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onTouchMove={handleMouseMove}
+            onTouchEnd={handleMouseUp}
+          />
+          <div
+            className={`absolute border-2 bg-neon-blue bg-opacity-20 cursor-move transition-all duration-200 touch-manipulation ${
+              isDragging ? 'border-neon-blue scale-105 shadow-glow-blue' : 'border-neon-blue'
+            }`}
+            style={{
+              left: imageDimensions.width > 0 ? `${(qrPosition.x / imageDimensions.width) * 100}%` : `${qrPosition.x}px`,
+              top: imageDimensions.height > 0 ? `${(qrPosition.y / imageDimensions.height) * 100}%` : `${qrPosition.y}px`,
+              width: imageDimensions.width > 0 ? `${(qrPosition.width / imageDimensions.width) * 100}%` : `${qrPosition.width}px`,
+              height: imageDimensions.height > 0 ? `${(qrPosition.height / imageDimensions.height) * 100}%` : `${qrPosition.height}px`
+            }}
+            onMouseDown={handleMouseDown}
+            onTouchStart={handleMouseDown}
+          >
+            <div className="absolute -top-5 sm:-top-6 left-0 text-xs bg-neon-blue text-slate-900 px-1 sm:px-2 py-1 rounded">
+              QR Code Area
+            </div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <QrCode className="w-4 h-4 sm:w-6 sm:h-6 text-neon-blue" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Position Controls */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+        <div>
+          <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">
+            X Position
+            {imageDimensions.width > 0 && (
+              <span className="text-xs text-slate-400 ml-1 sm:ml-2">
+                (max: {Math.max(0, imageDimensions.width - qrPosition.width)})
+              </span>
+            )}
+          </label>
+          <input
+            type="number"
+            value={qrPosition.x}
+            min="0"
+            max={imageDimensions.width > 0 ? Math.max(0, imageDimensions.width - qrPosition.width) : undefined}
+            onChange={(e) => {
+              const newX = parseInt(e.target.value) || 0;
+              console.log('X position changed to:', newX);
+              setQrPosition(prev => {
+                const newPosition = { ...prev, x: newX };
+                return constrainPositionToImage(newPosition);
+              });
+            }}
+            className="input w-full px-2 sm:px-3 py-2 text-sm touch-manipulation"
+          />
+        </div>
+        <div>
+          <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">
+            Y Position
+            {imageDimensions.height > 0 && (
+              <span className="text-xs text-slate-400 ml-1 sm:ml-2">
+                (max: {Math.max(0, imageDimensions.height - qrPosition.height)})
+              </span>
+            )}
+          </label>
+          <input
+            type="number"
+            value={qrPosition.y}
+            min="0"
+            max={imageDimensions.height > 0 ? Math.max(0, imageDimensions.height - qrPosition.height) : undefined}
+            onChange={(e) => {
+              const newY = parseInt(e.target.value) || 0;
+              console.log('Y position changed to:', newY);
+              setQrPosition(prev => {
+                const newPosition = { ...prev, y: newY };
+                return constrainPositionToImage(newPosition);
+              });
+            }}
+            className="input w-full px-2 sm:px-3 py-2 text-sm touch-manipulation"
+          />
+        </div>
+        <div>
+          <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">
+            Width
+            {imageDimensions.width > 0 && (
+              <span className="text-xs text-slate-400 ml-1 sm:ml-2">
+                (max: {imageDimensions.width})
+              </span>
+            )}
+          </label>
+          <input
+            type="number"
+            value={qrPosition.width}
+            min="50"
+            max={imageDimensions.width > 0 ? imageDimensions.width : undefined}
+            onChange={(e) => {
+              const newWidth = parseInt(e.target.value) || 100;
+              console.log('Width changed to:', newWidth);
+              setQrPosition(prev => {
+                const newPosition = { ...prev, width: newWidth };
+                return constrainPositionToImage(newPosition);
+              });
+            }}
+            className="input w-full px-2 sm:px-3 py-2 text-sm touch-manipulation"
+          />
+        </div>
+        <div>
+          <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">
+            Height
+            {imageDimensions.height > 0 && (
+              <span className="text-xs text-slate-400 ml-1 sm:ml-2">
+                (max: {imageDimensions.height})
+              </span>
+            )}
+          </label>
+          <input
+            type="number"
+            value={qrPosition.height}
+            min="50"
+            max={imageDimensions.height > 0 ? imageDimensions.height : undefined}
+            onChange={(e) => {
+              const newHeight = parseInt(e.target.value) || 100;
+              console.log('Height changed to:', newHeight);
+              setQrPosition(prev => {
+                const newPosition = { ...prev, height: newHeight };
+                return constrainPositionToImage(newPosition);
+              });
+            }}
+            className="input w-full px-2 sm:px-3 py-2 text-sm touch-manipulation"
+          />
+        </div>
+      </div>
+
+      {/* Debug Info */}
+      <div className="mb-6 p-4 bg-slate-800/50 rounded-lg border border-slate-600/30">
+        <h4 className="text-sm font-medium text-slate-300 mb-2">Debug Info:</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-400">
+          <div>
+            <p><strong>Pixel Coordinates:</strong></p>
+            <p>Position: X={qrPosition.x}, Y={qrPosition.y}</p>
+            <p>Size: W={qrPosition.width}, H={qrPosition.height}</p>
+            <p>Max: X={Math.max(0, imageDimensions.width - qrPosition.width)}, Y={Math.max(0, imageDimensions.height - qrPosition.height)}</p>
+          </div>
+          <div>
+            <p><strong>Percentage Coordinates:</strong></p>
+            <p>Position: X={imageDimensions.width > 0 ? ((qrPosition.x / imageDimensions.width) * 100).toFixed(1) : 0}%, Y={imageDimensions.height > 0 ? ((qrPosition.y / imageDimensions.height) * 100).toFixed(1) : 0}%</p>
+            <p>Size: W={imageDimensions.width > 0 ? ((qrPosition.width / imageDimensions.width) * 100).toFixed(1) : 0}%, H={imageDimensions.height > 0 ? ((qrPosition.height / imageDimensions.height) * 100).toFixed(1) : 0}%</p>
+          </div>
+        </div>
+        <div className="mt-2 text-xs text-slate-400">
+          <p>Image Dimensions: {imageDimensions.width} × {imageDimensions.height}</p>
+          <p>Is Dragging: {isDragging ? 'Yes' : 'No'}</p>
+          <p>Design URL: {designImageUrl ? 'Available' : 'Not Available'}</p>
+        </div>
+      </div>
+
+      {/* Save Button */}
+      <div className="text-center">
+        <button
+          onClick={saveQRPosition}
+          disabled={isSaving}
+          className="btn-primary inline-flex items-center px-6 sm:px-8 py-3 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation text-sm sm:text-base"
+        >
+          <MapPin className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+          {isSaving ? 'Saving...' : 'Save QR Position'}
+        </button>
+        
+        {/* Debug Test Buttons */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mt-4 space-x-2">
+            <button
+              onClick={() => {
+                console.log('=== Manual Level Complete Test ===');
+                console.log('Calling onComplete directly with:', qrPosition);
+                onComplete(qrPosition);
+              }}
+              className="px-4 py-2 bg-neon-yellow text-slate-900 rounded-lg hover:bg-neon-yellow/80"
+            >
+              🧪 Test Level Complete
+            </button>
+            <button
+              onClick={() => {
+                console.log('=== Force Advance Test ===');
+                if (window.debugLevels) {
+                  window.debugLevels.forceAdvance();
+                } else {
+                  console.log('Debug functions not available');
+                }
+              }}
+              className="px-4 py-2 bg-neon-green text-slate-900 rounded-lg hover:bg-neon-green/80"
+            >
+              🚀 Force Advance
+            </button>
+            <button
+              onClick={() => {
+                console.log('=== Current State Debug ===');
+                console.log('Current level:', window.debugLevels?.getCurrentLevel());
+                console.log('Completed levels:', window.debugLevels?.getCompletedLevels());
+                console.log('Level data:', window.debugLevels?.getLevelData());
+                console.log('Level 2 completed:', window.debugLevels?.isLevelCompleted(2));
+              }}
+              className="px-4 py-2 bg-neon-blue text-slate-900 rounded-lg hover:bg-neon-blue/80"
+            >
+              🔍 Debug State
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Tips */}
+      <div className="mt-6 sm:mt-8 bg-blue-900/20 border border-neon-blue/30 rounded-lg p-3 sm:p-4">
+        <div className="flex items-start">
+          <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-neon-blue mr-2 sm:mr-3 mt-0.5 flex-shrink-0" />
+          <div>
+            <h4 className="font-medium text-neon-blue mb-1 text-sm sm:text-base">💡 Pro Tips</h4>
+            <ul className="text-xs sm:text-sm text-slate-300 space-y-1">
+              <li>• Tap and drag the blue area to position your QR code</li>
+              <li>• Use the input fields for precise positioning</li>
+              <li>• Make sure the QR code area doesn't overlap important content</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default QRPositionLevel;

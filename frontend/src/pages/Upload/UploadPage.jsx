@@ -1,0 +1,672 @@
+/**
+ * Upload Page Component
+ * Handles file uploads for design images and videos
+ * Includes drag-and-drop functionality and progress tracking
+ */
+
+import React, { useState, useCallback } from 'react'
+import { useDropzone } from 'react-dropzone'
+import { useAuth } from '../../contexts/AuthContext'
+import { uploadAPI } from '../../utils/api'
+import { 
+  Upload, 
+  Image, 
+  Video, 
+  X, 
+  CheckCircle, 
+  AlertCircle,
+  QrCode,
+  Share2,
+  MapPin,
+  Download,
+  Eye
+} from 'lucide-react'
+import LoadingSpinner from '../../components/UI/LoadingSpinner'
+import QRPositioningOverlay from '../../components/QRPositioning/QRPositioningOverlay'
+import toast from 'react-hot-toast'
+
+const UploadPage = () => {
+  const { user, updateUser } = useAuth()
+  const [activeTab, setActiveTab] = useState('design')
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [qrPosition, setQrPosition] = useState({
+    x: user?.qrPosition?.x || 0,
+    y: user?.qrPosition?.y || 0,
+    width: user?.qrPosition?.width || 100,
+    height: user?.qrPosition?.height || 100
+  })
+  const [socialLinks, setSocialLinks] = useState({
+    instagram: user?.socialLinks?.instagram || '',
+    facebook: user?.socialLinks?.facebook || '',
+    twitter: user?.socialLinks?.twitter || '',
+    linkedin: user?.socialLinks?.linkedin || '',
+    website: user?.socialLinks?.website || ''
+  })
+  const [finalDesignPreview, setFinalDesignPreview] = useState(null)
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(false)
+
+  // Design upload handler
+  const onDesignDrop = useCallback(async (acceptedFiles) => {
+    if (acceptedFiles.length === 0) return
+
+    const file = acceptedFiles[0]
+    const formData = new FormData()
+    formData.append('design', file)
+
+    try {
+      setIsUploading(true)
+      setUploadProgress(0)
+
+      // Simulate progress
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval)
+            return 90
+          }
+          return prev + 10
+        })
+      }, 200)
+
+      const response = await uploadAPI.uploadDesign(formData)
+      
+      clearInterval(progressInterval)
+      setUploadProgress(100)
+      
+      updateUser(response.data.data.user)
+      toast.success('Design uploaded successfully!')
+      
+      setTimeout(() => {
+        setUploadProgress(0)
+        setIsUploading(false)
+      }, 1000)
+    } catch (error) {
+      setUploadProgress(0)
+      setIsUploading(false)
+      toast.error('Failed to upload design')
+    }
+  }, [updateUser])
+
+  // Video upload handler
+  const onVideoDrop = useCallback(async (acceptedFiles) => {
+    if (acceptedFiles.length === 0) return
+
+    const file = acceptedFiles[0]
+    const formData = new FormData()
+    formData.append('video', file)
+
+    try {
+      setIsUploading(true)
+      setUploadProgress(0)
+
+      // Simulate progress
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval)
+            return 90
+          }
+          return prev + 5
+        })
+      }, 300)
+
+      const response = await uploadAPI.uploadVideo(formData)
+      
+      clearInterval(progressInterval)
+      setUploadProgress(100)
+      
+      updateUser(response.data.data.user)
+      toast.success('Video uploaded successfully!')
+      
+      setTimeout(() => {
+        setUploadProgress(0)
+        setIsUploading(false)
+      }, 1000)
+    } catch (error) {
+      setUploadProgress(0)
+      setIsUploading(false)
+      toast.error('Failed to upload video')
+    }
+  }, [updateUser])
+
+  // Design dropzone
+  const {
+    getRootProps: getDesignRootProps,
+    getInputProps: getDesignInputProps,
+    isDragActive: isDesignDragActive
+  } = useDropzone({
+    onDrop: onDesignDrop,
+    accept: {
+      'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp']
+    },
+    maxFiles: 1,
+    disabled: isUploading
+  })
+
+  // Video dropzone
+  const {
+    getRootProps: getVideoRootProps,
+    getInputProps: getVideoInputProps,
+    isDragActive: isVideoDragActive
+  } = useDropzone({
+    onDrop: onVideoDrop,
+    accept: {
+      'video/*': ['.mp4', '.mov', '.avi', '.webm']
+    },
+    maxFiles: 1,
+    disabled: isUploading
+  })
+
+  // Handle QR position change
+  const handleQrPositionChange = useCallback((newPosition) => {
+    setQrPosition(prev => ({ ...prev, ...newPosition }))
+  }, [])
+
+  // Handle QR size change
+  const handleQrSizeChange = useCallback((newSize) => {
+    setQrPosition(prev => ({ ...prev, ...newSize }))
+  }, [])
+
+  // Save QR position
+  const saveQRPosition = async () => {
+    try {
+      await uploadAPI.setQRPosition(qrPosition)
+      toast.success('QR position saved!')
+    } catch (error) {
+      toast.error('Failed to save QR position')
+    }
+  }
+
+  // Save social links
+  const saveSocialLinks = async () => {
+    try {
+      await uploadAPI.updateSocialLinks(socialLinks)
+      toast.success('Social links updated!')
+    } catch (error) {
+      toast.error('Failed to update social links')
+    }
+  }
+
+  // Generate preview of final design
+  const generatePreview = async () => {
+    try {
+      setIsGeneratingPreview(true)
+      const response = await uploadAPI.previewFinalDesign()
+      setFinalDesignPreview(response.data.data.preview)
+      toast.success('Preview generated!')
+    } catch (error) {
+      toast.error('Failed to generate preview')
+    } finally {
+      setIsGeneratingPreview(false)
+    }
+  }
+
+  // Download final design
+  const downloadFinalDesign = async () => {
+    try {
+      setIsDownloading(true)
+      const response = await uploadAPI.downloadFinalDesign()
+      
+      // Create blob and download
+      const blob = new Blob([response.data], { type: 'image/png' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `phygital-design-${user.username}.png`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      
+      toast.success('Design downloaded successfully!')
+    } catch (error) {
+      toast.error('Failed to download design')
+    } finally {
+      setIsDownloading(false)
+    }
+  }
+
+  const tabs = [
+    { id: 'design', name: 'Design', icon: Image },
+    { id: 'video', name: 'Video', icon: Video },
+    { id: 'qr', name: 'QR Position', icon: QrCode },
+    { id: 'social', name: 'Social Links', icon: Share2 },
+    { id: 'final', name: 'Final Design', icon: Download }
+  ]
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">
+          Upload Your Content
+        </h1>
+        <p className="text-gray-600 mt-2">
+          Upload your design, video, and configure your QR code settings
+        </p>
+      </div>
+
+      {/* Progress Bar */}
+      {isUploading && (
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-gray-700">
+              Uploading...
+            </span>
+            <span className="text-sm font-medium text-gray-700">
+              {uploadProgress}%
+            </span>
+          </div>
+          <div className="progress-bar">
+            <div 
+              className="progress-bar-fill"
+              style={{ width: `${uploadProgress}%` }}
+            ></div>
+          </div>
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="mb-8">
+        <div className="border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8">
+            {tabs.map((tab) => {
+              const Icon = tab.icon
+              const isActive = activeTab === tab.id
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
+                    isActive
+                      ? 'border-primary-500 text-primary-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <Icon className="w-4 h-4 mr-2" />
+                  {tab.name}
+                </button>
+              )
+            })}
+          </nav>
+        </div>
+      </div>
+
+      {/* Tab Content */}
+      <div className="card">
+        {/* Design Upload */}
+        {activeTab === 'design' && (
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              Upload Design Image
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Upload your design image (poster, business card, etc.)
+            </p>
+
+            {user?.uploadedFiles?.design?.url ? (
+              <div className="mb-6">
+                <div className="flex items-center p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-green-600 mr-3" />
+                  <div>
+                    <p className="text-sm font-medium text-green-800">
+                      Design uploaded successfully
+                    </p>
+                    <p className="text-xs text-green-600">
+                      {user.uploadedFiles.design.originalName}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <img
+                    src={user.uploadedFiles.design.url}
+                    alt="Uploaded design"
+                    className="max-w-full h-auto rounded-lg shadow-sm"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div
+                {...getDesignRootProps()}
+                className={`upload-zone ${isDesignDragActive ? 'active' : ''}`}
+              >
+                <input {...getDesignInputProps()} />
+                <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <p className="text-lg font-medium text-gray-900 mb-2">
+                  {isDesignDragActive
+                    ? 'Drop your design here'
+                    : 'Drag & drop your design image here'}
+                </p>
+                <p className="text-sm text-gray-600 mb-4">
+                  or click to browse files
+                </p>
+                <p className="text-xs text-gray-500">
+                  Supports: JPEG, PNG, GIF, WebP (max 50MB)
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Video Upload */}
+        {activeTab === 'video' && (
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              Upload Video
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Upload an explanatory video for your design
+            </p>
+
+            {user?.uploadedFiles?.video?.url ? (
+              <div className="mb-6">
+                <div className="flex items-center p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-green-600 mr-3" />
+                  <div>
+                    <p className="text-sm font-medium text-green-800">
+                      Video uploaded successfully
+                    </p>
+                    <p className="text-xs text-green-600">
+                      {user.uploadedFiles.video.originalName}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <video
+                    src={user.uploadedFiles.video.url}
+                    controls
+                    className="max-w-full h-auto rounded-lg shadow-sm"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div
+                {...getVideoRootProps()}
+                className={`upload-zone ${isVideoDragActive ? 'active' : ''}`}
+              >
+                <input {...getVideoInputProps()} />
+                <Video className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <p className="text-lg font-medium text-gray-900 mb-2">
+                  {isVideoDragActive
+                    ? 'Drop your video here'
+                    : 'Drag & drop your video here'}
+                </p>
+                <p className="text-sm text-gray-600 mb-4">
+                  or click to browse files
+                </p>
+                <p className="text-xs text-gray-500">
+                  Supports: MP4, MOV, AVI, WebM (max 50MB)
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* QR Position */}
+        {activeTab === 'qr' && (
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              QR Code Position
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Set where the QR code should be placed on your design
+            </p>
+
+            {user?.uploadedFiles?.design?.url ? (
+              <div className="space-y-6">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">
+                    Interactive QR Code Positioning
+                  </h3>
+                  <p className="text-xs text-gray-600 mb-4">
+                    Drag the QR code overlay to move it, or use the resize handles to change its size.
+                  </p>
+                  
+                  <QRPositioningOverlay
+                    imageUrl={user.uploadedFiles.design.url}
+                    qrPosition={qrPosition}
+                    onPositionChange={handleQrPositionChange}
+                    onSizeChange={handleQrSizeChange}
+                    imageWidth={400}
+                    imageHeight={300}
+                  />
+                </div>
+
+                {/* Manual Input Controls (Optional) */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">
+                    Manual Position Controls
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="label">X Position</label>
+                      <input
+                        type="number"
+                        value={qrPosition.x}
+                        onChange={(e) => setQrPosition(prev => ({ ...prev, x: parseInt(e.target.value) || 0 }))}
+                        className="input"
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Y Position</label>
+                      <input
+                        type="number"
+                        value={qrPosition.y}
+                        onChange={(e) => setQrPosition(prev => ({ ...prev, y: parseInt(e.target.value) || 0 }))}
+                        className="input"
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Width</label>
+                      <input
+                        type="number"
+                        value={qrPosition.width}
+                        onChange={(e) => setQrPosition(prev => ({ ...prev, width: parseInt(e.target.value) || 100 }))}
+                        className="input"
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Height</label>
+                      <input
+                        type="number"
+                        value={qrPosition.height}
+                        onChange={(e) => setQrPosition(prev => ({ ...prev, height: parseInt(e.target.value) || 100 }))}
+                        className="input"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={saveQRPosition}
+                  className="btn-primary"
+                >
+                  Save QR Position
+                </button>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <AlertCircle className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <p className="text-gray-600">
+                  Please upload a design image first to set QR code position
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Social Links */}
+        {activeTab === 'social' && (
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              Social Media Links
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Add your social media profiles to your personalized page
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="label">Instagram</label>
+                <input
+                  type="url"
+                  value={socialLinks.instagram}
+                  onChange={(e) => setSocialLinks(prev => ({ ...prev, instagram: e.target.value }))}
+                  placeholder="https://instagram.com/yourusername"
+                  className="input"
+                />
+              </div>
+              <div>
+                <label className="label">Facebook</label>
+                <input
+                  type="url"
+                  value={socialLinks.facebook}
+                  onChange={(e) => setSocialLinks(prev => ({ ...prev, facebook: e.target.value }))}
+                  placeholder="https://facebook.com/yourpage"
+                  className="input"
+                />
+              </div>
+              <div>
+                <label className="label">Twitter</label>
+                <input
+                  type="url"
+                  value={socialLinks.twitter}
+                  onChange={(e) => setSocialLinks(prev => ({ ...prev, twitter: e.target.value }))}
+                  placeholder="https://twitter.com/yourusername"
+                  className="input"
+                />
+              </div>
+              <div>
+                <label className="label">LinkedIn</label>
+                <input
+                  type="url"
+                  value={socialLinks.linkedin}
+                  onChange={(e) => setSocialLinks(prev => ({ ...prev, linkedin: e.target.value }))}
+                  placeholder="https://linkedin.com/in/yourprofile"
+                  className="input"
+                />
+              </div>
+              <div>
+                <label className="label">Website</label>
+                <input
+                  type="url"
+                  value={socialLinks.website}
+                  onChange={(e) => setSocialLinks(prev => ({ ...prev, website: e.target.value }))}
+                  placeholder="https://yourwebsite.com"
+                  className="input"
+                />
+              </div>
+            </div>
+
+            <button
+              onClick={saveSocialLinks}
+              className="btn-primary mt-6"
+            >
+              Save Social Links
+            </button>
+          </div>
+        )}
+
+        {/* Final Design */}
+        {activeTab === 'final' && (
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              Download Final Design
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Generate and download your design with the QR code overlaid
+            </p>
+
+            {user?.uploadedFiles?.design?.url && user?.qrPosition ? (
+              <div className="space-y-6">
+                {/* Preview Section */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-medium text-gray-900">
+                      Preview
+                    </h3>
+                    <button
+                      onClick={generatePreview}
+                      disabled={isGeneratingPreview}
+                      className="btn-secondary flex items-center"
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      {isGeneratingPreview ? 'Generating...' : 'Generate Preview'}
+                    </button>
+                  </div>
+                  
+                  {finalDesignPreview ? (
+                    <div className="border rounded-lg p-4 bg-gray-50">
+                      <img
+                        src={finalDesignPreview}
+                        alt="Final design with QR code"
+                        className="max-w-full h-auto rounded-lg shadow-sm"
+                      />
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                      <Eye className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                      <p className="text-gray-600">
+                        Click "Generate Preview" to see your final design with QR code
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Download Section */}
+                <div className="border-t pt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-900">
+                        Download
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        Download your final design as a PNG file
+                      </p>
+                    </div>
+                    <button
+                      onClick={downloadFinalDesign}
+                      disabled={isDownloading}
+                      className="btn-primary flex items-center"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      {isDownloading ? 'Downloading...' : 'Download Design'}
+                    </button>
+                  </div>
+                  
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-start">
+                      <CheckCircle className="h-5 w-5 text-blue-600 mr-3 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-blue-800">
+                          Ready to download!
+                        </p>
+                        <p className="text-xs text-blue-600 mt-1">
+                          Your design will be downloaded as "phygital-design-{user.username}.png"
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <AlertCircle className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <p className="text-gray-600 mb-2">
+                  Complete the setup first
+                </p>
+                <p className="text-sm text-gray-500">
+                  Upload a design and set QR code position to generate your final design
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default UploadPage
