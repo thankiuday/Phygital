@@ -16,6 +16,8 @@ const ARExperiencePage = () => {
   const [cameraActive, setCameraActive] = useState(false);
   const [arLoadingProgress, setArLoadingProgress] = useState(0);
   const [librariesLoaded, setLibrariesLoaded] = useState(false);
+  const [debugMessages, setDebugMessages] = useState([]);
+  const [showDebug, setShowDebug] = useState(false);
   
   // AR variables
   const containerRef = useRef(null);
@@ -31,6 +33,26 @@ const ARExperiencePage = () => {
   const videoMeshRef = useRef(null);
   const overlayMeshRef = useRef(null);
   const bottomRightOverlayMeshRef = useRef(null);
+
+  // Debug logging function for mobile users
+  const addDebugMessage = (message, type = 'info') => {
+    const timestamp = new Date().toLocaleTimeString();
+    const debugMessage = {
+      id: Date.now(),
+      message,
+      type, // 'info', 'success', 'warning', 'error'
+      timestamp
+    };
+    
+    console.log(`[${timestamp}] ${message}`);
+    setDebugMessages(prev => [...prev.slice(-9), debugMessage]); // Keep last 10 messages
+    
+    // Auto-show debug on mobile for errors and warnings
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile && (type === 'error' || type === 'warning')) {
+      setShowDebug(true);
+    }
+  };
 
   useEffect(() => {
     fetchProjectData();
@@ -410,13 +432,15 @@ const ARExperiencePage = () => {
             missTolerance: isMobile ? 1.5 : 1.0,      // More tolerant on mobile
             // Mobile-specific performance settings
             ...(isMobile && {
-              // Reduce processing load on mobile
-              maxDetectionRate: 15,     // Lower detection rate to prevent freezing
-              trackingThreshold: 0.6,   // Lower threshold for easier tracking
-              lostThreshold: 0.4,       // Higher threshold before losing track
+              // Optimized for mobile scanning
+              maxDetectionRate: 30,     // Higher detection rate for better scanning
+              trackingThreshold: 0.4,   // Lower threshold for easier detection
+              lostThreshold: 0.6,       // Higher threshold before losing track
               // Memory management
               maxConcurrentTracks: 1,   // Only track one target at a time
-              enableLowPowerMode: true  // Enable power saving mode
+              // Enhanced mobile scanning
+              smoothingFactor: 0.8,     // Smoother tracking
+              detectionConfidence: 0.6  // Lower confidence threshold for mobile
             }),
             // Additional stability settings
             uiLoading: "no",        // Disable default loading UI
@@ -424,7 +448,7 @@ const ARExperiencePage = () => {
             uiError: "no"           // Disable default error UI
           };
           
-          console.log('🎯 MindAR Configuration:', mindarConfig);
+          addDebugMessage(`🎯 Initializing MindAR with ${isMobile ? 'mobile' : 'desktop'} settings`, 'info');
           mindarThreeRef.current = new MindARThree(mindarConfig);
 
           const { renderer, scene, camera } = mindarThreeRef.current;
@@ -456,21 +480,32 @@ const ARExperiencePage = () => {
 
           // Get user media for camera feed - use back camera for AR scanning
           const videoConstraints = {
-            width: isMobile ? { ideal: 720 } : { ideal: 1280 },
-            height: isMobile ? { ideal: 1280 } : { ideal: 720 },
+            width: isMobile ? { ideal: 1280, min: 640 } : { ideal: 1280 },
+            height: isMobile ? { ideal: 720, min: 480 } : { ideal: 720 },
             facingMode: 'environment', // Use back camera for AR scanning
-            frameRate: isMobile ? { ideal: 15, max: 30 } : { ideal: 30 } // Lower frame rate on mobile to prevent freezing
+            frameRate: isMobile ? { ideal: 30, min: 15 } : { ideal: 30 }, // Higher quality for better scanning
+            aspectRatio: { ideal: 16/9 },
+            // Enhanced mobile camera settings for better AR scanning
+            ...(isMobile && {
+              focusMode: 'continuous',
+              exposureMode: 'continuous',
+              whiteBalanceMode: 'continuous'
+            })
           };
 
-          console.log('📱 Mobile device detected:', isMobile);
-          console.log('📷 Camera constraints:', videoConstraints);
+          addDebugMessage(`📱 Mobile device: ${isMobile}`, 'info');
+          addDebugMessage(`📷 Requesting camera with quality: ${videoConstraints.width.ideal}x${videoConstraints.height.ideal}`, 'info');
 
           navigator.mediaDevices.getUserMedia({ video: videoConstraints })
             .then(stream => {
               cameraVideo.srcObject = stream;
               setCameraActive(true);
               setArLoadingProgress(80);
-              console.log('📷 Camera feed added for AR scanning - back camera active');
+              
+              // Get actual camera resolution
+              const track = stream.getVideoTracks()[0];
+              const settings = track.getSettings();
+              addDebugMessage(`✅ Camera active: ${settings.width}x${settings.height} @ ${settings.frameRate}fps`, 'success');
               
               // Also add to Three.js scene as texture
               const videoTexture = new THREE.VideoTexture(cameraVideo);
@@ -484,7 +519,7 @@ const ARExperiencePage = () => {
               scene.add(backgroundMesh);
             })
             .catch(err => {
-              console.warn('Could not access camera for AR mode:', err);
+              addDebugMessage(`❌ Camera access failed: ${err.message}`, 'error');
               setCameraActive(false);
               // Remove the video element if camera fails
               if (cameraVideo.parentNode) {
@@ -492,14 +527,8 @@ const ARExperiencePage = () => {
               }
             });
           
-          console.log('✅ MindAR initialized with user design:', designUrl);
-          console.log('MindAR instance details:', {
-            hasStart: !!mindarThreeRef.current.start,
-            hasAddAnchor: !!mindarThreeRef.current.addAnchor,
-            hasRenderer: !!mindarThreeRef.current.renderer,
-            hasScene: !!mindarThreeRef.current.scene,
-            hasCamera: !!mindarThreeRef.current.camera
-          });
+          addDebugMessage('✅ MindAR initialized successfully', 'success');
+          addDebugMessage(`🔗 Anchor created for target detection`, 'info');
           
         } catch (mindarError) {
           console.warn('MindAR initialization failed, falling back to basic mode:', mindarError);
@@ -961,6 +990,8 @@ const ARExperiencePage = () => {
   };
 
   const handleAnchorVisible = () => {
+    addDebugMessage('🎯 Target detected! Starting AR experience', 'success');
+    
     // Calculate dynamic scale based on detected dimensions
     const dynamicScale = calculateDynamicScale();
     
@@ -1005,6 +1036,8 @@ const ARExperiencePage = () => {
   };
 
   const handleAnchorHidden = () => {
+    addDebugMessage('👁️ Target lost - hiding AR content', 'warning');
+    
     // Hide video and overlays when design is not detected
     if (videoMeshRef.current) {
       videoMeshRef.current.visible = false;
@@ -1072,6 +1105,7 @@ const ARExperiencePage = () => {
 
   const handleStartScan = async () => {
     try {
+      addDebugMessage('🚀 Starting AR scan...', 'info');
       setIsScanning(true);
       setError(null);
       setFallbackMode(false); // Reset fallback mode
@@ -1089,7 +1123,7 @@ const ARExperiencePage = () => {
       await Promise.race([initializeAR(), timeoutPromise]);
       
       // AR initialization completed successfully
-      console.log('🎉 AR initialization completed successfully');
+      addDebugMessage('🎉 AR ready! Point camera at your design', 'success');
       setArLoadingProgress(100);
       setIsScanning(false); // Make sure scanning state is reset
       
@@ -1098,7 +1132,7 @@ const ARExperiencePage = () => {
         console.log('🔄 Final state check - arLoadingProgress should be 100, isScanning should be false');
       }, 100);
     } catch (error) {
-      console.error('Error starting AR scan:', error);
+      addDebugMessage(`❌ AR scan failed: ${error.message}`, 'error');
       if (error.message === 'AR initialization timeout') {
         setError('AR initialization is taking too long. Please try again or check your internet connection.');
       } else {
@@ -1412,6 +1446,47 @@ const ARExperiencePage = () => {
                 </div>
               )}
             </div>
+
+            {/* Mobile Debug Panel */}
+            {debugMessages.length > 0 && (
+              <div className="absolute top-4 right-4 z-30">
+                <button
+                  onClick={() => setShowDebug(!showDebug)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-xs mb-2"
+                >
+                  Debug {showDebug ? '▼' : '▶'}
+                </button>
+                
+                {showDebug && (
+                  <div className="bg-black bg-opacity-90 text-white p-3 rounded-lg max-w-sm max-h-64 overflow-y-auto">
+                    <div className="text-xs font-bold mb-2 flex justify-between items-center">
+                      <span>Debug Log</span>
+                      <button
+                        onClick={() => setDebugMessages([])}
+                        className="text-red-400 hover:text-red-300"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                    <div className="space-y-1">
+                      {debugMessages.map((msg) => (
+                        <div key={msg.id} className="text-xs">
+                          <span className="text-gray-400">{msg.timestamp}</span>
+                          <div className={`${
+                            msg.type === 'error' ? 'text-red-400' :
+                            msg.type === 'warning' ? 'text-yellow-400' :
+                            msg.type === 'success' ? 'text-green-400' :
+                            'text-blue-400'
+                          }`}>
+                            {msg.message}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             
             {/* AR Mode Instructions */}
             {cameraActive && !fallbackMode && (
