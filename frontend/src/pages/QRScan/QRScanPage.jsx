@@ -3,8 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import BackButton from '../../components/UI/BackButton';
 
 const QRScanPage = () => {
-  const { userId } = useParams();
+  const { userId, projectId } = useParams();
   const navigate = useNavigate();
+  const scanId = projectId || userId; // Use projectId if available, otherwise userId
   const [projectData, setProjectData] = useState(null);
   const [socialLinks, setSocialLinks] = useState({});
   const [cameraReady, setCameraReady] = useState(false);
@@ -96,7 +97,12 @@ const QRScanPage = () => {
 
   const fetchProjectData = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/qr/project-data/${userId}`);
+      // Use different endpoint based on whether we have projectId or userId
+      const endpoint = projectId 
+        ? `/qr/project-data/${projectId}` 
+        : `/qr/user-data/${userId}`;
+      
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}${endpoint}`);
       const result = await response.json();
       
       if (result.status === 'success') {
@@ -148,7 +154,11 @@ const QRScanPage = () => {
 
   const handleOpenARExperience = () => {
     // Navigate to the React AR experience page
-    navigate(`/ar/${userId}`);
+    if (projectId) {
+      navigate(`/ar/project/${projectId}`);
+    } else {
+      navigate(`/ar/${userId}`);
+    }
   };
 
   if (!projectData) {

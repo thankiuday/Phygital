@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 
 const ARExperiencePage = () => {
-  const { userId } = useParams();
+  const { userId, projectId } = useParams();
+  const scanId = projectId || userId; // Use projectId if available, otherwise userId
   const [isScanning, setIsScanning] = useState(false);
   const [videoEnded, setVideoEnded] = useState(false);
   const [firstInteractionDone, setFirstInteractionDone] = useState(false);
@@ -169,7 +170,13 @@ const ARExperiencePage = () => {
     try {
       setIsLoading(true);
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-      const fullUrl = `${apiUrl}/qr/project-data/${userId}`;
+      
+      // Use different endpoint based on whether we have projectId or userId
+      const endpoint = projectId 
+        ? `/qr/project-data/${projectId}` 
+        : `/qr/user-data/${userId}`;
+      
+      const fullUrl = `${apiUrl}${endpoint}`;
       
       console.log('🌐 Fetching project data from:', fullUrl);
       

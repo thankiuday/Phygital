@@ -48,7 +48,9 @@ function App() {
           <Route path="register" element={<RegisterPage />} />
           <Route path="user/:username" element={<UserPage />} />
           <Route path="scan/:userId" element={<QRScanPage />} />
+          <Route path="scan/project/:projectId" element={<QRScanPage />} />
           <Route path="ar/:userId" element={<ARExperiencePage />} />
+          <Route path="ar/project/:projectId" element={<ARExperiencePage />} />
         </Route>
 
         {/* Protected Routes */}

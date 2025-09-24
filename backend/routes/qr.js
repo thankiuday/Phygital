@@ -275,11 +275,83 @@ router.post('/scan', async (req, res) => {
 });
 
 /**
- * GET /api/qr/project-data/:userId
- * Get project data for QR scan page
+ * GET /api/qr/project-data/:projectId
+ * Get specific project data for QR scan page
+ * Returns project-specific data formatted for AR experience
+ */
+router.get('/project-data/:projectId', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    
+    // Find user who owns this project
+    const user = await User.findOne({ 'projects.id': projectId }).select('-password -email');
+    
+    if (!user) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Project not found'
+      });
+    }
+    
+    // Find the specific project
+    const project = user.projects.find(p => p.id === projectId);
+    if (!project) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Project not found'
+      });
+    }
+    
+    // Check if user has completed setup
+    if (!user.uploadedFiles.design.url || !user.uploadedFiles.video.url) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Project not complete'
+      });
+    }
+    
+    // Return project-specific data for AR experience
+    const projectData = {
+      id: project.id,
+      projectId: project.id,
+      userId: user._id,
+      name: project.name,
+      description: project.description,
+      designUrl: user.uploadedFiles.design.url,
+      videoUrl: user.uploadedFiles.video.url,
+      socialLinks: user.socialLinks || {},
+      qrPosition: user.qrPosition,
+      designDimensions: {
+        width: user.uploadedFiles.design.dimensions?.width || 0.32,
+        height: user.uploadedFiles.design.dimensions?.height || 0.44
+      },
+      username: user.username,
+      status: project.status,
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt
+    };
+    
+    res.status(200).json({
+      status: 'success',
+      data: projectData
+    });
+    
+  } catch (error) {
+    console.error('Project data fetch error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to get project data',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+/**
+ * GET /api/qr/user-data/:userId
+ * Get user data for QR scan page (legacy support)
  * Returns user data formatted for AR experience
  */
-router.get('/project-data/:userId', async (req, res) => {
+router.get('/user-data/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
     
@@ -377,8 +449,8 @@ router.get('/project/:projectId', authenticateToken, async (req, res) => {
       });
     }
     
-    // Generate personalized URL with project context - use scan route for AR experience
-    const personalizedUrl = `${process.env.FRONTEND_URL}/scan/${user._id}`;
+    // Generate project-specific URL - use project ID for specific AR experience
+    const personalizedUrl = `${process.env.FRONTEND_URL}/scan/project/${projectId}`;
     
     // QR code options
     const qrOptions = {
