@@ -68,6 +68,15 @@ const ARExperiencePage = () => {
         delete window.mindarErrorHandler;
       }
       
+      // Clean up mobile-specific styles
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      if (isMobile) {
+        document.body.style.overflow = '';
+        document.body.style.touchAction = '';
+        document.body.style.userSelect = '';
+        document.body.style.webkitUserSelect = '';
+      }
+      
       // Clean up camera streams
       const cameraFeeds = document.querySelectorAll('#camera-feed, #camera-feed-fallback');
       cameraFeeds.forEach(video => {
@@ -290,13 +299,31 @@ const ARExperiencePage = () => {
 
       setArLoadingProgress(50);
 
-      // Set container dimensions explicitly
+      // Set container dimensions explicitly with mobile optimizations
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
       containerRef.current.style.width = '100vw';
       containerRef.current.style.height = '100vh';
       containerRef.current.style.position = 'fixed';
       containerRef.current.style.top = '0';
       containerRef.current.style.left = '0';
       containerRef.current.style.zIndex = '1';
+      
+      // Mobile-specific optimizations to prevent freezing
+      if (isMobile) {
+        containerRef.current.style.webkitTransform = 'translateZ(0)'; // Hardware acceleration
+        containerRef.current.style.transform = 'translateZ(0)';
+        containerRef.current.style.webkitBackfaceVisibility = 'hidden';
+        containerRef.current.style.backfaceVisibility = 'hidden';
+        containerRef.current.style.webkitPerspective = '1000px';
+        containerRef.current.style.perspective = '1000px';
+        containerRef.current.style.willChange = 'transform'; // Optimize for animations
+        // Prevent scrolling and zooming on mobile
+        document.body.style.overflow = 'hidden';
+        document.body.style.touchAction = 'none';
+        document.body.style.userSelect = 'none';
+        document.body.style.webkitUserSelect = 'none';
+      }
 
       console.log('Container dimensions:', {
         width: containerRef.current.offsetWidth,
@@ -369,16 +396,28 @@ const ARExperiencePage = () => {
           console.log('🎯 Initializing MindAR with design URL:', designUrl);
           console.log('🔧 Using optimized MindAR settings for better stability');
           
-          // Create optimized MindAR configuration
+          // Create optimized MindAR configuration with mobile-specific settings
+          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+          
           const mindarConfig = {
             container: containerRef.current,
             imageTargetSrc: designUrl,
             maxTrack: 1,
-            // Optimized parameters to reduce buffer errors
-            filterMinCF: 0.01,      // Higher value for more stable tracking
-            filterBeta: 0.1,        // Higher value for smoother tracking
-            warmupTolerance: 0.1,   // More tolerant warmup
-            missTolerance: 1.0,     // More tolerant miss detection
+            // Mobile-optimized parameters to prevent freezing and improve performance
+            filterMinCF: isMobile ? 0.02 : 0.01,      // Higher on mobile for stability
+            filterBeta: isMobile ? 0.2 : 0.1,         // Higher on mobile for smoother tracking
+            warmupTolerance: isMobile ? 0.2 : 0.1,    // More tolerant on mobile
+            missTolerance: isMobile ? 1.5 : 1.0,      // More tolerant on mobile
+            // Mobile-specific performance settings
+            ...(isMobile && {
+              // Reduce processing load on mobile
+              maxDetectionRate: 15,     // Lower detection rate to prevent freezing
+              trackingThreshold: 0.6,   // Lower threshold for easier tracking
+              lostThreshold: 0.4,       // Higher threshold before losing track
+              // Memory management
+              maxConcurrentTracks: 1,   // Only track one target at a time
+              enableLowPowerMode: true  // Enable power saving mode
+            }),
             // Additional stability settings
             uiLoading: "no",        // Disable default loading UI
             uiScanning: "no",       // Disable default scanning UI
@@ -415,19 +454,23 @@ const ARExperiencePage = () => {
           
           setArLoadingProgress(70);
 
-          // Get user media for camera feed
-          navigator.mediaDevices.getUserMedia({ 
-            video: { 
-              width: { ideal: 1280 },
-              height: { ideal: 720 },
-              facingMode: 'user'
-            } 
-          })
+          // Get user media for camera feed - use back camera for AR scanning
+          const videoConstraints = {
+            width: isMobile ? { ideal: 720 } : { ideal: 1280 },
+            height: isMobile ? { ideal: 1280 } : { ideal: 720 },
+            facingMode: 'environment', // Use back camera for AR scanning
+            frameRate: isMobile ? { ideal: 15, max: 30 } : { ideal: 30 } // Lower frame rate on mobile to prevent freezing
+          };
+
+          console.log('📱 Mobile device detected:', isMobile);
+          console.log('📷 Camera constraints:', videoConstraints);
+
+          navigator.mediaDevices.getUserMedia({ video: videoConstraints })
             .then(stream => {
               cameraVideo.srcObject = stream;
               setCameraActive(true);
               setArLoadingProgress(80);
-              console.log('Camera feed added for AR mode - user can see themselves');
+              console.log('📷 Camera feed added for AR scanning - back camera active');
               
               // Also add to Three.js scene as texture
               const videoTexture = new THREE.VideoTexture(cameraVideo);
