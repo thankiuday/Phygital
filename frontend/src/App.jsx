@@ -41,7 +41,7 @@ function App() {
   return (
     <div className="App">
       <Routes>
-        {/* Public Routes - Updated for project-specific QR scan */}
+        {/* Public Routes - Project-specific QR scan routes added */}
         <Route path="/" element={<Layout />}>
           <Route index element={<HomePage />} />
           <Route path="login" element={<LoginPage />} />
