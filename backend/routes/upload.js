@@ -775,8 +775,18 @@ router.get('/download-final-design', authenticateToken, async (req, res) => {
       });
     }
     
-    // Generate QR data (user's scan URL for AR experience)
-    const qrData = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/scan/${user._id}`;
+    // Get current project information
+    const currentProject = user.projects?.find(p => p.id === user.currentProject);
+    
+    // Generate project-specific QR data for AR experience
+    let qrData;
+    if (currentProject) {
+      // Use project-specific URL for better AR tracking
+      qrData = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/scan/project/${currentProject.id}`;
+    } else {
+      // Fallback to user-based URL for backward compatibility
+      qrData = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/scan/${user._id}`;
+    }
     
     // Generate final design with QR code
     const finalDesignPath = await generateFinalDesign(
@@ -785,9 +795,6 @@ router.get('/download-final-design', authenticateToken, async (req, res) => {
       user.qrPosition,
       user._id.toString()
     );
-    
-    // Get current project information
-    const currentProject = user.projects?.find(p => p.id === user.currentProject);
     const projectData = currentProject ? {
       id: currentProject.id,
       name: currentProject.name,
