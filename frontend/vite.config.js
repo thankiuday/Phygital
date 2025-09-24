@@ -32,7 +32,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false, // Disable sourcemaps in production for smaller bundle
-    minify: 'terser',
+    minify: 'esbuild', // Use esbuild for faster, more reliable builds
     target: 'es2015', // Ensure compatibility with older browsers
     rollupOptions: {
       output: {
