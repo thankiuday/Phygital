@@ -39,8 +39,8 @@ router.get('/generate/:userId', async (req, res) => {
       });
     }
     
-    // Generate personalized URL - use scan route for AR experience
-    const personalizedUrl = `${process.env.FRONTEND_URL}/scan/${user._id}`;
+    // Generate personalized URL - use scan route for AR experience with hash routing
+    const personalizedUrl = `${process.env.FRONTEND_URL}/#/scan/${user._id}`;
     
     // QR code options
     const qrOptions = {
@@ -98,8 +98,8 @@ router.get('/my-qr', authenticateToken, requireUploadedFiles, async (req, res) =
   try {
     const { format = 'png', size = 200 } = req.query;
     
-    // Generate personalized URL - use scan route for AR experience
-    const personalizedUrl = `${process.env.FRONTEND_URL}/scan/${req.user._id}`;
+    // Generate personalized URL - use scan route for AR experience with hash routing
+    const personalizedUrl = `${process.env.FRONTEND_URL}/#/scan/${req.user._id}`;
     
     // QR code options
     const qrOptions = {
@@ -449,8 +449,8 @@ router.get('/project/:projectId', authenticateToken, async (req, res) => {
       });
     }
     
-    // Generate project-specific URL - use project ID for specific AR experience
-    const personalizedUrl = `${process.env.FRONTEND_URL}/scan/project/${projectId}`;
+    // Generate project-specific URL - use project ID for specific AR experience with hash routing
+    const personalizedUrl = `${process.env.FRONTEND_URL}/#/scan/project/${projectId}`;
     
     // QR code options
     const qrOptions = {
