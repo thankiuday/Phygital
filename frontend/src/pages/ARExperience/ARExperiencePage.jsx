@@ -305,12 +305,13 @@ const ARExperiencePage = () => {
         clientHeight: containerRef.current.clientHeight
       });
 
-      // Convert S3 URLs to use proxy for CORS
-      const designUrl = projectData.designUrl.replace(
-        'https://phygital-zone.s3.amazonaws.com',
-        '/s3-proxy'
-      );
+      // Convert S3 URLs to use proxy for CORS only in development
+      const designUrl = import.meta.env.DEV 
+        ? projectData.designUrl.replace('https://phygital-zone.s3.amazonaws.com', '/s3-proxy')
+        : projectData.designUrl;
 
+      console.log('Environment:', import.meta.env.DEV ? 'development' : 'production');
+      console.log('Original design URL:', projectData.designUrl);
       console.log('Using design URL:', designUrl);
 
       // Test if image loads properly and optimize for MindAR
@@ -562,11 +563,10 @@ const ARExperiencePage = () => {
         const video = document.createElement('video');
         video.crossOrigin = "anonymous";
         
-        // Convert S3 video URL to use proxy for CORS
-        const videoUrl = projectData.videoUrl.replace(
-          'https://phygital-zone.s3.amazonaws.com',
-          '/s3-proxy'
-        );
+        // Convert S3 video URL to use proxy for CORS only in development
+        const videoUrl = import.meta.env.DEV 
+          ? projectData.videoUrl.replace('https://phygital-zone.s3.amazonaws.com', '/s3-proxy')
+          : projectData.videoUrl;
         
         // Don't set src or load immediately - wait for user interaction
         video.muted = false;
@@ -576,6 +576,7 @@ const ARExperiencePage = () => {
         video.preload = 'none'; // Don't preload the video
         videoRef.current = video;
         
+        console.log('Original video URL:', projectData.videoUrl);
         console.log('Using video URL:', videoUrl);
         
         // Wait for video to be ready before creating texture
