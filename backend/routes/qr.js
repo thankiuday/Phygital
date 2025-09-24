@@ -275,6 +275,73 @@ router.post('/scan', async (req, res) => {
 });
 
 /**
+ * GET /api/qr/project-data/:userId
+ * Get project data for QR scan page
+ * Returns user data formatted for AR experience
+ */
+router.get('/project-data/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Validate if userId is a valid ObjectId format (24 hex characters)
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
+    
+    // Build query based on whether userId is a valid ObjectId or username
+    let query;
+    if (isValidObjectId) {
+      query = { _id: userId };
+    } else {
+      query = { username: userId };
+    }
+    
+    // Find user by ID or username
+    const user = await User.findOne(query).select('-password -email');
+    
+    if (!user) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'User not found'
+      });
+    }
+    
+    // Check if user has completed setup
+    if (!user.uploadedFiles.design.url || !user.uploadedFiles.video.url) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'User profile not complete'
+      });
+    }
+    
+    // Return formatted data for AR experience
+    const projectData = {
+      id: user._id,
+      designUrl: user.uploadedFiles.design.url,
+      videoUrl: user.uploadedFiles.video.url,
+      socialLinks: user.socialLinks || {},
+      qrPosition: user.qrPosition,
+      designDimensions: {
+        width: 0.32,
+        height: 0.44
+      },
+      username: user.username
+    };
+    
+    res.status(200).json({
+      status: 'success',
+      data: projectData
+    });
+    
+  } catch (error) {
+    console.error('Project data fetch error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to get project data',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+/**
  * GET /api/qr/project/:projectId
  * Generate QR code for a specific project
  * Returns QR code as base64 image or SVG
