@@ -22,6 +22,9 @@ const historyRoutes = require('./routes/history');
 
 const app = express();
 
+// Trust proxy for accurate IP detection on Render/cloud platforms
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet());
 app.use(compression());
