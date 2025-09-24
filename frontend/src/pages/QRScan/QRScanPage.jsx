@@ -4,15 +4,40 @@ import BackButton from '../../components/UI/BackButton';
 
 const QRScanPage = () => {
   const { userId } = useParams();
+  const navigate = useNavigate();
   const [projectData, setProjectData] = useState(null);
   const [socialLinks, setSocialLinks] = useState({});
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState(null);
   const [scanningStatus, setScanningStatus] = useState('idle'); // 'idle', 'checking', 'ready', 'error'
+  const [autoRedirectCountdown, setAutoRedirectCountdown] = useState(5);
+  const [showManualOption, setShowManualOption] = useState(false);
 
   useEffect(() => {
     fetchProjectData();
     checkCameraAvailability();
+    
+    // Auto-redirect to AR experience after a short delay
+    const redirectTimer = setTimeout(() => {
+      handleOpenARExperience();
+    }, 3000); // 3 seconds delay
+
+    // Countdown timer for user feedback
+    const countdownTimer = setInterval(() => {
+      setAutoRedirectCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownTimer);
+          setShowManualOption(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      clearTimeout(redirectTimer);
+      clearInterval(countdownTimer);
+    };
   }, [userId]);
 
   const checkCameraAvailability = async () => {
@@ -123,7 +148,7 @@ const QRScanPage = () => {
 
   const handleOpenARExperience = () => {
     // Navigate to the React AR experience page
-    window.location.href = `/ar/${userId}`;
+    navigate(`/ar/${userId}`);
   };
 
   if (!projectData) {
