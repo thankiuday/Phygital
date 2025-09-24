@@ -59,8 +59,8 @@ const LoginPage = () => {
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto h-12 w-12 bg-button-gradient rounded-lg flex items-center justify-center shadow-glow">
-            <Lock className="h-6 w-6 text-white" />
+          <div className="mx-auto h-10 w-10 sm:h-12 sm:w-12 bg-button-gradient rounded-lg flex items-center justify-center shadow-glow">
+            <Lock className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
           </div>
           <h2 className="mt-6 text-3xl font-bold text-slate-100">
             Sign in to your account
@@ -85,8 +85,8 @@ const LoginPage = () => {
                 Email address
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-                  <Mail className="h-5 w-5 text-slate-600" />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-20">
+                  <Mail className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500" />
                 </div>
                 <input
                   {...register('email', {
@@ -98,7 +98,7 @@ const LoginPage = () => {
                   })}
                   type="email"
                   autoComplete="email"
-                  className={`input pl-10 ${errors.email ? 'input-error' : ''}`}
+                  className={`input pl-11 sm:pl-12 ${errors.email ? 'input-error' : ''}`}
                   placeholder="Enter your email"
                 />
               </div>
@@ -113,8 +113,8 @@ const LoginPage = () => {
                 Password
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-                  <Lock className="h-5 w-5 text-slate-600" />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-20">
+                  <Lock className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500" />
                 </div>
                 <input
                   {...register('password', {
@@ -126,18 +126,18 @@ const LoginPage = () => {
                   })}
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
-                  className={`input pl-10 pr-10 ${errors.password ? 'input-error' : ''}`}
+                  className={`input pl-11 sm:pl-12 pr-11 sm:pr-12 ${errors.password ? 'input-error' : ''}`}
                   placeholder="Enter your password"
                 />
                   <button
                     type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center z-10"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center z-20"
                     onClick={() => setShowPassword(!showPassword)}
                   >
                   {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-slate-600 hover:text-slate-800" />
+                    <EyeOff className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-300" />
                   ) : (
-                    <Eye className="h-5 w-5 text-slate-600 hover:text-slate-800" />
+                    <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-300" />
                   )}
                 </button>
               </div>
@@ -166,7 +166,7 @@ const LoginPage = () => {
               ) : (
                 <>
                   Sign in
-                  <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-200" />
+                  <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 group-hover:translate-x-1 transition-transform duration-200" />
                 </>
               )}
             </button>

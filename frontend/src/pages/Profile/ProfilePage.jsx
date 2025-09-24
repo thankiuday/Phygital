@@ -8,6 +8,7 @@ import React, { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useAuth } from '../../contexts/AuthContext'
 import { authAPI } from '../../utils/api'
+import BackButton from '../../components/UI/BackButton'
 import { 
   User, 
   Mail, 
@@ -77,18 +78,29 @@ const ProfilePage = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-100">
-          Profile Settings
-        </h1>
-        <p className="text-slate-300 mt-2">
-          Manage your account information and preferences
-        </p>
+      <div className="mb-6 sm:mb-8">
+        {/* Mobile Back Button - Top Left */}
+        <div className="flex justify-start mb-4 sm:hidden">
+          <BackButton to="/dashboard" variant="ghost" text="Back" className="text-sm" />
+        </div>
+        
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-100">
+              Profile Settings
+            </h1>
+            <p className="text-sm sm:text-base text-slate-300 mt-2">
+              Manage your account information and preferences
+            </p>
+          </div>
+          {/* Desktop Back Button */}
+          <BackButton to="/dashboard" variant="ghost" className="hidden sm:flex" />
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
         {/* Profile Information */}
         <div className="lg:col-span-2 space-y-6">
           {/* Basic Information */}
@@ -108,8 +120,8 @@ const ProfilePage = () => {
                   Username
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-                    <User className="h-5 w-5 text-slate-600" />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-20">
+                    <User className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500" />
                   </div>
                   <input
                     {...registerProfile('username', {
@@ -128,7 +140,7 @@ const ProfilePage = () => {
                       }
                     })}
                     type="text"
-                    className={`input pl-10 ${profileErrors.username ? 'input-error' : ''}`}
+                    className={`input pl-11 sm:pl-12 ${profileErrors.username ? 'input-error' : ''}`}
                     placeholder="Enter your username"
                   />
                 </div>
@@ -144,8 +156,8 @@ const ProfilePage = () => {
                   Email Address
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-                    <Mail className="h-5 w-5 text-slate-600" />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-20">
+                    <Mail className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500" />
                   </div>
                   <input
                     {...registerProfile('email', {
@@ -156,7 +168,7 @@ const ProfilePage = () => {
                       }
                     })}
                     type="email"
-                    className={`input pl-10 ${profileErrors.email ? 'input-error' : ''}`}
+                    className={`input pl-11 sm:pl-12 ${profileErrors.email ? 'input-error' : ''}`}
                     placeholder="Enter your email"
                   />
                 </div>
@@ -176,7 +188,7 @@ const ProfilePage = () => {
                   <LoadingSpinner size="sm" />
                 ) : (
                   <>
-                    <Save className="h-4 w-4 mr-2" />
+                    <Save className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                     Save Changes
                   </>
                 )}
@@ -201,26 +213,26 @@ const ProfilePage = () => {
                   Current Password
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-                    <Lock className="h-5 w-5 text-slate-600" />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-20">
+                    <Lock className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500" />
                   </div>
                   <input
                     {...registerPassword('currentPassword', {
                       required: 'Current password is required'
                     })}
                     type={showCurrentPassword ? 'text' : 'password'}
-                    className={`input pl-10 pr-10 ${passwordErrors.currentPassword ? 'input-error' : ''}`}
+                    className={`input pl-11 sm:pl-12 pr-11 sm:pr-12 ${passwordErrors.currentPassword ? 'input-error' : ''}`}
                     placeholder="Enter current password"
                   />
                   <button
                     type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center z-10"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center z-20"
                     onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                   >
                     {showCurrentPassword ? (
-                      <EyeOff className="h-5 w-5 text-slate-600 hover:text-slate-800" />
+                      <EyeOff className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-300" />
                     ) : (
-                      <Eye className="h-5 w-5 text-slate-600 hover:text-slate-800" />
+                      <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-300" />
                     )}
                   </button>
                 </div>
@@ -236,8 +248,8 @@ const ProfilePage = () => {
                   New Password
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-                    <Lock className="h-5 w-5 text-slate-600" />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-20">
+                    <Lock className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500" />
                   </div>
                   <input
                     {...registerPassword('newPassword', {
@@ -252,18 +264,18 @@ const ProfilePage = () => {
                       }
                     })}
                     type={showNewPassword ? 'text' : 'password'}
-                    className={`input pl-10 pr-10 ${passwordErrors.newPassword ? 'input-error' : ''}`}
+                    className={`input pl-11 sm:pl-12 pr-11 sm:pr-12 ${passwordErrors.newPassword ? 'input-error' : ''}`}
                     placeholder="Enter new password"
                   />
                   <button
                     type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center z-10"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center z-20"
                     onClick={() => setShowNewPassword(!showNewPassword)}
                   >
                     {showNewPassword ? (
-                      <EyeOff className="h-5 w-5 text-slate-600 hover:text-slate-800" />
+                      <EyeOff className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-300" />
                     ) : (
-                      <Eye className="h-5 w-5 text-slate-600 hover:text-slate-800" />
+                      <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-300" />
                     )}
                   </button>
                 </div>
@@ -279,8 +291,8 @@ const ProfilePage = () => {
                   Confirm New Password
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-                    <Lock className="h-5 w-5 text-slate-600" />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-20">
+                    <Lock className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500" />
                   </div>
                   <input
                     {...registerPassword('confirmPassword', {
@@ -288,18 +300,18 @@ const ProfilePage = () => {
                       validate: value => value === newPassword || 'Passwords do not match'
                     })}
                     type={showConfirmPassword ? 'text' : 'password'}
-                    className={`input pl-10 pr-10 ${passwordErrors.confirmPassword ? 'input-error' : ''}`}
+                    className={`input pl-11 sm:pl-12 pr-11 sm:pr-12 ${passwordErrors.confirmPassword ? 'input-error' : ''}`}
                     placeholder="Confirm new password"
                   />
                   <button
                     type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center z-10"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center z-20"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   >
                     {showConfirmPassword ? (
-                      <EyeOff className="h-5 w-5 text-slate-600 hover:text-slate-800" />
+                      <EyeOff className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-300" />
                     ) : (
-                      <Eye className="h-5 w-5 text-slate-600 hover:text-slate-800" />
+                      <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-300" />
                     )}
                   </button>
                 </div>
@@ -319,7 +331,7 @@ const ProfilePage = () => {
                   <LoadingSpinner size="sm" />
                 ) : (
                   <>
-                    <Lock className="h-4 w-4 mr-2" />
+                    <Lock className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                     Change Password
                   </>
                 )}
@@ -402,7 +414,7 @@ const ProfilePage = () => {
             <div className="space-y-4">
               <div className="p-4 bg-red-900/20 border border-neon-red/30 rounded-lg">
                 <div className="flex items-center mb-2">
-                  <AlertCircle className="h-5 w-5 text-neon-red mr-2" />
+                  <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-neon-red mr-2" />
                   <h3 className="text-sm font-medium text-neon-red">
                     Delete Account
                   </h3>

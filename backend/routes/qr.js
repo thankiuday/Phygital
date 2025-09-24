@@ -39,8 +39,8 @@ router.get('/generate/:userId', async (req, res) => {
       });
     }
     
-    // Generate personalized URL
-    const personalizedUrl = `${process.env.FRONTEND_URL}/user/${user.username}`;
+    // Generate personalized URL - use scan route for AR experience
+    const personalizedUrl = `${process.env.FRONTEND_URL}/scan/${user._id}`;
     
     // QR code options
     const qrOptions = {
@@ -98,8 +98,8 @@ router.get('/my-qr', authenticateToken, requireUploadedFiles, async (req, res) =
   try {
     const { format = 'png', size = 200 } = req.query;
     
-    // Generate personalized URL
-    const personalizedUrl = `${process.env.FRONTEND_URL}/user/${req.user.username}`;
+    // Generate personalized URL - use scan route for AR experience
+    const personalizedUrl = `${process.env.FRONTEND_URL}/scan/${req.user._id}`;
     
     // QR code options
     const qrOptions = {
@@ -157,13 +157,19 @@ router.get('/info/:userId', optionalAuth, async (req, res) => {
   try {
     const { userId } = req.params;
     
+    // Validate if userId is a valid ObjectId format (24 hex characters)
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
+    
+    // Build query based on whether userId is a valid ObjectId or username
+    let query;
+    if (isValidObjectId) {
+      query = { _id: userId };
+    } else {
+      query = { username: userId };
+    }
+    
     // Find user by ID or username
-    const user = await User.findOne({
-      $or: [
-        { _id: userId },
-        { username: userId }
-      ]
-    }).select('-password -email');
+    const user = await User.findOne(query).select('-password -email');
     
     if (!user) {
       return res.status(404).json({
@@ -304,8 +310,8 @@ router.get('/project/:projectId', authenticateToken, async (req, res) => {
       });
     }
     
-    // Generate personalized URL with project context
-    const personalizedUrl = `${process.env.FRONTEND_URL}/user/${user.username}?project=${projectId}`;
+    // Generate personalized URL with project context - use scan route for AR experience
+    const personalizedUrl = `${process.env.FRONTEND_URL}/scan/${user._id}`;
     
     // QR code options
     const qrOptions = {
@@ -382,8 +388,8 @@ router.get('/download/project/:projectId', authenticateToken, async (req, res) =
       });
     }
     
-    // Generate personalized URL with project context
-    const personalizedUrl = `${process.env.FRONTEND_URL}/user/${user.username}?project=${projectId}`;
+    // Generate personalized URL with project context - use scan route for AR experience
+    const personalizedUrl = `${process.env.FRONTEND_URL}/scan/${user._id}`;
     
     // QR code options
     const qrOptions = {
@@ -434,6 +440,74 @@ router.get('/download/project/:projectId', authenticateToken, async (req, res) =
 });
 
 /**
+ * GET /api/qr/project-data/:projectId
+ * Get project data for QR scan page
+ * Returns project information needed for AR experience
+ */
+router.get('/project-data/:projectId', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    
+    // Validate if projectId is a valid ObjectId format (24 hex characters)
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(projectId);
+    
+    // Build query based on whether projectId is a valid ObjectId or username
+    let query;
+    if (isValidObjectId) {
+      query = { _id: projectId };
+    } else {
+      query = { username: projectId };
+    }
+    
+    // Find user by project ID
+    const user = await User.findOne(query).select('-password -email');
+    
+    if (!user) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Project not found'
+      });
+    }
+    
+    // Check if user has completed setup
+    if (!user.uploadedFiles.design.url || !user.uploadedFiles.video.url) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Project not complete'
+      });
+    }
+    
+    // Return project data for the AR experience
+    const projectData = {
+      id: user._id,
+      username: user.username,
+      designUrl: user.uploadedFiles.design.url,
+      videoUrl: user.uploadedFiles.video.url,
+      socialLinks: user.socialLinks || {},
+      designDimensions: user.uploadedFiles.design.dimensions || {
+        width: 800, // Fallback dimensions
+        height: 600,
+        aspectRatio: 800 / 600
+      },
+      qrPosition: user.qrPosition || { x: 0, y: 0, scale: 1 }
+    };
+    
+    res.status(200).json({
+      status: 'success',
+      data: projectData
+    });
+    
+  } catch (error) {
+    console.error('Project data fetch error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch project data',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+/**
  * GET /api/qr/download/:userId
  * Download QR code as file
  * Returns QR code as downloadable file
@@ -452,8 +526,8 @@ router.get('/download/:userId', async (req, res) => {
       });
     }
     
-    // Generate personalized URL
-    const personalizedUrl = `${process.env.FRONTEND_URL}/user/${user.username}`;
+    // Generate personalized URL - use AR route for AR experience
+    const personalizedUrl = `${process.env.FRONTEND_URL}/ar/${user._id}`;
     
     // QR code options
     const qrOptions = {

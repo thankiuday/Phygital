@@ -7,6 +7,7 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { analyticsAPI } from '../../utils/api'
+import BackButton from '../../components/UI/BackButton'
 import { 
   BarChart3, 
   Eye, 
@@ -61,20 +62,25 @@ const AnalyticsPage = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex items-center justify-between">
+        {/* Mobile Back Button - Top Left */}
+        <div className="flex justify-start mb-4 sm:hidden">
+          <BackButton to="/dashboard" variant="ghost" text="Back" className="text-sm" />
+        </div>
+        
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-100">
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-100">
               Analytics Dashboard
             </h1>
-            <p className="text-slate-300 mt-2">
+            <p className="text-sm sm:text-base text-slate-300 mt-2">
               Track your QR code performance and user engagement
             </p>
           </div>
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
             <select
               value={selectedPeriod}
               onChange={(e) => setSelectedPeriod(e.target.value)}
-              className="input"
+              className="input text-sm sm:text-base"
             >
               {periods.map(period => (
                 <option key={period.value} value={period.value}>
@@ -82,6 +88,8 @@ const AnalyticsPage = () => {
                 </option>
               ))}
             </select>
+            {/* Desktop Back Button */}
+            <BackButton to="/dashboard" variant="ghost" text="Back" className="text-sm sm:text-base hidden sm:flex" />
           </div>
         </div>
       </div>

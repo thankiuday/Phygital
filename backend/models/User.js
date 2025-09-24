@@ -40,7 +40,12 @@ const userSchema = new mongoose.Schema({
       originalName: String,
       url: String,
       size: Number,
-      uploadedAt: Date
+      uploadedAt: Date,
+      dimensions: {
+        width: Number,
+        height: Number,
+        aspectRatio: Number
+      }
     },
     video: {
       filename: String,

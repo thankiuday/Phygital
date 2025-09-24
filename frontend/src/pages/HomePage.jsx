@@ -134,19 +134,23 @@ const HomePage = () => {
         </div>
         
         {/* Floating Elements */}
-        <div className="absolute top-10 sm:top-20 left-4 sm:left-10 animate-float">
+        <div className="absolute top-10 sm:top-20 left-4 sm:left-10 animate-float animate-shine">
           <QrCode className="h-8 w-8 sm:h-12 sm:w-12 lg:h-16 lg:w-16 text-neon-blue opacity-60 drop-shadow-glow-blue" />
         </div>
-        <div className="absolute top-20 sm:top-40 right-4 sm:right-20 animate-float" style={{ animationDelay: '1s' }}>
+        <div className="absolute top-20 sm:top-40 right-4 sm:right-20 animate-float animate-shine" style={{ animationDelay: '1s' }}>
           <Video className="h-6 w-6 sm:h-8 sm:w-8 lg:h-12 lg:w-12 text-neon-purple opacity-60 drop-shadow-glow-purple" />
         </div>
-        <div className="absolute bottom-10 sm:bottom-20 left-4 sm:left-20 animate-float" style={{ animationDelay: '2s' }}>
+        <div className="absolute bottom-20 sm:bottom-20 left-4 sm:left-20 animate-float animate-shine hidden sm:block" style={{ animationDelay: '2s' }}>
           <Smartphone className="h-7 w-7 sm:h-10 sm:w-10 lg:h-14 lg:w-14 text-neon-pink opacity-60 drop-shadow-glow-pink" />
         </div>
-        <div className="absolute top-1/2 left-1/4 animate-float" style={{ animationDelay: '3s' }}>
+        {/* Mobile-specific smartphone icon positioning */}
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 animate-float animate-shine sm:hidden" style={{ animationDelay: '2s' }}>
+          <Smartphone className="h-6 w-6 text-neon-pink opacity-40 drop-shadow-glow-pink" />
+        </div>
+        <div className="absolute top-1/2 left-1/4 animate-float animate-shine" style={{ animationDelay: '3s' }}>
           <BarChart3 className="h-5 w-5 sm:h-8 sm:w-8 lg:h-10 lg:w-10 text-neon-green opacity-50 drop-shadow-glow-green" />
         </div>
-        <div className="absolute top-1/3 right-1/3 animate-float" style={{ animationDelay: '4s' }}>
+        <div className="absolute top-1/3 right-1/3 animate-float animate-shine" style={{ animationDelay: '4s' }}>
           <Share2 className="h-4 w-4 sm:h-6 sm:w-6 lg:h-8 lg:w-8 text-neon-orange opacity-50 drop-shadow-glow-orange" />
         </div>
       </section>

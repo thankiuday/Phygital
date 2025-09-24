@@ -18,6 +18,8 @@ import RegisterPage from './pages/Auth/RegisterPage'
 import DashboardPage from './pages/Dashboard/DashboardPage'
 import GameUploadPage from './pages/Upload/GameUploadPage'
 import QRCodePage from './pages/QRCode/QRCodePage'
+import QRScanPage from './pages/QRScan/QRScanPage'
+import ARExperiencePage from './pages/ARExperience/ARExperiencePage'
 import AnalyticsPage from './pages/Analytics/AnalyticsPage'
 import ProfilePage from './pages/Profile/ProfilePage'
 import UserPage from './pages/User/UserPage'
@@ -45,6 +47,8 @@ function App() {
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
           <Route path="user/:username" element={<UserPage />} />
+          <Route path="scan/:userId" element={<QRScanPage />} />
+          <Route path="ar/:userId" element={<ARExperiencePage />} />
         </Route>
 
         {/* Protected Routes */}

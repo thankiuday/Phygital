@@ -65,8 +65,8 @@ const RegisterPage = () => {
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto h-12 w-12 bg-button-gradient rounded-lg flex items-center justify-center shadow-glow">
-            <User className="h-6 w-6 text-white" />
+          <div className="mx-auto h-10 w-10 sm:h-12 sm:w-12 bg-button-gradient rounded-lg flex items-center justify-center shadow-glow">
+            <User className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
           </div>
           <h2 className="mt-6 text-3xl font-bold text-slate-100">
             Create your account
@@ -91,8 +91,8 @@ const RegisterPage = () => {
                 Username
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-                  <User className="h-5 w-5 text-slate-600" />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-20">
+                  <User className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500" />
                 </div>
                 <input
                   {...register('username', {
@@ -112,7 +112,7 @@ const RegisterPage = () => {
                   })}
                   type="text"
                   autoComplete="username"
-                  className={`input pl-10 ${errors.username ? 'input-error' : ''}`}
+                  className={`input pl-11 sm:pl-12 ${errors.username ? 'input-error' : ''}`}
                   placeholder="Choose a username"
                 />
               </div>
@@ -127,8 +127,8 @@ const RegisterPage = () => {
                 Email address
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-                  <Mail className="h-5 w-5 text-slate-600" />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-20">
+                  <Mail className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500" />
                 </div>
                 <input
                   {...register('email', {
@@ -140,7 +140,7 @@ const RegisterPage = () => {
                   })}
                   type="email"
                   autoComplete="email"
-                  className={`input pl-10 ${errors.email ? 'input-error' : ''}`}
+                  className={`input pl-11 sm:pl-12 ${errors.email ? 'input-error' : ''}`}
                   placeholder="Enter your email"
                 />
               </div>
@@ -155,8 +155,8 @@ const RegisterPage = () => {
                 Password
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-                  <Lock className="h-5 w-5 text-slate-600" />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-20">
+                  <Lock className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500" />
                 </div>
                 <input
                   {...register('password', {
@@ -172,18 +172,18 @@ const RegisterPage = () => {
                   })}
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="new-password"
-                  className={`input pl-10 pr-10 ${errors.password ? 'input-error' : ''}`}
+                  className={`input pl-11 sm:pl-12 pr-11 sm:pr-12 ${errors.password ? 'input-error' : ''}`}
                   placeholder="Create a password"
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center z-10"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center z-20"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-slate-600 hover:text-slate-800" />
+                    <EyeOff className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-300" />
                   ) : (
-                    <Eye className="h-5 w-5 text-slate-600 hover:text-slate-800" />
+                    <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-300" />
                   )}
                 </button>
               </div>
@@ -198,8 +198,8 @@ const RegisterPage = () => {
                 Confirm Password
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-                  <Lock className="h-5 w-5 text-slate-600" />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-20">
+                  <Lock className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500" />
                 </div>
                 <input
                   {...register('confirmPassword', {
@@ -208,18 +208,18 @@ const RegisterPage = () => {
                   })}
                   type={showConfirmPassword ? 'text' : 'password'}
                   autoComplete="new-password"
-                  className={`input pl-10 pr-10 ${errors.confirmPassword ? 'input-error' : ''}`}
+                  className={`input pl-11 sm:pl-12 pr-11 sm:pr-12 ${errors.confirmPassword ? 'input-error' : ''}`}
                   placeholder="Confirm your password"
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center z-10"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center z-20"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
                   {showConfirmPassword ? (
-                    <EyeOff className="h-5 w-5 text-slate-600 hover:text-slate-800" />
+                    <EyeOff className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-300" />
                   ) : (
-                    <Eye className="h-5 w-5 text-slate-600 hover:text-slate-800" />
+                    <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-300" />
                   )}
                 </button>
               </div>
@@ -276,7 +276,7 @@ const RegisterPage = () => {
               ) : (
                 <>
                   Create account
-                  <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-200" />
+                  <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 group-hover:translate-x-1 transition-transform duration-200" />
                 </>
               )}
             </button>

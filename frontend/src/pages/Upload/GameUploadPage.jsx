@@ -140,13 +140,13 @@ const GameUploadPage = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
       {/* Header */}
       <div className="text-center mb-12">
         <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-button-gradient mb-6 shadow-glow-purple">
           <Gamepad2 className="w-10 h-10 text-slate-100" />
         </div>
-        <h1 className="text-4xl font-bold text-slate-100 mb-4">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-100 mb-4">
           🎮 Phygital Creator
         </h1>
         <p className="text-xl text-slate-300 mb-8">

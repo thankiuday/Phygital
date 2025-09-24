@@ -7,6 +7,7 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import BackButton from '../../components/UI/BackButton'
 import { 
   Upload, 
   QrCode, 
@@ -91,15 +92,26 @@ const DashboardPage = () => {
   const progress = getSetupProgress()
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-100">
-          Welcome back, {user?.username}!
-        </h1>
-        <p className="text-slate-300 mt-2">
-          Here's an overview of your Phygital account
-        </p>
+      <div className="mb-6 sm:mb-8">
+        {/* Mobile Back Button - Top Left */}
+        <div className="flex justify-start mb-4 sm:hidden">
+          <BackButton to="/" variant="ghost" text="Back" className="text-sm" />
+        </div>
+        
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-100">
+              Welcome back, {user?.username}!
+            </h1>
+            <p className="text-sm sm:text-base text-slate-300 mt-2">
+              Here's an overview of your Phygital account
+            </p>
+          </div>
+          {/* Desktop Back Button */}
+          <BackButton to="/" variant="ghost" className="hidden sm:flex" />
+        </div>
       </div>
 
       {/* Setup Progress */}
@@ -133,7 +145,7 @@ const DashboardPage = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {setupSteps.map((step) => {
             const Icon = step.icon
             return (
@@ -213,7 +225,7 @@ const DashboardPage = () => {
 
       {/* Analytics Overview */}
       {isSetupComplete() && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <div className="card">
             <div className="flex items-center">
               <div className="p-3 bg-blue-900/30 rounded-lg mr-4">
@@ -269,7 +281,7 @@ const DashboardPage = () => {
           </p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {quickActions.map((action, index) => {
             const Icon = action.icon
             return (

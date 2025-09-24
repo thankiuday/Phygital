@@ -8,6 +8,7 @@ import React, { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { qrAPI, downloadFile, historyAPI, uploadAPI } from '../../utils/api'
+import BackButton from '../../components/UI/BackButton'
 import { 
   QrCode, 
   Download, 
@@ -456,12 +457,23 @@ const QRCodePage = () => {
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-100">
-          Your Project QR Codes
-        </h1>
-        <p className="text-slate-300 mt-2">
-          Select a project to view and download its QR code
-        </p>
+        {/* Mobile Back Button - Top Left */}
+        <div className="flex justify-start mb-4 sm:hidden">
+          <BackButton to="/dashboard" variant="ghost" text="Back" className="text-sm" />
+        </div>
+        
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-100">
+              Your Project QR Codes
+            </h1>
+            <p className="text-slate-300 mt-2">
+              Select a project to view and download its QR code
+            </p>
+          </div>
+          {/* Desktop Back Button */}
+          <BackButton to="/dashboard" variant="ghost" className="hidden sm:flex" />
+        </div>
       </div>
 
       {/* View Mode Toggle */}

@@ -34,8 +34,17 @@ router.post('/scan', [
     
     const { userId, scanData = {} } = req.body;
     
-    // Find user
-    const user = await User.findById(userId);
+    // Validate if userId is a valid ObjectId format (24 hex characters)
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
+    
+    // Find user by ID or username
+    let user;
+    if (isValidObjectId) {
+      user = await User.findById(userId);
+    } else {
+      user = await User.findOne({ username: userId });
+    }
+    
     if (!user) {
       return res.status(404).json({
         status: 'error',
@@ -100,8 +109,17 @@ router.post('/video-view', [
     
     const { userId, videoProgress = 0, videoDuration = 0 } = req.body;
     
-    // Find user
-    const user = await User.findById(userId);
+    // Validate if userId is a valid ObjectId format (24 hex characters)
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
+    
+    // Find user by ID or username
+    let user;
+    if (isValidObjectId) {
+      user = await User.findById(userId);
+    } else {
+      user = await User.findOne({ username: userId });
+    }
+    
     if (!user) {
       return res.status(404).json({
         status: 'error',
@@ -145,7 +163,7 @@ router.post('/video-view', [
  * Increments link click counter and logs analytics
  */
 router.post('/link-click', [
-  body('userId').isMongoId().withMessage('Valid user ID is required'),
+  body('userId').isString().withMessage('Valid user ID is required'),
   body('linkType').isString().withMessage('Link type is required'),
   body('linkUrl').isURL().withMessage('Valid link URL is required')
 ], async (req, res) => {
@@ -162,8 +180,17 @@ router.post('/link-click', [
     
     const { userId, linkType, linkUrl } = req.body;
     
-    // Find user
-    const user = await User.findById(userId);
+    // Validate if userId is a valid ObjectId format (24 hex characters)
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
+    
+    // Find user by ID or username
+    let user;
+    if (isValidObjectId) {
+      user = await User.findById(userId);
+    } else {
+      user = await User.findOne({ username: userId });
+    }
+    
     if (!user) {
       return res.status(404).json({
         status: 'error',
@@ -219,8 +246,17 @@ router.get('/:userId', authenticateToken, async (req, res) => {
       });
     }
     
-    // Find user
-    const user = await User.findById(userId);
+    // Validate if userId is a valid ObjectId format (24 hex characters)
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
+    
+    // Find user by ID or username
+    let user;
+    if (isValidObjectId) {
+      user = await User.findById(userId);
+    } else {
+      user = await User.findOne({ username: userId });
+    }
+    
     if (!user) {
       return res.status(404).json({
         status: 'error',
@@ -287,8 +323,17 @@ router.get('/dashboard/:userId', authenticateToken, async (req, res) => {
     else if (period === '30d') days = 30;
     else if (period === '90d') days = 90;
     
-    // Find user
-    const user = await User.findById(userId);
+    // Validate if userId is a valid ObjectId format (24 hex characters)
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
+    
+    // Find user by ID or username
+    let user;
+    if (isValidObjectId) {
+      user = await User.findById(userId);
+    } else {
+      user = await User.findOne({ username: userId });
+    }
+    
     if (!user) {
       return res.status(404).json({
         status: 'error',
@@ -361,8 +406,17 @@ router.post('/page-view', [
     
     const { userId } = req.body;
     
-    // Find user
-    const user = await User.findById(userId);
+    // Validate if userId is a valid ObjectId format (24 hex characters)
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
+    
+    // Find user by ID or username
+    let user;
+    if (isValidObjectId) {
+      user = await User.findById(userId);
+    } else {
+      user = await User.findOne({ username: userId });
+    }
+    
     if (!user) {
       return res.status(404).json({
         status: 'error',

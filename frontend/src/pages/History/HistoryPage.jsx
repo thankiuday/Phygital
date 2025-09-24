@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react'
 import { historyAPI, uploadAPI } from '../../utils/api'
 import { useAuth } from '../../contexts/AuthContext'
+import BackButton from '../../components/UI/BackButton'
 import { 
   Video, 
   Calendar,
@@ -232,25 +233,35 @@ const HistoryPage = () => {
   return (
     <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
-      <div className={`flex flex-col mb-6 sm:mb-8 gap-4 ${projects.length === 0 ? 'items-center text-center' : 'sm:flex-row sm:items-center sm:justify-between'}`}>
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 mb-1 sm:mb-2">
-            Your Projects
-          </h1>
-          <p className="text-sm sm:text-base text-slate-300">
-            Manage your Phygital creations
-          </p>
+      <div className="mb-6 sm:mb-8">
+        {/* Mobile Back Button - Top Left */}
+        <div className="flex justify-start mb-4 sm:hidden">
+          <BackButton to="/dashboard" variant="ghost" text="Back" className="text-sm" />
         </div>
         
-        {projects.length > 0 && (
-          <button
-            onClick={loadHistory}
-            className="px-4 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors flex items-center justify-center sm:justify-start w-full sm:w-auto"
-          >
-            <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-            <span className="text-sm sm:text-base">Refresh</span>
-          </button>
-        )}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 mb-1 sm:mb-2">
+              Your Projects
+            </h1>
+            <p className="text-sm sm:text-base text-slate-300">
+              Manage your Phygital creations
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+            {projects.length > 0 && (
+              <button
+                onClick={loadHistory}
+                className="px-4 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors flex items-center justify-center text-sm sm:text-base"
+              >
+                <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                <span>Refresh</span>
+              </button>
+            )}
+            {/* Desktop Back Button */}
+            <BackButton to="/dashboard" variant="ghost" text="Back" className="text-sm sm:text-base hidden sm:flex" />
+          </div>
+        </div>
       </div>
 
       {/* Projects List */}
