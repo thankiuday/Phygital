@@ -305,10 +305,10 @@ const ARExperiencePage = () => {
         clientHeight: containerRef.current.clientHeight
       });
 
-      // Convert S3 URLs to use proxy for CORS only in development
+      // Convert S3 URLs to use appropriate proxy for CORS
       const designUrl = import.meta.env.DEV 
         ? projectData.designUrl.replace('https://phygital-zone.s3.amazonaws.com', '/s3-proxy')
-        : projectData.designUrl;
+        : `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/upload/image-proxy?url=${encodeURIComponent(projectData.designUrl)}`;
 
       console.log('Environment:', import.meta.env.DEV ? 'development' : 'production');
       console.log('Original design URL:', projectData.designUrl);
@@ -563,10 +563,10 @@ const ARExperiencePage = () => {
         const video = document.createElement('video');
         video.crossOrigin = "anonymous";
         
-        // Convert S3 video URL to use proxy for CORS only in development
+        // Convert S3 video URL to use appropriate proxy for CORS
         const videoUrl = import.meta.env.DEV 
           ? projectData.videoUrl.replace('https://phygital-zone.s3.amazonaws.com', '/s3-proxy')
-          : projectData.videoUrl;
+          : `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/upload/image-proxy?url=${encodeURIComponent(projectData.videoUrl)}`;
         
         // Don't set src or load immediately - wait for user interaction
         video.muted = false;

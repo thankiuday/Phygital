@@ -1079,4 +1079,59 @@ router.delete('/project/:projectId', authenticateToken, async (req, res) => {
   }
 });
 
+/**
+ * Proxy endpoint for S3 images to bypass CORS issues
+ * GET /api/upload/image-proxy
+ */
+router.get('/image-proxy', async (req, res) => {
+  try {
+    const { url } = req.query;
+    
+    if (!url) {
+      return res.status(400).json({
+        success: false,
+        message: 'URL parameter is required'
+      });
+    }
+
+    // Validate that it's an S3 URL from our bucket
+    if (!url.includes('phygital-zone.s3.amazonaws.com')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid URL - only S3 URLs are allowed'
+      });
+    }
+
+    // Fetch the image from S3
+    const fetch = require('node-fetch');
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      return res.status(response.status).json({
+        success: false,
+        message: 'Failed to fetch image from S3'
+      });
+    }
+
+    // Set appropriate headers
+    res.set({
+      'Content-Type': response.headers.get('content-type') || 'image/png',
+      'Cache-Control': 'public, max-age=31536000', // Cache for 1 year
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    });
+
+    // Pipe the image data
+    response.body.pipe(res);
+    
+  } catch (error) {
+    console.error('Image proxy error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to proxy image'
+    });
+  }
+});
+
 module.exports = router;
