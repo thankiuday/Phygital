@@ -511,11 +511,9 @@ const ARExperiencePage = () => {
           // Determine the best image URL for MindAR
           let mindarImageUrl = designUrl;
           
-          // For production, try direct S3 URL first for MindAR as it might work better
-          if (!import.meta.env.DEV && projectData.designUrl.includes('s3.amazonaws.com')) {
-            mindarImageUrl = projectData.designUrl;
-            addDebugMessage('🔄 Using direct S3 URL for MindAR initialization', 'info');
-          }
+          // Always use proxy URL for MindAR to avoid CORS issues
+          // mindarImageUrl is already the proxy URL from designUrl
+          addDebugMessage('🔄 Using proxy URL for MindAR initialization to avoid CORS', 'info');
           
           addDebugMessage(`🖼️ MindAR will use: ${mindarImageUrl.substring(0, 50)}...`, 'info');
           
@@ -578,21 +576,9 @@ const ARExperiencePage = () => {
               addDebugMessage('🎮 WebGL context issue detected', 'warning');
             }
             
-            // Try with proxy URL if direct S3 failed
-            if (mindarImageUrl === projectData.designUrl && designUrl !== projectData.designUrl) {
-              addDebugMessage('🔄 Retrying MindAR with proxy URL...', 'warning');
-              try {
-                const retryConfig = { ...mindarConfig, imageTargetSrc: designUrl };
-                mindarConfigRef.current = retryConfig;
-                mindarThreeRef.current = new MindARThree(retryConfig);
-                addDebugMessage('✅ MindAR initialized with proxy URL', 'success');
-              } catch (proxyError) {
-                addDebugMessage(`❌ Proxy URL also failed: ${proxyError.message}`, 'error');
-                throw proxyError;
-              }
-            } else {
-              throw mindarInitError;
-            }
+            // Since we're already using proxy URL, no retry needed
+            addDebugMessage('❌ MindAR initialization failed even with proxy URL', 'error');
+            throw mindarInitError;
           }
 
           const { renderer, scene, camera } = mindarThreeRef.current;
