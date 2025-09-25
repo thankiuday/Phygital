@@ -479,7 +479,7 @@ const ARExperiencePage = () => {
               };
               fallbackImg.src = directS3Url;
             } else {
-              reject(new Error(`Failed to load design image from: ${designUrl}`));
+            reject(new Error(`Failed to load design image from: ${designUrl}`));
             }
           };
           img.src = designUrl;
@@ -549,7 +549,7 @@ const ARExperiencePage = () => {
           
           try {
             addDebugMessage('🔧 Creating MindAR instance...', 'info');
-            mindarThreeRef.current = new MindARThree(mindarConfig);
+          mindarThreeRef.current = new MindARThree(mindarConfig);
             addDebugMessage('✅ MindAR instance created successfully', 'success');
             
             // Verify MindAR instance has required methods
@@ -621,20 +621,22 @@ const ARExperiencePage = () => {
           
           setArLoadingProgress(70);
 
-          // Get user media for camera feed - use back camera for AR scanning
+          // Simplified camera constraints to avoid black screen issues
           const videoConstraints = {
-            width: isMobile ? { ideal: 1280, min: 640 } : { ideal: 1280 },
-            height: isMobile ? { ideal: 720, min: 480 } : { ideal: 720 },
-            facingMode: 'environment', // Use back camera for AR scanning
-            frameRate: isMobile ? { ideal: 30, min: 15 } : { ideal: 30 }, // Higher quality for better scanning
-            aspectRatio: { ideal: 16/9 },
-            // Enhanced mobile camera settings for better AR scanning
-            ...(isMobile && {
-              focusMode: 'continuous',
-              exposureMode: 'continuous',
-              whiteBalanceMode: 'continuous'
-            })
+            width: { ideal: 640, min: 320 },
+            height: { ideal: 480, min: 240 },
+            frameRate: { ideal: 30, min: 15 }
           };
+          
+          // Add facingMode only if on mobile, otherwise let browser choose
+          if (isMobile) {
+            videoConstraints.facingMode = 'environment';
+            addDebugMessage('📱 Mobile detected: Using back camera', 'info');
+          } else {
+            addDebugMessage('💻 Desktop detected: Using default camera', 'info');
+          }
+          
+          addDebugMessage(`🎥 Camera constraints: ${JSON.stringify(videoConstraints)}`, 'info');
 
           addDebugMessage(`📱 Mobile device: ${isMobile}`, 'info');
           addDebugMessage(`🌐 Protocol: ${window.location.protocol}`, 'info');
@@ -666,16 +668,43 @@ const ARExperiencePage = () => {
             }
           }
 
-          navigator.mediaDevices.getUserMedia({ video: videoConstraints })
+          // Test basic camera access first
+          addDebugMessage('🔍 Testing basic camera access...', 'info');
+          
+          navigator.mediaDevices.getUserMedia({ video: true })
+            .then(testStream => {
+              addDebugMessage('✅ Basic camera access works!', 'success');
+              // Stop test stream
+              testStream.getTracks().forEach(track => track.stop());
+              
+              // Now try with our constraints
+              addDebugMessage('🎥 Applying camera constraints...', 'info');
+              return navigator.mediaDevices.getUserMedia({ video: videoConstraints });
+            })
             .then(stream => {
+              addDebugMessage('✅ Camera stream obtained with constraints!', 'success');
               cameraVideo.srcObject = stream;
               setCameraActive(true);
               setArLoadingProgress(80);
               
+              // Add video element debugging
+              cameraVideo.addEventListener('loadedmetadata', () => {
+                addDebugMessage(`📹 Video metadata loaded: ${cameraVideo.videoWidth}x${cameraVideo.videoHeight}`, 'success');
+              });
+              
+              cameraVideo.addEventListener('canplay', () => {
+                addDebugMessage('📹 Camera video can play', 'success');
+              });
+              
+              cameraVideo.addEventListener('error', (e) => {
+                addDebugMessage(`❌ Camera video error: ${e.message || 'Unknown error'}`, 'error');
+              });
+              
               // Get actual camera resolution
               const track = stream.getVideoTracks()[0];
               const settings = track.getSettings();
-              addDebugMessage(`✅ Camera active: ${settings.width}x${settings.height} @ ${settings.frameRate}fps`, 'success');
+              addDebugMessage(`✅ Camera active: ${settings.width}x${settings.height} @ ${settings.frameRate || 'unknown'}fps`, 'success');
+              addDebugMessage(`📷 Camera device: ${settings.deviceId ? 'ID available' : 'No device ID'}`, 'info');
               
               // Show S3 confirmation popup when camera starts
               if (projectData && projectData.designUrl && projectData.designUrl.includes('s3.amazonaws.com')) {
@@ -768,11 +797,11 @@ const ARExperiencePage = () => {
                   })
                   .catch(fallbackErr => {
                     addDebugMessage(`❌ Fallback camera also failed: ${fallbackErr.message}`, 'error');
-                    setCameraActive(false);
-                    if (cameraVideo.parentNode) {
-                      cameraVideo.parentNode.removeChild(cameraVideo);
-                    }
-                  });
+              setCameraActive(false);
+              if (cameraVideo.parentNode) {
+                cameraVideo.parentNode.removeChild(cameraVideo);
+              }
+            });
               } else {
                 setCameraActive(false);
                 if (cameraVideo.parentNode) {
@@ -831,12 +860,11 @@ const ARExperiencePage = () => {
           // Add to body instead of container to ensure visibility
           document.body.appendChild(cameraVideo);
           
-          // Get user media for camera feed
+          // Get user media for camera feed - simplified constraints for fallback
           navigator.mediaDevices.getUserMedia({ 
             video: { 
-              width: { ideal: 1280 },
-              height: { ideal: 720 },
-              facingMode: 'user'
+              width: { ideal: 640, min: 320 },
+              height: { ideal: 480, min: 240 }
             } 
           })
             .then(stream => {
@@ -1422,7 +1450,7 @@ const ARExperiencePage = () => {
             // Show manual play button
             if (playVideoImageRef.current) {
               addDebugMessage('📱 Tap screen to play video', 'warning');
-              playVideoImageRef.current.style.display = "block";
+          playVideoImageRef.current.style.display = "block";
             }
           });
         } else {
@@ -1984,6 +2012,24 @@ const ARExperiencePage = () => {
                       Play Video
                     </button>
                     <button
+                      onClick={async () => {
+                        addDebugMessage('🔍 Testing camera access...', 'info');
+                        try {
+                          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                          addDebugMessage('✅ Camera test successful!', 'success');
+                          const track = stream.getVideoTracks()[0];
+                          const settings = track.getSettings();
+                          addDebugMessage(`📷 Test camera: ${settings.width}x${settings.height}`, 'success');
+                          stream.getTracks().forEach(track => track.stop());
+                        } catch (error) {
+                          addDebugMessage(`❌ Camera test failed: ${error.message}`, 'error');
+                        }
+                      }}
+                      className="bg-orange-600 hover:bg-orange-700 px-2 py-1 rounded text-xs"
+                    >
+                      Test Camera
+                    </button>
+                    <button
                       onClick={() => setShowDebug(!showDebug)}
                       className="bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-xs"
                     >
@@ -2158,7 +2204,7 @@ const ARExperiencePage = () => {
                   {scanningStatus === 'detected' ? (
                     <span className="text-green-400">✅ Design detected! {videoRef.current?.paused ? 'Tap to play video' : 'Video playing'}</span>
                   ) : (
-                    <span className="text-xs text-gray-300">Video will appear when design is detected</span>
+                  <span className="text-xs text-gray-300">Video will appear when design is detected</span>
                   )}
                 </div>
               </div>
