@@ -265,6 +265,23 @@ const ARExperiencePage = () => {
       
       if (result.status === 'success') {
         console.log('✅ Project data fetched successfully:', result.data);
+        addDebugMessage(`✅ Project data loaded: ${result.data.name}`, 'success');
+        addDebugMessage(`👤 User ID: ${result.data.userId}`, 'info');
+        addDebugMessage(`🆔 Project ID: ${result.data.projectId}`, 'info');
+        addDebugMessage(`🖼️ Design URL: ${result.data.designUrl}`, 'info');
+        addDebugMessage(`🎬 Video URL: ${result.data.videoUrl}`, 'info');
+        
+        // Check if S3 URLs are properly formatted
+        if (!result.data.designUrl || !result.data.videoUrl) {
+          addDebugMessage('❌ Missing S3 URLs in project data!', 'error');
+        } else if (!result.data.designUrl.includes('s3.amazonaws.com')) {
+          addDebugMessage('⚠️ Design URL is not an S3 URL', 'warning');
+        } else if (!result.data.videoUrl.includes('s3.amazonaws.com')) {
+          addDebugMessage('⚠️ Video URL is not an S3 URL', 'warning');
+        } else {
+          addDebugMessage('✅ S3 URLs look correct', 'success');
+        }
+        
         setProjectData(result.data);
         setSocialLinks(result.data.socialLinks);
       } else {
