@@ -47,6 +47,13 @@ const userSchema = new mongoose.Schema({
         aspectRatio: Number
       }
     },
+    finalDesign: {
+      filename: String,
+      originalName: String,
+      url: String,
+      size: Number,
+      uploadedAt: Date
+    },
     video: {
       filename: String,
       originalName: String,

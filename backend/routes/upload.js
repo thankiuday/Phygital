@@ -752,6 +752,102 @@ router.get('/status', authenticateToken, async (req, res) => {
 });
 
 /**
+ * POST /api/upload/generate-final-design
+ * Generate and store final design with QR code in S3
+ * Called when QR position is set to prepare for AR detection
+ */
+router.post('/generate-final-design', authenticateToken, async (req, res) => {
+  try {
+    const user = req.user;
+    
+    // Check if user has uploaded design and set QR position
+    if (!user.uploadedFiles.design.url) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Please upload a design first'
+      });
+    }
+    
+    if (!user.qrPosition || (user.qrPosition.x === undefined && user.qrPosition.y === undefined)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Please set QR code position first'
+      });
+    }
+    
+    // Get current project information
+    const currentProject = user.projects?.find(p => p.id === user.currentProject);
+    
+    // Generate project-specific QR data for AR experience (using hash routing)
+    let qrData;
+    if (currentProject) {
+      qrData = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/#/scan/project/${currentProject.id}`;
+    } else {
+      qrData = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/#/scan/${user._id}`;
+    }
+    
+    // Generate final design with QR code
+    const finalDesignPath = await generateFinalDesign(
+      user.uploadedFiles.design.url,
+      qrData,
+      user.qrPosition,
+      user._id.toString()
+    );
+    
+    // Upload final design to S3
+    const finalDesignBuffer = fs.readFileSync(finalDesignPath);
+    const finalDesignFile = {
+      buffer: finalDesignBuffer,
+      originalname: `final-design-${user.username}-${Date.now()}.png`,
+      mimetype: 'image/png'
+    };
+    
+    const uploadResult = await uploadToS3(finalDesignFile, user._id, 'final-design');
+    
+    // Delete old final design if exists
+    if (user.uploadedFiles.finalDesign?.url) {
+      try {
+        const oldKey = user.uploadedFiles.finalDesign.url.split('/').slice(-2).join('/');
+        await deleteFromS3(oldKey);
+      } catch (error) {
+        console.error('Failed to delete old final design:', error);
+      }
+    }
+    
+    // Update user record with final design URL
+    const updatedUser = await User.findByIdAndUpdate(user._id, {
+      'uploadedFiles.finalDesign': {
+        filename: uploadResult.key,
+        originalName: finalDesignFile.originalname,
+        url: uploadResult.url,
+        size: uploadResult.size,
+        uploadedAt: new Date()
+      }
+    }, { new: true });
+    
+    // Clean up temporary file
+    cleanupTempFile(finalDesignPath);
+    
+    res.status(200).json({
+      status: 'success',
+      message: 'Final design generated and stored successfully',
+      data: {
+        finalDesignUrl: uploadResult.url,
+        originalDesignUrl: user.uploadedFiles.design.url
+      }
+    });
+    
+  } catch (error) {
+    console.error('Generate final design error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to generate final design',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+/**
  * GET /api/upload/download-final-design
  * Download the final design with QR code overlaid
  * Generates the final image and returns it as a download

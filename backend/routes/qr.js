@@ -317,13 +317,19 @@ router.get('/project-data/:projectId', async (req, res) => {
     
     // Return project-specific data for AR experience
     console.log(`✅ Returning project data for: ${project.name}`);
+    
+    // Use final design URL if available (for MindAR detection), otherwise use original design
+    const designUrlForAR = user.uploadedFiles.finalDesign?.url || user.uploadedFiles.design.url;
+    console.log(`🎯 Design URL for AR: ${designUrlForAR}`);
+    
     const projectData = {
       id: project.id,
       projectId: project.id,
       userId: user._id,
       name: project.name,
       description: project.description,
-      designUrl: user.uploadedFiles.design.url,
+      designUrl: designUrlForAR, // Use final design for MindAR detection
+      originalDesignUrl: user.uploadedFiles.design.url, // Keep original for reference
       videoUrl: user.uploadedFiles.video.url,
       socialLinks: user.socialLinks || {},
       qrPosition: user.qrPosition,
