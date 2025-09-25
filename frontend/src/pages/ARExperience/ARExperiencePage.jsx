@@ -19,6 +19,7 @@ const ARExperiencePage = () => {
   const [debugMessages, setDebugMessages] = useState([]);
   const [showDebug, setShowDebug] = useState(false);
   const [scanningStatus, setScanningStatus] = useState('idle'); // 'idle', 'scanning', 'detected', 'lost'
+  const [cameraError, setCameraError] = useState(null);
   
   // AR variables
   const containerRef = useRef(null);
@@ -34,6 +35,34 @@ const ARExperiencePage = () => {
   const videoMeshRef = useRef(null);
   const overlayMeshRef = useRef(null);
   const bottomRightOverlayMeshRef = useRef(null);
+
+  // Camera permission request function
+  const requestCameraPermission = async () => {
+    try {
+      addDebugMessage('🔄 Requesting camera permission...', 'info');
+      setCameraError(null);
+      
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'environment',
+          width: { ideal: 640 },
+          height: { ideal: 480 }
+        } 
+      });
+      
+      // Stop the stream immediately - we just wanted to get permission
+      stream.getTracks().forEach(track => track.stop());
+      
+      addDebugMessage('✅ Camera permission granted! Restarting AR...', 'success');
+      
+      // Restart the AR experience
+      handleStartScan();
+      
+    } catch (error) {
+      addDebugMessage(`❌ Permission request failed: ${error.message}`, 'error');
+      setCameraError({ name: error.name, message: 'Camera permission still denied' });
+    }
+  };
 
   // Debug logging function for mobile users
   const addDebugMessage = (message, type = 'info') => {
@@ -502,7 +531,34 @@ const ARExperiencePage = () => {
           };
 
           addDebugMessage(`📱 Mobile device: ${isMobile}`, 'info');
+          addDebugMessage(`🌐 Protocol: ${window.location.protocol}`, 'info');
           addDebugMessage(`📷 Requesting camera with quality: ${videoConstraints.width.ideal}x${videoConstraints.height.ideal}`, 'info');
+          
+          // Check HTTPS requirement for mobile
+          if (isMobile && window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+            addDebugMessage('⚠️ HTTPS required for camera access on mobile devices', 'warning');
+          }
+
+          // Check if getUserMedia is supported
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            addDebugMessage('❌ Camera API not supported on this device', 'error');
+            throw new Error('Camera API not supported');
+          }
+
+          // Check camera permissions first on mobile
+          if (isMobile) {
+            try {
+              const permissionStatus = await navigator.permissions.query({ name: 'camera' });
+              addDebugMessage(`📋 Camera permission: ${permissionStatus.state}`, 'info');
+              
+              if (permissionStatus.state === 'denied') {
+                addDebugMessage('❌ Camera permission denied. Please enable camera access in browser settings.', 'error');
+                throw new Error('Camera permission denied');
+              }
+            } catch (permError) {
+              addDebugMessage(`⚠️ Could not check camera permission: ${permError.message}`, 'warning');
+            }
+          }
 
           navigator.mediaDevices.getUserMedia({ video: videoConstraints })
             .then(stream => {
@@ -527,11 +583,74 @@ const ARExperiencePage = () => {
               scene.add(backgroundMesh);
             })
             .catch(err => {
-              addDebugMessage(`❌ Camera access failed: ${err.message}`, 'error');
-              setCameraActive(false);
-              // Remove the video element if camera fails
-              if (cameraVideo.parentNode) {
-                cameraVideo.parentNode.removeChild(cameraVideo);
+              // Detailed error handling for different camera issues
+              let errorMessage = '';
+              let userFriendlyMessage = '';
+              
+              switch(err.name) {
+                case 'NotAllowedError':
+                  errorMessage = 'Camera permission denied by user';
+                  userFriendlyMessage = '📱 Please allow camera access and refresh the page';
+                  break;
+                case 'NotFoundError':
+                  errorMessage = 'No camera found on device';
+                  userFriendlyMessage = '📷 No camera detected on your device';
+                  break;
+                case 'NotReadableError':
+                  errorMessage = 'Camera is being used by another app';
+                  userFriendlyMessage = '📱 Close other apps using camera and try again';
+                  break;
+                case 'OverconstrainedError':
+                  errorMessage = 'Camera constraints not supported';
+                  userFriendlyMessage = '📷 Your camera doesn\'t support the required quality';
+                  break;
+                case 'SecurityError':
+                  errorMessage = 'Camera access blocked by security policy';
+                  userFriendlyMessage = '🔒 Camera blocked by browser security. Try HTTPS.';
+                  break;
+                default:
+                  errorMessage = err.message || 'Unknown camera error';
+                  userFriendlyMessage = '❌ Camera failed to start. Please refresh and try again.';
+              }
+              
+              addDebugMessage(`❌ Camera error: ${errorMessage}`, 'error');
+              addDebugMessage(userFriendlyMessage, 'error');
+              setCameraError({ name: err.name, message: userFriendlyMessage });
+              
+              // Try fallback with lower quality on mobile
+              if (isMobile && err.name === 'OverconstrainedError') {
+                addDebugMessage('🔄 Trying lower quality camera...', 'warning');
+                const fallbackConstraints = {
+                  video: {
+                    width: { ideal: 640, min: 320 },
+                    height: { ideal: 480, min: 240 },
+                    facingMode: 'environment',
+                    frameRate: { ideal: 15, min: 10 }
+                  }
+                };
+                
+                navigator.mediaDevices.getUserMedia(fallbackConstraints)
+                  .then(stream => {
+                    cameraVideo.srcObject = stream;
+                    setCameraActive(true);
+                    setArLoadingProgress(80);
+                    
+                    const track = stream.getVideoTracks()[0];
+                    const settings = track.getSettings();
+                    addDebugMessage(`✅ Fallback camera active: ${settings.width}x${settings.height}`, 'success');
+                  })
+                  .catch(fallbackErr => {
+                    addDebugMessage(`❌ Fallback camera also failed: ${fallbackErr.message}`, 'error');
+                    setCameraActive(false);
+                    if (cameraVideo.parentNode) {
+                      cameraVideo.parentNode.removeChild(cameraVideo);
+                    }
+                  });
+              } else {
+                setCameraActive(false);
+                if (cameraVideo.parentNode) {
+                  cameraVideo.parentNode.removeChild(cameraVideo);
+                }
               }
             });
           
@@ -1519,6 +1638,61 @@ const ARExperiencePage = () => {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Camera Error Panel */}
+            {cameraError && (
+              <div className="absolute inset-4 z-40 flex items-center justify-center">
+                <div className="bg-red-900 bg-opacity-95 text-white p-6 rounded-lg max-w-sm text-center border border-red-500">
+                  <div className="text-4xl mb-4">📷</div>
+                  <h3 className="text-lg font-bold mb-3">Camera Access Required</h3>
+                  <p className="text-sm mb-4 text-red-200">{cameraError.message}</p>
+                  
+                  {cameraError.name === 'NotAllowedError' && (
+                    <div className="space-y-3">
+                      <button
+                        onClick={requestCameraPermission}
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-medium"
+                      >
+                        🔄 Request Camera Access
+                      </button>
+                      <div className="text-xs text-gray-300">
+                        <p>If button doesn't work:</p>
+                        <p>1. Tap the 🔒 icon in address bar</p>
+                        <p>2. Allow camera access</p>
+                        <p>3. Refresh the page</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {cameraError.name === 'NotFoundError' && (
+                    <div className="text-xs text-gray-300">
+                      <p>This device doesn't have a camera or it's not accessible.</p>
+                    </div>
+                  )}
+                  
+                  {cameraError.name === 'NotReadableError' && (
+                    <div className="space-y-3">
+                      <button
+                        onClick={() => window.location.reload()}
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-medium"
+                      >
+                        🔄 Refresh Page
+                      </button>
+                      <div className="text-xs text-gray-300">
+                        <p>Close other apps that might be using the camera</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <button
+                    onClick={() => setCameraError(null)}
+                    className="mt-4 text-gray-400 hover:text-white text-sm underline"
+                  >
+                    Dismiss
+                  </button>
+                </div>
               </div>
             )}
             
