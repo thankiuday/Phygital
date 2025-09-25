@@ -991,8 +991,13 @@ const ARExperiencePage = () => {
                   });
                   
                   const videoMesh = new THREE.Mesh(geometry, material);
-                  videoMesh.position.set(0, 0, 0);
+                  videoMesh.position.set(0, 0, 0.1); // Slightly in front to ensure visibility
                   videoMesh.scale.set(3.25, 3.25, 3.25);
+                  
+                  // Ensure video is always rendered on top
+                  material.depthTest = false;
+                  material.depthWrite = false;
+                  videoMesh.renderOrder = 999;
                   
                   console.log('Video mesh created with:', {
                     geometry: geometry.parameters,
@@ -1006,7 +1011,7 @@ const ARExperiencePage = () => {
                     console.log('✅ Video mesh added to AR anchor');
                   } else if (mindarThreeRef.current && mindarThreeRef.current.scene) {
                     mindarThreeRef.current.scene.add(videoMesh);
-                    videoMesh.position.z = -2;
+                    videoMesh.position.z = 0.1; // In front of camera, not behind
                     console.log('✅ Video mesh added to scene (fallback)');
                   } else {
                     console.error('❌ No valid scene or anchor to add video mesh to');
@@ -1016,6 +1021,9 @@ const ARExperiencePage = () => {
                   
                   videoMeshRef.current = videoMesh;
                   videoMesh.visible = false; // Start hidden until image is detected
+                  addDebugMessage('🎬 Video mesh created and initially HIDDEN', 'info');
+                  addDebugMessage(`📍 Initial video position: z=${videoMesh.position.z}`, 'info');
+                  addDebugMessage(`🎯 Video renderOrder: ${videoMesh.renderOrder}`, 'info');
                   
                   // Add click handler to start video manually
                   videoMesh.userData = { isVideo: true };
@@ -1096,6 +1104,8 @@ const ARExperiencePage = () => {
                   
                   videoMeshRef.current.visible = true;
                   console.log('✅ Video mesh scaled and made visible');
+                  addDebugMessage('🎬 Video mesh is now VISIBLE on detected design!', 'success');
+                  addDebugMessage(`📍 Video position: z=${videoMeshRef.current.position.z}`, 'info');
                 }
                 
                 // Smart video playback control
@@ -1121,6 +1131,7 @@ const ARExperiencePage = () => {
                 
                 if (videoMeshRef.current) {
                   videoMeshRef.current.visible = false; // Hide video until design is detected
+                  addDebugMessage('🙈 Video mesh HIDDEN - design not detected', 'warning');
                 }
                 
                 // Smart video pause control
@@ -2028,6 +2039,22 @@ const ARExperiencePage = () => {
                       className="bg-orange-600 hover:bg-orange-700 px-2 py-1 rounded text-xs"
                     >
                       Test Camera
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (videoMeshRef.current) {
+                          const isVisible = videoMeshRef.current.visible;
+                          videoMeshRef.current.visible = !isVisible;
+                          addDebugMessage(`🎬 Video mesh ${!isVisible ? 'shown' : 'hidden'} manually`, 'info');
+                          addDebugMessage(`📍 Video position: x=${videoMeshRef.current.position.x.toFixed(2)}, y=${videoMeshRef.current.position.y.toFixed(2)}, z=${videoMeshRef.current.position.z.toFixed(2)}`, 'info');
+                          addDebugMessage(`📏 Video scale: ${videoMeshRef.current.scale.x.toFixed(2)}x`, 'info');
+                        } else {
+                          addDebugMessage('❌ No video mesh found', 'error');
+                        }
+                      }}
+                      className="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-xs"
+                    >
+                      Toggle Video
                     </button>
                     <button
                       onClick={() => setShowDebug(!showDebug)}
