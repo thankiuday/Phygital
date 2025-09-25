@@ -21,6 +21,7 @@ const ARExperiencePage = () => {
     // Show debug by default on mobile devices
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   });
+  const [debugManuallyOpened, setDebugManuallyOpened] = useState(false);
   const [scanningStatus, setScanningStatus] = useState('idle'); // 'idle', 'scanning', 'detected', 'lost'
   const [cameraError, setCameraError] = useState(null);
   const [showS3Confirmation, setShowS3Confirmation] = useState(false);
@@ -89,13 +90,13 @@ const ARExperiencePage = () => {
     if (isMobile) {
       setShowDebug(true); // Always show debug on mobile
       
-      // Keep debug visible longer on mobile, don't auto-hide for important messages
-      if (type === 'info' && !message.includes('Camera') && !message.includes('AR') && !message.includes('Design')) {
+      // Only auto-hide if user hasn't manually opened debug panel and it's a non-important message
+      if (!debugManuallyOpened && type === 'info' && !message.includes('Camera') && !message.includes('AR') && !message.includes('Design') && !message.includes('Video') && !message.includes('S3')) {
         setTimeout(() => {
           setShowDebug(false);
         }, 8000); // Longer timeout for mobile
       }
-      // Keep errors, warnings, and important messages visible
+      // Keep errors, warnings, important messages, and manually opened debug visible
     }
   };
 
@@ -2155,10 +2156,29 @@ const ARExperiencePage = () => {
                       AR Diagnostics
                     </button>
                     <button
-                      onClick={() => setShowDebug(!showDebug)}
+                      onClick={() => {
+                        const newShowDebug = !showDebug;
+                        setShowDebug(newShowDebug);
+                        if (newShowDebug) {
+                          setDebugManuallyOpened(true); // Mark as manually opened
+                          addDebugMessage('🔧 Debug panel manually opened - will stay visible', 'info');
+                        } else {
+                          setDebugManuallyOpened(false); // Reset when manually closed
+                        }
+                      }}
                       className="bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-xs"
                     >
                       {showDebug ? 'Hide' : 'Show'} Debug ({debugMessages.length})
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowDebug(true);
+                        setDebugManuallyOpened(true);
+                        addDebugMessage('📌 Debug panel pinned - will not auto-hide', 'success');
+                      }}
+                      className={`px-2 py-1 rounded text-xs ${debugManuallyOpened ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 hover:bg-gray-700'}`}
+                    >
+                      📌 Pin Debug
                     </button>
                   </div>
                 </div>
