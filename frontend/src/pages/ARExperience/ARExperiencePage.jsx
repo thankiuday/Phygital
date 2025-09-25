@@ -1143,8 +1143,8 @@ const ARExperiencePage = () => {
                   videoMeshRef.current.visible = false; // Hide video until design is detected
                   addDebugMessage('🙈 Video mesh HIDDEN - design not detected', 'warning');
                   
-                  // Add helpful scanning tips
-                  if (Math.random() < 0.1) { // Show tips occasionally
+                  // Add helpful scanning tips (less frequently to avoid spam)
+                  if (Math.random() < 0.02) { // Show tips very occasionally
                     addDebugMessage('💡 Scanning tips: Move camera closer/farther, ensure good lighting', 'info');
                     addDebugMessage('🔍 Make sure printed design is flat and clearly visible', 'info');
                   }
@@ -2064,6 +2064,16 @@ const ARExperiencePage = () => {
                           addDebugMessage(`🎬 Video mesh ${!isVisible ? 'shown' : 'hidden'} manually`, 'info');
                           addDebugMessage(`📍 Video position: x=${videoMeshRef.current.position.x.toFixed(2)}, y=${videoMeshRef.current.position.y.toFixed(2)}, z=${videoMeshRef.current.position.z.toFixed(2)}`, 'info');
                           addDebugMessage(`📏 Video scale: ${videoMeshRef.current.scale.x.toFixed(2)}x`, 'info');
+                          
+                          // If showing video, also try to play it
+                          if (!isVisible && videoRef.current && videoRef.current.paused) {
+                            addDebugMessage('🎬 Also attempting to play video...', 'info');
+                            videoRef.current.play().then(() => {
+                              addDebugMessage('✅ Video started playing with manual toggle!', 'success');
+                            }).catch(e => {
+                              addDebugMessage(`❌ Video play failed: ${e.message}`, 'error');
+                            });
+                          }
                         } else {
                           addDebugMessage('❌ No video mesh found', 'error');
                         }
@@ -2094,6 +2104,64 @@ const ARExperiencePage = () => {
                       className="bg-yellow-600 hover:bg-yellow-700 px-2 py-1 rounded text-xs"
                     >
                       Show Design
+                    </button>
+                    <button
+                      onClick={async () => {
+                        addDebugMessage('🔍 Running detailed AR diagnostics...', 'info');
+                        
+                        // Check MindAR configuration
+                        if (mindarThreeRef.current) {
+                          addDebugMessage('✅ MindAR instance exists', 'success');
+                          
+                          // Check if anchor exists and its properties
+                          if (anchorRef.current) {
+                            addDebugMessage('✅ AR anchor exists', 'success');
+                            addDebugMessage(`👁️ Anchor visible: ${anchorRef.current.visible}`, 'info');
+                            addDebugMessage(`📍 Anchor position: x=${anchorRef.current.group.position.x.toFixed(2)}, y=${anchorRef.current.group.position.y.toFixed(2)}, z=${anchorRef.current.group.position.z.toFixed(2)}`, 'info');
+                            addDebugMessage(`📏 Anchor scale: x=${anchorRef.current.group.scale.x.toFixed(2)}, y=${anchorRef.current.group.scale.y.toFixed(2)}, z=${anchorRef.current.group.scale.z.toFixed(2)}`, 'info');
+                          } else {
+                            addDebugMessage('❌ No AR anchor found', 'error');
+                          }
+                          
+                          // Check camera properties
+                          if (mindarThreeRef.current.camera) {
+                            addDebugMessage('✅ AR camera exists', 'success');
+                            addDebugMessage(`📷 Camera position: x=${mindarThreeRef.current.camera.position.x.toFixed(2)}, y=${mindarThreeRef.current.camera.position.y.toFixed(2)}, z=${mindarThreeRef.current.camera.position.z.toFixed(2)}`, 'info');
+                          }
+                          
+                          // Check renderer
+                          if (mindarThreeRef.current.renderer) {
+                            addDebugMessage('✅ AR renderer exists', 'success');
+                            const canvas = mindarThreeRef.current.renderer.domElement;
+                            addDebugMessage(`🖥️ Canvas size: ${canvas.width}x${canvas.height}`, 'info');
+                          }
+                        } else {
+                          addDebugMessage('❌ MindAR not initialized', 'error');
+                        }
+                        
+                        // Check video mesh
+                        if (videoMeshRef.current) {
+                          addDebugMessage('✅ Video mesh exists', 'success');
+                          addDebugMessage(`👁️ Video mesh visible: ${videoMeshRef.current.visible}`, 'info');
+                          addDebugMessage(`🎬 Video element exists: ${!!videoRef.current}`, 'info');
+                          if (videoRef.current) {
+                            addDebugMessage(`📼 Video ready state: ${videoRef.current.readyState}`, 'info');
+                            addDebugMessage(`🎵 Video paused: ${videoRef.current.paused}`, 'info');
+                          }
+                        } else {
+                          addDebugMessage('❌ No video mesh found', 'error');
+                        }
+                        
+                        // Suggest next steps
+                        addDebugMessage('💡 Try these steps:', 'info');
+                        addDebugMessage('1. Click "Show Design" to see target image', 'info');
+                        addDebugMessage('2. Print the image at high quality (300+ DPI)', 'info');
+                        addDebugMessage('3. Ensure good lighting and steady camera', 'info');
+                        addDebugMessage('4. Hold design 12-18 inches from camera', 'info');
+                      }}
+                      className="bg-purple-600 hover:bg-purple-700 px-2 py-1 rounded text-xs"
+                    >
+                      AR Diagnostics
                     </button>
                     <button
                       onClick={() => setShowDebug(!showDebug)}
