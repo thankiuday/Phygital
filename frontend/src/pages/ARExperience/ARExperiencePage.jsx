@@ -1083,6 +1083,16 @@ const ARExperiencePage = () => {
               
               // Detect anchor visibility changes
               const anchorVisibilityChanged = anchorVisible !== lastAnchorVisible;
+              
+              // Debug anchor detection occasionally
+              if (anchorVisibilityChanged) {
+                if (anchorVisible) {
+                  addDebugMessage('🎯 ANCHOR DETECTED! Design found by MindAR', 'success');
+                } else {
+                  addDebugMessage('👁️ ANCHOR LOST! Design no longer detected', 'warning');
+                }
+              }
+              
               lastAnchorVisible = anchorVisible;
               
               if (anchorVisible) {
@@ -1132,6 +1142,12 @@ const ARExperiencePage = () => {
                 if (videoMeshRef.current) {
                   videoMeshRef.current.visible = false; // Hide video until design is detected
                   addDebugMessage('🙈 Video mesh HIDDEN - design not detected', 'warning');
+                  
+                  // Add helpful scanning tips
+                  if (Math.random() < 0.1) { // Show tips occasionally
+                    addDebugMessage('💡 Scanning tips: Move camera closer/farther, ensure good lighting', 'info');
+                    addDebugMessage('🔍 Make sure printed design is flat and clearly visible', 'info');
+                  }
                 }
                 
                 // Smart video pause control
@@ -2055,6 +2071,29 @@ const ARExperiencePage = () => {
                       className="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-xs"
                     >
                       Toggle Video
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (projectData) {
+                          addDebugMessage(`🖼️ Target design: ${projectData.designUrl.substring(projectData.designUrl.lastIndexOf('/') + 1)}`, 'info');
+                          addDebugMessage(`📐 Design dimensions: ${projectData.designDimensions?.width || 'unknown'} x ${projectData.designDimensions?.height || 'unknown'}`, 'info');
+                          addDebugMessage(`🎯 MindAR status: ${mindarThreeRef.current ? 'initialized' : 'not initialized'}`, 'info');
+                          addDebugMessage(`📷 Camera active: ${cameraActive ? 'yes' : 'no'}`, 'info');
+                          addDebugMessage(`🔍 Scanning status: ${scanningStatus}`, 'info');
+                          
+                          // Show the design image in a new tab for reference
+                          const designUrl = import.meta.env.DEV 
+                            ? projectData.designUrl.replace('https://phygital-zone.s3.amazonaws.com', '/s3-proxy')
+                            : `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/upload/image-proxy?url=${encodeURIComponent(projectData.designUrl)}`;
+                          window.open(designUrl, '_blank');
+                          addDebugMessage('🖼️ Design image opened in new tab for reference', 'success');
+                        } else {
+                          addDebugMessage('❌ No project data available', 'error');
+                        }
+                      }}
+                      className="bg-yellow-600 hover:bg-yellow-700 px-2 py-1 rounded text-xs"
+                    >
+                      Show Design
                     </button>
                     <button
                       onClick={() => setShowDebug(!showDebug)}
