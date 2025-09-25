@@ -1217,14 +1217,15 @@ const ARExperiencePage = () => {
           setVideoStatus('playing');
           addDebugMessage('🎬 VIDEO IS NOW PLAYING!', 'success');
           
-          // Show prominent notification on mobile
-          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-          if (isMobile) {
-            setVideoPlayingNotification(true);
-            setTimeout(() => {
-              setVideoPlayingNotification(false);
-            }, 3000); // Show for 3 seconds
-          }
+          // Show prominent notification on mobile AND desktop for testing
+          console.log('🎬 Setting videoPlayingNotification to true');
+          setVideoPlayingNotification(true);
+          addDebugMessage('📱 Showing video playing popup notification', 'success');
+          
+          setTimeout(() => {
+            console.log('🎬 Hiding videoPlayingNotification');
+            setVideoPlayingNotification(false);
+          }, 5000); // Show for 5 seconds (increased for testing)
         });
         
         video.addEventListener('pause', () => {
@@ -1872,7 +1873,7 @@ const ARExperiencePage = () => {
             />
             
             {/* Enhanced Status Indicator with Scanning Status */}
-            <div className="absolute top-4 left-4 right-4 z-20 bg-black bg-opacity-90 text-white px-4 py-3 rounded-lg">
+            <div className="absolute top-4 left-4 right-4 z-20 bg-black bg-opacity-95 text-white px-4 py-3 rounded-lg border-2 border-blue-400 shadow-lg">
               {cameraActive ? (
                 <div className="flex items-center gap-3">
                   <div className={`w-4 h-4 rounded-full animate-pulse ${
@@ -1887,13 +1888,13 @@ const ARExperiencePage = () => {
                        scanningStatus === 'scanning' ? '📷 Scanning for Design...' :
                        scanningStatus === 'lost' ? '👁️ Design Lost' :
                        '📹 Camera Active'}
-                      {videoStatus === 'playing' && <span className="ml-2 text-green-400">🎬 Playing</span>}
-                      {videoStatus === 'paused' && <span className="ml-2 text-yellow-400">⏸️ Paused</span>}
+                      {videoStatus === 'playing' && <span className="ml-2 text-green-400 font-bold animate-pulse">🎬 PLAYING</span>}
+                      {videoStatus === 'paused' && <span className="ml-2 text-yellow-400 font-bold">⏸️ PAUSED</span>}
                     </div>
                     {fallbackMode ? (
                       <div className="text-sm text-yellow-300 mt-1">
                         Basic Mode - Tap screen to play video
-                        {videoStatus === 'playing' && <span className="text-green-400"> • Video Playing!</span>}
+                        {videoStatus === 'playing' && <span className="text-green-400 font-bold"> • VIDEO PLAYING!</span>}
                       </div>
                     ) : (
                       <div className="text-sm text-green-300 mt-1">
@@ -1949,12 +1950,46 @@ const ARExperiencePage = () => {
                   <span className="font-medium">
                     {debugMessages.length > 0 ? debugMessages[debugMessages.length - 1].message.substring(0, 40) + '...' : 'AR System Ready'}
                   </span>
-                  <button
-                    onClick={() => setShowDebug(!showDebug)}
-                    className="bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-xs"
-                  >
-                    {showDebug ? 'Hide' : 'Show'} Debug ({debugMessages.length})
-                  </button>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => {
+                        setVideoPlayingNotification(true);
+                        addDebugMessage('🧪 Test popup triggered manually', 'info');
+                        setTimeout(() => setVideoPlayingNotification(false), 5000);
+                      }}
+                      className="bg-green-600 hover:bg-green-700 px-2 py-1 rounded text-xs"
+                    >
+                      Test Popup
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (videoRef.current) {
+                          if (videoRef.current.paused) {
+                            addDebugMessage('🎬 Manual video play test', 'info');
+                            videoRef.current.play().then(() => {
+                              addDebugMessage('✅ Manual video play successful!', 'success');
+                            }).catch(e => {
+                              addDebugMessage(`❌ Manual video play failed: ${e.message}`, 'error');
+                            });
+                          } else {
+                            addDebugMessage('⏸️ Manual video pause test', 'info');
+                            videoRef.current.pause();
+                          }
+                        } else {
+                          addDebugMessage('❌ No video element found', 'error');
+                        }
+                      }}
+                      className="bg-purple-600 hover:bg-purple-700 px-2 py-1 rounded text-xs"
+                    >
+                      Play Video
+                    </button>
+                    <button
+                      onClick={() => setShowDebug(!showDebug)}
+                      className="bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-xs"
+                    >
+                      {showDebug ? 'Hide' : 'Show'} Debug ({debugMessages.length})
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -2049,21 +2084,27 @@ const ARExperiencePage = () => {
               </div>
             )}
 
-            {/* Video Playing Notification */}
+            {/* Video Playing Notification - Highest Priority */}
             {videoPlayingNotification && (
-              <div className="absolute inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-                <div className="bg-green-900 bg-opacity-95 text-white p-6 rounded-lg max-w-sm text-center border border-green-500 animate-pulse">
+              <div 
+                className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75"
+                style={{ zIndex: 9999 }}
+              >
+                <div className="bg-green-900 bg-opacity-95 text-white p-6 rounded-lg max-w-sm text-center border-2 border-green-400 shadow-2xl animate-bounce">
                   <div className="text-6xl mb-4">🎬</div>
-                  <h3 className="text-xl font-bold mb-3">Video is Playing!</h3>
+                  <h3 className="text-xl font-bold mb-3 text-green-300">Video is Playing!</h3>
                   <p className="text-green-200 mb-4">Your video has started playing successfully</p>
-                  <div className="text-sm text-gray-300">
+                  <div className="text-sm text-gray-300 space-y-1">
                     <p>✅ Video playback confirmed</p>
                     <p>🔊 Audio should be audible</p>
                     <p>📱 Video is running in background</p>
                   </div>
                   <button
-                    onClick={() => setVideoPlayingNotification(false)}
-                    className="mt-4 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm"
+                    onClick={() => {
+                      setVideoPlayingNotification(false);
+                      addDebugMessage('✅ Video playing popup dismissed', 'info');
+                    }}
+                    className="mt-4 bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg text-sm font-bold"
                   >
                     Great!
                   </button>
