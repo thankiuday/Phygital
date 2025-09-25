@@ -24,6 +24,8 @@ const ARExperiencePage = () => {
   const [scanningStatus, setScanningStatus] = useState('idle'); // 'idle', 'scanning', 'detected', 'lost'
   const [cameraError, setCameraError] = useState(null);
   const [showS3Confirmation, setShowS3Confirmation] = useState(false);
+  const [videoPlayingNotification, setVideoPlayingNotification] = useState(false);
+  const [videoStatus, setVideoStatus] = useState('stopped'); // 'stopped', 'playing', 'paused'
   
   // AR variables
   const containerRef = useRef(null);
@@ -1194,12 +1196,64 @@ const ARExperiencePage = () => {
         // Video will be controlled by AR tracking
         console.log("Video ready for AR tracking");
         
-        // Add video event listeners for debugging
-        video.addEventListener('loadstart', () => console.log('Video load started'));
-        video.addEventListener('loadeddata', () => console.log('Video data loaded'));
-        video.addEventListener('canplay', () => console.log('Video can play'));
-        video.addEventListener('playing', () => console.log('Video is playing'));
-        video.addEventListener('error', (e) => console.error('Video error:', e));
+        // Add comprehensive video event listeners for debugging and user feedback
+        video.addEventListener('loadstart', () => {
+          console.log('Video load started');
+          addDebugMessage('📼 Video loading started...', 'info');
+        });
+        
+        video.addEventListener('loadeddata', () => {
+          console.log('Video data loaded');
+          addDebugMessage('📼 Video data loaded successfully', 'success');
+        });
+        
+        video.addEventListener('canplay', () => {
+          console.log('Video can play');
+          addDebugMessage('📼 Video ready to play', 'success');
+        });
+        
+        video.addEventListener('playing', () => {
+          console.log('Video is playing');
+          setVideoStatus('playing');
+          addDebugMessage('🎬 VIDEO IS NOW PLAYING!', 'success');
+          
+          // Show prominent notification on mobile
+          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+          if (isMobile) {
+            setVideoPlayingNotification(true);
+            setTimeout(() => {
+              setVideoPlayingNotification(false);
+            }, 3000); // Show for 3 seconds
+          }
+        });
+        
+        video.addEventListener('pause', () => {
+          console.log('Video paused');
+          setVideoStatus('paused');
+          addDebugMessage('⏸️ Video paused', 'warning');
+        });
+        
+        video.addEventListener('ended', () => {
+          console.log('Video ended');
+          setVideoStatus('stopped');
+          addDebugMessage('🏁 Video finished playing', 'info');
+        });
+        
+        video.addEventListener('error', (e) => {
+          console.error('Video error:', e);
+          setVideoStatus('error');
+          addDebugMessage(`❌ Video error: ${e.message || 'Unknown video error'}`, 'error');
+        });
+        
+        video.addEventListener('stalled', () => {
+          console.log('Video stalled');
+          addDebugMessage('⏳ Video buffering...', 'warning');
+        });
+        
+        video.addEventListener('waiting', () => {
+          console.log('Video waiting');
+          addDebugMessage('⏳ Video waiting for data...', 'warning');
+        });
 
       } catch (imageError) {
         console.error('Image loading error:', imageError);
@@ -1343,13 +1397,16 @@ const ARExperiencePage = () => {
         }
       }
       
+      addDebugMessage('🎬 Attempting to start video playback...', 'info');
       videoRef.current.play().then(() => {
-        addDebugMessage('✅ Video playing successfully!', 'success');
+        addDebugMessage('✅ Video play() promise resolved!', 'success');
+        addDebugMessage('🎬 Video should now be playing - check for "playing" event', 'info');
         if (playVideoImageRef.current) {
           playVideoImageRef.current.style.display = "none";
         }
       }).catch(e => {
-        addDebugMessage(`❌ Video play failed: ${e.message}`, 'error');
+        addDebugMessage(`❌ Video play() promise rejected: ${e.message}`, 'error');
+        addDebugMessage('🔍 Check if user interaction is required', 'warning');
         
         if (isMobile) {
           addDebugMessage('📱 Mobile video failed - trying with muted playback', 'warning');
@@ -1583,9 +1640,16 @@ const ARExperiencePage = () => {
       if (videoRef.current) {
         if (videoRef.current.paused) {
           console.log('🎬 Fallback mode: Playing video on click');
-          videoRef.current.play().catch(e => console.error('Video play failed:', e));
+          addDebugMessage('🎬 Fallback mode: Attempting to play video...', 'info');
+          videoRef.current.play().then(() => {
+            addDebugMessage('✅ Fallback video started playing!', 'success');
+          }).catch(e => {
+            console.error('Video play failed:', e);
+            addDebugMessage(`❌ Fallback video play failed: ${e.message}`, 'error');
+          });
         } else {
           console.log('⏸️ Fallback mode: Pausing video on click');
+          addDebugMessage('⏸️ Fallback mode: Pausing video', 'info');
           videoRef.current.pause();
         }
         return;
@@ -1823,12 +1887,18 @@ const ARExperiencePage = () => {
                        scanningStatus === 'scanning' ? '📷 Scanning for Design...' :
                        scanningStatus === 'lost' ? '👁️ Design Lost' :
                        '📹 Camera Active'}
+                      {videoStatus === 'playing' && <span className="ml-2 text-green-400">🎬 Playing</span>}
+                      {videoStatus === 'paused' && <span className="ml-2 text-yellow-400">⏸️ Paused</span>}
                     </div>
                     {fallbackMode ? (
-                      <div className="text-sm text-yellow-300 mt-1">Basic Mode - Tap screen to play video</div>
+                      <div className="text-sm text-yellow-300 mt-1">
+                        Basic Mode - Tap screen to play video
+                        {videoStatus === 'playing' && <span className="text-green-400"> • Video Playing!</span>}
+                      </div>
                     ) : (
                       <div className="text-sm text-green-300 mt-1">
-                        {scanningStatus === 'detected' ? 'Tap screen to play video' :
+                        {scanningStatus === 'detected' ? 
+                          (videoStatus === 'playing' ? 'Video is playing!' : 'Tap screen to play video') :
                          scanningStatus === 'scanning' ? 'Point camera at your printed design' :
                          scanningStatus === 'lost' ? 'Move camera back to your design' :
                          'Point camera at your printed design to start'}
@@ -1979,8 +2049,30 @@ const ARExperiencePage = () => {
               </div>
             )}
 
+            {/* Video Playing Notification */}
+            {videoPlayingNotification && (
+              <div className="absolute inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                <div className="bg-green-900 bg-opacity-95 text-white p-6 rounded-lg max-w-sm text-center border border-green-500 animate-pulse">
+                  <div className="text-6xl mb-4">🎬</div>
+                  <h3 className="text-xl font-bold mb-3">Video is Playing!</h3>
+                  <p className="text-green-200 mb-4">Your video has started playing successfully</p>
+                  <div className="text-sm text-gray-300">
+                    <p>✅ Video playback confirmed</p>
+                    <p>🔊 Audio should be audible</p>
+                    <p>📱 Video is running in background</p>
+                  </div>
+                  <button
+                    onClick={() => setVideoPlayingNotification(false)}
+                    className="mt-4 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm"
+                  >
+                    Great!
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* S3 Confirmation Popup */}
-            {showS3Confirmation && (
+            {showS3Confirmation && !videoPlayingNotification && (
               <div className="absolute inset-0 z-40 flex items-center justify-center bg-black bg-opacity-50">
                 <div className="bg-green-900 bg-opacity-95 text-white p-6 rounded-lg max-w-sm text-center border border-green-500 animate-bounce">
                   <div className="text-6xl mb-4">☁️</div>
