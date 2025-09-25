@@ -41,6 +41,7 @@ const ARExperiencePage = () => {
   const videoMeshRef = useRef(null);
   const overlayMeshRef = useRef(null);
   const bottomRightOverlayMeshRef = useRef(null);
+  const mindarConfigRef = useRef(null);
 
   // Camera permission request function
   const requestCameraPermission = async () => {
@@ -545,6 +546,9 @@ const ARExperiencePage = () => {
             uiError: "no"           // Disable default error UI
           };
           
+          // Store config in ref for later use
+          mindarConfigRef.current = mindarConfig;
+          
           addDebugMessage(`🎯 Initializing MindAR with ${isMobile ? 'mobile' : 'desktop'} settings`, 'info');
           
           try {
@@ -578,8 +582,9 @@ const ARExperiencePage = () => {
             if (mindarImageUrl === projectData.designUrl && designUrl !== projectData.designUrl) {
               addDebugMessage('🔄 Retrying MindAR with proxy URL...', 'warning');
               try {
-                mindarConfig.imageTargetSrc = designUrl;
-                mindarThreeRef.current = new MindARThree(mindarConfig);
+                const retryConfig = { ...mindarConfig, imageTargetSrc: designUrl };
+                mindarConfigRef.current = retryConfig;
+                mindarThreeRef.current = new MindARThree(retryConfig);
                 addDebugMessage('✅ MindAR initialized with proxy URL', 'success');
               } catch (proxyError) {
                 addDebugMessage(`❌ Proxy URL also failed: ${proxyError.message}`, 'error');
@@ -1198,7 +1203,7 @@ const ARExperiencePage = () => {
           if (mindarThreeRef.current.start) {
             console.log('🚀 Starting AR tracking...');
             addDebugMessage('🚀 Starting AR tracking with design image...', 'info');
-            addDebugMessage(`🎯 Target image: ${mindarConfig.imageTargetSrc.substring(0, 60)}...`, 'info');
+            addDebugMessage(`🎯 Target image: ${mindarConfigRef.current ? mindarConfigRef.current.imageTargetSrc.substring(0, 60) + '...' : 'Config not available'}`, 'info');
             
             // Add timeout for AR start
             const startTimeout = setTimeout(() => {
