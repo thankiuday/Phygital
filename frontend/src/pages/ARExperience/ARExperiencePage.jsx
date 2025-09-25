@@ -399,6 +399,9 @@ const ARExperiencePage = () => {
       console.log('Environment:', import.meta.env.DEV ? 'development' : 'production');
       console.log('Original design URL:', projectData.designUrl);
       console.log('Using design URL:', designUrl);
+      
+      // Add debug message for MindAR image loading
+      addDebugMessage(`🖼️ Loading design image for MindAR: ${designUrl.substring(0, 50)}...`, 'info');
 
       // Test if image loads properly and optimize for MindAR
       try {
@@ -432,7 +435,27 @@ const ARExperiencePage = () => {
           img.onerror = (error) => {
             console.error('❌ Image failed to load:', error);
             console.error('Failed URL:', designUrl);
-            reject(new Error(`Failed to load design image from: ${designUrl}`));
+            addDebugMessage(`❌ Image load failed: ${error.message || 'Network error'}`, 'error');
+            
+            // Try direct S3 URL as fallback
+            if (designUrl.includes('/upload/image-proxy')) {
+              addDebugMessage('🔄 Trying direct S3 URL as fallback...', 'warning');
+              const directS3Url = projectData.designUrl;
+              
+              const fallbackImg = new Image();
+              fallbackImg.crossOrigin = 'anonymous';
+              fallbackImg.onload = () => {
+                addDebugMessage('✅ Direct S3 URL worked!', 'success');
+                resolve();
+              };
+              fallbackImg.onerror = () => {
+                addDebugMessage('❌ Direct S3 URL also failed', 'error');
+                reject(new Error(`Failed to load design image from both proxy and direct S3: ${designUrl}`));
+              };
+              fallbackImg.src = directS3Url;
+            } else {
+              reject(new Error(`Failed to load design image from: ${designUrl}`));
+            }
           };
           img.src = designUrl;
         });
@@ -454,13 +477,25 @@ const ARExperiencePage = () => {
         try {
           console.log('🎯 Initializing MindAR with design URL:', designUrl);
           console.log('🔧 Using optimized MindAR settings for better stability');
+          addDebugMessage('🎯 Initializing MindAR for AR tracking...', 'info');
           
           // Create optimized MindAR configuration with mobile-specific settings
           const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
           
+          // Determine the best image URL for MindAR
+          let mindarImageUrl = designUrl;
+          
+          // For production, try direct S3 URL first for MindAR as it might work better
+          if (!import.meta.env.DEV && projectData.designUrl.includes('s3.amazonaws.com')) {
+            mindarImageUrl = projectData.designUrl;
+            addDebugMessage('🔄 Using direct S3 URL for MindAR initialization', 'info');
+          }
+          
+          addDebugMessage(`🖼️ MindAR will use: ${mindarImageUrl.substring(0, 50)}...`, 'info');
+          
           const mindarConfig = {
             container: containerRef.current,
-            imageTargetSrc: designUrl,
+            imageTargetSrc: mindarImageUrl,
             maxTrack: 1,
             // Mobile-optimized parameters to prevent freezing and improve performance
             filterMinCF: isMobile ? 0.02 : 0.01,      // Higher on mobile for stability
@@ -486,7 +521,23 @@ const ARExperiencePage = () => {
           };
           
           addDebugMessage(`🎯 Initializing MindAR with ${isMobile ? 'mobile' : 'desktop'} settings`, 'info');
-          mindarThreeRef.current = new MindARThree(mindarConfig);
+          
+          try {
+            mindarThreeRef.current = new MindARThree(mindarConfig);
+            addDebugMessage('✅ MindAR instance created successfully', 'success');
+          } catch (mindarInitError) {
+            addDebugMessage(`❌ MindAR initialization failed: ${mindarInitError.message}`, 'error');
+            
+            // Try with proxy URL if direct S3 failed
+            if (mindarImageUrl === projectData.designUrl && designUrl !== projectData.designUrl) {
+              addDebugMessage('🔄 Retrying MindAR with proxy URL...', 'warning');
+              mindarConfig.imageTargetSrc = designUrl;
+              mindarThreeRef.current = new MindARThree(mindarConfig);
+              addDebugMessage('✅ MindAR initialized with proxy URL', 'success');
+            } else {
+              throw mindarInitError;
+            }
+          }
 
           const { renderer, scene, camera } = mindarThreeRef.current;
           const anchor = mindarThreeRef.current.addAnchor(0);
@@ -1004,14 +1055,19 @@ const ARExperiencePage = () => {
           // Start AR tracking
           if (mindarThreeRef.current.start) {
             console.log('🚀 Starting AR tracking...');
+            addDebugMessage('🚀 Starting AR tracking with design image...', 'info');
+            
             mindarThreeRef.current.start().then(() => {
               console.log('✅ AR tracking started successfully');
               console.log('🎯 Setting AR loading progress to 100% (AR success)');
+              addDebugMessage('✅ AR tracking started! Point camera at design', 'success');
               setArLoadingProgress(100);
               setError('AR Ready: Point your camera at the printed design to see the video overlay.');
             }).catch(e => {
               console.error('❌ Failed to start AR tracking:', e);
               console.warn('🔄 Switching to fallback mode due to AR start failure');
+              addDebugMessage(`❌ AR tracking failed: ${e.message}`, 'error');
+              addDebugMessage('🔄 Switching to basic mode...', 'warning');
               setFallbackMode(true);
               console.log('🎯 Setting AR loading progress to 100% (fallback mode)');
               setArLoadingProgress(100);
