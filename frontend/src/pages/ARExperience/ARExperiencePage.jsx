@@ -1122,6 +1122,9 @@ const ARExperiencePage = () => {
     setScanningStatus('detected');
     addDebugMessage('🎯 TARGET FOUND! Playing video...', 'success');
     
+    // Check if this is mobile
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
     // Calculate dynamic scale based on detected dimensions
     const dynamicScale = calculateDynamicScale();
     
@@ -1155,15 +1158,56 @@ const ARExperiencePage = () => {
     if (overlayMeshRef.current) overlayMeshRef.current.visible = true;
     
     if (videoRef.current.paused && !videoEnded) {
-      addDebugMessage('▶️ Playing video...', 'info');
+      addDebugMessage('▶️ Attempting to play video...', 'info');
+      
+      // Mobile browsers require user interaction before playing video
+      if (isMobile) {
+        // Check if we have user interaction permission
+        const hasUserInteraction = videoRef.current.muted || document.hasStoredUserActivation;
+        
+        if (!hasUserInteraction) {
+          addDebugMessage('📱 Mobile detected: Video requires user tap to play', 'warning');
+          addDebugMessage('👆 Tap anywhere on screen to start video', 'info');
+          
+          // Show tap instruction overlay
+          if (playVideoImageRef.current) {
+            playVideoImageRef.current.style.display = "block";
+            playVideoImageRef.current.style.zIndex = "1000";
+          }
+          return;
+        }
+      }
+      
       videoRef.current.play().then(() => {
         addDebugMessage('✅ Video playing successfully!', 'success');
+        if (playVideoImageRef.current) {
+          playVideoImageRef.current.style.display = "none";
+        }
       }).catch(e => {
         addDebugMessage(`❌ Video play failed: ${e.message}`, 'error');
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        if (isMobile && playVideoImageRef.current) {
+        
+        if (isMobile) {
+          addDebugMessage('📱 Mobile video failed - trying with muted playback', 'warning');
+          
+          // Try muted playback as fallback
+          videoRef.current.muted = true;
+          videoRef.current.play().then(() => {
+            addDebugMessage('🔇 Video playing muted (mobile fallback)', 'success');
+            addDebugMessage('👆 Tap video to unmute', 'info');
+          }).catch(mutedError => {
+            addDebugMessage(`❌ Even muted playback failed: ${mutedError.message}`, 'error');
+            // Show manual play button
+            if (playVideoImageRef.current) {
+              addDebugMessage('📱 Tap screen to play video', 'warning');
+              playVideoImageRef.current.style.display = "block";
+            }
+          });
+        } else {
+          // Non-mobile error handling
           addDebugMessage('📱 Tap screen to play video', 'warning');
-          playVideoImageRef.current.style.display = "block";
+          if (playVideoImageRef.current) {
+            playVideoImageRef.current.style.display = "block";
+          }
         }
       });
     }
@@ -1330,6 +1374,41 @@ const ARExperiencePage = () => {
     if (!mindarThreeRef.current) return;
 
     event.preventDefault();
+    
+    // Mobile video playback handler - prioritize this for mobile devices
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile && videoRef.current && scanningStatus === 'detected') {
+      // If video is paused and we detected the target, try to play
+      if (videoRef.current.paused && !videoEnded) {
+        addDebugMessage('📱 Screen tapped - attempting video playback', 'info');
+        
+        videoRef.current.play().then(() => {
+          addDebugMessage('✅ Video started playing after tap!', 'success');
+          if (playVideoImageRef.current) {
+            playVideoImageRef.current.style.display = "none";
+          }
+        }).catch(e => {
+          addDebugMessage(`❌ Video play failed after tap: ${e.message}`, 'error');
+          
+          // Try muted playback
+          videoRef.current.muted = true;
+          videoRef.current.play().then(() => {
+            addDebugMessage('🔇 Video playing muted after tap', 'success');
+            addDebugMessage('👆 Tap video again to unmute', 'info');
+          }).catch(mutedError => {
+            addDebugMessage(`❌ Muted playback also failed: ${mutedError.message}`, 'error');
+          });
+        });
+        return; // Don't process other click logic
+      }
+      
+      // If video is playing and muted, unmute it
+      if (!videoRef.current.paused && videoRef.current.muted) {
+        videoRef.current.muted = false;
+        addDebugMessage('🔊 Video unmuted!', 'success');
+        return;
+      }
+    }
     
     // Enhanced click handling for both AR and fallback modes
     if (fallbackMode) {
@@ -1695,6 +1774,21 @@ const ARExperiencePage = () => {
                 </div>
               </div>
             )}
+
+            {/* Mobile Video Play Instruction Overlay */}
+            {scanningStatus === 'detected' && videoRef.current?.paused && (
+              <div className="absolute inset-0 z-30 flex items-center justify-center bg-black bg-opacity-50">
+                <div className="bg-blue-900 bg-opacity-95 text-white p-6 rounded-lg max-w-sm text-center border border-blue-500 animate-pulse">
+                  <div className="text-6xl mb-4">🎬</div>
+                  <h3 className="text-xl font-bold mb-3">Design Detected!</h3>
+                  <p className="text-blue-200 mb-4">Tap anywhere to start video playback</p>
+                  <div className="text-sm text-gray-300">
+                    <p>📱 Mobile browsers require user interaction</p>
+                    <p>👆 Just tap the screen to play the video</p>
+                  </div>
+                </div>
+              </div>
+            )}
             
             {/* AR Mode Instructions */}
             {cameraActive && !fallbackMode && (
@@ -1702,7 +1796,11 @@ const ARExperiencePage = () => {
                 <div className="text-sm">
                   🎯 <strong>Point your camera at the printed design</strong>
                   <br />
-                  <span className="text-xs text-gray-300">Video will appear when design is detected</span>
+                  {scanningStatus === 'detected' ? (
+                    <span className="text-green-400">✅ Design detected! {videoRef.current?.paused ? 'Tap to play video' : 'Video playing'}</span>
+                  ) : (
+                    <span className="text-xs text-gray-300">Video will appear when design is detected</span>
+                  )}
                 </div>
               </div>
             )}
