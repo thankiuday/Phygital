@@ -2212,16 +2212,81 @@ const ARExperiencePage = () => {
               </div>
 
               {/* Detailed Debug Panel */}
-              {showDebug && debugMessages.length > 0 && (
+              {showDebug && (
                 <div className="fixed bottom-20 left-4 right-4 bg-black bg-opacity-95 text-white p-4 rounded-lg max-h-60 overflow-y-auto border border-blue-500 z-[9999]" style={{ zIndex: 9999 }}>
                   <div className="text-sm font-bold mb-3 flex justify-between items-center">
-                    <span>🔍 AR Debug Log</span>
+                    <span>🔍 AR Debug Panel</span>
                     <button
                       onClick={() => setDebugMessages([])}
                       className="text-red-400 hover:text-red-300 px-2 py-1 bg-red-900 rounded text-xs"
                     >
-                      Clear
+                      Clear Log
                     </button>
+                  </div>
+                  
+                  {/* Diagnostic Tools - Always Visible */}
+                  <div className="mb-4 p-3 bg-gray-800 rounded border border-gray-600">
+                    <div className="text-xs font-bold mb-2 text-blue-300">🔧 Diagnostic Tools</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => {
+                          if (projectData) {
+                            const designUrl = import.meta.env.DEV 
+                              ? projectData.designUrl.replace('https://phygital-zone.s3.amazonaws.com', '/s3-proxy')
+                              : `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/upload/image-proxy?url=${encodeURIComponent(projectData.designUrl)}`;
+                            window.open(designUrl, '_blank');
+                            addDebugMessage('🖼️ Design image opened in new tab', 'success');
+                          }
+                        }}
+                        className="bg-yellow-600 hover:bg-yellow-700 px-2 py-1 rounded text-xs"
+                      >
+                        Show Design
+                      </button>
+                      <button
+                        onClick={async () => {
+                          addDebugMessage('🔍 Running AR diagnostics...', 'info');
+                          if (mindarThreeRef.current) {
+                            addDebugMessage('✅ MindAR instance exists', 'success');
+                          } else {
+                            addDebugMessage('❌ MindAR instance missing', 'error');
+                          }
+                          if (videoMeshRef.current) {
+                            addDebugMessage(`🎬 Video mesh: ${videoMeshRef.current.visible ? 'visible' : 'hidden'}`, 'info');
+                          }
+                          addDebugMessage(`📷 Camera: ${cameraActive ? 'active' : 'inactive'}`, 'info');
+                          addDebugMessage(`🎯 Scanning: ${scanningStatus}`, 'info');
+                        }}
+                        className="bg-purple-600 hover:bg-purple-700 px-2 py-1 rounded text-xs"
+                      >
+                        AR Diagnostics
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (videoMeshRef.current) {
+                            const isVisible = videoMeshRef.current.visible;
+                            videoMeshRef.current.visible = !isVisible;
+                            addDebugMessage(`🎬 Video mesh ${!isVisible ? 'shown' : 'hidden'}`, 'info');
+                          }
+                        }}
+                        className="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-xs"
+                      >
+                        Toggle Video
+                      </button>
+                      <button
+                        onClick={async () => {
+                          try {
+                            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                            addDebugMessage('✅ Camera test successful!', 'success');
+                            stream.getTracks().forEach(track => track.stop());
+                          } catch (error) {
+                            addDebugMessage(`❌ Camera test failed: ${error.message}`, 'error');
+                          }
+                        }}
+                        className="bg-orange-600 hover:bg-orange-700 px-2 py-1 rounded text-xs"
+                      >
+                        Test Camera
+                      </button>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     {debugMessages.slice(-8).map((msg) => (
