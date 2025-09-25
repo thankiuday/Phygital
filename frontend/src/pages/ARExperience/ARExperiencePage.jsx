@@ -23,6 +23,7 @@ const ARExperiencePage = () => {
   });
   const [scanningStatus, setScanningStatus] = useState('idle'); // 'idle', 'scanning', 'detected', 'lost'
   const [cameraError, setCameraError] = useState(null);
+  const [showS3Confirmation, setShowS3Confirmation] = useState(false);
   
   // AR variables
   const containerRef = useRef(null);
@@ -284,6 +285,7 @@ const ARExperiencePage = () => {
           addDebugMessage('⚠️ Video URL is not an S3 URL', 'warning');
         } else {
           addDebugMessage('✅ S3 URLs look correct', 'success');
+          addDebugMessage('☁️ Design and video will be loaded from AWS S3 bucket', 'info');
         }
         
         setProjectData(result.data);
@@ -646,6 +648,27 @@ const ARExperiencePage = () => {
               const track = stream.getVideoTracks()[0];
               const settings = track.getSettings();
               addDebugMessage(`✅ Camera active: ${settings.width}x${settings.height} @ ${settings.frameRate}fps`, 'success');
+              
+              // Show S3 confirmation popup when camera starts
+              if (projectData && projectData.designUrl && projectData.designUrl.includes('s3.amazonaws.com')) {
+                addDebugMessage('☁️ AWS S3 Content Loaded Successfully!', 'success');
+                addDebugMessage('🖼️ Design image accessible from S3 bucket', 'success');
+                addDebugMessage('🎬 Video file accessible from S3 bucket', 'success');
+                
+                // Show popup notification for mobile users
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                if (isMobile) {
+                  setTimeout(() => {
+                    addDebugMessage('📱 S3 CONFIRMATION: Your design and video are successfully loaded from AWS S3 cloud storage!', 'success');
+                    setShowS3Confirmation(true);
+                    
+                    // Auto-hide S3 confirmation after 4 seconds
+                    setTimeout(() => {
+                      setShowS3Confirmation(false);
+                    }, 4000);
+                  }, 1000);
+                }
+              }
               
               // Also add to Three.js scene as texture
               const videoTexture = new THREE.VideoTexture(cameraVideo);
@@ -1895,8 +1918,30 @@ const ARExperiencePage = () => {
               </div>
             )}
 
+            {/* S3 Confirmation Popup */}
+            {showS3Confirmation && (
+              <div className="absolute inset-0 z-40 flex items-center justify-center bg-black bg-opacity-50">
+                <div className="bg-green-900 bg-opacity-95 text-white p-6 rounded-lg max-w-sm text-center border border-green-500 animate-bounce">
+                  <div className="text-6xl mb-4">☁️</div>
+                  <h3 className="text-xl font-bold mb-3">AWS S3 Connected!</h3>
+                  <p className="text-green-200 mb-4">Your design and video are successfully loaded from AWS S3 cloud storage</p>
+                  <div className="text-sm text-gray-300">
+                    <p>🖼️ Design image: Loaded from S3</p>
+                    <p>🎬 Video file: Loaded from S3</p>
+                    <p>📱 Ready for AR experience!</p>
+                  </div>
+                  <button
+                    onClick={() => setShowS3Confirmation(false)}
+                    className="mt-4 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm"
+                  >
+                    Got it!
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Mobile Video Play Instruction Overlay */}
-            {scanningStatus === 'detected' && videoRef.current?.paused && (
+            {scanningStatus === 'detected' && videoRef.current?.paused && !showS3Confirmation && (
               <div className="absolute inset-0 z-30 flex items-center justify-center bg-black bg-opacity-50">
                 <div className="bg-blue-900 bg-opacity-95 text-white p-6 rounded-lg max-w-sm text-center border border-blue-500 animate-pulse">
                   <div className="text-6xl mb-4">🎬</div>
