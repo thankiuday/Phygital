@@ -2017,7 +2017,7 @@ const ARExperiencePage = () => {
             )}
 
             {/* Mobile Debug Panel - Always Visible on Mobile */}
-            <div className="absolute bottom-4 left-4 right-4 z-30">
+            <div className="absolute bottom-4 left-4 right-4 z-[9998]" style={{ zIndex: 9998 }}>
               {/* Quick Status Bar - Always Visible */}
               <div className="bg-black bg-opacity-90 text-white px-4 py-2 rounded-lg mb-2">
                 <div className="flex justify-between items-center text-sm">
@@ -2213,7 +2213,7 @@ const ARExperiencePage = () => {
 
               {/* Detailed Debug Panel */}
               {showDebug && debugMessages.length > 0 && (
-                <div className="bg-black bg-opacity-95 text-white p-4 rounded-lg max-h-60 overflow-y-auto border border-blue-500">
+                <div className="fixed bottom-20 left-4 right-4 bg-black bg-opacity-95 text-white p-4 rounded-lg max-h-60 overflow-y-auto border border-blue-500 z-[9999]" style={{ zIndex: 9999 }}>
                   <div className="text-sm font-bold mb-3 flex justify-between items-center">
                     <span>🔍 AR Debug Log</span>
                     <button
