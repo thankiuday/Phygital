@@ -199,7 +199,7 @@ const ARExperiencePage = () => {
             "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
             "GLTFLoader": "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js",
             "RoomEnvironment": "https://unpkg.com/three@0.160.0/examples/jsm/environments/RoomEnvironment.js",
-            "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+            "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-three.prod.js"
           }
         });
         document.head.appendChild(importMap);
@@ -546,17 +546,43 @@ const ARExperiencePage = () => {
           addDebugMessage(`🎯 Initializing MindAR with ${isMobile ? 'mobile' : 'desktop'} settings`, 'info');
           
           try {
+            addDebugMessage('🔧 Creating MindAR instance...', 'info');
             mindarThreeRef.current = new MindARThree(mindarConfig);
             addDebugMessage('✅ MindAR instance created successfully', 'success');
+            
+            // Verify MindAR instance has required methods
+            if (!mindarThreeRef.current.start) {
+              throw new Error('MindAR instance missing start method');
+            }
+            if (!mindarThreeRef.current.addAnchor) {
+              throw new Error('MindAR instance missing addAnchor method');
+            }
+            addDebugMessage('✅ MindAR methods verified', 'success');
+            
           } catch (mindarInitError) {
             addDebugMessage(`❌ MindAR initialization failed: ${mindarInitError.message}`, 'error');
+            console.error('Full MindAR error:', mindarInitError);
+            
+            // Check for common MindAR issues
+            if (mindarInitError.message.includes('fetch') || mindarInitError.message.includes('network')) {
+              addDebugMessage('🌐 Network issue detected - trying alternative approach', 'warning');
+            } else if (mindarInitError.message.includes('image') || mindarInitError.message.includes('target')) {
+              addDebugMessage('🖼️ Image loading issue detected', 'warning');
+            } else if (mindarInitError.message.includes('WebGL') || mindarInitError.message.includes('context')) {
+              addDebugMessage('🎮 WebGL context issue detected', 'warning');
+            }
             
             // Try with proxy URL if direct S3 failed
             if (mindarImageUrl === projectData.designUrl && designUrl !== projectData.designUrl) {
               addDebugMessage('🔄 Retrying MindAR with proxy URL...', 'warning');
-              mindarConfig.imageTargetSrc = designUrl;
-              mindarThreeRef.current = new MindARThree(mindarConfig);
-              addDebugMessage('✅ MindAR initialized with proxy URL', 'success');
+              try {
+                mindarConfig.imageTargetSrc = designUrl;
+                mindarThreeRef.current = new MindARThree(mindarConfig);
+                addDebugMessage('✅ MindAR initialized with proxy URL', 'success');
+              } catch (proxyError) {
+                addDebugMessage(`❌ Proxy URL also failed: ${proxyError.message}`, 'error');
+                throw proxyError;
+              }
             } else {
               throw mindarInitError;
             }
@@ -758,12 +784,21 @@ const ARExperiencePage = () => {
           
         } catch (mindarError) {
           console.warn('MindAR initialization failed, falling back to basic mode:', mindarError);
+          addDebugMessage(`❌ MindAR completely failed: ${mindarError.message}`, 'error');
           
           // Check if it's a buffer error (common with certain image formats)
           if (mindarError.message && mindarError.message.includes('byte')) {
             console.warn('🔧 Buffer error detected - this usually means the image needs optimization');
+            addDebugMessage('🔧 Buffer/Image format error - image may need optimization', 'error');
             setError('Image Format Issue: Your design image may need optimization. Using basic mode for now.');
+          } else if (mindarError.message && mindarError.message.includes('fetch')) {
+            addDebugMessage('🌐 Network/CORS error - S3 image not accessible to MindAR', 'error');
+            setError('Network Issue: Cannot load design image. Using basic mode for now.');
+          } else if (mindarError.message && mindarError.message.includes('WebGL')) {
+            addDebugMessage('🎮 WebGL not supported on this device', 'error');
+            setError('WebGL Issue: Your device may not support AR. Using basic mode for now.');
           } else {
+            addDebugMessage('❓ Unknown MindAR error - check console for details', 'error');
             setError('Basic Mode: Video will play automatically. AR tracking requires design optimization.');
           }
           
@@ -834,6 +869,8 @@ const ARExperiencePage = () => {
           
           // For fallback mode, we'll show the video immediately
           setFallbackMode(true);
+          addDebugMessage('🔄 Fallback mode activated - video will play on tap', 'warning');
+          addDebugMessage('👆 Tap anywhere on screen to play/pause video', 'info');
           
           // In fallback mode, start the render loop immediately
           const fallbackAnimate = () => {
@@ -1104,17 +1141,41 @@ const ARExperiencePage = () => {
           if (mindarThreeRef.current.start) {
             console.log('🚀 Starting AR tracking...');
             addDebugMessage('🚀 Starting AR tracking with design image...', 'info');
+            addDebugMessage(`🎯 Target image: ${mindarConfig.imageTargetSrc.substring(0, 60)}...`, 'info');
+            
+            // Add timeout for AR start
+            const startTimeout = setTimeout(() => {
+              addDebugMessage('⏰ AR start timeout - switching to fallback mode', 'warning');
+              setFallbackMode(true);
+              setArLoadingProgress(100);
+              setError('Basic Mode: AR initialization timed out. Video will play automatically.');
+            }, 10000); // 10 second timeout
             
             mindarThreeRef.current.start().then(() => {
+              clearTimeout(startTimeout);
               console.log('✅ AR tracking started successfully');
               console.log('🎯 Setting AR loading progress to 100% (AR success)');
               addDebugMessage('✅ AR tracking started! Point camera at design', 'success');
+              addDebugMessage('🔍 MindAR is now scanning for your design image', 'info');
               setArLoadingProgress(100);
               setError('AR Ready: Point your camera at the printed design to see the video overlay.');
             }).catch(e => {
+              clearTimeout(startTimeout);
               console.error('❌ Failed to start AR tracking:', e);
               console.warn('🔄 Switching to fallback mode due to AR start failure');
               addDebugMessage(`❌ AR tracking failed: ${e.message}`, 'error');
+              
+              // Detailed error analysis
+              if (e.message.includes('target') || e.message.includes('image')) {
+                addDebugMessage('🖼️ Issue with target image - check image quality/format', 'error');
+              } else if (e.message.includes('camera') || e.message.includes('video')) {
+                addDebugMessage('📷 Camera access issue detected', 'error');
+              } else if (e.message.includes('WebGL') || e.message.includes('context')) {
+                addDebugMessage('🎮 WebGL/Graphics issue detected', 'error');
+              } else {
+                addDebugMessage('❓ Unknown MindAR error - using fallback mode', 'error');
+              }
+              
               addDebugMessage('🔄 Switching to basic mode...', 'warning');
               setFallbackMode(true);
               console.log('🎯 Setting AR loading progress to 100% (fallback mode)');
