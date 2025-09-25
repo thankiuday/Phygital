@@ -1838,6 +1838,128 @@ const ARExperiencePage = () => {
         )}
       </div>
 
+      {/* Emergency Debug Overlay - Always Visible When Opened */}
+      {showDebug && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center"
+          style={{ zIndex: 99999 }}
+        >
+          <div 
+            className="bg-gray-900 text-white p-6 rounded-lg max-w-md w-full mx-4 max-h-96 overflow-y-auto border-2 border-blue-500"
+            style={{ zIndex: 99999 }}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-blue-300">🔧 AR Debug Panel</h3>
+              <button
+                onClick={() => {
+                  setShowDebug(false);
+                  setDebugManuallyOpened(false);
+                }}
+                className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm"
+              >
+                ✕ Close
+              </button>
+            </div>
+            
+            {/* Diagnostic Tools */}
+            <div className="mb-4 p-3 bg-gray-800 rounded border border-gray-600">
+              <div className="text-sm font-bold mb-3 text-blue-300">🔧 Diagnostic Tools</div>
+              <div className="grid grid-cols-1 gap-2">
+                <button
+                  onClick={() => {
+                    if (projectData) {
+                      const designUrl = import.meta.env.DEV 
+                        ? projectData.designUrl.replace('https://phygital-zone.s3.amazonaws.com', '/s3-proxy')
+                        : `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/upload/image-proxy?url=${encodeURIComponent(projectData.designUrl)}`;
+                      window.open(designUrl, '_blank');
+                      addDebugMessage('🖼️ Design image opened in new tab', 'success');
+                    } else {
+                      alert('No project data available');
+                    }
+                  }}
+                  className="bg-yellow-600 hover:bg-yellow-700 px-3 py-2 rounded text-sm w-full"
+                >
+                  🖼️ Show Design Image
+                </button>
+                <button
+                  onClick={async () => {
+                    addDebugMessage('🔍 Running AR diagnostics...', 'info');
+                    let diagnostics = [];
+                    diagnostics.push(`MindAR: ${mindarThreeRef.current ? '✅ Active' : '❌ Missing'}`);
+                    diagnostics.push(`Camera: ${cameraActive ? '✅ Active' : '❌ Inactive'}`);
+                    diagnostics.push(`Video Mesh: ${videoMeshRef.current ? (videoMeshRef.current.visible ? '✅ Visible' : '🙈 Hidden') : '❌ Missing'}`);
+                    diagnostics.push(`Scanning: ${scanningStatus}`);
+                    diagnostics.push(`Project: ${projectData ? projectData.name : 'None'}`);
+                    alert('AR Diagnostics:\n\n' + diagnostics.join('\n'));
+                  }}
+                  className="bg-purple-600 hover:bg-purple-700 px-3 py-2 rounded text-sm w-full"
+                >
+                  🔍 AR Diagnostics
+                </button>
+                <button
+                  onClick={() => {
+                    if (videoMeshRef.current) {
+                      const isVisible = videoMeshRef.current.visible;
+                      videoMeshRef.current.visible = !isVisible;
+                      addDebugMessage(`🎬 Video mesh ${!isVisible ? 'shown' : 'hidden'}`, 'info');
+                      alert(`Video mesh is now ${!isVisible ? 'visible' : 'hidden'}`);
+                    } else {
+                      alert('Video mesh not found');
+                    }
+                  }}
+                  className="bg-red-600 hover:bg-red-700 px-3 py-2 rounded text-sm w-full"
+                >
+                  🎬 Toggle Video Mesh
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                      alert('✅ Camera test successful!');
+                      stream.getTracks().forEach(track => track.stop());
+                    } catch (error) {
+                      alert(`❌ Camera test failed: ${error.message}`);
+                    }
+                  }}
+                  className="bg-orange-600 hover:bg-orange-700 px-3 py-2 rounded text-sm w-full"
+                >
+                  📷 Test Camera
+                </button>
+              </div>
+            </div>
+
+            {/* Key Information */}
+            <div className="mb-4 p-3 bg-gray-800 rounded border border-gray-600">
+              <div className="text-sm font-bold mb-2 text-green-300">📊 Current Status</div>
+              <div className="text-xs space-y-1">
+                <div>🎯 Scanning: {scanningStatus}</div>
+                <div>📷 Camera: {cameraActive ? 'Active' : 'Inactive'}</div>
+                <div>🎬 Video: {videoStatus}</div>
+                <div>🔧 MindAR: {mindarThreeRef.current ? 'Loaded' : 'Missing'}</div>
+                <div>📱 Project: {projectData ? projectData.name : 'None'}</div>
+              </div>
+            </div>
+
+            {/* Recent Debug Messages */}
+            <div className="p-3 bg-gray-800 rounded border border-gray-600">
+              <div className="text-sm font-bold mb-2 text-yellow-300">📝 Recent Messages</div>
+              <div className="text-xs space-y-1 max-h-32 overflow-y-auto">
+                {debugMessages.slice(-5).map((msg) => (
+                  <div key={msg.id} className={`${
+                    msg.type === 'error' ? 'text-red-300' :
+                    msg.type === 'warning' ? 'text-yellow-300' :
+                    msg.type === 'success' ? 'text-green-300' :
+                    'text-gray-300'
+                  }`}>
+                    {msg.message}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-gray-800 text-white py-3 px-4 sm:py-4 sm:px-6 shadow-lg">
         <div className="max-w-7xl mx-auto">
