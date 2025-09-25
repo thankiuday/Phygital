@@ -1811,6 +1811,33 @@ const ARExperiencePage = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
+      {/* Permanent Floating Debug Button - Always Visible */}
+      <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2">
+        <button
+          onClick={() => {
+            setShowDebug(true);
+            setDebugManuallyOpened(true);
+            addDebugMessage('🔧 Debug panel opened via floating button', 'info');
+          }}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-full shadow-lg text-sm font-bold"
+          style={{ zIndex: 9999 }}
+        >
+          🔧 Debug
+        </button>
+        {debugManuallyOpened && (
+          <button
+            onClick={() => {
+              setShowDebug(false);
+              setDebugManuallyOpened(false);
+            }}
+            className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-full shadow-lg text-sm font-bold"
+            style={{ zIndex: 9999 }}
+          >
+            ✕ Hide
+          </button>
+        )}
+      </div>
+
       {/* Header */}
       <header className="bg-gray-800 text-white py-3 px-4 sm:py-4 sm:px-6 shadow-lg">
         <div className="max-w-7xl mx-auto">
