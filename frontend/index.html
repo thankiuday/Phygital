@@ -20,9 +20,9 @@
       (function() {
         console.log('🔄 Loading MindAR...');
         
-          // Try to load from a CDN that provides UMD builds
+          // Try to load from a working CDN
           const script = document.createElement('script');
-          script.src = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-three.umd.js';
+          script.src = 'https://cdn.skypack.dev/mind-ar@1.2.2/dist/mindar-image-three.prod.js';
         script.crossOrigin = 'anonymous';
         
         script.onload = function() {
@@ -137,6 +137,7 @@
                   return {
                     start: async function() {
                       console.log('🧪 Enhanced stub start called');
+                      console.log('🧪 Container received:', config.container);
                       // Ensure canvas is properly styled and visible
                       canvas.style.position = 'absolute';
                       canvas.style.top = '0';
@@ -210,7 +211,8 @@
                 }
               };
               
-              console.log('✅ Enhanced MindAR stub created');
+                console.log('✅ Enhanced MindAR stub created');
+                console.log('🧪 Stub MindARThree constructor available:', typeof window.MindARThree.MindARThree);
             }
             
             console.log('📊 Final library check:', {
@@ -229,7 +231,7 @@
           console.log('🔄 Trying unpkg fallback...');
           
             const fallbackScript = document.createElement('script');
-            fallbackScript.src = 'https://unpkg.com/mind-ar@1.2.2/dist/mindar-image-three.umd.js';
+            fallbackScript.src = 'https://cdn.skypack.dev/mind-ar@1.2.2';
           fallbackScript.crossOrigin = 'anonymous';
           
           fallbackScript.onload = function() {
@@ -247,23 +249,49 @@
           fallbackScript.onerror = function() {
             console.error('❌ All MindAR loading attempts failed, using stub');
             
-            // Create an enhanced MindAR stub with camera access
-            window.MindARThree = {
-            MindARThree: function(config) {
-              console.log('🧪 Using enhanced MindAR stub with camera');
-              this.container = config.container;
-              this.imageTargetSrc = config.imageTargetSrc;
-              
-              // Create canvas for camera simulation
-              const canvas = document.createElement('canvas');
-              canvas.width = 640;
-              canvas.height = 480;
-              canvas.style.width = '100%';
-              canvas.style.height = '100%';
-              canvas.style.objectFit = 'cover';
+              // Create an enhanced MindAR stub with camera access
+              window.MindARThree = {
+                MindARThree: function(config) {
+                  console.log('🧪 Using enhanced MindAR stub with camera');
+                  console.log('🧪 Config received:', config);
+                  this.container = config.container;
+                  this.imageTargetSrc = config.imageTargetSrc;
+                  
+                  // Create canvas for camera simulation
+                  const canvas = document.createElement('canvas');
+                  canvas.width = 640;
+                  canvas.height = 480;
+                  console.log('🧪 Canvas created:', canvas);
+                  
+                  // Style canvas immediately
+                  canvas.style.position = 'absolute';
+                  canvas.style.top = '0';
+                  canvas.style.left = '0';
+                  canvas.style.width = '100vw';
+                  canvas.style.height = '100vh';
+                  canvas.style.zIndex = '999';
+                  canvas.style.backgroundColor = '#ff0000';
+                  canvas.style.pointerEvents = 'none';
+                  canvas.style.objectFit = 'cover';
+                  canvas.style.display = 'block';
+                  console.log('🧪 Canvas styled immediately');
+                  
+                  // Add canvas to body immediately for testing
+                  document.body.appendChild(canvas);
+                  console.log('🧪 Canvas added to body immediately');
               
               // Add camera simulation
               const ctx = canvas.getContext('2d');
+              
+              // Draw red placeholder immediately
+              ctx.fillStyle = '#ff0000';
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              ctx.fillStyle = '#ffffff';
+              ctx.font = '32px Arial';
+              ctx.textAlign = 'center';
+              ctx.fillText('STUB CANVAS WORKING!', canvas.width/2, canvas.height/2 - 20);
+              ctx.fillText('CAMERA STARTING...', canvas.width/2, canvas.height/2 + 20);
+              console.log('🧪 Red placeholder drawn immediately');
               
               // Try to get real camera access
               const startCamera = async () => {
