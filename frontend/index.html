@@ -11,9 +11,17 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- AR Libraries - Load before React app -->
-    <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"></script>
+    <script src="https://unpkg.com/three@0.158.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.umd.js"></script>
     <script src="https://hammerjs.github.io/dist/hammer.min.js"></script>
+    <script>
+      // Verify libraries loaded
+      console.log('📊 Library check after HTML load:', {
+        THREE: !!window.THREE,
+        MindARThree: !!window.MindARThree,
+        Hammer: !!window.Hammer
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>

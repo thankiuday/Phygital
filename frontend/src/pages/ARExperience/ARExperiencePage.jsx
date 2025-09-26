@@ -81,8 +81,52 @@ const ARExperiencePage = () => {
     
     console.error('❌ AR libraries failed to load after 50 attempts');
     addDebugMessage('❌ AR libraries failed to load after 5 seconds', 'error');
-    setError('AR libraries could not be loaded. Please refresh the page.');
-    return false;
+    addDebugMessage('🔄 Attempting fallback library loading...', 'info');
+    
+    // Fallback: Try loading libraries dynamically
+    try {
+      console.log('🔄 Fallback: Loading Three.js...');
+      if (!window.THREE) {
+        const threeScript = document.createElement('script');
+        threeScript.src = 'https://unpkg.com/three@0.158.0/build/three.min.js';
+        document.head.appendChild(threeScript);
+        await new Promise((resolve, reject) => {
+          threeScript.onload = resolve;
+          threeScript.onerror = reject;
+          setTimeout(reject, 10000);
+        });
+      }
+      
+      console.log('🔄 Fallback: Loading MindAR...');
+      if (!window.MindARThree) {
+        const mindarScript = document.createElement('script');
+        mindarScript.src = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.umd.js';
+        document.head.appendChild(mindarScript);
+        await new Promise((resolve, reject) => {
+          mindarScript.onload = resolve;
+          mindarScript.onerror = reject;
+          setTimeout(reject, 15000);
+        });
+      }
+      
+      // Wait for libraries to initialize
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      if (window.THREE && window.MindARThree) {
+        console.log('✅ Fallback loading successful!');
+        addDebugMessage('✅ Fallback loading successful!', 'success');
+        setLibrariesLoaded(true);
+        return true;
+      }
+      
+      throw new Error('Libraries still not available after fallback');
+      
+    } catch (fallbackError) {
+      console.error('❌ Fallback loading also failed:', fallbackError);
+      addDebugMessage(`❌ Fallback loading failed: ${fallbackError.message}`, 'error');
+      setError('AR libraries could not be loaded. Please refresh the page and try again.');
+      return false;
+    }
   }, [addDebugMessage]);
 
   // Fetch project data
