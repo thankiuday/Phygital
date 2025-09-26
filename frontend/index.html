@@ -92,12 +92,12 @@
                         const drawFrame = () => {
                           if (video.readyState === video.HAVE_ENOUGH_DATA) {
                             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                            // Add a small indicator to show drawing is working
+                            // Add a large indicator to show drawing is working
                             ctx.fillStyle = 'lime';
-                            ctx.fillRect(10, 10, 20, 20);
-                            ctx.fillStyle = 'white';
-                            ctx.font = '12px Arial';
-                            ctx.fillText('LIVE', 15, 25);
+                            ctx.fillRect(10, 10, 100, 50);
+                            ctx.fillStyle = 'black';
+                            ctx.font = '20px Arial';
+                            ctx.fillText('LIVE CAMERA', 15, 35);
                           }
                           requestAnimationFrame(drawFrame);
                         };
@@ -137,13 +137,14 @@
                       console.log('📺 Canvas added to container:', config.container);
                       
                       // Draw initial placeholder to ensure canvas is visible
-                      ctx.fillStyle = '#1a1a1a';
+                      ctx.fillStyle = '#ff0000'; // Bright red background
                       ctx.fillRect(0, 0, canvas.width, canvas.height);
-                      ctx.fillStyle = '#00ff00';
-                      ctx.font = '24px Arial';
+                      ctx.fillStyle = '#ffffff'; // White text
+                      ctx.font = '32px Arial';
                       ctx.textAlign = 'center';
-                      ctx.fillText('CAMERA LOADING...', canvas.width/2, canvas.height/2);
-                      console.log('🎨 Initial placeholder drawn');
+                      ctx.fillText('CAMERA LOADING...', canvas.width/2, canvas.height/2 - 20);
+                      ctx.fillText('RED SCREEN = CANVAS WORKING', canvas.width/2, canvas.height/2 + 20);
+                      console.log('🎨 Initial RED placeholder drawn');
                       
                       await startCamera();
                       return Promise.resolve();
