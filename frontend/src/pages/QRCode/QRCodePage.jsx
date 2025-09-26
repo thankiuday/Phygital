@@ -408,7 +408,7 @@ const QRCodePage = () => {
                               
                               // Try to load and draw the QR code
                               try {
-                                const qrResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/qr/generate/${user._id}?format=png&size=300`);
+                                const qrResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/qr/generate/${user._id}?format=png&size=300`);
                                 if (qrResponse.ok) {
                                   const qrBlob = await qrResponse.blob();
                                   const qrImg = document.createElement('img');
