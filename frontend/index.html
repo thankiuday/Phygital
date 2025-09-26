@@ -12,34 +12,35 @@
     
     <!-- AR Libraries - Load before React app -->
     <script src="https://unpkg.com/three@0.158.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js" type="module"></script>
+    <script src="https://cdn.skypack.dev/mind-ar@1.2.5/dist/mindar-image-three.prod.js"></script>
     <script src="https://hammerjs.github.io/dist/hammer.min.js"></script>
-    <script type="module">
-      // Import and expose MindAR globally
-      try {
-        const { MindARThree } = await import('https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js');
-        window.MindARThree = MindARThree;
-        console.log('✅ MindAR loaded and exposed globally');
-      } catch (error) {
-        console.error('❌ Failed to load MindAR:', error);
-        
-        // Fallback: Try alternative CDN
-        try {
-          const { MindARThree } = await import('https://unpkg.com/mind-ar@1.2.5/dist/mindar-image-three.prod.js');
-          window.MindARThree = MindARThree;
-          console.log('✅ MindAR loaded from fallback CDN');
-        } catch (fallbackError) {
-          console.error('❌ Fallback CDN also failed:', fallbackError);
-        }
-      }
-      
-      // Final verification
+    <script>
+      // Wait for libraries to load and verify
       setTimeout(() => {
-        console.log('📊 Final library check after HTML load:', {
+        console.log('📊 Library check after HTML load:', {
           THREE: !!window.THREE,
           MindARThree: !!window.MindARThree,
           Hammer: !!window.Hammer
         });
+        
+        // If MindAR didn't load, try manual loading
+        if (!window.MindARThree) {
+          console.log('🔄 MindAR not found, attempting manual load...');
+          
+          // Try loading from different CDN
+          const script = document.createElement('script');
+          script.src = 'https://unpkg.com/mind-ar@1.2.5/dist/mindar-image-three.prod.js';
+          script.onload = () => {
+            console.log('✅ MindAR loaded from unpkg');
+            setTimeout(() => {
+              console.log('📊 Final check:', { MindARThree: !!window.MindARThree });
+            }, 500);
+          };
+          script.onerror = () => {
+            console.error('❌ Failed to load MindAR from unpkg');
+          };
+          document.head.appendChild(script);
+        }
       }, 1000);
     </script>
   </head>
