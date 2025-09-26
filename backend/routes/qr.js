@@ -95,11 +95,11 @@ router.get('/generate/:userId', async (req, res) => {
       });
     }
     
-    // Check if user has completed setup
-    if (!user.uploadedFiles.design.url || !user.uploadedFiles.video.url) {
+    // Check if user has at least uploaded a design (video can be optional for QR generation)
+    if (!user.uploadedFiles.design || !user.uploadedFiles.design.url) {
       return res.status(400).json({
         status: 'error',
-        message: 'User has not completed setup'
+        message: 'User must upload a design first'
       });
     }
     
@@ -158,7 +158,7 @@ router.get('/generate/:userId', async (req, res) => {
  * Get current user's QR code
  * Requires authentication
  */
-router.get('/my-qr', authenticateToken, requireUploadedFiles, async (req, res) => {
+router.get('/my-qr', authenticateToken, async (req, res) => {
   try {
     const { format = 'png', size = 200 } = req.query;
     
