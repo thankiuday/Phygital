@@ -27,17 +27,37 @@
         
         script.onload = function() {
           console.log('✅ MindAR script loaded');
-          // Check if MindAR is available
+          // Check if MindAR is available and try to expose it
           setTimeout(() => {
-            if (window.MindARThree) {
-              console.log('✅ MindARThree is available');
-            } else if (window.MINDAR) {
-              // Sometimes it's exposed as MINDAR
-              window.MindARThree = window.MINDAR;
-              console.log('✅ MindAR mapped from MINDAR');
-            } else {
+            // Check various possible global names
+            const possibleNames = ['MindARThree', 'MINDAR', 'mindAR', 'MindAR'];
+            let found = false;
+            
+            for (const name of possibleNames) {
+              if (window[name]) {
+                window.MindARThree = window[name];
+                console.log(`✅ MindAR found as window.${name} and mapped to MindARThree`);
+                found = true;
+                break;
+              }
+            }
+            
+            if (!found) {
               console.log('⚠️ MindAR loaded but not found on window');
               console.log('Available on window:', Object.keys(window).filter(k => k.toLowerCase().includes('mind')));
+              
+              // Try to access it differently - sometimes it's in a module
+              if (typeof window.importShim !== 'undefined') {
+                console.log('🔄 Trying to import MindAR as module...');
+                window.importShim('https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-three.prod.js')
+                  .then(module => {
+                    if (module.MindARThree) {
+                      window.MindARThree = module.MindARThree;
+                      console.log('✅ MindAR imported as module and exposed');
+                    }
+                  })
+                  .catch(err => console.log('❌ Module import failed:', err));
+              }
             }
             
             console.log('📊 Final library check:', {
@@ -74,34 +94,95 @@
           fallbackScript.onerror = function() {
             console.error('❌ All MindAR loading attempts failed, using stub');
             
-            // Create a minimal MindAR stub for testing
+            // Create an enhanced MindAR stub with camera access
             window.MindARThree = {
             MindARThree: function(config) {
-              console.log('🧪 Using MindAR stub for testing');
+              console.log('🧪 Using enhanced MindAR stub with camera');
               this.container = config.container;
               this.imageTargetSrc = config.imageTargetSrc;
               
+              // Create canvas for camera simulation
+              const canvas = document.createElement('canvas');
+              canvas.width = 640;
+              canvas.height = 480;
+              canvas.style.width = '100%';
+              canvas.style.height = '100%';
+              canvas.style.objectFit = 'cover';
+              
+              // Add camera simulation
+              const ctx = canvas.getContext('2d');
+              
+              // Try to get real camera access
+              const startCamera = async () => {
+                try {
+                  console.log('🎥 Attempting to access camera...');
+                  const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                      facingMode: 'environment',
+                      width: { ideal: 640 },
+                      height: { ideal: 480 }
+                    } 
+                  });
+                  
+                  const video = document.createElement('video');
+                  video.srcObject = stream;
+                  video.autoplay = true;
+                  video.playsInline = true;
+                  video.muted = true;
+                  
+                  video.onloadedmetadata = () => {
+                    console.log('✅ Camera stream active');
+                    // Draw video to canvas
+                    const drawFrame = () => {
+                      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                      }
+                      requestAnimationFrame(drawFrame);
+                    };
+                    drawFrame();
+                  };
+                  
+                  return stream;
+                } catch (error) {
+                  console.log('❌ Camera access failed:', error.message);
+                  // Draw placeholder
+                  ctx.fillStyle = '#1a1a1a';
+                  ctx.fillRect(0, 0, canvas.width, canvas.height);
+                  ctx.fillStyle = '#666';
+                  ctx.font = '20px Arial';
+                  ctx.textAlign = 'center';
+                  ctx.fillText('Camera Access Required', canvas.width/2, canvas.height/2 - 20);
+                  ctx.fillText('Allow camera permission', canvas.width/2, canvas.height/2 + 20);
+                  return null;
+                }
+              };
+              
               return {
                 start: async function() {
-                  console.log('🧪 MindAR stub start called');
+                  console.log('🧪 Enhanced stub start called');
+                  config.container.appendChild(canvas);
+                  await startCamera();
                   return Promise.resolve();
                 },
                 stop: async function() {
-                  console.log('🧪 MindAR stub stop called');
+                  console.log('🧪 Enhanced stub stop called');
+                  if (canvas.parentNode) {
+                    canvas.parentNode.removeChild(canvas);
+                  }
                   return Promise.resolve();
                 },
                 addAnchor: function(index) {
-                  console.log('🧪 MindAR stub addAnchor called');
+                  console.log('🧪 Enhanced stub addAnchor called');
                   return {
                     group: {
                       add: function(mesh) {
-                        console.log('🧪 MindAR stub group.add called');
+                        console.log('🧪 Enhanced stub group.add called');
                       }
                     }
                   };
                 },
                 renderer: {
-                  domElement: document.createElement('canvas')
+                  domElement: canvas
                 },
                 scene: new window.THREE.Scene(),
                 camera: new window.THREE.PerspectiveCamera(),
