@@ -12,6 +12,8 @@ const QRPositioningOverlay = ({
   qrPosition, 
   onPositionChange, 
   onSizeChange,
+  onCaptureComposite,
+  qrImageUrl,
   imageWidth = 400,
   imageHeight = 300 
 }) => {
@@ -167,11 +169,136 @@ const QRPositioningOverlay = ({
     }
   }, [isDragging, isResizing, handleMouseMove, handleMouseUp])
 
+  // Expose capture function to parent
+  useEffect(() => {
+    if (onCaptureComposite) {
+      onCaptureComposite(captureCompositeImage);
+    }
+  }, [onCaptureComposite, captureCompositeImage])
+
   // Reset to default position
   const resetPosition = useCallback(() => {
     onPositionChange({ x: 10, y: 10 })
     onSizeChange({ width: 100, height: 100 })
   }, [onPositionChange, onSizeChange])
+
+  // Capture composite image (design + QR overlay)
+  const captureCompositeImage = useCallback(() => {
+    return new Promise((resolve, reject) => {
+      try {
+        console.log('=== COMPOSITE IMAGE CAPTURE DEBUG ===');
+        
+        if (!imageRef.current) {
+          console.log('ERROR: Image not loaded');
+          reject(new Error('Image not loaded'));
+          return;
+        }
+
+        // Create a canvas to draw the composite image
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Set canvas dimensions to match the actual image
+        const img = imageRef.current;
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        
+        console.log('Image dimensions:', {
+          natural: { width: img.naturalWidth, height: img.naturalHeight },
+          displayed: { width: img.offsetWidth, height: img.offsetHeight },
+          canvas: { width: canvas.width, height: canvas.height }
+        });
+        
+        // Draw the original image
+        ctx.drawImage(img, 0, 0);
+        
+        // Calculate QR position on the actual image based on displayed size
+        const displayedWidth = img.offsetWidth || imageWidth
+        const displayedHeight = img.offsetHeight || imageHeight
+        const actualQrX = (qrPosition.x / displayedWidth) * img.naturalWidth;
+        const actualQrY = (qrPosition.y / displayedHeight) * img.naturalHeight;
+        const actualQrWidth = (qrPosition.width / displayedWidth) * img.naturalWidth;
+        const actualQrHeight = (qrPosition.height / displayedHeight) * img.naturalHeight;
+        
+        console.log('QR Position calculation:', {
+          qrPosition,
+          imageWidth: displayedWidth,
+          imageHeight: displayedHeight,
+          actualQr: {
+            x: actualQrX,
+            y: actualQrY,
+            width: actualQrWidth,
+            height: actualQrHeight
+          }
+        });
+        
+        // If we have a real QR image, draw it; otherwise, draw placeholder and resolve
+        if (qrImageUrl) {
+          const qrImg = new Image()
+          qrImg.crossOrigin = 'anonymous'
+          qrImg.onload = () => {
+            console.log('[QR Overlay] qrImg loaded, drawing onto canvas', {
+              naturalWidth: qrImg.naturalWidth,
+              naturalHeight: qrImg.naturalHeight,
+              drawSize: { w: actualQrWidth, h: actualQrHeight }
+            })
+            try {
+              ctx.drawImage(qrImg, actualQrX, actualQrY, actualQrWidth, actualQrHeight)
+              const compositeImageData = canvas.toDataURL('image/png')
+              console.log('Composite with real QR generated')
+              resolve(compositeImageData)
+            } catch (err) {
+              console.error('Failed drawing QR image, falling back to placeholder', err)
+              // Fallback: placeholder
+              ctx.fillStyle = 'rgba(59, 130, 246, 0.3)'
+              ctx.fillRect(actualQrX, actualQrY, actualQrWidth, actualQrHeight)
+              ctx.strokeStyle = 'rgba(59, 130, 246, 0.8)'
+              ctx.lineWidth = 2
+              ctx.strokeRect(actualQrX, actualQrY, actualQrWidth, actualQrHeight)
+              ctx.fillStyle = 'rgba(59, 130, 246, 1)'
+              ctx.font = `${Math.max(12, actualQrWidth / 8)}px Arial`
+              ctx.textAlign = 'center'
+              ctx.fillText('QR CODE', actualQrX + actualQrWidth / 2, actualQrY + actualQrHeight / 2)
+              const compositeImageData = canvas.toDataURL('image/png')
+              resolve(compositeImageData)
+            }
+          }
+          qrImg.onerror = (e) => {
+            console.error('Failed to load QR image, using placeholder', e)
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.3)'
+            ctx.fillRect(actualQrX, actualQrY, actualQrWidth, actualQrHeight)
+            ctx.strokeStyle = 'rgba(59, 130, 246, 0.8)'
+            ctx.lineWidth = 2
+            ctx.strokeRect(actualQrX, actualQrY, actualQrWidth, actualQrHeight)
+            ctx.fillStyle = 'rgba(59, 130, 246, 1)'
+            ctx.font = `${Math.max(12, actualQrWidth / 8)}px Arial`
+            ctx.textAlign = 'center'
+            ctx.fillText('QR CODE', actualQrX + actualQrWidth / 2, actualQrY + actualQrHeight / 2)
+            const compositeImageData = canvas.toDataURL('image/png')
+            resolve(compositeImageData)
+          }
+          qrImg.src = qrImageUrl
+          return
+        }
+
+        // Placeholder path if no QR image provided
+        ctx.fillStyle = 'rgba(59, 130, 246, 0.3)'
+        ctx.fillRect(actualQrX, actualQrY, actualQrWidth, actualQrHeight)
+        ctx.strokeStyle = 'rgba(59, 130, 246, 0.8)'
+        ctx.lineWidth = 2
+        ctx.strokeRect(actualQrX, actualQrY, actualQrWidth, actualQrHeight)
+        ctx.fillStyle = 'rgba(59, 130, 246, 1)'
+        ctx.font = `${Math.max(12, actualQrWidth / 8)}px Arial`
+        ctx.textAlign = 'center'
+        ctx.fillText('QR CODE', actualQrX + actualQrWidth / 2, actualQrY + actualQrHeight / 2)
+        const compositeImageData = canvas.toDataURL('image/png')
+        resolve(compositeImageData)
+        
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }, [imageRef, qrPosition, imageWidth, imageHeight, qrImageUrl]);
 
   return (
     <div className="relative inline-block">
@@ -182,6 +309,7 @@ const QRPositioningOverlay = ({
           alt="Design preview"
           className="max-w-full h-auto rounded-lg shadow-sm"
           onLoad={handleImageLoad}
+          crossOrigin="anonymous"
           style={{ maxWidth: `${imageWidth}px` }}
         />
         
@@ -203,6 +331,14 @@ const QRPositioningOverlay = ({
           <div className="absolute -top-6 left-0 text-xs bg-primary-500 text-white px-2 py-1 rounded whitespace-nowrap">
             QR Code Area
           </div>
+          {/* QR preview inside overlay (if available) */}
+          {qrImageUrl && (
+            <img
+              src={qrImageUrl}
+              alt="QR preview"
+              style={{ width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none' }}
+            />
+          )}
           
           {/* Move Icon */}
           <div className="absolute top-1 left-1 bg-primary-500 text-white p-1 rounded opacity-70">

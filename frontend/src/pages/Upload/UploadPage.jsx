@@ -7,7 +7,7 @@
 import React, { useState, useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useAuth } from '../../contexts/AuthContext'
-import { uploadAPI } from '../../utils/api'
+import { uploadAPI, qrAPI } from '../../utils/api'
 import BackButton from '../../components/UI/BackButton'
 import { 
   Upload, 
@@ -47,6 +47,8 @@ const UploadPage = () => {
   const [finalDesignPreview, setFinalDesignPreview] = useState(null)
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
+  const [captureCompositeFunction, setCaptureCompositeFunction] = useState(null)
+  const [qrImageUrl, setQrImageUrl] = useState('')
 
   // Design upload handler
   const onDesignDrop = useCallback(async (acceptedFiles) => {
@@ -89,6 +91,39 @@ const UploadPage = () => {
       toast.error('Failed to upload design')
     }
   }, [updateUser])
+
+  // Fetch QR image blob for overlay/composite
+  useEffect(() => {
+    const fetchQR = async () => {
+      try {
+        if (!user?._id) return
+        // Try primary endpoint
+        let res = await qrAPI.getMyQR('png', 300)
+        let blob = res.data instanceof Blob ? res.data : new Blob([res.data], { type: 'image/png' })
+        let url = URL.createObjectURL(blob)
+        console.log('[QR Overlay] Loaded QR from my-qr endpoint')
+        setQrImageUrl(url)
+      } catch (err) {
+        console.warn('Failed to fetch QR via my-qr, trying generate...', err)
+        try {
+          const res2 = await qrAPI.generateQR(user._id, 'png', 300)
+          const blob2 = res2.data instanceof Blob ? res2.data : new Blob([res2.data], { type: 'image/png' })
+          const url2 = URL.createObjectURL(blob2)
+          console.log('[QR Overlay] Loaded QR from generate endpoint')
+          setQrImageUrl(url2)
+        } catch (err2) {
+          console.error('Failed to fetch QR for overlay', err2)
+        }
+      }
+    }
+    fetchQR()
+    return () => {
+      if (qrImageUrl) {
+        console.log('[QR Overlay] Revoking QR object URL')
+        URL.revokeObjectURL(qrImageUrl)
+      }
+    }
+  }, [user?._id])
 
   // Video upload handler
   const onVideoDrop = useCallback(async (acceptedFiles) => {
@@ -170,13 +205,62 @@ const UploadPage = () => {
     setQrPosition(prev => ({ ...prev, ...newSize }))
   }, [])
 
-  // Save QR position
+  // Save QR position with composite image
   const saveQRPosition = async () => {
     try {
-      await uploadAPI.setQRPosition(qrPosition)
-      toast.success('QR position saved!')
+      console.log('=== SAVE COMPOSITE DESIGN DEBUG ===');
+      console.log('🚀 SAVE BUTTON CLICKED - NEW API SHOULD BE CALLED');
+      console.log('Capture function available:', !!captureCompositeFunction);
+      console.log('QR Position:', qrPosition);
+      
+      if (!captureCompositeFunction) {
+        console.log('ERROR: Composite image capture not ready');
+        toast.error('Composite image capture not ready. Please wait a moment and try again.');
+        return;
+      }
+
+      // Show loading state
+      const loadingToast = toast.loading('Saving composite design...');
+
+      // Capture the composite image
+      console.log('Capturing composite image...');
+      const compositeImageData = await captureCompositeFunction();
+      console.log('Composite image captured, sending to API...');
+
+      // Save composite design with image data
+      const response = await uploadAPI.saveCompositeDesign(compositeImageData, qrPosition);
+      console.log('API Response:', response);
+
+      // Try to compile and save .mind on the client as a fallback (if server failed to generate)
+      try {
+        const mindTargetUrlFromServer = response.data?.data?.user?.uploadedFiles?.mindTarget?.url;
+        if (!mindTargetUrlFromServer) {
+          const mindarModule = await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image.prod.js');
+          const { Compiler } = mindarModule;
+          const img = await new Promise((resolve, reject) => {
+            const i = new Image();
+            i.crossOrigin = 'anonymous';
+            i.onload = () => resolve(i);
+            i.onerror = reject;
+            i.src = response.data?.data?.user?.uploadedFiles?.compositeDesign?.url || compositeImageData;
+          });
+          const compiler = new Compiler();
+          await compiler.compileImageTargets([img], () => {});
+          const buf = await compiler.exportData();
+          const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+          await uploadAPI.saveMindTarget(`data:application/octet-stream;base64,${base64}`);
+          console.log('Client-side .mind generated and saved');
+        }
+      } catch (mindErr) {
+        console.warn('Client-side .mind generation failed:', mindErr);
+      }
+
+      toast.dismiss(loadingToast);
+      toast.success('Composite design saved successfully!');
     } catch (error) {
-      toast.error('Failed to save QR position')
+      console.error('Save composite design error:', error);
+      toast.dismiss(loadingToast);
+      toast.error(`Failed to save composite design: ${error.message}`);
     }
   }
 
@@ -436,14 +520,16 @@ const UploadPage = () => {
                     Drag the QR code overlay to move it, or use the resize handles to change its size.
                   </p>
                   
-                  <QRPositioningOverlay
-                    imageUrl={user.uploadedFiles.design.url}
-                    qrPosition={qrPosition}
-                    onPositionChange={handleQrPositionChange}
-                    onSizeChange={handleQrSizeChange}
-                    imageWidth={400}
-                    imageHeight={300}
-                  />
+                <QRPositioningOverlay
+                  imageUrl={user.uploadedFiles.design.url}
+                  qrPosition={qrPosition}
+                  onPositionChange={handleQrPositionChange}
+                  onSizeChange={handleQrSizeChange}
+                  onCaptureComposite={setCaptureCompositeFunction}
+                  qrImageUrl={qrImageUrl}
+                  imageWidth={400}
+                  imageHeight={300}
+                />
                 </div>
 
                 {/* Manual Input Controls (Optional) */}
@@ -494,8 +580,9 @@ const UploadPage = () => {
                 <button
                   onClick={saveQRPosition}
                   className="btn-primary"
+                  disabled={!captureCompositeFunction}
                 >
-                  Save QR Position
+                  {captureCompositeFunction ? 'Save Composite Design' : 'Loading...'}
                 </button>
               </div>
             ) : (

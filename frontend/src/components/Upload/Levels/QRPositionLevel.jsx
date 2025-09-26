@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
-import { uploadAPI } from '../../../utils/api';
+import { uploadAPI, qrAPI } from '../../../utils/api';
 import { QrCode, CheckCircle, AlertCircle, MapPin } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -16,8 +16,160 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
+  const [captureCompositeFunction, setCaptureCompositeFunction] = useState(null);
+  const [qrImageUrl, setQrImageUrl] = useState('');
 
   const designImageUrl = designUrl || user?.uploadedFiles?.design?.url;
+
+  // Fetch user's QR image for live preview and composite drawing
+  useEffect(() => {
+    const fetchQR = async () => {
+      try {
+        if (!user?._id) return;
+        let res = await qrAPI.getMyQR('png', 300);
+        let blob = res.data instanceof Blob ? res.data : new Blob([res.data], { type: 'image/png' });
+        let url = URL.createObjectURL(blob);
+        console.log('[Level QR] Loaded QR from my-qr endpoint');
+        setQrImageUrl(url);
+      } catch (err) {
+        console.warn('[Level QR] getMyQR failed, trying generate...', err);
+        try {
+          const res2 = await qrAPI.generateQR(user._id, 'png', 300);
+          const blob2 = res2.data instanceof Blob ? res2.data : new Blob([res2.data], { type: 'image/png' });
+          const url2 = URL.createObjectURL(blob2);
+          console.log('[Level QR] Loaded QR from generate endpoint');
+          setQrImageUrl(url2);
+        } catch (err2) {
+          console.error('[Level QR] Failed to load QR image', err2);
+        }
+      }
+    };
+    fetchQR();
+    return () => {
+      if (qrImageUrl) {
+        console.log('[Level QR] Revoking QR object URL');
+        URL.revokeObjectURL(qrImageUrl);
+      }
+    };
+  }, [user?._id]);
+
+  // Capture composite image (design + QR overlay)
+  const captureCompositeImage = React.useCallback(() => {
+    return new Promise((resolve, reject) => {
+      try {
+        console.log('=== COMPOSITE IMAGE CAPTURE DEBUG (QRPositionLevel) ===');
+        
+        const imageElement = document.querySelector('img[alt="Design preview"]');
+        if (!imageElement) {
+          console.log('ERROR: Image element not found');
+          reject(new Error('Image not loaded'));
+          return;
+        }
+
+        // Create a new image with CORS enabled to avoid tainted canvas
+        const corsImage = new Image();
+        corsImage.crossOrigin = 'anonymous';
+        
+        corsImage.onload = () => {
+          try {
+            // Create a canvas to draw the composite image
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Set canvas dimensions to match the actual image
+            canvas.width = corsImage.naturalWidth || corsImage.width;
+            canvas.height = corsImage.naturalHeight || corsImage.height;
+            
+            console.log('Image dimensions:', {
+              natural: { width: corsImage.naturalWidth, height: corsImage.naturalHeight },
+              canvas: { width: canvas.width, height: canvas.height }
+            });
+            
+            // Draw the original image
+            ctx.drawImage(corsImage, 0, 0);
+            
+            // Calculate QR position on the actual image (using the stored position)
+            const actualQrX = qrPosition.x;
+            const actualQrY = qrPosition.y;
+            const actualQrWidth = qrPosition.width;
+            const actualQrHeight = qrPosition.height;
+            
+            console.log('QR Position for composite:', {
+              qrPosition,
+              actualQr: {
+                x: actualQrX,
+                y: actualQrY,
+                width: actualQrWidth,
+                height: actualQrHeight
+              }
+            });
+            
+            const drawPlaceholderAndResolve = () => {
+              // Draw QR code placeholder
+              ctx.fillStyle = 'rgba(59, 130, 246, 0.3)';
+              ctx.fillRect(actualQrX, actualQrY, actualQrWidth, actualQrHeight);
+              ctx.strokeStyle = 'rgba(59, 130, 246, 0.8)';
+              ctx.lineWidth = 2;
+              ctx.strokeRect(actualQrX, actualQrY, actualQrWidth, actualQrHeight);
+              ctx.fillStyle = 'rgba(59, 130, 246, 1)';
+              ctx.font = `${Math.max(12, actualQrWidth / 8)}px Arial`;
+              ctx.textAlign = 'center';
+              ctx.fillText('QR CODE', actualQrX + actualQrWidth / 2, actualQrY + actualQrHeight / 2);
+              const data = canvas.toDataURL('image/png');
+              console.log('Composite image generated (placeholder)');
+              resolve(data);
+            };
+
+            if (qrImageUrl) {
+              const qrImg = new Image();
+              qrImg.crossOrigin = 'anonymous';
+              qrImg.onload = () => {
+                try {
+                  console.log('[Level QR] qrImg loaded, drawing into canvas', { w: actualQrWidth, h: actualQrHeight });
+                  ctx.drawImage(qrImg, actualQrX, actualQrY, actualQrWidth, actualQrHeight);
+                  const data = canvas.toDataURL('image/png');
+                  console.log('Composite image generated with real QR');
+                  resolve(data);
+                } catch (e) {
+                  console.warn('[Level QR] drawImage failed, using placeholder', e);
+                  drawPlaceholderAndResolve();
+                }
+              };
+              qrImg.onerror = (e) => {
+                console.warn('[Level QR] Failed to load qrImg, using placeholder', e);
+                drawPlaceholderAndResolve();
+              };
+              qrImg.src = qrImageUrl;
+            } else {
+              drawPlaceholderAndResolve();
+            }
+          } catch (canvasError) {
+            console.error('Error processing canvas:', canvasError);
+            reject(canvasError);
+          }
+        };
+        
+        corsImage.onerror = (error) => {
+          console.error('Error loading CORS image:', error);
+          console.log('Falling back to server-side composite generation...');
+          // Fallback: Let the server generate the composite image
+          reject(new Error('CORS_FALLBACK'));
+        };
+        
+        // Load the image with CORS
+        corsImage.src = imageElement.src;
+        
+      } catch (error) {
+        console.error('Error capturing composite image:', error);
+        reject(error);
+      }
+    });
+  }, [qrPosition]);
+
+  // Set the capture function when component mounts
+  React.useEffect(() => {
+    setCaptureCompositeFunction(() => captureCompositeImage);
+  }, [captureCompositeImage]);
   
   // Handle image load to get dimensions
   const handleImageLoad = (e) => {
@@ -265,10 +417,10 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       
       console.log('QR position data validation passed:', qrPosition);
       
+      // Always use server-side composite generation to ensure real QR is baked in
+      console.log('Using server-side composite generation (setQRPosition)');
       const response = await uploadAPI.setQRPosition(qrPosition);
-      console.log('QR position save response:', response);
-      console.log('Response data:', response.data);
-      console.log('Response status:', response.status);
+      console.log('Server-side composite generation response:', response);
       
       // Update user context with the response data
       if (response.data?.data?.user) {
@@ -277,6 +429,43 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       } else {
         console.log('Using fallback: updating qrPosition field only');
         updateUser({ qrPosition });
+      }
+
+      // Client-side fallback: generate .mind and upload if server did not
+      try {
+        const mindTargetUrlFromServer = response.data?.data?.user?.uploadedFiles?.mindTarget?.url;
+        if (!mindTargetUrlFromServer) {
+          const compositeUrl = response.data?.data?.user?.uploadedFiles?.compositeDesign?.url;
+          if (compositeUrl) {
+            console.log('[Level QR] Generating .mind on client from composite...');
+            const mindarModule = await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image.prod.js');
+            const { Compiler } = mindarModule;
+            const img = await new Promise((resolve, reject) => {
+              const i = new Image();
+              i.crossOrigin = 'anonymous';
+              i.onload = () => resolve(i);
+              i.onerror = reject;
+              i.src = compositeUrl;
+            });
+            const compiler = new Compiler();
+            await compiler.compileImageTargets([img], () => {});
+            const buf = await compiler.exportData();
+            // Convert ArrayBuffer -> data URL (base64) safely via Blob + FileReader
+            const blob = new Blob([buf], { type: 'application/octet-stream' });
+            const dataUrl = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result);
+              reader.onerror = (e) => reject(e);
+              reader.readAsDataURL(blob);
+            });
+            const saveRes = await uploadAPI.saveMindTarget(dataUrl);
+            console.log('[Level QR] .mind generated and saved via /upload/save-mind-target', saveRes.data);
+          } else {
+            console.warn('[Level QR] No composite URL available for client-side .mind generation');
+          }
+        }
+      } catch (clientMindErr) {
+        console.warn('[Level QR] Client-side .mind generation failed:', clientMindErr?.message || clientMindErr);
       }
       
       toast.success('📍 QR position saved!');
@@ -434,6 +623,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
             src={designImageUrl}
             alt="Design preview"
             className="max-w-full h-auto rounded-lg shadow-sm touch-manipulation"
+            crossOrigin="anonymous"
             onLoad={handleImageLoad}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}

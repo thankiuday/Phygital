@@ -11,6 +11,70 @@ const { authenticateToken, optionalAuth } = require('../middleware/auth');
 const { requireUploadedFiles } = require('../middleware/auth');
 
 const router = express.Router();
+/**
+ * GET /api/qr/user-data/:userId
+ * Returns AR project data including design, video and optional mind target
+ */
+router.get('/user-data/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const user = await User.findById(userId).select('-password -email');
+    if (!user) {
+      return res.status(404).json({ status: 'error', message: 'User not found' });
+    }
+    if (!user.uploadedFiles.design?.url || !user.uploadedFiles.video?.url) {
+      return res.status(400).json({ status: 'error', message: 'User profile not complete' });
+    }
+    const data = {
+      userId: user._id.toString(),
+      projectId: user.currentProject || null,
+      name: user.username,
+      designUrl: user.uploadedFiles.compositeDesign?.url || user.uploadedFiles.design.url,
+      videoUrl: user.uploadedFiles.video.url,
+      mindTargetUrl: user.uploadedFiles.mindTarget?.url || null,
+      socialLinks: user.socialLinks,
+      designDimensions: user.uploadedFiles.design?.dimensions || null,
+      qrPosition: user.qrPosition
+    };
+    res.status(200).json({ status: 'success', data });
+  } catch (err) {
+    console.error('user-data error:', err);
+    res.status(500).json({ status: 'error', message: 'Failed to fetch user data' });
+  }
+});
+
+/**
+ * GET /api/qr/project-data/:projectId
+ * For now, projectId is a user-owned id; return same structure as user-data
+ */
+router.get('/project-data/:projectId', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    // Find a user that has this project id
+    const user = await User.findOne({ 'projects.id': projectId }).select('-password -email');
+    if (!user) {
+      return res.status(404).json({ status: 'error', message: 'Project not found' });
+    }
+    if (!user.uploadedFiles.design?.url || !user.uploadedFiles.video?.url) {
+      return res.status(400).json({ status: 'error', message: 'User profile not complete' });
+    }
+    const data = {
+      userId: user._id.toString(),
+      projectId,
+      name: user.username,
+      designUrl: user.uploadedFiles.compositeDesign?.url || user.uploadedFiles.design.url,
+      videoUrl: user.uploadedFiles.video.url,
+      mindTargetUrl: user.uploadedFiles.mindTarget?.url || null,
+      socialLinks: user.socialLinks,
+      designDimensions: user.uploadedFiles.design?.dimensions || null,
+      qrPosition: user.qrPosition
+    };
+    res.status(200).json({ status: 'success', data });
+  } catch (err) {
+    console.error('project-data error:', err);
+    res.status(500).json({ status: 'error', message: 'Failed to fetch project data' });
+  }
+});
 
 /**
  * GET /api/qr/generate/:userId
@@ -317,19 +381,13 @@ router.get('/project-data/:projectId', async (req, res) => {
     
     // Return project-specific data for AR experience
     console.log(`✅ Returning project data for: ${project.name}`);
-    
-    // Use final design URL if available (for MindAR detection), otherwise use original design
-    const designUrlForAR = user.uploadedFiles.finalDesign?.url || user.uploadedFiles.design.url;
-    console.log(`🎯 Design URL for AR: ${designUrlForAR}`);
-    
     const projectData = {
       id: project.id,
       projectId: project.id,
       userId: user._id,
       name: project.name,
       description: project.description,
-      designUrl: designUrlForAR, // Use final design for MindAR detection
-      originalDesignUrl: user.uploadedFiles.design.url, // Keep original for reference
+      designUrl: user.uploadedFiles.design.url,
       videoUrl: user.uploadedFiles.video.url,
       socialLinks: user.socialLinks || {},
       qrPosition: user.qrPosition,

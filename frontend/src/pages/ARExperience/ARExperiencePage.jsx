@@ -350,14 +350,14 @@ const ARExperiencePage = () => {
       if (!librariesLoaded) {
         console.log('⏳ Waiting for AR libraries to load...');
         // Wait for libraries to be loaded
-        let attempts = 0;
+      let attempts = 0;
         const maxAttempts = 100; // Increased timeout
-        
+      
         while (attempts < maxAttempts && !librariesLoaded) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-          attempts++;
-        }
-        
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+      }
+
         if (!librariesLoaded) {
           throw new Error('AR libraries failed to load within timeout');
         }
@@ -426,7 +426,7 @@ const ARExperiencePage = () => {
       console.log('Environment:', import.meta.env.DEV ? 'development' : 'production');
       console.log('Original design URL:', projectData.designUrl);
       console.log('Using design URL:', designUrl);
-      
+
       // Add debug message for MindAR image loading
       addDebugMessage(`🖼️ Loading design image for MindAR: ${designUrl.substring(0, 50)}...`, 'info');
 
@@ -509,12 +509,16 @@ const ARExperiencePage = () => {
           // Create optimized MindAR configuration with mobile-specific settings
           const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
           
-          // Determine the best image URL for MindAR
-          let mindarImageUrl = designUrl;
-          
-          // Always use proxy URL for MindAR to avoid CORS issues
-          // mindarImageUrl is already the proxy URL from designUrl
-          addDebugMessage('🔄 Using proxy URL for MindAR initialization to avoid CORS', 'info');
+          // Determine the best target source for MindAR
+          // Prefer compiled .mind target if available from backend, otherwise fall back to image url
+          let mindarImageUrl = (projectData && projectData.mindTargetUrl)
+            ? projectData.mindTargetUrl
+            : designUrl;
+          if (projectData?.mindTargetUrl) {
+            addDebugMessage('🎯 Using compiled .mind target from S3', 'success');
+          } else {
+            addDebugMessage('🖼️ No .mind target found, falling back to image target', 'warning');
+          }
           
           addDebugMessage(`🖼️ MindAR will use: ${mindarImageUrl.substring(0, 50)}...`, 'info');
           
@@ -672,7 +676,7 @@ const ARExperiencePage = () => {
               // Now try with our constraints
               addDebugMessage('🎥 Applying camera constraints...', 'info');
               return navigator.mediaDevices.getUserMedia({ video: videoConstraints });
-            })
+          })
             .then(stream => {
               addDebugMessage('✅ Camera stream obtained with constraints!', 'success');
               cameraVideo.srcObject = stream;
@@ -822,7 +826,7 @@ const ARExperiencePage = () => {
             setError('WebGL Issue: Your device may not support AR. Using basic mode for now.');
           } else {
             addDebugMessage('❓ Unknown MindAR error - check console for details', 'error');
-            setError('Basic Mode: Video will play automatically. AR tracking requires design optimization.');
+          setError('Basic Mode: Video will play automatically. AR tracking requires design optimization.');
           }
           
           // Fallback to basic Three.js scene with camera feed
@@ -1078,7 +1082,7 @@ const ARExperiencePage = () => {
               
               // Debug anchor detection occasionally
               if (anchorVisibilityChanged) {
-                if (anchorVisible) {
+              if (anchorVisible) {
                   addDebugMessage('🎯 ANCHOR DETECTED! Design found by MindAR', 'success');
                 } else {
                   addDebugMessage('👁️ ANCHOR LOST! Design no longer detected', 'warning');
@@ -1116,10 +1120,10 @@ const ARExperiencePage = () => {
                     // Design just became visible - resume video
                     if (videoPlaybackState.wasPlayingBeforePause || !videoPlaybackState.hasUserInteracted) {
                       video.currentTime = videoPlaybackState.currentTime;
-                      video.play().then(() => {
+                  video.play().then(() => {
                         addDebugMessage('🎬 Video playing - design detected!', 'success');
                         videoPlaybackState.hasUserInteracted = true;
-                      }).catch(e => {
+                  }).catch(e => {
                         addDebugMessage(`❌ Video play failed: ${e.message}`, 'error');
                       });
                     }
@@ -1173,7 +1177,7 @@ const ARExperiencePage = () => {
         animate();
         
         setArLoadingProgress(85);
-
+        
         // Create video texture after video is ready
         createVideoTexture().then(({ texture, videoMesh }) => {
           console.log('✅ Video texture and mesh created successfully');
@@ -1588,7 +1592,7 @@ const ARExperiencePage = () => {
       if (error.message === 'AR initialization timeout') {
         setError('AR initialization is taking too long. Please try again or check your internet connection.');
       } else {
-        setError('Failed to start AR experience. Please try again.');
+      setError('Failed to start AR experience. Please try again.');
       }
       setIsScanning(false);
       setArLoadingProgress(0);
@@ -1733,8 +1737,8 @@ const ARExperiencePage = () => {
     // Check for overlay clicks
     if (overlayMeshRef.current) {
       const intersectsFirst = raycaster.intersectObject(overlayMeshRef.current, true);
-      if (intersectsFirst.length > 0 && projectData) {
-        window.open(projectData.socialLinks.website, '_blank');
+    if (intersectsFirst.length > 0 && projectData) {
+      window.open(projectData.socialLinks.website, '_blank');
         return;
       }
     }
@@ -1742,7 +1746,7 @@ const ARExperiencePage = () => {
     if (bottomRightOverlayMeshRef.current) {
       const intersectsSecond = raycaster.intersectObject(bottomRightOverlayMeshRef.current, true);
       if (intersectsSecond.length > 0 && projectData) {
-        window.open(projectData.socialLinks.linkedin || projectData.socialLinks.website, '_blank');
+      window.open(projectData.socialLinks.linkedin || projectData.socialLinks.website, '_blank');
         return;
       }
     }
@@ -1791,12 +1795,12 @@ const ARExperiencePage = () => {
           )}
           
           <div className="space-y-2">
-            <button 
-              onClick={() => window.location.reload()}
+          <button 
+            onClick={() => window.location.reload()}
               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg mr-2"
-            >
-              Retry
-            </button>
+          >
+            Retry
+          </button>
             <button 
               onClick={() => setError(null)}
               className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg"
@@ -2091,8 +2095,8 @@ const ARExperiencePage = () => {
                       <div className="text-sm text-yellow-300 mt-1">
                         Basic Mode - Tap screen to play video
                         {videoStatus === 'playing' && <span className="text-green-400 font-bold"> • VIDEO PLAYING!</span>}
-                      </div>
-                    ) : (
+                </div>
+              ) : (
                       <div className="text-sm text-green-300 mt-1">
                         {scanningStatus === 'detected' ? 
                           (videoStatus === 'playing' ? 'Video is playing!' : 'Tap screen to play video') :

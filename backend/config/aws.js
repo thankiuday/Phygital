@@ -173,6 +173,103 @@ const uploadToS3 = async (file, userId, fieldName) => {
 };
 
 /**
+ * Upload buffer directly to S3
+ * @param {Buffer} buffer - File buffer to upload
+ * @param {string} key - S3 object key
+ * @param {string} contentType - MIME type of the file
+ * @returns {Promise<Object>} - Upload result with URL and metadata
+ */
+const uploadToS3Buffer = async (buffer, key, contentType) => {
+  try {
+    console.log('=== S3 BUFFER UPLOAD DEBUG ===');
+    console.log('Buffer size:', buffer ? buffer.length : 'null');
+    console.log('S3 Key:', key);
+    console.log('Content Type:', contentType);
+    console.log('AWS S3 Bucket:', process.env.AWS_S3_BUCKET);
+    
+    // Validate inputs
+    if (!buffer || !Buffer.isBuffer(buffer)) {
+      console.log('ERROR: Invalid buffer provided');
+      throw new Error('Invalid buffer provided');
+    }
+    
+    if (!key) {
+      console.log('ERROR: S3 key is required');
+      throw new Error('S3 key is required');
+    }
+    
+    if (!contentType) {
+      console.log('ERROR: Content type is required');
+      throw new Error('Content type is required');
+    }
+    
+    if (process.env.AWS_S3_BUCKET) {
+      // Upload to S3
+      const uploadParams = {
+        Bucket: process.env.AWS_S3_BUCKET,
+        Key: key,
+        Body: buffer,
+        ACL: 'public-read',
+        ContentType: contentType,
+        Metadata: {
+          uploadedAt: new Date().toISOString(),
+          source: 'composite-design'
+        }
+      };
+      
+      console.log('Uploading to S3 with params:', {
+        Bucket: uploadParams.Bucket,
+        Key: uploadParams.Key,
+        ContentType: uploadParams.ContentType,
+        BufferSize: uploadParams.Body.length
+      });
+      
+      const result = await s3.upload(uploadParams).promise();
+      
+      console.log('S3 Upload successful:', {
+        Location: result.Location,
+        Key: result.Key,
+        Bucket: result.Bucket
+      });
+      
+      return {
+        url: result.Location,
+        key: result.Key,
+        bucket: result.Bucket,
+        size: buffer.length,
+        mimetype: contentType
+      };
+    } else {
+      // Local storage fallback
+      const uploadsDir = path.join(process.cwd(), 'uploads');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+      
+      const fileName = key.replace(/\//g, '_'); // Replace slashes with underscores for local storage
+      const filePath = path.join(uploadsDir, fileName);
+      
+      // Write buffer to file
+      fs.writeFileSync(filePath, buffer);
+      
+      const baseUrl = process.env.FRONTEND_URL?.replace('5173', '5000') || 'http://localhost:5000';
+      
+      return {
+        url: `${baseUrl}/uploads/${fileName}`,
+        key: key,
+        bucket: 'local',
+        size: buffer.length,
+        mimetype: contentType
+      };
+    }
+    
+  } catch (error) {
+    console.error('S3 buffer upload error:', error);
+    throw new Error(`Failed to upload buffer: ${error.message}`);
+  }
+};
+
+/**
  * Delete file from S3 or local storage
  * @param {String} key - S3 object key or local filename
  * @returns {Boolean} Success status
@@ -261,6 +358,7 @@ module.exports = {
   s3,
   upload,
   uploadToS3,
+  uploadToS3Buffer,
   deleteFromS3,
   getSignedUrl,
   checkS3Connection

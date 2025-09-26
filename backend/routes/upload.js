@@ -13,7 +13,8 @@ const fs = require('fs');
 const sharp = require('sharp'); // For image processing and dimension extraction
 const User = require('../models/User');
 const { authenticateToken } = require('../middleware/auth');
-const { uploadToS3, deleteFromS3, checkS3Connection } = require('../config/aws');
+const { uploadToS3, uploadToS3Buffer, deleteFromS3, checkS3Connection } = require('../config/aws');
+const os = require('os');
 const { generateFinalDesign, cleanupTempFile } = require('../services/qrOverlayService');
 const { 
   logDesignUpload, 
@@ -590,12 +591,60 @@ router.post('/qr-position', authenticateToken, [
     // Store old QR position for history
     const oldQrPosition = req.user.qrPosition;
     
-    // Update QR position
+    // Generate composite design on server side
+    let compositeDesignData = null;
+    try {
+      console.log('Generating server-side composite design...');
+      
+      // Generate QR data (user's scan URL for AR experience)
+      const qrData = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/scan/${req.user._id}`;
+      
+      // Generate final composite design with QR code
+      const finalDesignPath = await generateFinalDesign(
+        req.user.uploadedFiles.design.url,
+        qrData,
+        qrPositionData,
+        req.user._id.toString()
+      );
+      
+      // Upload the composite image to S3
+      const compositeImageBuffer = fs.readFileSync(finalDesignPath);
+      const compositeImageKey = `users/${req.user._id}/designs/composite-${Date.now()}.png`;
+      
+      // Upload to S3
+      const uploadResult = await uploadToS3Buffer(
+        compositeImageBuffer,
+        compositeImageKey,
+        'image/png'
+      );
+      
+      compositeDesignData = {
+        filename: uploadResult.key,
+        originalName: `composite-design-${Date.now()}.png`,
+        url: uploadResult.url,
+        size: compositeImageBuffer.length,
+        uploadedAt: new Date()
+      };
+      
+      // Clean up temporary file
+      cleanupTempFile(finalDesignPath);
+      
+      console.log('Server-side composite design generated successfully:', uploadResult.url);
+      
+    } catch (compositeError) {
+      console.error('Failed to generate server-side composite:', compositeError);
+      // Continue without composite design if generation fails
+    }
+
+    // Update QR position and composite design
+    const updateData = { qrPosition: qrPositionData };
+    if (compositeDesignData) {
+      updateData['uploadedFiles.compositeDesign'] = compositeDesignData;
+    }
+    
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
-      {
-        qrPosition: qrPositionData
-      },
+      updateData,
       { new: true }
     ).select('-password');
     
@@ -626,6 +675,250 @@ router.post('/qr-position', authenticateToken, [
       message: 'Failed to update QR position',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
+  }
+});
+
+/**
+ * POST /api/upload/save-composite-design
+ * Save the composite design image (design + QR code)
+ * Accepts the composite image as base64 in the request body
+ */
+router.post('/save-composite-design', authenticateToken, [
+  body('compositeImage').notEmpty().withMessage('Composite image is required'),
+  body('qrPosition').isObject().withMessage('QR position data is required'),
+  body('qrPosition.x').isFloat({ min: 0 }).withMessage('X coordinate must be a positive number'),
+  body('qrPosition.y').isFloat({ min: 0 }).withMessage('Y coordinate must be a positive number'),
+  body('qrPosition.width').isFloat({ min: 1 }).withMessage('Width must be a positive number'),
+  body('qrPosition.height').isFloat({ min: 1 }).withMessage('Height must be a positive number')
+], async (req, res) => {
+  try {
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+    
+    const { compositeImage, qrPosition } = req.body;
+    
+    console.log('=== COMPOSITE DESIGN SAVE DEBUG ===');
+    console.log('User ID:', req.user._id);
+    console.log('QR Position:', qrPosition);
+    console.log('Composite image received:', !!compositeImage);
+    console.log('Composite image length:', compositeImage ? compositeImage.length : 0);
+    
+    // Check if user has uploaded design
+    if (!req.user.uploadedFiles.design.url) {
+      console.log('ERROR: No design uploaded');
+      return res.status(400).json({
+        status: 'error',
+        message: 'Please upload a design first'
+      });
+    }
+    
+    console.log('Original design URL:', req.user.uploadedFiles.design.url);
+    
+    // Convert base64 image to buffer
+    let imageBuffer;
+    try {
+      // Remove data URL prefix if present
+      const base64Data = compositeImage.replace(/^data:image\/[a-z]+;base64,/, '');
+      
+      // Validate base64 data
+      if (!base64Data || base64Data.length === 0) {
+        throw new Error('Empty base64 data');
+      }
+      
+      imageBuffer = Buffer.from(base64Data, 'base64');
+      console.log('Image buffer created, size:', imageBuffer.length, 'bytes');
+      
+      // Check if buffer is reasonable size (not too large)
+      const maxSize = 50 * 1024 * 1024; // 50MB limit
+      if (imageBuffer.length > maxSize) {
+        throw new Error(`Image too large: ${imageBuffer.length} bytes (max: ${maxSize})`);
+      }
+      
+    } catch (error) {
+      console.log('ERROR: Failed to convert base64 to buffer:', error);
+      return res.status(400).json({
+        status: 'error',
+        message: `Invalid image data format: ${error.message}`
+      });
+    }
+    
+    // Check S3 connection
+    const s3Connected = await checkS3Connection();
+    if (!s3Connected) {
+      return res.status(500).json({
+        status: 'error',
+        message: 'File storage service unavailable'
+      });
+    }
+    
+    // Generate unique filename for composite design
+    const timestamp = Date.now();
+    const compositeImageKey = `users/${req.user._id}/designs/composite-${timestamp}.png`;
+    
+    console.log('Uploading to S3 with key:', compositeImageKey);
+    console.log('S3 Bucket:', process.env.AWS_S3_BUCKET);
+    
+    // Upload composite image to S3
+    const uploadResult = await uploadToS3Buffer(
+      imageBuffer,
+      compositeImageKey,
+      'image/png'
+    );
+    
+    console.log('S3 Upload result:', uploadResult);
+    
+    // Delete old composite design if exists
+    if (req.user.uploadedFiles.compositeDesign?.url) {
+      try {
+        const oldKey = req.user.uploadedFiles.compositeDesign.url.split('/').slice(-2).join('/');
+        await deleteFromS3(oldKey);
+      } catch (error) {
+        console.error('Failed to delete old composite design:', error);
+        // Continue with update even if old file deletion fails
+      }
+    }
+    
+    // Store old QR position for history
+    const oldQrPosition = req.user.qrPosition;
+    
+    // Generate MindAR target (.mind) from composite using mind-ar Compiler (with node-canvas)
+    let mindTargetResult = null;
+    try {
+      const { Compiler } = require('mind-ar/dist/mindar-image.prod.js');
+      const { loadImage } = require('canvas');
+      // Load image from buffer
+      const img = await loadImage(imageBuffer);
+      const compiler = new Compiler();
+      // Compile with single target
+      await compiler.compileImageTargets([img], () => {});
+      const exported = await compiler.exportData(); // ArrayBuffer
+      const mindBuffer = Buffer.from(new Uint8Array(exported));
+      mindTargetResult = await uploadToS3Buffer(
+        mindBuffer,
+        `users/${req.user._id}/designs/targets-${timestamp}.mind`,
+        'application/octet-stream'
+      );
+    } catch (e) {
+      console.warn('Mind target generation skipped/failed:', e?.message || e);
+    }
+
+    // Update user with composite design, optional mind target and QR position
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        qrPosition: qrPosition,
+        'uploadedFiles.compositeDesign': {
+          filename: uploadResult.key,
+          originalName: `composite-design-${timestamp}.png`,
+          url: uploadResult.url,
+          size: imageBuffer.length,
+          uploadedAt: new Date()
+        },
+        ...(mindTargetResult ? {
+          'uploadedFiles.mindTarget': {
+            filename: mindTargetResult.key,
+            url: mindTargetResult.url,
+            size: mindTargetResult.size,
+            uploadedAt: new Date()
+          }
+        } : {})
+      },
+      { new: true }
+    ).select('-password');
+    
+    // Log activity in history
+    await logQRPositionUpdate(
+      req.user._id, 
+      qrPosition, 
+      oldQrPosition,
+      {
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        compositeImageSaved: true
+      }
+    );
+    
+    res.status(200).json({
+      status: 'success',
+      message: 'Composite design saved successfully',
+      data: {
+        qrPosition: updatedUser.qrPosition,
+        compositeDesign: updatedUser.uploadedFiles.compositeDesign,
+        user: updatedUser.getPublicProfile()
+      }
+    });
+    
+  } catch (error) {
+    console.error('Save composite design error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to save composite design',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+/**
+ * POST /api/upload/save-mind-target
+ * Save a compiled MindAR target (.mind) uploaded from the client
+ * Body: { mindTargetBase64: 'data:application/octet-stream;base64,...' } OR raw base64 without data URL
+ */
+router.post('/save-mind-target', authenticateToken, [
+  body('mindTargetBase64').notEmpty().withMessage('mindTargetBase64 is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ status: 'error', message: 'Validation failed', errors: errors.array() });
+    }
+
+    const { mindTargetBase64 } = req.body;
+    let base64 = mindTargetBase64;
+    const dataUrlPrefix = /^data:application\/(octet-stream|mind)\;base64\,/;
+    if (dataUrlPrefix.test(base64)) {
+      base64 = base64.replace(dataUrlPrefix, '');
+    }
+    const buffer = Buffer.from(base64, 'base64');
+    if (!buffer || buffer.length === 0) {
+      return res.status(400).json({ status: 'error', message: 'Invalid mind target data' });
+    }
+
+    // Upload to S3
+    const timestamp = Date.now();
+    const key = `users/${req.user._id}/designs/targets-${timestamp}.mind`;
+    const uploadResult = await uploadToS3Buffer(buffer, key, 'application/octet-stream');
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        'uploadedFiles.mindTarget': {
+          filename: uploadResult.key,
+          url: uploadResult.url,
+          size: buffer.length,
+          uploadedAt: new Date()
+        }
+      },
+      { new: true }
+    ).select('-password');
+
+    return res.status(200).json({
+      status: 'success',
+      message: '.mind target saved',
+      data: {
+        mindTarget: updatedUser.uploadedFiles.mindTarget,
+        user: updatedUser.getPublicProfile()
+      }
+    });
+  } catch (err) {
+    console.error('save-mind-target error:', err);
+    return res.status(500).json({ status: 'error', message: 'Failed to save mind target' });
   }
 });
 
@@ -746,102 +1039,6 @@ router.get('/status', authenticateToken, async (req, res) => {
     res.status(500).json({
       status: 'error',
       message: 'Failed to get upload status',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
-
-/**
- * POST /api/upload/generate-final-design
- * Generate and store final design with QR code in S3
- * Called when QR position is set to prepare for AR detection
- */
-router.post('/generate-final-design', authenticateToken, async (req, res) => {
-  try {
-    const user = req.user;
-    
-    // Check if user has uploaded design and set QR position
-    if (!user.uploadedFiles.design.url) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Please upload a design first'
-      });
-    }
-    
-    if (!user.qrPosition || (user.qrPosition.x === undefined && user.qrPosition.y === undefined)) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Please set QR code position first'
-      });
-    }
-    
-    // Get current project information
-    const currentProject = user.projects?.find(p => p.id === user.currentProject);
-    
-    // Generate project-specific QR data for AR experience (using hash routing)
-    let qrData;
-    if (currentProject) {
-      qrData = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/#/scan/project/${currentProject.id}`;
-    } else {
-      qrData = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/#/scan/${user._id}`;
-    }
-    
-    // Generate final design with QR code
-    const finalDesignPath = await generateFinalDesign(
-      user.uploadedFiles.design.url,
-      qrData,
-      user.qrPosition,
-      user._id.toString()
-    );
-    
-    // Upload final design to S3
-    const finalDesignBuffer = fs.readFileSync(finalDesignPath);
-    const finalDesignFile = {
-      buffer: finalDesignBuffer,
-      originalname: `final-design-${user.username}-${Date.now()}.png`,
-      mimetype: 'image/png'
-    };
-    
-    const uploadResult = await uploadToS3(finalDesignFile, user._id, 'final-design');
-    
-    // Delete old final design if exists
-    if (user.uploadedFiles.finalDesign?.url) {
-      try {
-        const oldKey = user.uploadedFiles.finalDesign.url.split('/').slice(-2).join('/');
-        await deleteFromS3(oldKey);
-      } catch (error) {
-        console.error('Failed to delete old final design:', error);
-      }
-    }
-    
-    // Update user record with final design URL
-    const updatedUser = await User.findByIdAndUpdate(user._id, {
-      'uploadedFiles.finalDesign': {
-        filename: uploadResult.key,
-        originalName: finalDesignFile.originalname,
-        url: uploadResult.url,
-        size: uploadResult.size,
-        uploadedAt: new Date()
-      }
-    }, { new: true });
-    
-    // Clean up temporary file
-    cleanupTempFile(finalDesignPath);
-    
-    res.status(200).json({
-      status: 'success',
-      message: 'Final design generated and stored successfully',
-      data: {
-        finalDesignUrl: uploadResult.url,
-        originalDesignUrl: user.uploadedFiles.design.url
-      }
-    });
-    
-  } catch (error) {
-    console.error('Generate final design error:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Failed to generate final design',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }

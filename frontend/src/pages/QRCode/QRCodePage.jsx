@@ -23,7 +23,8 @@ import {
   FileText,
   ArrowLeft,
   Grid,
-  List
+  List,
+  Layers
 } from 'lucide-react'
 import LoadingSpinner from '../../components/UI/LoadingSpinner'
 import toast from 'react-hot-toast'
@@ -322,6 +323,71 @@ const QRCodePage = () => {
             </div>
           </div>
 
+          {/* Composite Design Display */}
+          <div className="card">
+            <div className="card-header">
+              <h2 className="text-xl font-semibold text-slate-100 flex items-center">
+                <Layers className="w-5 h-5 mr-2 text-neon-purple" />
+                Composite Design
+              </h2>
+              <p className="text-slate-300">
+                Your design with QR code overlay
+              </p>
+            </div>
+
+            <div className="text-center">
+              {user?.uploadedFiles?.compositeDesign?.url ? (
+                <div className="space-y-4">
+                  <div className="inline-block p-4 bg-slate-800/50 rounded-lg shadow-dark-large border border-slate-600/30">
+                    <img
+                      src={user.uploadedFiles.compositeDesign.url}
+                      alt="Composite Design"
+                      className="max-w-full h-auto max-h-96 rounded-lg"
+                    />
+                  </div>
+                  <p className="text-sm text-slate-300">
+                    This is your final design ready for printing
+                  </p>
+                  <div className="flex space-x-2 justify-center">
+                    <button
+                      onClick={() => window.open(user.uploadedFiles.compositeDesign.url, '_blank')}
+                      className="btn-secondary flex items-center"
+                    >
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      View Full Size
+                    </button>
+                    <button
+                      onClick={() => {
+                        const link = document.createElement('a');
+                        link.href = user.uploadedFiles.compositeDesign.url;
+                        link.download = `composite-design-${selectedProject?.name || 'design'}.png`;
+                        link.click();
+                      }}
+                      className="btn-primary flex items-center"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Download
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="py-12">
+                  <Layers className="mx-auto h-16 w-16 text-slate-400 mb-4" />
+                  <p className="text-slate-300 mb-4">No composite design available</p>
+                  <p className="text-sm text-slate-400">
+                    Complete your design setup to generate the composite image
+                  </p>
+                  <a
+                    href="/upload"
+                    className="btn-primary mt-4 inline-block"
+                  >
+                    Go to Upload
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+
         {/* URL and Actions */}
         <div className="space-y-6">
           {/* Personalized URL */}
@@ -605,6 +671,26 @@ const QRCodePage = () => {
                 <div className="flex items-center text-sm text-slate-400 mb-4">
                   <QrCode className="w-4 h-4 mr-2" />
                   Last QR generated: {project.lastGenerated.toLocaleDateString()}
+                </div>
+              )}
+
+              {/* Composite Design Preview */}
+              {user?.uploadedFiles?.compositeDesign?.url && (
+                <div className="mb-4">
+                  <div className="flex items-center text-sm text-slate-400 mb-2">
+                    <Layers className="w-4 h-4 mr-2" />
+                    Composite Design
+                  </div>
+                  <div className="relative">
+                    <img
+                      src={user.uploadedFiles.compositeDesign.url}
+                      alt="Composite Design Preview"
+                      className="w-full h-32 object-cover rounded-lg border border-slate-600/30"
+                    />
+                    <div className="absolute inset-0 bg-black/20 rounded-lg flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                      <Eye className="w-6 h-6 text-white" />
+                    </div>
+                  </div>
                 </div>
               )}
               

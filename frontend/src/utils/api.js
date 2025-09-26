@@ -172,10 +172,17 @@ export const uploadAPI = {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
   setQRPosition: (position) => api.post('/upload/qr-position', position),
+  saveCompositeDesign: (compositeImage, qrPosition) => api.post('/upload/save-composite-design', {
+    compositeImage,
+    qrPosition
+  }, {
+    timeout: 120000 // 2 minutes timeout for large image uploads
+  }),
   updateSocialLinks: (links) => api.post('/upload/social-links', links),
   getUploadStatus: () => api.get('/upload/status'),
   downloadFinalDesign: () => api.get('/upload/download-final-design', { responseType: 'blob' }),
   previewFinalDesign: () => api.get('/upload/preview-final-design'),
+  saveMindTarget: (mindTargetBase64) => api.post('/upload/save-mind-target', { mindTargetBase64 }),
 }
 
 export const qrAPI = {
