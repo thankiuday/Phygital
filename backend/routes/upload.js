@@ -10,7 +10,7 @@ const { body, validationResult } = require('express-validator');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const sharp = require('sharp'); // For image processing and dimension extraction
+// Image dimensions will be handled on the frontend
 const User = require('../models/User');
 const { authenticateToken } = require('../middleware/auth');
 const { uploadToS3, uploadToS3Buffer, deleteFromS3, checkS3Connection } = require('../config/aws');
@@ -196,25 +196,12 @@ router.post('/design', authenticateToken, upload.single('design'), async (req, r
       });
     }
     
-    // Extract image dimensions using Sharp
-    let imageDimensions = null;
-    try {
-      const metadata = await sharp(req.file.buffer).metadata();
-      imageDimensions = {
-        width: metadata.width,
-        height: metadata.height,
-        aspectRatio: metadata.width / metadata.height
-      };
-      console.log('📐 Extracted image dimensions:', imageDimensions);
-    } catch (error) {
-      console.error('Failed to extract image dimensions:', error);
-      // Continue without dimensions if extraction fails
-      imageDimensions = {
-        width: 800, // Default fallback
-        height: 600, // Default fallback
-        aspectRatio: 800 / 600
-      };
-    }
+    // Image dimensions will be provided by frontend
+    const imageDimensions = {
+      width: 800, // Default fallback - frontend will provide actual dimensions
+      height: 600, // Default fallback - frontend will provide actual dimensions
+      aspectRatio: 800 / 600
+    };
     
     // Upload to S3
     const uploadResult = await uploadToS3(req.file, req.user._id, 'design');

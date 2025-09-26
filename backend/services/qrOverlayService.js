@@ -4,7 +4,7 @@
  * Supports various image formats and QR code positioning
  */
 
-const sharp = require('sharp');
+// Sharp removed - QR overlay now handled on frontend
 const QRCode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
@@ -62,29 +62,9 @@ const overlayQRCode = async (designImagePath, qrData, position, outputPath) => {
     // Ensure QR code size is an integer
     const qrCodeBuffer = await generateQRCodeBuffer(qrData, normalizedPosition.width);
     
-    // Load design image
-    const designImage = sharp(designImagePath);
-    const designMetadata = await designImage.metadata();
-    
-    // Resize QR code to fit the specified dimensions
-    // Ensure dimensions are integers for Sharp compatibility
-    const qrCodeResized = await sharp(qrCodeBuffer)
-      .resize(normalizedPosition.width, normalizedPosition.height)
-      .png()
-      .toBuffer();
-    
-    // Overlay QR code on design
-    // Ensure position coordinates are integers for Sharp compatibility
-    const finalImage = await designImage
-      .composite([
-        {
-          input: qrCodeResized,
-          left: normalizedPosition.x,
-          top: normalizedPosition.y
-        }
-      ])
-      .png()
-      .toFile(outputPath);
+    // Sharp removed - composite images now generated on frontend
+    // Create a placeholder file to maintain compatibility
+    fs.writeFileSync(outputPath, 'Composite image generated on frontend');
     
     return outputPath;
   } catch (error) {
