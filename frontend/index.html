@@ -85,14 +85,24 @@
                       
                       video.onloadedmetadata = () => {
                         console.log('✅ Camera stream active');
+                        console.log('📹 Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+                        console.log('🎨 Canvas dimensions:', canvas.width, 'x', canvas.height);
+                        
                         // Draw video to canvas
                         const drawFrame = () => {
                           if (video.readyState === video.HAVE_ENOUGH_DATA) {
                             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                            // Add a small indicator to show drawing is working
+                            ctx.fillStyle = 'lime';
+                            ctx.fillRect(10, 10, 20, 20);
+                            ctx.fillStyle = 'white';
+                            ctx.font = '12px Arial';
+                            ctx.fillText('LIVE', 15, 25);
                           }
                           requestAnimationFrame(drawFrame);
                         };
                         drawFrame();
+                        console.log('🎬 Video drawing started');
                       };
                       
                       return stream;
@@ -124,6 +134,16 @@
                       
                       config.container.appendChild(canvas);
                       console.log('📺 Canvas added to container:', config.container);
+                      
+                      // Draw initial placeholder to ensure canvas is visible
+                      ctx.fillStyle = '#1a1a1a';
+                      ctx.fillRect(0, 0, canvas.width, canvas.height);
+                      ctx.fillStyle = '#00ff00';
+                      ctx.font = '24px Arial';
+                      ctx.textAlign = 'center';
+                      ctx.fillText('CAMERA LOADING...', canvas.width/2, canvas.height/2);
+                      console.log('🎨 Initial placeholder drawn');
+                      
                       await startCamera();
                       return Promise.resolve();
                     },
