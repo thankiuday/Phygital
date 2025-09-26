@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- AR Libraries - Load before React app -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
     <script src="https://hammerjs.github.io/dist/hammer.min.js"></script>
     
     <!-- Load MindAR from a working UMD build -->
@@ -20,9 +20,9 @@
       (function() {
         console.log('🔄 Loading MindAR...');
         
-        // Try to load from a CDN that provides UMD builds
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-three.prod.js';
+          // Try to load from a CDN that provides UMD builds
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-three.umd.js';
         script.crossOrigin = 'anonymous';
         
         script.onload = function() {
@@ -141,12 +141,14 @@
                       canvas.style.position = 'absolute';
                       canvas.style.top = '0';
                       canvas.style.left = '0';
-                      canvas.style.width = '100%';
-                      canvas.style.height = '100%';
-                      canvas.style.zIndex = '5';
-                      canvas.style.backgroundColor = '#000';
-                      canvas.style.pointerEvents = 'none'; // Allow clicks to pass through
-                      console.log('🎨 Canvas z-index set to 5 with pointer-events none');
+                      canvas.style.width = '100vw';
+                      canvas.style.height = '100vh';
+                      canvas.style.zIndex = '999';
+                      canvas.style.backgroundColor = '#ff0000'; // Bright red to ensure visibility
+                      canvas.style.pointerEvents = 'none';
+                      canvas.style.objectFit = 'cover';
+                      canvas.style.display = 'block';
+                      console.log('🎨 Canvas styled with z-index 999 and red background');
                       
                       config.container.appendChild(canvas);
                       console.log('📺 Canvas added to container:', config.container);
@@ -166,6 +168,16 @@
                       ctx.fillText('CAMERA LOADING...', canvas.width/2, canvas.height/2 - 20);
                       ctx.fillText('RED SCREEN = CANVAS WORKING', canvas.width/2, canvas.height/2 + 20);
                       console.log('🎨 Initial RED placeholder drawn');
+                      console.log('🎨 Canvas dimensions:', canvas.width, 'x', canvas.height);
+                      console.log('🎨 Canvas style:', {
+                        position: canvas.style.position,
+                        top: canvas.style.top,
+                        left: canvas.style.left,
+                        width: canvas.style.width,
+                        height: canvas.style.height,
+                        zIndex: canvas.style.zIndex,
+                        display: canvas.style.display
+                      });
                       
                       await startCamera();
                       return Promise.resolve();
@@ -216,8 +228,8 @@
           // Fallback: Try loading from unpkg
           console.log('🔄 Trying unpkg fallback...');
           
-          const fallbackScript = document.createElement('script');
-          fallbackScript.src = 'https://unpkg.com/mind-ar@1.2.2/dist/mindar-image-three.prod.js';
+            const fallbackScript = document.createElement('script');
+            fallbackScript.src = 'https://unpkg.com/mind-ar@1.2.2/dist/mindar-image-three.umd.js';
           fallbackScript.crossOrigin = 'anonymous';
           
           fallbackScript.onload = function() {
