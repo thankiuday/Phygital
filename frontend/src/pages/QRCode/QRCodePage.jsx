@@ -359,49 +359,92 @@ const QRCodePage = () => {
                     <button
                       onClick={async () => {
                         try {
-                          console.log('Downloading composite design from:', user.uploadedFiles.compositeDesign.url);
+                          console.log('Generating fresh composite image for download...');
                           
-                          const response = await fetch(user.uploadedFiles.compositeDesign.url, {
-                            method: 'GET',
-                            headers: {
-                              'Accept': 'image/png,image/*,*/*'
+                          // Create a fresh composite image instead of using the S3 one
+                          const canvas = document.createElement('canvas');
+                          const ctx = canvas.getContext('2d');
+                          
+                          // Load the original design image
+                          const designImg = new Image();
+                          designImg.crossOrigin = 'anonymous';
+                          
+                          designImg.onload = async () => {
+                            try {
+                              // Set canvas to image dimensions
+                              canvas.width = designImg.naturalWidth;
+                              canvas.height = designImg.naturalHeight;
+                              
+                              // Draw the design image
+                              ctx.drawImage(designImg, 0, 0);
+                              
+                              // Get QR position from user data
+                              const qrPos = user.qrPosition || { x: 100, y: 100, width: 100, height: 100 };
+                              
+                              // Calculate actual QR position on full-size image
+                              const actualQrX = (qrPos.x / 800) * designImg.naturalWidth; // Assuming 800px display width
+                              const actualQrY = (qrPos.y / 600) * designImg.naturalHeight; // Assuming 600px display height
+                              const actualQrWidth = (qrPos.width / 800) * designImg.naturalWidth;
+                              const actualQrHeight = (qrPos.height / 600) * designImg.naturalHeight;
+                              
+                              // Try to load and draw the QR code
+                              try {
+                                const qrResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/qr/generate/${user._id}?format=png&size=300`);
+                                if (qrResponse.ok) {
+                                  const qrBlob = await qrResponse.blob();
+                                  const qrImg = new Image();
+                                  qrImg.onload = () => {
+                                    // Draw QR code on the composite
+                                    ctx.drawImage(qrImg, actualQrX, actualQrY, actualQrWidth, actualQrHeight);
+                                    
+                                    // Convert to blob and download
+                                    canvas.toBlob((blob) => {
+                                      const filename = `composite-design-${selectedProject?.name || 'design'}.png`;
+                                      downloadFile(blob, filename);
+                                      toast.success('Fresh composite design downloaded!');
+                                    }, 'image/png', 1.0);
+                                  };
+                                  qrImg.src = URL.createObjectURL(qrBlob);
+                                } else {
+                                  throw new Error('QR generation failed');
+                                }
+                              } catch (qrError) {
+                                console.warn('QR loading failed, using placeholder:', qrError);
+                                // Draw placeholder QR
+                                ctx.fillStyle = 'rgba(59, 130, 246, 0.3)';
+                                ctx.fillRect(actualQrX, actualQrY, actualQrWidth, actualQrHeight);
+                                ctx.strokeStyle = 'rgba(59, 130, 246, 0.8)';
+                                ctx.lineWidth = 2;
+                                ctx.strokeRect(actualQrX, actualQrY, actualQrWidth, actualQrHeight);
+                                ctx.fillStyle = 'rgba(59, 130, 246, 1)';
+                                ctx.font = `${Math.max(12, actualQrWidth / 8)}px Arial`;
+                                ctx.textAlign = 'center';
+                                ctx.fillText('QR CODE', actualQrX + actualQrWidth / 2, actualQrY + actualQrHeight / 2);
+                                
+                                // Convert to blob and download
+                                canvas.toBlob((blob) => {
+                                  const filename = `composite-design-${selectedProject?.name || 'design'}.png`;
+                                  downloadFile(blob, filename);
+                                  toast.success('Composite design downloaded (with placeholder QR)!');
+                                }, 'image/png', 1.0);
+                              }
+                            } catch (canvasError) {
+                              console.error('Canvas generation failed:', canvasError);
+                              toast.error('Failed to generate composite image');
                             }
-                          });
+                          };
                           
-                          if (!response.ok) {
-                            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                          }
+                          designImg.onerror = () => {
+                            console.error('Failed to load design image');
+                            toast.error('Failed to load design image');
+                          };
                           
-                          const blob = await response.blob();
-                          console.log('Downloaded blob:', {
-                            size: blob.size,
-                            type: blob.type
-                          });
+                          // Load the design image
+                          designImg.src = user.uploadedFiles.design.url;
                           
-                          // Ensure it's treated as PNG
-                          const pngBlob = new Blob([blob], { type: 'image/png' });
-                          const filename = `composite-design-${selectedProject?.name || 'design'}.png`;
-                          
-                          downloadFile(pngBlob, filename);
-                          toast.success('Composite design downloaded!');
                         } catch (error) {
-                          console.error('Download failed:', error);
-                          toast.error(`Failed to download: ${error.message}`);
-                          
-                          // Fallback: try direct link method
-                          try {
-                            const link = document.createElement('a');
-                            link.href = user.uploadedFiles.compositeDesign.url;
-                            link.download = `composite-design-${selectedProject?.name || 'design'}.png`;
-                            link.target = '_blank';
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                            toast.success('Download started (fallback method)');
-                          } catch (fallbackError) {
-                            console.error('Fallback download failed:', fallbackError);
-                            toast.error('All download methods failed');
-                          }
+                          console.error('Download preparation failed:', error);
+                          toast.error(`Download failed: ${error.message}`);
                         }
                       }}
                       className="btn-primary flex items-center"
