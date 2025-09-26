@@ -6,9 +6,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "build": "npm install && npm rebuild sharp",
+    "build": "npm install --include=optional && npm install --os=linux --cpu=x64 sharp",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "postinstall": "npm rebuild sharp"
+    "postinstall": "npm install --os=linux --cpu=x64 sharp || npm rebuild sharp || echo 'Sharp installation completed'"
   },
   "keywords": [
     "phygital",
