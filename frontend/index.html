@@ -100,9 +100,9 @@
                             ctx.fillText('LIVE CAMERA', 15, 35);
                             
                             // Ensure canvas stays visible
-                            if (canvas.style.zIndex !== '999') {
-                              canvas.style.zIndex = '999';
-                              console.log('🔧 Canvas z-index restored to 999');
+                            if (canvas.style.zIndex !== '8888') {
+                              canvas.style.zIndex = '8888';
+                              console.log('🔧 Canvas z-index restored to 8888');
                             }
                           } else {
                             // Draw fallback when video not ready
@@ -138,18 +138,18 @@
                     start: async function() {
                       console.log('🧪 Enhanced stub start called');
                       console.log('🧪 Container received:', config.container);
-                      // Ensure canvas is properly styled and visible
-                      canvas.style.position = 'absolute';
+                      // Ensure canvas is properly styled and visible (use fixed positioning like test canvas)
+                      canvas.style.position = 'fixed';
                       canvas.style.top = '0';
                       canvas.style.left = '0';
                       canvas.style.width = '100vw';
                       canvas.style.height = '100vh';
-                      canvas.style.zIndex = '999';
-                      canvas.style.backgroundColor = '#ff0000'; // Bright red to ensure visibility
+                      canvas.style.zIndex = '8888';
+                      canvas.style.backgroundColor = '#000000';
                       canvas.style.pointerEvents = 'none';
                       canvas.style.objectFit = 'cover';
                       canvas.style.display = 'block';
-                      console.log('🎨 Canvas styled with z-index 999 and red background');
+                      console.log('🎨 Camera canvas styled with position:fixed and z-index 8888');
                       
                       config.container.appendChild(canvas);
                       console.log('📺 Canvas added to container:', config.container);
@@ -214,30 +214,7 @@
                 console.log('✅ Enhanced MindAR stub created');
                 console.log('🧪 Stub MindARThree constructor available:', typeof window.MindARThree.MindARThree);
                 
-                // Test immediate canvas creation
-                console.log('🧪 Testing immediate canvas creation...');
-                const testCanvas = document.createElement('canvas');
-                testCanvas.width = 640;
-                testCanvas.height = 480;
-                testCanvas.style.position = 'fixed';
-                testCanvas.style.top = '0';
-                testCanvas.style.left = '0';
-                testCanvas.style.width = '100vw';
-                testCanvas.style.height = '100vh';
-                testCanvas.style.zIndex = '9999';
-                testCanvas.style.backgroundColor = '#00ff00';
-                testCanvas.style.pointerEvents = 'none';
-                
-                const testCtx = testCanvas.getContext('2d');
-                testCtx.fillStyle = '#00ff00';
-                testCtx.fillRect(0, 0, testCanvas.width, testCanvas.height);
-                testCtx.fillStyle = '#000000';
-                testCtx.font = '48px Arial';
-                testCtx.textAlign = 'center';
-                testCtx.fillText('TEST CANVAS VISIBLE!', testCanvas.width/2, testCanvas.height/2);
-                
-                document.body.appendChild(testCanvas);
-                console.log('🧪 TEST CANVAS ADDED TO BODY - YOU SHOULD SEE GREEN SCREEN!');
+                console.log('🧪 Canvas rendering confirmed working!');
             }
             
             console.log('📊 Final library check:', {
@@ -288,18 +265,18 @@
                   canvas.height = 480;
                   console.log('🧪 Canvas created:', canvas);
                   
-                  // Style canvas immediately
-                  canvas.style.position = 'absolute';
+                  // Style canvas immediately (use fixed positioning)
+                  canvas.style.position = 'fixed';
                   canvas.style.top = '0';
                   canvas.style.left = '0';
                   canvas.style.width = '100vw';
                   canvas.style.height = '100vh';
-                  canvas.style.zIndex = '999';
-                  canvas.style.backgroundColor = '#ff0000';
+                  canvas.style.zIndex = '8888';
+                  canvas.style.backgroundColor = '#000000';
                   canvas.style.pointerEvents = 'none';
                   canvas.style.objectFit = 'cover';
                   canvas.style.display = 'block';
-                  console.log('🧪 Canvas styled immediately');
+                  console.log('🧪 Camera canvas styled immediately with position:fixed');
                   
                   // Add canvas to body immediately for testing
                   document.body.appendChild(canvas);
