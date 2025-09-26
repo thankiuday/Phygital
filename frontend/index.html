@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- AR Libraries - Load before React app -->
-    <script src="https://unpkg.com/three@0.158.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
     <script src="https://hammerjs.github.io/dist/hammer.min.js"></script>
     
     <!-- Load MindAR from a working UMD build -->
@@ -98,6 +98,20 @@
                             ctx.fillStyle = 'black';
                             ctx.font = '20px Arial';
                             ctx.fillText('LIVE CAMERA', 15, 35);
+                            
+                            // Ensure canvas stays visible
+                            if (canvas.style.zIndex !== '5') {
+                              canvas.style.zIndex = '5';
+                              console.log('🔧 Canvas z-index restored to 5');
+                            }
+                          } else {
+                            // Draw fallback when video not ready
+                            ctx.fillStyle = '#ff0000';
+                            ctx.fillRect(0, 0, canvas.width, canvas.height);
+                            ctx.fillStyle = '#ffffff';
+                            ctx.font = '24px Arial';
+                            ctx.textAlign = 'center';
+                            ctx.fillText('WAITING FOR CAMERA...', canvas.width/2, canvas.height/2);
                           }
                           requestAnimationFrame(drawFrame);
                         };
@@ -129,12 +143,19 @@
                       canvas.style.left = '0';
                       canvas.style.width = '100%';
                       canvas.style.height = '100%';
-                      canvas.style.zIndex = '1';
+                      canvas.style.zIndex = '5';
                       canvas.style.backgroundColor = '#000';
-                      console.log('🎨 Canvas z-index set to 1 (background layer)');
+                      canvas.style.pointerEvents = 'none'; // Allow clicks to pass through
+                      console.log('🎨 Canvas z-index set to 5 with pointer-events none');
                       
                       config.container.appendChild(canvas);
                       console.log('📺 Canvas added to container:', config.container);
+                      console.log('📺 Container children count:', config.container.children.length);
+                      console.log('📺 Container children:', Array.from(config.container.children).map(child => ({
+                        tagName: child.tagName,
+                        className: child.className,
+                        zIndex: child.style.zIndex || getComputedStyle(child).zIndex
+                      })));
                       
                       // Draw initial placeholder to ensure canvas is visible
                       ctx.fillStyle = '#ff0000'; // Bright red background
