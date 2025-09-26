@@ -169,6 +169,13 @@ const ARExperiencePage = () => {
 
   // Auto-start AR experience when both project data and libraries are ready (only once)
   useEffect(() => {
+    console.log('🔍 Auto-start check:', {
+      projectData: !!projectData,
+      librariesLoaded,
+      isScanning,
+      hasAutoStarted: hasAutoStarted.current
+    });
+    
     if (projectData && librariesLoaded && !isScanning && !hasAutoStarted.current) {
       console.log('🚀 Auto-starting AR experience - both project data and libraries are ready');
       hasAutoStarted.current = true; // Mark as started to prevent re-triggering
@@ -339,6 +346,14 @@ const ARExperiencePage = () => {
 
   const initializeAR = async () => {
     try {
+      console.log('🔧 initializeAR called');
+      console.log('📊 Current state:', {
+        projectData: !!projectData,
+        librariesLoaded,
+        cameraActive,
+        isScanning
+      });
+      
       if (!projectData) {
         console.error('❌ Project data missing');
         throw new Error('Project data not available');
@@ -1555,11 +1570,13 @@ const ARExperiencePage = () => {
 
   const handleStartScan = async () => {
     try {
+      console.log('🚀 handleStartScan called');
       addDebugMessage('🚀 Starting AR scan...', 'info');
       setIsScanning(true);
       setError(null);
       setFallbackMode(false); // Reset fallback mode
       setArLoadingProgress(0);
+      console.log('📊 Initial state set, starting AR initialization...');
       
       // Small delay to ensure DOM is fully rendered
       await new Promise(resolve => setTimeout(resolve, 500));
