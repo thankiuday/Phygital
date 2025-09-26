@@ -612,7 +612,7 @@ const ARExperiencePage = () => {
   }
 
   return (
-    <div className="relative min-h-screen bg-black overflow-hidden">
+    <div className="relative min-h-screen overflow-hidden">
       {/* AR Container */}
       <div 
         ref={containerRef}
