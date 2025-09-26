@@ -359,24 +359,38 @@ const QRCodePage = () => {
                     <button
                       onClick={async () => {
                         try {
-                          console.log('Generating fresh composite image for download...');
+                          console.log('=== FRESH COMPOSITE DOWNLOAD DEBUG ===');
+                          console.log('User data:', user);
+                          console.log('Design URL:', user.uploadedFiles.design.url);
+                          console.log('QR Position:', user.qrPosition);
                           
                           // Create a fresh composite image instead of using the S3 one
                           const canvas = document.createElement('canvas');
                           const ctx = canvas.getContext('2d');
                           
                           // Load the original design image
-                          const designImg = new Image();
+                          const designImg = document.createElement('img');
                           designImg.crossOrigin = 'anonymous';
                           
                           designImg.onload = async () => {
                             try {
+                              console.log('Design image loaded:', {
+                                naturalWidth: designImg.naturalWidth,
+                                naturalHeight: designImg.naturalHeight
+                              });
+                              
                               // Set canvas to image dimensions
                               canvas.width = designImg.naturalWidth;
                               canvas.height = designImg.naturalHeight;
                               
+                              console.log('Canvas dimensions set:', {
+                                width: canvas.width,
+                                height: canvas.height
+                              });
+                              
                               // Draw the design image
                               ctx.drawImage(designImg, 0, 0);
+                              console.log('Design image drawn to canvas');
                               
                               // Get QR position from user data
                               const qrPos = user.qrPosition || { x: 100, y: 100, width: 100, height: 100 };
@@ -387,22 +401,31 @@ const QRCodePage = () => {
                               const actualQrWidth = (qrPos.width / 800) * designImg.naturalWidth;
                               const actualQrHeight = (qrPos.height / 600) * designImg.naturalHeight;
                               
+                              console.log('QR position calculation:', {
+                                qrPos,
+                                actualQr: { x: actualQrX, y: actualQrY, width: actualQrWidth, height: actualQrHeight }
+                              });
+                              
                               // Try to load and draw the QR code
                               try {
                                 const qrResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/qr/generate/${user._id}?format=png&size=300`);
                                 if (qrResponse.ok) {
                                   const qrBlob = await qrResponse.blob();
-                                  const qrImg = new Image();
+                                  const qrImg = document.createElement('img');
                                   qrImg.onload = () => {
                                     // Draw QR code on the composite
                                     ctx.drawImage(qrImg, actualQrX, actualQrY, actualQrWidth, actualQrHeight);
                                     
-                                    // Convert to blob and download
-                                    canvas.toBlob((blob) => {
-                                      const filename = `composite-design-${selectedProject?.name || 'design'}.png`;
-                                      downloadFile(blob, filename);
-                                      toast.success('Fresh composite design downloaded!');
-                                    }, 'image/png', 1.0);
+                                // Convert to blob and download
+                                canvas.toBlob((blob) => {
+                                  console.log('Canvas converted to blob:', {
+                                    size: blob.size,
+                                    type: blob.type
+                                  });
+                                  const filename = `composite-design-${selectedProject?.name || 'design'}.png`;
+                                  downloadFile(blob, filename);
+                                  toast.success('Fresh composite design downloaded!');
+                                }, 'image/png', 1.0);
                                   };
                                   qrImg.src = URL.createObjectURL(qrBlob);
                                 } else {
