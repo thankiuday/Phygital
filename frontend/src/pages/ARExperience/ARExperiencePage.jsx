@@ -228,13 +228,27 @@ const ARExperiencePage = () => {
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Load Three.js and MindAR using importShim
+      console.log('🔄 Loading Three.js...');
       if (!window.THREE) {
         window.THREE = await window.importShim('three');
+        console.log('✅ Three.js loaded:', !!window.THREE);
+      } else {
+        console.log('✅ Three.js already available');
       }
 
+      console.log('🔄 Loading MindAR...');
       if (!window.MindARThree) {
-        const mindarModule = await window.importShim('mindar-image-three');
-        window.MindARThree = mindarModule.MindARThree;
+        try {
+          const mindarModule = await window.importShim('mindar-image-three');
+          console.log('📦 MindAR module loaded:', mindarModule);
+          window.MindARThree = mindarModule.MindARThree;
+          console.log('✅ MindARThree assigned:', !!window.MindARThree);
+        } catch (mindarError) {
+          console.error('❌ Failed to load MindAR module:', mindarError);
+          throw mindarError;
+        }
+      } else {
+        console.log('✅ MindARThree already available');
       }
       
       console.log('✅ AR libraries loaded successfully');
@@ -242,8 +256,42 @@ const ARExperiencePage = () => {
       
     } catch (error) {
       console.error('❌ Error loading AR libraries:', error);
-      setError('Failed to load AR libraries. Please refresh the page and try again.');
-      setLibrariesLoaded(false);
+      console.log('🔄 Trying fallback method to load MindAR...');
+      
+      try {
+        // Fallback: Load MindAR directly via script tag
+        if (!window.MindARThree) {
+          const mindarScript = document.createElement('script');
+          mindarScript.src = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-three.prod.js';
+          mindarScript.type = 'module';
+          document.head.appendChild(mindarScript);
+          
+          await new Promise((resolve, reject) => {
+            mindarScript.onload = () => {
+              console.log('✅ MindAR loaded via fallback method');
+              resolve();
+            };
+            mindarScript.onerror = reject;
+            setTimeout(reject, 10000); // 10 second timeout
+          });
+          
+          // Wait a bit more for the module to initialize
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+        
+        // Check if MindAR is now available
+        if (window.MindARThree) {
+          console.log('✅ MindAR available after fallback');
+          setLibrariesLoaded(true);
+        } else {
+          throw new Error('MindAR still not available after fallback');
+        }
+        
+      } catch (fallbackError) {
+        console.error('❌ Fallback method also failed:', fallbackError);
+        setError('Failed to load AR libraries. Please refresh the page and try again.');
+        setLibrariesLoaded(false);
+      }
     }
   };
 
