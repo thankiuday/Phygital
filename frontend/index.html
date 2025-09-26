@@ -213,6 +213,31 @@
               
                 console.log('✅ Enhanced MindAR stub created');
                 console.log('🧪 Stub MindARThree constructor available:', typeof window.MindARThree.MindARThree);
+                
+                // Test immediate canvas creation
+                console.log('🧪 Testing immediate canvas creation...');
+                const testCanvas = document.createElement('canvas');
+                testCanvas.width = 640;
+                testCanvas.height = 480;
+                testCanvas.style.position = 'fixed';
+                testCanvas.style.top = '0';
+                testCanvas.style.left = '0';
+                testCanvas.style.width = '100vw';
+                testCanvas.style.height = '100vh';
+                testCanvas.style.zIndex = '9999';
+                testCanvas.style.backgroundColor = '#00ff00';
+                testCanvas.style.pointerEvents = 'none';
+                
+                const testCtx = testCanvas.getContext('2d');
+                testCtx.fillStyle = '#00ff00';
+                testCtx.fillRect(0, 0, testCanvas.width, testCanvas.height);
+                testCtx.fillStyle = '#000000';
+                testCtx.font = '48px Arial';
+                testCtx.textAlign = 'center';
+                testCtx.fillText('TEST CANVAS VISIBLE!', testCanvas.width/2, testCanvas.height/2);
+                
+                document.body.appendChild(testCanvas);
+                console.log('🧪 TEST CANVAS ADDED TO BODY - YOU SHOULD SEE GREEN SCREEN!');
             }
             
             console.log('📊 Final library check:', {
