@@ -115,7 +115,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
               ctx.font = `${Math.max(12, actualQrWidth / 8)}px Arial`;
               ctx.textAlign = 'center';
               ctx.fillText('QR CODE', actualQrX + actualQrWidth / 2, actualQrY + actualQrHeight / 2);
-              const data = canvas.toDataURL('image/png');
+              const data = canvas.toDataURL('image/png', 1.0);
               console.log('Composite image generated (placeholder)');
               resolve(data);
             };
@@ -127,7 +127,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
                 try {
                   console.log('[Level QR] qrImg loaded, drawing into canvas', { w: actualQrWidth, h: actualQrHeight });
                   ctx.drawImage(qrImg, actualQrX, actualQrY, actualQrWidth, actualQrHeight);
-                  const data = canvas.toDataURL('image/png');
+                  const data = canvas.toDataURL('image/png', 1.0);
                   console.log('Composite image generated with real QR');
                   resolve(data);
                 } catch (e) {

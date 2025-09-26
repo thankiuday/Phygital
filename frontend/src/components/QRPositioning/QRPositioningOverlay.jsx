@@ -244,7 +244,7 @@ const QRPositioningOverlay = ({
             })
             try {
               ctx.drawImage(qrImg, actualQrX, actualQrY, actualQrWidth, actualQrHeight)
-              const compositeImageData = canvas.toDataURL('image/png')
+              const compositeImageData = canvas.toDataURL('image/png', 1.0)
               console.log('Composite with real QR generated')
               resolve(compositeImageData)
             } catch (err) {
@@ -259,7 +259,7 @@ const QRPositioningOverlay = ({
               ctx.font = `${Math.max(12, actualQrWidth / 8)}px Arial`
               ctx.textAlign = 'center'
               ctx.fillText('QR CODE', actualQrX + actualQrWidth / 2, actualQrY + actualQrHeight / 2)
-              const compositeImageData = canvas.toDataURL('image/png')
+              const compositeImageData = canvas.toDataURL('image/png', 1.0)
               resolve(compositeImageData)
             }
           }
@@ -274,7 +274,7 @@ const QRPositioningOverlay = ({
             ctx.font = `${Math.max(12, actualQrWidth / 8)}px Arial`
             ctx.textAlign = 'center'
             ctx.fillText('QR CODE', actualQrX + actualQrWidth / 2, actualQrY + actualQrHeight / 2)
-            const compositeImageData = canvas.toDataURL('image/png')
+            const compositeImageData = canvas.toDataURL('image/png', 1.0)
             resolve(compositeImageData)
           }
           qrImg.src = qrImageUrl
@@ -291,7 +291,7 @@ const QRPositioningOverlay = ({
         ctx.font = `${Math.max(12, actualQrWidth / 8)}px Arial`
         ctx.textAlign = 'center'
         ctx.fillText('QR CODE', actualQrX + actualQrWidth / 2, actualQrY + actualQrHeight / 2)
-        const compositeImageData = canvas.toDataURL('image/png')
+        const compositeImageData = canvas.toDataURL('image/png', 1.0)
         resolve(compositeImageData)
         
       } catch (error) {

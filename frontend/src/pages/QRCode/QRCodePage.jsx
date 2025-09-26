@@ -359,14 +359,49 @@ const QRCodePage = () => {
                     <button
                       onClick={async () => {
                         try {
-                          const response = await fetch(user.uploadedFiles.compositeDesign.url);
+                          console.log('Downloading composite design from:', user.uploadedFiles.compositeDesign.url);
+                          
+                          const response = await fetch(user.uploadedFiles.compositeDesign.url, {
+                            method: 'GET',
+                            headers: {
+                              'Accept': 'image/png,image/*,*/*'
+                            }
+                          });
+                          
+                          if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                          }
+                          
                           const blob = await response.blob();
+                          console.log('Downloaded blob:', {
+                            size: blob.size,
+                            type: blob.type
+                          });
+                          
+                          // Ensure it's treated as PNG
+                          const pngBlob = new Blob([blob], { type: 'image/png' });
                           const filename = `composite-design-${selectedProject?.name || 'design'}.png`;
-                          downloadFile(blob, filename);
+                          
+                          downloadFile(pngBlob, filename);
                           toast.success('Composite design downloaded!');
                         } catch (error) {
                           console.error('Download failed:', error);
-                          toast.error('Failed to download composite design');
+                          toast.error(`Failed to download: ${error.message}`);
+                          
+                          // Fallback: try direct link method
+                          try {
+                            const link = document.createElement('a');
+                            link.href = user.uploadedFiles.compositeDesign.url;
+                            link.download = `composite-design-${selectedProject?.name || 'design'}.png`;
+                            link.target = '_blank';
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            toast.success('Download started (fallback method)');
+                          } catch (fallbackError) {
+                            console.error('Fallback download failed:', fallbackError);
+                            toast.error('All download methods failed');
+                          }
                         }
                       }}
                       className="btn-primary flex items-center"
