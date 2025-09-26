@@ -99,14 +99,24 @@ const ARExperiencePage = () => {
       
       console.log('🔄 Fallback: Loading MindAR...');
       if (!window.MindARThree) {
-        const mindarScript = document.createElement('script');
-        mindarScript.src = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.umd.js';
-        document.head.appendChild(mindarScript);
-        await new Promise((resolve, reject) => {
-          mindarScript.onload = resolve;
-          mindarScript.onerror = reject;
-          setTimeout(reject, 15000);
-        });
+        try {
+          // Try dynamic import
+          const mindarModule = await import('https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js');
+          window.MindARThree = mindarModule.MindARThree;
+          console.log('✅ MindAR loaded via dynamic import');
+        } catch (importError) {
+          console.log('🔄 Dynamic import failed, trying script tag...');
+          // Fallback to script tag
+          const mindarScript = document.createElement('script');
+          mindarScript.src = 'https://unpkg.com/mind-ar@1.2.5/dist/mindar-image-three.prod.js';
+          mindarScript.type = 'module';
+          document.head.appendChild(mindarScript);
+          await new Promise((resolve, reject) => {
+            mindarScript.onload = resolve;
+            mindarScript.onerror = reject;
+            setTimeout(reject, 15000);
+          });
+        }
       }
       
       // Wait for libraries to initialize
