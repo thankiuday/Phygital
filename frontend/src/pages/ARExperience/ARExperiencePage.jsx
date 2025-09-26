@@ -52,6 +52,7 @@ const ARExperiencePage = () => {
 
   // Check if libraries are available
   const checkLibraries = useCallback(async () => {
+    console.log('🔍 Starting library check...');
     addDebugMessage('🔍 Checking AR libraries...', 'info');
     
     let attempts = 0;
@@ -61,7 +62,14 @@ const ARExperiencePage = () => {
       const threeAvailable = !!window.THREE;
       const mindarAvailable = !!window.MindARThree;
       
+      console.log(`📊 Library check attempt ${attempts + 1}: THREE=${threeAvailable}, MindAR=${mindarAvailable}`);
+      
+      if (attempts % 10 === 0) { // Log every 10 attempts (every second)
+        addDebugMessage(`📊 Library check ${attempts + 1}/50: THREE=${threeAvailable}, MindAR=${mindarAvailable}`, 'info');
+      }
+      
       if (threeAvailable && mindarAvailable) {
+        console.log('✅ AR libraries loaded successfully');
         addDebugMessage('✅ AR libraries loaded successfully', 'success');
         setLibrariesLoaded(true);
         return true;
@@ -71,7 +79,8 @@ const ARExperiencePage = () => {
       attempts++;
     }
     
-    addDebugMessage('❌ AR libraries failed to load', 'error');
+    console.error('❌ AR libraries failed to load after 50 attempts');
+    addDebugMessage('❌ AR libraries failed to load after 5 seconds', 'error');
     setError('AR libraries could not be loaded. Please refresh the page.');
     return false;
   }, [addDebugMessage]);
@@ -79,6 +88,7 @@ const ARExperiencePage = () => {
   // Fetch project data
   const fetchProjectData = useCallback(async () => {
     try {
+      console.log('🌐 Starting project data fetch...');
       addDebugMessage('🌐 Fetching project data...', 'info');
       setIsLoading(true);
       
@@ -87,25 +97,34 @@ const ARExperiencePage = () => {
         ? `/qr/project-data/${projectId}` 
         : `/qr/user-data/${userId}`;
       
-      const response = await fetch(`${apiUrl}${endpoint}`);
+      const fullUrl = `${apiUrl}${endpoint}`;
+      console.log('🌐 Fetching from URL:', fullUrl);
+      addDebugMessage(`🌐 API URL: ${fullUrl}`, 'info');
+      
+      const response = await fetch(fullUrl);
+      console.log('🌐 Response status:', response.status, response.statusText);
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
       const data = await response.json();
+      console.log('🌐 Response data:', data);
       
       if (!data.success) {
         throw new Error(data.message || 'Failed to fetch project data');
       }
       
       setProjectData(data.data);
+      console.log('✅ Project data set:', data.data);
       addDebugMessage('✅ Project data loaded successfully', 'success');
       
     } catch (error) {
+      console.error('❌ Project data fetch error:', error);
       addDebugMessage(`❌ Failed to fetch project data: ${error.message}`, 'error');
       setError(`Failed to load project: ${error.message}`);
     } finally {
+      console.log('🌐 Setting isLoading to false');
       setIsLoading(false);
     }
   }, [projectId, userId, addDebugMessage]);
@@ -348,15 +367,24 @@ const ARExperiencePage = () => {
 
   // Initialize on mount
   useEffect(() => {
+    console.log('🚀 AR Page mounted, starting initialization...');
+    console.log('📊 URL params:', { userId, projectId, scanId });
+    
     const initialize = async () => {
+      console.log('🔄 Running initialization sequence...');
       const librariesReady = await checkLibraries();
+      console.log('📊 Libraries ready:', librariesReady);
+      
       if (librariesReady) {
+        console.log('🌐 Libraries ready, fetching project data...');
         await fetchProjectData();
+      } else {
+        console.error('❌ Libraries not ready, skipping project data fetch');
       }
     };
 
     initialize();
-  }, [checkLibraries, fetchProjectData]);
+  }, [checkLibraries, fetchProjectData, userId, projectId, scanId]);
 
   // Initialize MindAR when data is ready
   useEffect(() => {
@@ -462,11 +490,28 @@ const ARExperiencePage = () => {
   // Loading screen
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center text-white">
+      <div className="min-h-screen bg-black flex items-center justify-center p-4">
+        <div className="text-center text-white max-w-md w-full">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-          <p>Loading AR Experience...</p>
+          <p className="mb-6">Loading AR Experience...</p>
+          
+          {/* Debug info during loading */}
+          <div className="text-sm text-gray-400 mb-4">
+            <p>Libraries: {librariesLoaded ? '✅ Loaded' : '⏳ Loading...'}</p>
+            <p>Project Data: {projectData ? '✅ Loaded' : '⏳ Loading...'}</p>
+          </div>
+          
+          {/* Debug button */}
+          <button
+            onClick={() => setShowDebug(true)}
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm"
+          >
+            Show Debug Info
+          </button>
         </div>
+        
+        {/* Debug Panel - available even during loading */}
+        <DebugPanel />
       </div>
     );
   }
