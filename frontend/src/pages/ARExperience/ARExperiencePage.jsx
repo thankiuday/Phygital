@@ -202,6 +202,17 @@ const ARExperiencePage = () => {
 
       addDebugMessage(`🎯 Using target: ${targetUrl.includes('mind') ? '.mind file' : 'image file'}`, 'info');
 
+      // Check if we have real MindAR or stub
+      const isRealMindAR = window.MindARThree && window.MindARThree.MindARThree && 
+                          typeof window.MindARThree.MindARThree === 'function' &&
+                          !window.MindARThree.MindARThree.toString().includes('stub');
+
+      if (isRealMindAR) {
+        addDebugMessage('✅ Using real MindAR library', 'success');
+      } else {
+        addDebugMessage('🧪 Using MindAR stub (test mode)', 'info');
+      }
+
       // Create MindAR instance
       const mindar = new window.MindARThree.MindARThree({
         container: containerRef.current,
@@ -658,25 +669,52 @@ const ARExperiencePage = () => {
         <div className="absolute bottom-32 left-4 right-4 z-30">
           <div className="bg-black/50 backdrop-blur-sm rounded-lg p-4 text-center text-white">
             <Camera size={32} className="mx-auto mb-2 text-blue-400" />
-            <h3 className="font-semibold mb-1">AR Test Mode Active</h3>
-            <p className="text-sm text-gray-300">
-              Using MindAR simulation - camera feed not available in test mode
-            </p>
-            <div className="mt-3 p-2 bg-blue-500/20 rounded border border-blue-500/30">
-              <p className="text-xs text-blue-300 mb-2">
-                🧪 This is a functional test of the AR interface. 
-                Real AR requires actual MindAR library.
-              </p>
-              <button
-                onClick={() => {
-                  setTargetDetected(!targetDetected);
-                  addDebugMessage(`🧪 Test: Target ${!targetDetected ? 'detected' : 'lost'}`, 'info');
-                }}
-                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs"
-              >
-                {targetDetected ? 'Simulate Target Lost' : 'Simulate Target Found'}
-              </button>
-            </div>
+            {(() => {
+              // Check if we have real MindAR
+              const isRealMindAR = window.MindARThree && window.MindARThree.MindARThree && 
+                                  typeof window.MindARThree.MindARThree === 'function' &&
+                                  !window.MindARThree.MindARThree.toString().includes('stub');
+              
+              if (isRealMindAR) {
+                return (
+                  <>
+                    <h3 className="font-semibold mb-1">Point Camera at Design</h3>
+                    <p className="text-sm text-gray-300">
+                      Align your printed design within the camera view
+                    </p>
+                    <div className="mt-3 p-2 bg-green-500/20 rounded border border-green-500/30">
+                      <p className="text-xs text-green-300">
+                        📱 Real AR mode active - camera feed should be visible
+                      </p>
+                    </div>
+                  </>
+                );
+              } else {
+                return (
+                  <>
+                    <h3 className="font-semibold mb-1">AR Test Mode Active</h3>
+                    <p className="text-sm text-gray-300">
+                      Using MindAR simulation - camera feed not available in test mode
+                    </p>
+                    <div className="mt-3 p-2 bg-blue-500/20 rounded border border-blue-500/30">
+                      <p className="text-xs text-blue-300 mb-2">
+                        🧪 This is a functional test of the AR interface. 
+                        Real AR requires actual MindAR library.
+                      </p>
+                      <button
+                        onClick={() => {
+                          setTargetDetected(!targetDetected);
+                          addDebugMessage(`🧪 Test: Target ${!targetDetected ? 'detected' : 'lost'}`, 'info');
+                        }}
+                        className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs"
+                      >
+                        {targetDetected ? 'Simulate Target Lost' : 'Simulate Target Found'}
+                      </button>
+                    </div>
+                  </>
+                );
+              }
+            })()}
           </div>
         </div>
       )}

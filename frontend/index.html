@@ -22,7 +22,7 @@
         
         // Try to load from a CDN that provides UMD builds
         const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/dist/mindar-image-three.prod.js';
+        script.src = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-three.prod.js';
         script.crossOrigin = 'anonymous';
         
         script.onload = function() {
@@ -50,13 +50,32 @@
         };
         
         script.onerror = function() {
-          console.error('❌ Failed to load MindAR from GitHub CDN');
+          console.error('❌ Failed to load MindAR from npm CDN');
           
-          // Fallback: Try a different approach
-          console.log('🔄 Trying fallback approach...');
+          // Fallback: Try loading from unpkg
+          console.log('🔄 Trying unpkg fallback...');
           
-          // Create a minimal MindAR stub for testing
-          window.MindARThree = {
+          const fallbackScript = document.createElement('script');
+          fallbackScript.src = 'https://unpkg.com/mind-ar@1.2.2/dist/mindar-image-three.prod.js';
+          fallbackScript.crossOrigin = 'anonymous';
+          
+          fallbackScript.onload = function() {
+            console.log('✅ MindAR loaded from unpkg fallback');
+            setTimeout(() => {
+              if (window.MindARThree) {
+                console.log('✅ Real MindARThree is available');
+              } else if (window.MINDAR) {
+                window.MindARThree = window.MINDAR;
+                console.log('✅ Real MindAR mapped from MINDAR');
+              }
+            }, 500);
+          };
+          
+          fallbackScript.onerror = function() {
+            console.error('❌ All MindAR loading attempts failed, using stub');
+            
+            // Create a minimal MindAR stub for testing
+            window.MindARThree = {
             MindARThree: function(config) {
               console.log('🧪 Using MindAR stub for testing');
               this.container = config.container;
@@ -93,6 +112,9 @@
           };
           
           console.log('✅ MindAR stub created for testing');
+          };
+          
+          document.head.appendChild(fallbackScript);
         };
         
         document.head.appendChild(script);
