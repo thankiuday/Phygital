@@ -788,26 +788,7 @@ router.post('/save-composite-design', authenticateToken, [
     // Store old QR position for history
     const oldQrPosition = req.user.qrPosition;
     
-    // Generate MindAR target (.mind) from composite using mind-ar Compiler (with node-canvas)
-    let mindTargetResult = null;
-    try {
-      const { Compiler } = require('mind-ar/dist/mindar-image.prod.js');
-      const { loadImage } = require('canvas');
-      // Load image from buffer
-      const img = await loadImage(imageBuffer);
-      const compiler = new Compiler();
-      // Compile with single target
-      await compiler.compileImageTargets([img], () => {});
-      const exported = await compiler.exportData(); // ArrayBuffer
-      const mindBuffer = Buffer.from(new Uint8Array(exported));
-      mindTargetResult = await uploadToS3Buffer(
-        mindBuffer,
-        `users/${req.user._id}/designs/targets-${timestamp}.mind`,
-        'application/octet-stream'
-      );
-    } catch (e) {
-      console.warn('Mind target generation skipped/failed:', e?.message || e);
-    }
+    // Note: .mind target generation is handled client-side via /save-mind-target endpoint
 
     // Update user with composite design, optional mind target and QR position
     const updatedUser = await User.findByIdAndUpdate(
@@ -821,14 +802,6 @@ router.post('/save-composite-design', authenticateToken, [
           size: imageBuffer.length,
           uploadedAt: new Date()
         },
-        ...(mindTargetResult ? {
-          'uploadedFiles.mindTarget': {
-            filename: mindTargetResult.key,
-            url: mindTargetResult.url,
-            size: mindTargetResult.size,
-            uploadedAt: new Date()
-          }
-        } : {})
       },
       { new: true }
     ).select('-password');
