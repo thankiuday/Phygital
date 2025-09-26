@@ -357,11 +357,17 @@ const QRCodePage = () => {
                       View Full Size
                     </button>
                     <button
-                      onClick={() => {
-                        const link = document.createElement('a');
-                        link.href = user.uploadedFiles.compositeDesign.url;
-                        link.download = `composite-design-${selectedProject?.name || 'design'}.png`;
-                        link.click();
+                      onClick={async () => {
+                        try {
+                          const response = await fetch(user.uploadedFiles.compositeDesign.url);
+                          const blob = await response.blob();
+                          const filename = `composite-design-${selectedProject?.name || 'design'}.png`;
+                          downloadFile(blob, filename);
+                          toast.success('Composite design downloaded!');
+                        } catch (error) {
+                          console.error('Download failed:', error);
+                          toast.error('Failed to download composite design');
+                        }
                       }}
                       className="btn-primary flex items-center"
                     >
