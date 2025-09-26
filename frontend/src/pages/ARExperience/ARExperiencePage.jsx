@@ -17,10 +17,7 @@ const ARExperiencePage = () => {
   const [arLoadingProgress, setArLoadingProgress] = useState(0);
   const [librariesLoaded, setLibrariesLoaded] = useState(false);
   const [debugMessages, setDebugMessages] = useState([]);
-  const [showDebug, setShowDebug] = useState(() => {
-    // Show debug by default on mobile devices
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  });
+  const [showDebug, setShowDebug] = useState(false); // Don't show debug by default
   const [debugManuallyOpened, setDebugManuallyOpened] = useState(false);
   const [scanningStatus, setScanningStatus] = useState('idle'); // 'idle', 'scanning', 'detected', 'lost'
   const [cameraError, setCameraError] = useState(null);
@@ -88,7 +85,7 @@ const ARExperiencePage = () => {
     // Auto-show debug on mobile for all important messages
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     if (isMobile) {
-      setShowDebug(true); // Always show debug on mobile
+      // Debug panel can be opened manually if needed
       
       // Only auto-hide if user hasn't manually opened debug panel and it's a non-important message
       if (!debugManuallyOpened && type === 'info' && !message.includes('Camera') && !message.includes('AR') && !message.includes('Design') && !message.includes('Video') && !message.includes('S3')) {
@@ -1847,6 +1844,14 @@ const ARExperiencePage = () => {
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center"
           style={{ zIndex: 99999 }}
+          onClick={(e) => {
+            // Close debug panel when clicking on overlay background
+            if (e.target === e.currentTarget) {
+              console.log('Debug panel overlay clicked - closing');
+              setShowDebug(false);
+              setDebugManuallyOpened(false);
+            }
+          }}
         >
           <div 
             className="bg-gray-900 text-white p-6 rounded-lg max-w-md w-full mx-4 max-h-96 overflow-y-auto border-2 border-blue-500"
@@ -1855,11 +1860,15 @@ const ARExperiencePage = () => {
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-blue-300">🔧 AR Debug Panel</h3>
               <button
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Debug panel close button clicked');
                   setShowDebug(false);
                   setDebugManuallyOpened(false);
                 }}
-                className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm"
+                className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm font-bold"
+                style={{ minWidth: '60px' }}
               >
                 ✕ Close
               </button>
