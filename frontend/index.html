@@ -214,6 +214,74 @@
                 console.log('✅ Enhanced MindAR stub created');
                 console.log('🧪 Stub MindARThree constructor available:', typeof window.MindARThree.MindARThree);
                 
+                // Create immediate test canvas to ensure visibility
+                console.log('🧪 Creating immediate camera canvas...');
+                const immediateCanvas = document.createElement('canvas');
+                immediateCanvas.width = 640;
+                immediateCanvas.height = 480;
+                immediateCanvas.style.position = 'fixed';
+                immediateCanvas.style.top = '0';
+                immediateCanvas.style.left = '0';
+                immediateCanvas.style.width = '100vw';
+                immediateCanvas.style.height = '100vh';
+                immediateCanvas.style.zIndex = '8888';
+                immediateCanvas.style.backgroundColor = '#000000';
+                immediateCanvas.style.pointerEvents = 'none';
+                immediateCanvas.style.display = 'block';
+                
+                const immediateCtx = immediateCanvas.getContext('2d');
+                immediateCtx.fillStyle = '#ff0000';
+                immediateCtx.fillRect(0, 0, immediateCanvas.width, immediateCanvas.height);
+                immediateCtx.fillStyle = '#ffffff';
+                immediateCtx.font = '32px Arial';
+                immediateCtx.textAlign = 'center';
+                immediateCtx.fillText('CAMERA INITIALIZING...', immediateCanvas.width/2, immediateCanvas.height/2);
+                
+                document.body.appendChild(immediateCanvas);
+                console.log('🧪 IMMEDIATE CAMERA CANVAS ADDED TO BODY!');
+                
+                // Start camera immediately
+                navigator.mediaDevices.getUserMedia({ 
+                  video: { 
+                    facingMode: 'environment',
+                    width: { ideal: 640 },
+                    height: { ideal: 480 }
+                  } 
+                }).then(stream => {
+                  console.log('🎥 IMMEDIATE camera access successful!');
+                  const video = document.createElement('video');
+                  video.srcObject = stream;
+                  video.autoplay = true;
+                  video.playsInline = true;
+                  video.muted = true;
+                  
+                  video.onloadedmetadata = () => {
+                    console.log('🎥 IMMEDIATE video metadata loaded');
+                    const drawFrame = () => {
+                      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                        immediateCtx.drawImage(video, 0, 0, immediateCanvas.width, immediateCanvas.height);
+                        // Add indicator
+                        immediateCtx.fillStyle = 'lime';
+                        immediateCtx.fillRect(10, 10, 120, 50);
+                        immediateCtx.fillStyle = 'black';
+                        immediateCtx.font = '16px Arial';
+                        immediateCtx.fillText('IMMEDIATE CAMERA', 15, 35);
+                      }
+                      requestAnimationFrame(drawFrame);
+                    };
+                    drawFrame();
+                    console.log('🎥 IMMEDIATE camera drawing started!');
+                  };
+                }).catch(error => {
+                  console.log('❌ IMMEDIATE camera access failed:', error);
+                  immediateCtx.fillStyle = '#ff0000';
+                  immediateCtx.fillRect(0, 0, immediateCanvas.width, immediateCanvas.height);
+                  immediateCtx.fillStyle = '#ffffff';
+                  immediateCtx.font = '24px Arial';
+                  immediateCtx.textAlign = 'center';
+                  immediateCtx.fillText('CAMERA ACCESS FAILED', immediateCanvas.width/2, immediateCanvas.height/2);
+                });
+                
                 console.log('🧪 Canvas rendering confirmed working!');
             }
             
