@@ -165,7 +165,9 @@ const ARExperiencePage = () => {
       const data = await response.json();
       console.log('🌐 Response data:', data);
       
-      if (!data.success) {
+      // Handle both success formats: {success: true} and {status: 'success'}
+      const isSuccess = data.success === true || data.status === 'success';
+      if (!isSuccess) {
         throw new Error(data.message || 'Failed to fetch project data');
       }
       
