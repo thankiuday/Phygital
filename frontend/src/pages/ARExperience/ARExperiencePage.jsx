@@ -185,113 +185,100 @@ const ARExperiencePage = () => {
 
   const loadARLibraries = async () => {
     try {
-      // Load es-module-shims first
-      if (!window.importShim) {
-        const shimsScript = document.createElement('script');
-        shimsScript.src = 'https://unpkg.com/es-module-shims@1.7.3/dist/es-module-shims.js';
-        shimsScript.async = true;
-        document.head.appendChild(shimsScript);
+      console.log('🚀 Starting AR library loading...');
+      
+      // Load Three.js first
+      if (!window.THREE) {
+        console.log('📦 Loading Three.js...');
+        const threeScript = document.createElement('script');
+        threeScript.src = 'https://unpkg.com/three@0.160.0/build/three.min.js';
+        document.head.appendChild(threeScript);
         
-        await new Promise((resolve) => {
-          shimsScript.onload = resolve;
+        await new Promise((resolve, reject) => {
+          threeScript.onload = () => {
+            console.log('✅ Three.js loaded successfully');
+            resolve();
+          };
+          threeScript.onerror = (e) => {
+            console.error('❌ Failed to load Three.js:', e);
+            reject(e);
+          };
+          setTimeout(() => reject(new Error('Three.js loading timeout')), 10000);
         });
       }
-
-      // Set up import map for Three.js and MindAR
-      if (!document.querySelector('script[type="importmap"]')) {
-        const importMap = document.createElement('script');
-        importMap.type = 'importmap';
-        importMap.textContent = JSON.stringify({
-          "imports": {
-            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
-            "GLTFLoader": "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js",
-            "RoomEnvironment": "https://unpkg.com/three@0.160.0/examples/jsm/environments/RoomEnvironment.js",
-            "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-three.prod.js"
-          }
-        });
-        document.head.appendChild(importMap);
+      
+      // Verify Three.js is available
+      if (!window.THREE) {
+        throw new Error('Three.js not available after loading');
       }
-
+      console.log('✅ Three.js confirmed available');
+      
+      // Load MindAR
+      if (!window.MindARThree) {
+        console.log('📦 Loading MindAR...');
+        const mindarScript = document.createElement('script');
+        mindarScript.src = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js';
+        document.head.appendChild(mindarScript);
+        
+        await new Promise((resolve, reject) => {
+          mindarScript.onload = () => {
+            console.log('✅ MindAR script loaded');
+            resolve();
+          };
+          mindarScript.onerror = (e) => {
+            console.error('❌ Failed to load MindAR script:', e);
+            reject(e);
+          };
+          setTimeout(() => reject(new Error('MindAR loading timeout')), 15000);
+        });
+        
+        // Wait for MindAR to initialize
+        let attempts = 0;
+        while (!window.MindARThree && attempts < 50) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          attempts++;
+        }
+      }
+      
+      // Verify MindAR is available
+      if (!window.MindARThree) {
+        throw new Error('MindARThree not available after loading');
+      }
+      console.log('✅ MindAR confirmed available');
+      
       // Load Hammer.js for touch support
       if (!window.Hammer) {
+        console.log('📦 Loading Hammer.js...');
         const hammerScript = document.createElement('script');
         hammerScript.src = 'https://hammerjs.github.io/dist/hammer.min.js';
         document.head.appendChild(hammerScript);
         
         await new Promise((resolve) => {
-          hammerScript.onload = resolve;
+          hammerScript.onload = () => {
+            console.log('✅ Hammer.js loaded');
+            resolve();
+          };
+          hammerScript.onerror = () => {
+            console.warn('⚠️ Hammer.js failed to load (non-critical)');
+            resolve(); // Continue even if Hammer fails
+          };
+          setTimeout(resolve, 5000); // Don't wait too long for Hammer
         });
       }
-
-      // Wait for import map to be processed
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Load Three.js and MindAR using importShim
-      console.log('🔄 Loading Three.js...');
-      if (!window.THREE) {
-        window.THREE = await window.importShim('three');
-        console.log('✅ Three.js loaded:', !!window.THREE);
-      } else {
-        console.log('✅ Three.js already available');
-      }
-
-      console.log('🔄 Loading MindAR...');
-      if (!window.MindARThree) {
-        try {
-          const mindarModule = await window.importShim('mindar-image-three');
-          console.log('📦 MindAR module loaded:', mindarModule);
-          window.MindARThree = mindarModule.MindARThree;
-          console.log('✅ MindARThree assigned:', !!window.MindARThree);
-        } catch (mindarError) {
-          console.error('❌ Failed to load MindAR module:', mindarError);
-          throw mindarError;
-        }
-      } else {
-        console.log('✅ MindARThree already available');
-      }
       
-      console.log('✅ AR libraries loaded successfully');
+      console.log('🎉 All AR libraries loaded successfully!');
+      console.log('📊 Library status:', {
+        THREE: !!window.THREE,
+        MindARThree: !!window.MindARThree,
+        Hammer: !!window.Hammer
+      });
+      
       setLibrariesLoaded(true);
       
     } catch (error) {
-      console.error('❌ Error loading AR libraries:', error);
-      console.log('🔄 Trying fallback method to load MindAR...');
-      
-      try {
-        // Fallback: Load MindAR directly via script tag
-        if (!window.MindARThree) {
-          const mindarScript = document.createElement('script');
-          mindarScript.src = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-three.prod.js';
-          mindarScript.type = 'module';
-          document.head.appendChild(mindarScript);
-          
-          await new Promise((resolve, reject) => {
-            mindarScript.onload = () => {
-              console.log('✅ MindAR loaded via fallback method');
-              resolve();
-            };
-            mindarScript.onerror = reject;
-            setTimeout(reject, 10000); // 10 second timeout
-          });
-          
-          // Wait a bit more for the module to initialize
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
-        
-        // Check if MindAR is now available
-        if (window.MindARThree) {
-          console.log('✅ MindAR available after fallback');
-          setLibrariesLoaded(true);
-        } else {
-          throw new Error('MindAR still not available after fallback');
-        }
-        
-      } catch (fallbackError) {
-        console.error('❌ Fallback method also failed:', fallbackError);
-        setError('Failed to load AR libraries. Please refresh the page and try again.');
-        setLibrariesLoaded(false);
-      }
+      console.error('❌ Critical error loading AR libraries:', error);
+      setError(`Failed to load AR libraries: ${error.message}. Please refresh and try again.`);
+      setLibrariesLoaded(false);
     }
   };
 
