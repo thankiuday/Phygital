@@ -113,7 +113,17 @@
                   return {
                     start: async function() {
                       console.log('🧪 Enhanced stub start called');
+                      // Ensure canvas is properly styled and visible
+                      canvas.style.position = 'absolute';
+                      canvas.style.top = '0';
+                      canvas.style.left = '0';
+                      canvas.style.width = '100%';
+                      canvas.style.height = '100%';
+                      canvas.style.zIndex = '1';
+                      canvas.style.backgroundColor = '#000';
+                      
                       config.container.appendChild(canvas);
+                      console.log('📺 Canvas added to container:', config.container);
                       await startCamera();
                       return Promise.resolve();
                     },
