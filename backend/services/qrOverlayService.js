@@ -126,11 +126,13 @@ const generateFinalDesign = async (designUrl, qrData, position, userId) => {
         });
       });
       
-      // Save temporarily
-      const tempPath = path.join('temp', `design-${userId}-${Date.now()}.png`);
-      if (!fs.existsSync('temp')) {
-        fs.mkdirSync('temp', { recursive: true });
+      // Save temporarily - use os.tmpdir() for better compatibility
+      const os = require('os');
+      const tempDir = path.join(os.tmpdir(), 'phygital-temp');
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
       }
+      const tempPath = path.join(tempDir, `design-${userId}-${Date.now()}.png`);
       fs.writeFileSync(tempPath, designBuffer);
       designImagePath = tempPath;
     } else {
@@ -143,8 +145,13 @@ const generateFinalDesign = async (designUrl, qrData, position, userId) => {
       }
     }
     
-    // Generate output path
-    const outputPath = path.join('temp', `final-design-${userId}-${Date.now()}.png`);
+    // Generate output path - use os.tmpdir() for better compatibility
+    const os = require('os');
+    const tempDir = path.join(os.tmpdir(), 'phygital-temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    const outputPath = path.join(tempDir, `final-design-${userId}-${Date.now()}.png`);
     
     // Overlay QR code
     const finalImagePath = await overlayQRCode(designImagePath, qrData, position, outputPath);

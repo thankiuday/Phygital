@@ -5,8 +5,8 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Phygital - Bridge Physical to Digital - v3</title>
-    <!-- Deployment: 2024-09-27-Force-Update-3 -->
-    <script>console.log('Deployment test - new build loaded - v3');</script>
+    <!-- Deployment: 2024-09-27-Force-Update-4 -->
+    <script>console.log('Deployment test - new build loaded - v4 - ES modules');</script>
     <meta name="description" content="Transform your physical designs into interactive digital experiences with QR codes and videos." />
     
     <!-- PWA Meta Tags -->
@@ -21,7 +21,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     
     <!-- Preload critical resources -->
-    <link rel="preload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js" as="script" />
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" as="script" />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link rel="preconnect" href="https://unpkg.com" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -29,7 +29,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- AR Libraries - Load before React app -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <script type="module">
+      // Use ES modules for Three.js to avoid deprecation warning
+      import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+      window.THREE = THREE;
+      console.log('✅ Three.js loaded via ES modules');
+    </script>
     <script src="https://hammerjs.github.io/dist/hammer.min.js"></script>
     
     <!-- Load MindAR from a working UMD build -->
@@ -481,7 +486,7 @@
           // Fallback: Try loading from unpkg
           console.log('🔄 Trying unpkg fallback...');
           
-            const fallbackScript = document.createElement('script');
+          const fallbackScript = document.createElement('script');
             fallbackScript.src = 'https://cdn.skypack.dev/mind-ar@1.2.2';
           fallbackScript.crossOrigin = 'anonymous';
           
