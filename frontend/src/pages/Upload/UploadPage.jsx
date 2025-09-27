@@ -7,7 +7,7 @@
 import React, { useState, useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useAuth } from '../../contexts/AuthContext'
-import { uploadAPI, qrAPI } from '../../utils/api'
+import { uploadAPI, qrAPI, downloadFile } from '../../utils/api'
 import BackButton from '../../components/UI/BackButton'
 import { 
   Upload, 
@@ -300,24 +300,120 @@ const UploadPage = () => {
   const downloadFinalDesign = async () => {
     try {
       setIsDownloading(true)
-      const response = await uploadAPI.downloadFinalDesign()
       
-      // Create blob and download
-      const blob = new Blob([response.data], { type: 'image/png' })
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `phygital-design-${user.username}.png`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
+      console.log('=== DOWNLOAD FINAL DESIGN DEBUG ===');
+      console.log('User data:', user);
+      console.log('Design URL:', user.uploadedFiles?.design?.url);
+      console.log('QR Position:', user.qrPosition);
       
-      toast.success('Design downloaded successfully!')
+      // Create a fresh composite image instead of using the backend
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Load the original design image
+      const designImg = document.createElement('img');
+      designImg.crossOrigin = 'anonymous';
+      
+      await new Promise((resolve, reject) => {
+        designImg.onload = resolve;
+        designImg.onerror = reject;
+        designImg.src = user.uploadedFiles.design.url;
+      });
+      
+      console.log('Design image loaded:', {
+        naturalWidth: designImg.naturalWidth,
+        naturalHeight: designImg.naturalHeight
+      });
+      
+      // Set canvas to image dimensions
+      canvas.width = designImg.naturalWidth;
+      canvas.height = designImg.naturalHeight;
+      
+      console.log('Canvas dimensions set:', {
+        width: canvas.width,
+        height: canvas.height
+      });
+      
+      // Draw the design image
+      ctx.drawImage(designImg, 0, 0);
+      console.log('Design image drawn to canvas');
+      
+      // Get QR position from user data
+      const qrPos = user.qrPosition || { x: 100, y: 100, width: 100, height: 100 };
+      
+      // Calculate actual QR position on full-size image
+      const actualQrX = (qrPos.x / 800) * designImg.naturalWidth; // Assuming 800px display width
+      const actualQrY = (qrPos.y / 600) * designImg.naturalHeight; // Assuming 600px display height
+      const actualQrWidth = (qrPos.width / 800) * designImg.naturalWidth;
+      const actualQrHeight = (qrPos.height / 600) * designImg.naturalHeight;
+      
+      console.log('QR position calculation:', {
+        qrPos,
+        actualQr: { x: actualQrX, y: actualQrY, width: actualQrWidth, height: actualQrHeight }
+      });
+      
+      // Try to load and draw the QR code
+      try {
+        const qrResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/qr/generate/${user._id}?format=png&size=300`);
+        if (qrResponse.ok) {
+          const qrBlob = await qrResponse.blob();
+          const qrImg = document.createElement('img');
+          
+          await new Promise((resolve, reject) => {
+            qrImg.onload = resolve;
+            qrImg.onerror = reject;
+            qrImg.src = URL.createObjectURL(qrBlob);
+          });
+          
+          // Draw QR code on the composite
+          ctx.drawImage(qrImg, actualQrX, actualQrY, actualQrWidth, actualQrHeight);
+          
+          // Convert to blob and download
+          canvas.toBlob((blob) => {
+            console.log('Canvas converted to blob:', {
+              size: blob.size,
+              type: blob.type
+            });
+            const filename = `phygital-design-${user.username}.png`;
+            
+            // Use the downloadFile utility
+            downloadFile(blob, filename);
+            
+            toast.success('Fresh composite design downloaded!');
+            setIsDownloading(false);
+          }, 'image/png', 1.0);
+        } else {
+          throw new Error('QR generation failed');
+        }
+      } catch (qrError) {
+        console.warn('QR loading failed, using placeholder:', qrError);
+        // Draw placeholder QR
+        ctx.fillStyle = 'rgba(59, 130, 246, 0.3)';
+        ctx.fillRect(actualQrX, actualQrY, actualQrWidth, actualQrHeight);
+        ctx.strokeStyle = 'rgba(59, 130, 246, 0.8)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(actualQrX, actualQrY, actualQrWidth, actualQrHeight);
+        ctx.fillStyle = 'rgba(59, 130, 246, 1)';
+        ctx.font = `${Math.max(12, actualQrWidth / 8)}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.fillText('QR CODE', actualQrX + actualQrWidth / 2, actualQrY + actualQrHeight / 2);
+        
+        // Convert to blob and download
+        canvas.toBlob((blob) => {
+          const filename = `phygital-design-${user.username}.png`;
+          
+          // Use the downloadFile utility
+          downloadFile(blob, filename);
+          
+          toast.success('Composite design downloaded (with placeholder QR)!');
+          setIsDownloading(false);
+        }, 'image/png', 1.0);
+      }
+      
     } catch (error) {
-      toast.error('Failed to download design')
-    } finally {
-      setIsDownloading(false)
+      console.error('Download preparation failed:', error);
+      toast.error(`Download failed: ${error.message}`);
+      setIsDownloading(false);
     }
   }
 

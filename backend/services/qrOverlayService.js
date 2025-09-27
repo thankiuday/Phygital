@@ -4,8 +4,8 @@
  * Supports various image formats and QR code positioning
  */
 
-// Sharp removed - QR overlay now handled on frontend
 const QRCode = require('qrcode');
+const Jimp = require('jimp');
 const path = require('path');
 const fs = require('fs');
 
@@ -58,13 +58,32 @@ const overlayQRCode = async (designImagePath, qrData, position, outputPath) => {
       normalized: normalizedPosition
     });
     
+    // Load the design image using Jimp
+    const designImage = await Jimp.read(designImagePath);
+    console.log('Design image loaded:', {
+      width: designImage.getWidth(),
+      height: designImage.getHeight()
+    });
+    
     // Generate QR code buffer
-    // Ensure QR code size is an integer
     const qrCodeBuffer = await generateQRCodeBuffer(qrData, normalizedPosition.width);
     
-    // Sharp removed - composite images now generated on frontend
-    // Create a placeholder file to maintain compatibility
-    fs.writeFileSync(outputPath, 'Composite image generated on frontend');
+    // Load QR code image using Jimp
+    const qrCodeImage = await Jimp.read(qrCodeBuffer);
+    
+    // Resize QR code to match the specified dimensions
+    qrCodeImage.resize(normalizedPosition.width, normalizedPosition.height);
+    
+    // Composite the QR code onto the design image
+    designImage.composite(qrCodeImage, normalizedPosition.x, normalizedPosition.y, {
+      mode: Jimp.BLEND_SOURCE_OVER,
+      opacitySource: 1.0,
+      opacityDest: 1.0
+    });
+    
+    // Save the final composite image
+    await designImage.writeAsync(outputPath);
+    console.log('Composite image saved to:', outputPath);
     
     return outputPath;
   } catch (error) {
