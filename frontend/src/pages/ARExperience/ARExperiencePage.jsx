@@ -326,15 +326,47 @@ const ARExperiencePage = () => {
                 // Resize image if too large for better MindAR performance
                 if (img.naturalWidth > 480 || img.naturalHeight > 480) {
                   addDebugMessage('🖼️ Image too large, resizing for better performance...', 'info');
-                  const canvas = document.createElement('canvas');
-                  const ctx = canvas.getContext('2d');
-                  const maxSize = 480; // Further reduced for mobile
-                  const scale = Math.min(maxSize / img.naturalWidth, maxSize / img.naturalHeight);
-                  canvas.width = img.naturalWidth * scale;
-                  canvas.height = img.naturalHeight * scale;
-                  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                  targetUrl = canvas.toDataURL('image/jpeg', 0.65); // Lower quality for faster processing
-                  addDebugMessage(`🖼️ Image resized to ${canvas.width}x${canvas.height}`, 'success');
+                  try {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    // Ensure canvas context is available
+                    if (!ctx) {
+                      throw new Error('Canvas 2D context not available');
+                    }
+                    
+                    const maxSize = 480; // Further reduced for mobile
+                    const scale = Math.min(maxSize / img.naturalWidth, maxSize / img.naturalHeight);
+                    
+                    // Set canvas dimensions with proper rounding
+                    canvas.width = Math.round(img.naturalWidth * scale);
+                    canvas.height = Math.round(img.naturalHeight * scale);
+                    
+                    // Ensure canvas dimensions are valid
+                    if (canvas.width <= 0 || canvas.height <= 0) {
+                      throw new Error('Invalid canvas dimensions after resize');
+                    }
+                    
+                    // Draw image with proper smoothing
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    // Convert to data URL with error handling
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.8); // Increased quality to prevent corruption
+                    
+                    // Validate the data URL
+                    if (!dataUrl || dataUrl === 'data:,') {
+                      throw new Error('Failed to generate valid data URL');
+                    }
+                    
+                    targetUrl = dataUrl;
+                    addDebugMessage(`🖼️ Image resized to ${canvas.width}x${canvas.height}`, 'success');
+                  } catch (resizeError) {
+                    addDebugMessage(`⚠️ Image resize failed: ${resizeError.message}`, 'warning');
+                    addDebugMessage('🔄 Using original image URL instead', 'info');
+                    // Keep original targetUrl if resize fails
+                  }
                 }
                 resolve();
               };
@@ -468,7 +500,11 @@ const ARExperiencePage = () => {
         throw new Error('MindAR objects are undefined - renderer, scene, or camera missing');
       }
       
-      // Fix Three.js deprecation warning
+      // Fix Three.js deprecation warning and patch MindAR's deprecated usage
+      if (renderer.outputEncoding !== undefined) {
+        // Patch the deprecated outputEncoding if MindAR set it
+        delete renderer.outputEncoding;
+      }
       renderer.outputColorSpace = window.THREE.SRGBColorSpace;
       
       rendererRef.current = renderer;
@@ -557,16 +593,29 @@ const ARExperiencePage = () => {
         console.error('Error stack:', startError.stack);
         
         // Check if it's a buffer/corruption error or timeout
-        if (startError.message.includes('Extra') && startError.message.includes('byte(s)') || 
-            startError.message.includes('timeout') || 
-            startError.message.includes('RangeError')) {
+        if (startError.message.includes('timeout') || startError.message.includes('Extra') || startError.message.includes('RangeError')) {
+          addDebugMessage('⏰ MindAR start timeout - image processing taking too long', 'warning');
+          addDebugMessage('💡 This can happen with complex images on mobile devices. Enabling test mode...', 'info');
           
-          if (startError.message.includes('timeout')) {
-            addDebugMessage('⏰ MindAR start timeout - image processing taking too long', 'warning');
-            addDebugMessage('💡 This can happen with complex images on mobile devices. Enabling test mode...', 'info');
-          } else {
-            addDebugMessage('🚨 Image file corruption detected!', 'error');
-            addDebugMessage('💡 The design image appears to be corrupted or incompatible. Enabling test mode...', 'warning');
+          // If we resized the image and it's causing issues, try with original
+          if (targetUrl !== projectData.designUrl && projectData.designUrl) {
+            addDebugMessage('🔄 Resized image may be corrupted, trying with original...', 'info');
+            try {
+              const fallbackConfig = {
+                ...mindarConfig,
+                imageTargetSrc: projectData.designUrl
+              };
+              const fallbackMindar = new window.MindARThree.MindARThree(fallbackConfig);
+              await fallbackMindar.start();
+              addDebugMessage('✅ Original image worked! Switching to original image.', 'success');
+              mindarRef.current = fallbackMindar;
+              setCameraActive(true);
+              setArReady(true);
+              setIsInitialized(true);
+              return true;
+            } catch (fallbackError) {
+              addDebugMessage(`⚠️ Original image also failed: ${fallbackError.message}`, 'warning');
+            }
           }
           
           // Instead of failing completely, enable test mode
@@ -593,7 +642,11 @@ const ARExperiencePage = () => {
                 throw new Error('Test MindAR objects are undefined');
               }
               
-              // Fix Three.js deprecation warning for test mode
+              // Fix Three.js deprecation warning for test mode and patch MindAR's deprecated usage
+              if (renderer.outputEncoding !== undefined) {
+                // Patch the deprecated outputEncoding if MindAR set it
+                delete renderer.outputEncoding;
+              }
               renderer.outputColorSpace = window.THREE.SRGBColorSpace;
               
               mindarRef.current = testMindar;
