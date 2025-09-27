@@ -241,10 +241,12 @@ const ARExperiencePage = () => {
     }
   }, [projectId, userId, addDebugMessage, trackAnalytics]);
 
-  // Initialize MindAR
-  const initializeMindAR = useCallback(async () => {
+  // Initialize MindAR with retry mechanism
+  const initializeMindAR = useCallback(async (retryCount = 0, maxRetries = 3) => {
+    const retryDelay = Math.min(1000 * Math.pow(2, retryCount), 5000); // Exponential backoff, max 5s
+    
     // Debug container element in detail
-    addDebugMessage('🔍 Checking container element...', 'info');
+    addDebugMessage(`🔍 Checking container element (attempt ${retryCount + 1}/${maxRetries + 1})...`, 'info');
     addDebugMessage(`📱 containerRef.current:`, containerRef.current, 'info');
     addDebugMessage(`📱 containerRef.current?.offsetWidth:`, containerRef.current?.offsetWidth, 'info');
     addDebugMessage(`📱 containerRef.current?.offsetHeight:`, containerRef.current?.offsetHeight, 'info');
@@ -253,15 +255,21 @@ const ARExperiencePage = () => {
     
     // Check if container is ready with proper dimensions
     if (!containerRef.current || containerRef.current.offsetWidth === 0 || containerRef.current.offsetHeight === 0) {
-      addDebugMessage('⚠️ Container not ready yet, retrying in 100ms...', 'warning');
-      addDebugMessage(`📊 Container check: exists=${!!containerRef.current}, width=${containerRef.current?.offsetWidth}, height=${containerRef.current?.offsetHeight}`, 'info');
-      
-      // Retry after a short delay
-      setTimeout(() => {
-        addDebugMessage('🔄 Retrying MindAR initialization...', 'info');
-        initializeMindAR();
-      }, 100);
-      return false;
+      if (retryCount < maxRetries) {
+        addDebugMessage(`⚠️ Container not ready yet, retrying in ${retryDelay}ms... (${retryCount + 1}/${maxRetries})`, 'warning');
+        addDebugMessage(`📊 Container check: exists=${!!containerRef.current}, width=${containerRef.current?.offsetWidth}, height=${containerRef.current?.offsetHeight}`, 'info');
+        
+        // Retry with exponential backoff
+        setTimeout(() => {
+          addDebugMessage(`🔄 Retrying MindAR initialization (attempt ${retryCount + 2})...`, 'info');
+          initializeMindAR(retryCount + 1, maxRetries);
+        }, retryDelay);
+        return false;
+      } else {
+        addDebugMessage('❌ Container failed to initialize after maximum retries', 'error');
+        setError('AR container could not be initialized. Please refresh the page and try again.');
+        return false;
+      }
     }
     
     if (!librariesLoaded || !projectData) {
@@ -387,16 +395,16 @@ const ARExperiencePage = () => {
         await setupVideo(anchor);
       }
 
-      // Setup event listeners
+      // Setup event listeners with throttled updates
       mindar.onTargetFound = () => {
         addDebugMessage('🎯 Target detected!', 'success');
-        setTargetDetected(true);
+        throttledSetTargetDetected(true);
       };
 
       mindar.onTargetLost = () => {
         addDebugMessage('🔍 Target lost', 'warning');
-        setTargetDetected(false);
-        setVideoPlaying(false);
+        throttledSetTargetDetected(false);
+        throttledSetVideoPlaying(false);
       };
 
       // Start MindAR
@@ -416,6 +424,37 @@ const ARExperiencePage = () => {
     }
   }, [librariesLoaded, projectData, addDebugMessage]);
 
+  // Throttle function for frequent updates
+  const throttle = useCallback((func, delay) => {
+    let timeoutId;
+    let lastExecTime = 0;
+    return function (...args) {
+      const currentTime = Date.now();
+      
+      if (currentTime - lastExecTime > delay) {
+        func.apply(this, args);
+        lastExecTime = currentTime;
+      } else {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          func.apply(this, args);
+          lastExecTime = Date.now();
+        }, delay - (currentTime - lastExecTime));
+      }
+    };
+  }, []);
+
+  // Throttled state updates
+  const throttledSetTargetDetected = useCallback(
+    throttle((value) => setTargetDetected(value), 100),
+    [throttle]
+  );
+
+  const throttledSetVideoPlaying = useCallback(
+    throttle((value) => setVideoPlaying(value), 200),
+    [throttle]
+  );
+
   // Setup video mesh
   const setupVideo = useCallback(async (anchor) => {
     if (!projectData.videoUrl || !window.THREE) return;
@@ -423,14 +462,19 @@ const ARExperiencePage = () => {
     try {
       addDebugMessage('🎬 Setting up video...', 'info');
 
-      // Create video element
+      // Create video element with enhanced reliability
       const video = document.createElement('video');
       video.src = projectData.videoUrl;
-      video.muted = true;
+      video.muted = true; // Critical for autoplay on mobile
       video.loop = true;
-      video.playsInline = true;
+      video.playsInline = true; // Critical for iOS
       video.crossOrigin = 'anonymous';
       video.preload = 'metadata';
+      video.controls = false; // Hide controls for AR overlay
+      
+      // Add mobile-specific attributes
+      video.setAttribute('webkit-playsinline', 'true');
+      video.setAttribute('playsinline', 'true');
       
       videoRef.current = video;
 
@@ -459,9 +503,10 @@ const ARExperiencePage = () => {
       videoMeshRef.current = videoMesh;
       anchor.group.add(videoMesh);
 
-      // Video event listeners
+      // Video event listeners with enhanced error handling
       video.addEventListener('loadedmetadata', () => {
         addDebugMessage('✅ Video metadata loaded', 'success');
+        addDebugMessage(`📹 Video dimensions: ${video.videoWidth}x${video.videoHeight}`, 'info');
       });
 
       video.addEventListener('canplay', () => {
@@ -469,17 +514,60 @@ const ARExperiencePage = () => {
       });
 
       video.addEventListener('play', () => {
-        setVideoPlaying(true);
+        throttledSetVideoPlaying(true);
         addDebugMessage('▶️ Video started playing', 'success');
       });
 
       video.addEventListener('pause', () => {
-        setVideoPlaying(false);
+        throttledSetVideoPlaying(false);
         addDebugMessage('⏸️ Video paused', 'info');
       });
 
+      video.addEventListener('ended', () => {
+        throttledSetVideoPlaying(false);
+        addDebugMessage('🔚 Video ended', 'info');
+      });
+
       video.addEventListener('error', (e) => {
-        addDebugMessage(`❌ Video error: ${e.message}`, 'error');
+        const error = video.error;
+        let errorMessage = 'Unknown video error';
+        
+        if (error) {
+          switch (error.code) {
+            case error.MEDIA_ERR_ABORTED:
+              errorMessage = 'Video playback was aborted';
+              break;
+            case error.MEDIA_ERR_NETWORK:
+              errorMessage = 'Network error occurred while loading video';
+              break;
+            case error.MEDIA_ERR_DECODE:
+              errorMessage = 'Video decoding error';
+              break;
+            case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+              errorMessage = 'Video format not supported';
+              break;
+            default:
+              errorMessage = `Video error: ${error.message || 'Unknown error'}`;
+          }
+        }
+        
+        addDebugMessage(`❌ Video error: ${errorMessage}`, 'error');
+      });
+
+      // Add loadstart and progress events for better debugging
+      video.addEventListener('loadstart', () => {
+        addDebugMessage('🔄 Video loading started', 'info');
+      });
+
+      video.addEventListener('progress', () => {
+        if (video.buffered.length > 0) {
+          const bufferedEnd = video.buffered.end(video.buffered.length - 1);
+          const duration = video.duration;
+          if (duration > 0) {
+            const bufferedPercent = (bufferedEnd / duration) * 100;
+            addDebugMessage(`📊 Video buffered: ${bufferedPercent.toFixed(1)}%`, 'info');
+          }
+        }
       });
 
       addDebugMessage('✅ Video mesh created successfully', 'success');
@@ -531,15 +619,40 @@ const ARExperiencePage = () => {
     }
   }, [isScanning, addDebugMessage]);
 
-  // Toggle video playback
-  const toggleVideo = useCallback(() => {
+  // Toggle video playback with enhanced reliability
+  const toggleVideo = useCallback(async () => {
     if (!videoRef.current || !targetDetected) return;
 
     try {
       if (videoPlaying) {
         videoRef.current.pause();
+        addDebugMessage('⏸️ Video paused by user', 'info');
       } else {
-        videoRef.current.play();
+        // Enhanced video play with mobile compatibility
+        const playPromise = videoRef.current.play();
+        
+        if (playPromise !== undefined) {
+          try {
+            await playPromise;
+            addDebugMessage('▶️ Video started by user', 'success');
+          } catch (playError) {
+            // If autoplay fails, try with muted
+            if (playError.name === 'NotAllowedError') {
+              addDebugMessage('⚠️ Autoplay blocked, trying with muted...', 'warning');
+              videoRef.current.muted = true;
+              try {
+                await videoRef.current.play();
+                addDebugMessage('▶️ Video started with muted fallback', 'success');
+              } catch (mutedError) {
+                addDebugMessage(`❌ Video play failed even with muted: ${mutedError.message}`, 'error');
+                throw mutedError;
+              }
+            } else {
+              addDebugMessage(`❌ Video play failed: ${playError.message}`, 'error');
+              throw playError;
+            }
+          }
+        }
       }
     } catch (error) {
       addDebugMessage(`❌ Video toggle failed: ${error.message}`, 'error');
@@ -614,18 +727,100 @@ const ARExperiencePage = () => {
     }
   }, [librariesLoaded, projectData, isInitialized, initializeMindAR, startScanning, addDebugMessage]);
 
+  // ResizeObserver for dynamic container sizing
+  useEffect(() => {
+    if (!containerRef.current || !librariesLoaded || !projectData) return;
+
+    addDebugMessage('📏 Setting up ResizeObserver for container...', 'info');
+    
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        addDebugMessage(`📏 Container resized: ${width}x${height}`, 'info');
+        
+        // Reinitialize MindAR if container becomes available and we're not initialized
+        if (width > 0 && height > 0 && !isInitialized) {
+          addDebugMessage('📏 Container now has dimensions, retrying MindAR initialization...', 'info');
+          setTimeout(() => {
+            initializeMindAR().then(success => {
+              if (success && !isScanning) {
+                startScanning();
+              }
+            });
+          }, 100);
+        }
+      }
+    });
+
+    resizeObserver.observe(containerRef.current);
+
+    return () => {
+      addDebugMessage('📏 Cleaning up ResizeObserver...', 'info');
+      resizeObserver.disconnect();
+    };
+  }, [containerRef, librariesLoaded, projectData, isInitialized, isScanning, initializeMindAR, startScanning, addDebugMessage]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      addDebugMessage('🧹 Cleaning up AR resources...', 'info');
+      
+      // Stop MindAR
       if (mindarRef.current) {
         mindarRef.current.stop().catch(console.error);
       }
+      
+      // Stop and cleanup video
       if (videoRef.current) {
         videoRef.current.pause();
         videoRef.current.src = '';
+        videoRef.current.load(); // Reset video element
       }
+      
+      // Dispose Three.js resources
+      if (videoMeshRef.current) {
+        try {
+          // Dispose texture
+          if (videoMeshRef.current.material && videoMeshRef.current.material.map) {
+            videoMeshRef.current.material.map.dispose();
+            addDebugMessage('🧹 Disposed video texture', 'info');
+          }
+          
+          // Dispose material
+          if (videoMeshRef.current.material) {
+            videoMeshRef.current.material.dispose();
+            addDebugMessage('🧹 Disposed video material', 'info');
+          }
+          
+          // Remove mesh from scene
+          if (sceneRef.current && videoMeshRef.current.parent) {
+            sceneRef.current.remove(videoMeshRef.current);
+            addDebugMessage('🧹 Removed video mesh from scene', 'info');
+          }
+          
+          // Dispose geometry
+          if (videoMeshRef.current.geometry) {
+            videoMeshRef.current.geometry.dispose();
+            addDebugMessage('🧹 Disposed video geometry', 'info');
+          }
+        } catch (error) {
+          console.warn('Error disposing video mesh:', error);
+        }
+      }
+      
+      // Dispose renderer
+      if (rendererRef.current) {
+        try {
+          rendererRef.current.dispose();
+          addDebugMessage('🧹 Disposed renderer', 'info');
+        } catch (error) {
+          console.warn('Error disposing renderer:', error);
+        }
+      }
+      
+      addDebugMessage('✅ AR cleanup completed', 'info');
     };
-  }, []);
+  }, [addDebugMessage]);
 
   // Debug panel component
   const DebugPanel = () => (

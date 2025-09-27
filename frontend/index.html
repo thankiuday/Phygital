@@ -40,6 +40,29 @@
     <!-- HammerJS (non-ESM, so fine) -->
     <script src="https://hammerjs.github.io/dist/hammer.min.js"></script>
     
+    <!-- Fallback MindAR script (if dynamic imports fail) -->
+    <script>
+      // Fallback MindAR loading function
+      window.loadMindARFallback = function() {
+        if (window.MindARThree && window.MindARThree.MindARThree) {
+          console.log('✅ MindAR already loaded via dynamic import');
+          return;
+        }
+        
+        console.log('🔄 Loading MindAR fallback script...');
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/mind-ar@1.2.5/dist/mindar-image-three.prod.js';
+        script.type = 'module';
+        script.onload = function() {
+          console.log('✅ MindAR fallback script loaded');
+        };
+        script.onerror = function() {
+          console.error('❌ MindAR fallback script failed to load');
+        };
+        document.head.appendChild(script);
+      };
+    </script>
+    
     <!-- Load MindAR as ES module with import map resolution -->
     <script type="module">
       // Load Three.js via import map and expose globally
@@ -121,7 +144,21 @@
         } catch (error) {
           console.error(`❌ Failed to load MindAR from source ${currentSourceIndex + 1}:`, error.message);
           currentSourceIndex++;
-          await loadMindAR();
+          
+          if (currentSourceIndex >= mindARSources.length) {
+            console.log('🔄 All dynamic imports failed, trying fallback script...');
+            window.loadMindARFallback();
+            
+            // Wait a bit for fallback to load, then create stub if still no luck
+            setTimeout(() => {
+              if (!window.MindARThree || !window.MindARThree.MindARThree) {
+                console.error('❌ All MindAR loading methods failed, using stub');
+                createStub();
+              }
+            }, 3000);
+          } else {
+            await loadMindAR();
+          }
         }
       }
       
