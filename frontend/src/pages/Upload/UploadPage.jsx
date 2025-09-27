@@ -7,7 +7,7 @@
 import React, { useState, useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useAuth } from '../../contexts/AuthContext'
-import { uploadAPI, qrAPI, downloadFile } from '../../utils/api'
+import { uploadAPI, qrAPI, downloadFile, arExperienceAPI } from '../../utils/api'
 import BackButton from '../../components/UI/BackButton'
 import { 
   Upload, 
@@ -49,6 +49,8 @@ const UploadPage = () => {
   const [isDownloading, setIsDownloading] = useState(false)
   const [captureCompositeFunction, setCaptureCompositeFunction] = useState(null)
   const [qrImageUrl, setQrImageUrl] = useState('')
+  const [isCreatingAR, setIsCreatingAR] = useState(false)
+  const [arExperienceId, setArExperienceId] = useState(null)
 
   // Design upload handler
   const onDesignDrop = useCallback(async (acceptedFiles) => {
@@ -417,11 +419,48 @@ const UploadPage = () => {
     }
   }
 
+  // Create AR experience
+  const createARExperience = async () => {
+    try {
+      setIsCreatingAR(true);
+      const loadingToast = toast.loading('Creating AR experience...');
+      
+      const response = await uploadAPI.createARExperience();
+      console.log('AR Experience created:', response.data);
+      
+      const { arExperienceId, qrData } = response.data.data;
+      setArExperienceId(arExperienceId);
+      
+      toast.dismiss(loadingToast);
+      toast.success('AR experience created successfully!');
+      
+      // Generate QR code for the AR experience
+      if (qrData) {
+        try {
+          const qrResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/qr/generate-data?data=${encodeURIComponent(qrData)}&format=png&size=200`);
+          if (qrResponse.ok) {
+            const qrBlob = await qrResponse.blob();
+            setQrImageUrl(URL.createObjectURL(qrBlob));
+          }
+        } catch (qrError) {
+          console.warn('Failed to generate QR code:', qrError);
+        }
+      }
+      
+    } catch (error) {
+      console.error('Create AR experience error:', error);
+      toast.error(`Failed to create AR experience: ${error.message}`);
+    } finally {
+      setIsCreatingAR(false);
+    }
+  };
+
   const tabs = [
     { id: 'design', name: 'Design', icon: Image },
     { id: 'video', name: 'Video', icon: Video },
     { id: 'qr', name: 'QR Position', icon: QrCode },
     { id: 'social', name: 'Social Links', icon: Share2 },
+    { id: 'ar', name: 'AR Experience', icon: QrCode },
     { id: 'final', name: 'Final Design', icon: Download }
   ]
 
@@ -769,6 +808,108 @@ const UploadPage = () => {
             >
               Save Social Links
             </button>
+          </div>
+        )}
+
+        {/* AR Experience */}
+        {activeTab === 'ar' && (
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              Create AR Experience
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Generate an AR experience that overlays your video on the tracked image
+            </p>
+
+            {user?.uploadedFiles?.design?.url && user?.uploadedFiles?.video?.url && user?.qrPosition ? (
+              <div className="space-y-6">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
+                    <span className="text-green-800 font-medium">Ready to create AR experience</span>
+                  </div>
+                  <p className="text-green-700 text-sm mt-1">
+                    All required files are uploaded and QR position is set
+                  </p>
+                </div>
+
+                {!arExperienceId ? (
+                  <div className="text-center">
+                    <button
+                      onClick={createARExperience}
+                      disabled={isCreatingAR}
+                      className="btn-primary flex items-center justify-center mx-auto"
+                    >
+                      {isCreatingAR ? (
+                        <>
+                          <LoadingSpinner size="sm" />
+                          <span className="ml-2">Creating AR Experience...</span>
+                        </>
+                      ) : (
+                        <>
+                          <QrCode className="w-4 h-4 mr-2" />
+                          Create AR Experience
+                        </>
+                      )}
+                    </button>
+                    <p className="text-gray-500 text-sm mt-2">
+                      This will generate a .mind file and create a QR code for AR scanning
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-center">
+                        <CheckCircle className="w-5 h-5 text-blue-600 mr-2" />
+                        <span className="text-blue-800 font-medium">AR Experience Created!</span>
+                      </div>
+                      <p className="text-blue-700 text-sm mt-1">
+                        Experience ID: {arExperienceId}
+                      </p>
+                    </div>
+
+                    {qrImageUrl && (
+                      <div className="text-center">
+                        <h3 className="text-lg font-medium text-gray-900 mb-3">Your AR QR Code</h3>
+                        <div className="inline-block p-4 bg-white border rounded-lg shadow-sm">
+                          <img
+                            src={qrImageUrl}
+                            alt="AR Experience QR Code"
+                            className="w-48 h-48 mx-auto"
+                          />
+                        </div>
+                        <p className="text-gray-600 text-sm mt-2">
+                          Scan this QR code to view your AR experience
+                        </p>
+                        <div className="mt-4">
+                          <a
+                            href={`/scan/${arExperienceId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-secondary inline-flex items-center"
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            Preview AR Experience
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-center">
+                  <AlertCircle className="w-5 h-5 text-yellow-600 mr-2" />
+                  <span className="text-yellow-800 font-medium">Requirements not met</span>
+                </div>
+                <ul className="text-yellow-700 text-sm mt-2 space-y-1">
+                  {!user?.uploadedFiles?.design?.url && <li>• Upload a design image</li>}
+                  {!user?.uploadedFiles?.video?.url && <li>• Upload a video</li>}
+                  {!user?.qrPosition && <li>• Set QR code position</li>}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 

@@ -183,6 +183,16 @@ export const uploadAPI = {
   downloadFinalDesign: () => api.get('/upload/download-final-design', { responseType: 'blob' }),
   previewFinalDesign: () => api.get('/upload/preview-final-design'),
   saveMindTarget: (mindTargetBase64) => api.post('/upload/save-mind-target', { mindTargetBase64 }),
+  createARExperience: () => api.post('/upload/create-ar-experience'),
+}
+
+export const arExperienceAPI = {
+  // AR Experience operations
+  create: () => api.post('/ar-experience'),
+  getById: (id) => api.get(`/ar-experience/${id}`),
+  update: (id, data) => api.put(`/ar-experience/${id}`, data),
+  delete: (id) => api.delete(`/ar-experience/${id}`),
+  getUserExperiences: (userId) => api.get(`/ar-experience/user/${userId}`),
 }
 
 export const qrAPI = {

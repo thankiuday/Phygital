@@ -19,6 +19,7 @@ const qrRoutes = require('./routes/qr');
 const analyticsRoutes = require('./routes/analytics');
 const userRoutes = require('./routes/user');
 const historyRoutes = require('./routes/history');
+const arExperienceRoutes = require('./routes/arExperience');
 
 const app = express();
 
@@ -105,6 +106,7 @@ app.use('/api/qr', qrRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/history', historyRoutes);
+app.use('/api/ar-experience', arExperienceRoutes);
 
 // Health check endpoint with detailed status
 app.get('/api/health', async (req, res) => {

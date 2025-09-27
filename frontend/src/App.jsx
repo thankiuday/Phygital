@@ -24,6 +24,7 @@ import AnalyticsPage from './pages/Analytics/AnalyticsPage'
 import ProfilePage from './pages/Profile/ProfilePage'
 import UserPage from './pages/User/UserPage'
 import HistoryPage from './pages/History/HistoryPage'
+import ScanPage from './pages/ScanPage'
 import NotFoundPage from './pages/NotFoundPage'
 
 function App() {
@@ -49,6 +50,7 @@ function App() {
           <Route path="user/:username" element={<UserPage />} />
           <Route path="scan/:userId" element={<QRScanPage />} />
           <Route path="scan/project/:projectId" element={<QRScanPage />} />
+          <Route path="scan/:id" element={<ScanPage />} />
           <Route path="ar/:userId" element={<ARExperiencePage />} />
           <Route path="ar/project/:projectId" element={<ARExperiencePage />} />
         </Route>

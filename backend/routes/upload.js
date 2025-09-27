@@ -29,6 +29,7 @@ const {
   logFinalDesignDownload,
   logProjectDeletion
 } = require('../services/historyService');
+const ARExperience = require('../models/ARExperience');
 
 const router = express.Router();
 
@@ -1550,6 +1551,124 @@ router.get('/image-proxy', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to proxy image'
+    });
+  }
+});
+
+/**
+ * POST /api/upload/create-ar-experience
+ * Create AR experience from uploaded design and video
+ * Generates .mind file and saves AR experience data
+ */
+router.post('/create-ar-experience', authenticateToken, async (req, res) => {
+  try {
+    const user = req.user;
+    
+    // Check if user has uploaded design and video
+    if (!user.uploadedFiles.design.url) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Please upload a design first'
+      });
+    }
+    
+    if (!user.uploadedFiles.video.url) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Please upload a video first'
+      });
+    }
+    
+    if (!user.qrPosition) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Please set QR code position first'
+      });
+    }
+    
+    console.log('Creating AR experience for user:', user._id);
+    
+    // Generate .mind file from design image
+    let mindTargetUrl = user.uploadedFiles.mindTarget?.url;
+    
+    if (!mindTargetUrl) {
+      console.log('Generating .mind file from design image...');
+      try {
+        const mindTargetBuffer = await generateMindTarget(user.uploadedFiles.design.url, user._id.toString());
+        if (mindTargetBuffer) {
+          // Upload .mind file to S3
+          const mindTargetKey = `users/${user._id}/targets/mind-${Date.now()}.mind`;
+          const uploadResult = await uploadToS3Buffer(
+            mindTargetBuffer,
+            mindTargetKey,
+            'application/octet-stream'
+          );
+          
+          mindTargetUrl = uploadResult.url;
+          
+          // Update user with mind target
+          await User.findByIdAndUpdate(user._id, {
+            'uploadedFiles.mindTarget': {
+              filename: uploadResult.key,
+              originalName: `mind-target-${Date.now()}.mind`,
+              url: uploadResult.url,
+              size: mindTargetBuffer.length,
+              uploadedAt: new Date(),
+              generated: true
+            }
+          });
+          
+          console.log('.mind file generated and uploaded:', mindTargetUrl);
+        }
+      } catch (mindError) {
+        console.error('Failed to generate .mind file:', mindError);
+        return res.status(500).json({
+          status: 'error',
+          message: 'Failed to generate AR target file'
+        });
+      }
+    }
+    
+    if (!mindTargetUrl) {
+      return res.status(500).json({
+        status: 'error',
+        message: 'Failed to generate AR target file'
+      });
+    }
+    
+    // Create AR experience
+    const arExperienceData = {
+      mindFileUrl: mindTargetUrl,
+      videoUrl: user.uploadedFiles.video.url,
+      socialLinks: user.socialLinks || {}
+    };
+    
+    const arExperience = new ARExperience(arExperienceData);
+    const savedArExperience = await arExperience.save();
+    
+    console.log('AR experience created with ID:', savedArExperience._id);
+    
+    // Generate QR code URL pointing to the AR experience
+    const qrData = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/scan/${savedArExperience._id}`;
+    
+    res.status(201).json({
+      status: 'success',
+      message: 'AR experience created successfully',
+      data: {
+        arExperienceId: savedArExperience._id,
+        qrData: qrData,
+        mindFileUrl: mindTargetUrl,
+        videoUrl: user.uploadedFiles.video.url,
+        socialLinks: user.socialLinks || {}
+      }
+    });
+    
+  } catch (error) {
+    console.error('Create AR experience error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to create AR experience',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
