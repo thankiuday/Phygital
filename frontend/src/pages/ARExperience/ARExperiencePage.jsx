@@ -469,29 +469,29 @@ const ARExperiencePage = () => {
         addDebugMessage('🚀 Starting MindAR...', 'info');
         
         // Add progress indicators
-        const startProgress = () => {
-          let seconds = 0;
-          progressInterval = setInterval(() => {
-            seconds++;
-            if (seconds <= 10) {
-              addDebugMessage(`⏳ MindAR starting... ${seconds}/10 seconds`, 'info');
-            }
-          }, 1000);
-        };
+          const startProgress = () => {
+            let seconds = 0;
+            progressInterval = setInterval(() => {
+              seconds++;
+              if (seconds <= 20) {
+                addDebugMessage(`⏳ MindAR starting... ${seconds}/20 seconds`, 'info');
+              }
+            }, 1000);
+          };
         
         startProgress();
         
         // Add multiple timeout strategies
         const startPromise = mindar.start();
         
-        // Short timeout for quick fallback
+        // Short timeout for quick fallback (increased for mobile)
         const quickTimeout = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('MindAR start timeout after 5 seconds')), 5000)
+          setTimeout(() => reject(new Error('MindAR start timeout after 10 seconds')), 10000)
         );
         
-        // Long timeout as backup
+        // Long timeout as backup (increased for complex images)
         const longTimeout = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('MindAR start timeout after 10 seconds')), 10000)
+          setTimeout(() => reject(new Error('MindAR start timeout after 20 seconds')), 20000)
         );
         
         // Race between start, quick timeout, and long timeout
@@ -521,8 +521,14 @@ const ARExperiencePage = () => {
         if (startError.message.includes('Extra') && startError.message.includes('byte(s)') || 
             startError.message.includes('timeout') || 
             startError.message.includes('RangeError')) {
-          addDebugMessage('🚨 Image file corruption or timeout detected!', 'error');
-          addDebugMessage('💡 The design image appears to be corrupted or incompatible. Enabling test mode...', 'warning');
+          
+          if (startError.message.includes('timeout')) {
+            addDebugMessage('⏰ MindAR start timeout - image processing taking too long', 'warning');
+            addDebugMessage('💡 This can happen with complex images on mobile devices. Enabling test mode...', 'info');
+          } else {
+            addDebugMessage('🚨 Image file corruption detected!', 'error');
+            addDebugMessage('💡 The design image appears to be corrupted or incompatible. Enabling test mode...', 'warning');
+          }
           
           // Instead of failing completely, enable test mode
           addDebugMessage('🧪 Switching to AR test mode due to image issues', 'info');
@@ -558,8 +564,12 @@ const ARExperiencePage = () => {
             await testMindar.start();
             addDebugMessage('✅ MindAR test mode started successfully', 'success');
             
-            // Set test mode flag
-            setError('⚠️ Image corruption detected - AR is running in test mode. Please re-upload a clean image for full AR functionality.');
+               // Set test mode flag
+               if (startError.message.includes('timeout')) {
+                 setError('⏰ AR processing timeout - Running in test mode. Complex images may take longer to process on mobile devices.');
+               } else {
+                 setError('⚠️ Image corruption detected - AR is running in test mode. Please re-upload a clean image for full AR functionality.');
+               }
             
           } catch (testError) {
             addDebugMessage(`❌ Test mode also failed: ${testError.message}`, 'error');
