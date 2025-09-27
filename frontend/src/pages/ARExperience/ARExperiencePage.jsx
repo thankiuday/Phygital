@@ -159,7 +159,7 @@ const ARExperiencePage = () => {
   const trackAnalytics = useCallback(async (event, data = {}) => {
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-      await fetch(`${apiUrl}/analytics/${event}`, {
+      const response = await fetch(`${apiUrl}/analytics/${event}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -172,9 +172,14 @@ const ARExperiencePage = () => {
           ...data
         })
       });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       addDebugMessage(`📊 Analytics tracked: ${event}`, 'info');
     } catch (error) {
-      console.warn('Analytics tracking failed:', error);
+      addDebugMessage(`⚠️ Analytics tracking failed for ${event}: ${error.message}`, 'warning');
     }
   }, [userId, projectId, addDebugMessage]);
 
@@ -319,16 +324,16 @@ const ARExperiencePage = () => {
                 addDebugMessage(`✅ Image validation successful: ${img.naturalWidth}x${img.naturalHeight}`, 'success');
                 
                 // Resize image if too large for better MindAR performance
-                if (img.naturalWidth > 640 || img.naturalHeight > 640) {
+                if (img.naturalWidth > 480 || img.naturalHeight > 480) {
                   addDebugMessage('🖼️ Image too large, resizing for better performance...', 'info');
                   const canvas = document.createElement('canvas');
                   const ctx = canvas.getContext('2d');
-                  const maxSize = 640;
+                  const maxSize = 480; // Further reduced for mobile
                   const scale = Math.min(maxSize / img.naturalWidth, maxSize / img.naturalHeight);
                   canvas.width = img.naturalWidth * scale;
                   canvas.height = img.naturalHeight * scale;
                   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                  targetUrl = canvas.toDataURL('image/jpeg', 0.8);
+                  targetUrl = canvas.toDataURL('image/jpeg', 0.65); // Lower quality for faster processing
                   addDebugMessage(`🖼️ Image resized to ${canvas.width}x${canvas.height}`, 'success');
                 }
                 resolve();
@@ -377,8 +382,8 @@ const ARExperiencePage = () => {
         const testStream = await navigator.mediaDevices.getUserMedia({ 
           video: { 
             facingMode: 'environment',
-            width: { ideal: 640 },
-            height: { ideal: 480 }
+            width: { ideal: 480 }, // Reduced resolution
+            height: { ideal: 360 }
           } 
         });
         addDebugMessage('✅ Camera access test successful', 'success');
@@ -411,19 +416,19 @@ const ARExperiencePage = () => {
       addDebugMessage(`📱 Container dimensions: ${containerRef.current?.offsetWidth}x${containerRef.current?.offsetHeight}`, 'info');
       
         const mindarConfig = {
-        container: containerRef.current,
-        imageTargetSrc: targetUrl,
-        maxTrack: 1,
-          filterMinCF: 0.0005, // Relaxed for faster detection
-          filterBeta: 0.01,    // Adjusted for better performance
-          warmupTolerance: 10, // Increased tolerance for initialization
-          missTolerance: 10,   // Increased tolerance for target loss
+          container: containerRef.current,
+          imageTargetSrc: targetUrl,
+          maxTrack: 1,
+          filterMinCF: 0.00005, // Further relaxed for faster detection
+          filterBeta: 0.002,    // Further optimized for mobile
+          warmupTolerance: 20,  // Increased tolerance for initialization
+          missTolerance: 20,    // Increased tolerance for target loss
           // Force back camera on mobile
           facingMode: 'environment',
-          // Optimize for mobile - use container dimensions for better compatibility
+          // Optimize for mobile - reduced resolution for better performance
           resolution: { 
-            width: Math.min(containerRef.current.offsetWidth, 640), 
-            height: Math.min(containerRef.current.offsetHeight, 480) 
+            width: Math.min(containerRef.current.offsetWidth, 480), // Reduced resolution
+            height: Math.min(containerRef.current.offsetHeight, 360) 
           }
         };
       
@@ -463,6 +468,9 @@ const ARExperiencePage = () => {
         throw new Error('MindAR objects are undefined - renderer, scene, or camera missing');
       }
       
+      // Fix Three.js deprecation warning
+      renderer.outputColorSpace = window.THREE.SRGBColorSpace;
+      
       rendererRef.current = renderer;
       sceneRef.current = scene;
       cameraRef.current = camera;
@@ -500,8 +508,8 @@ const ARExperiencePage = () => {
             let seconds = 0;
             progressInterval = setInterval(() => {
               seconds++;
-              if (seconds <= 30) {
-                addDebugMessage(`⏳ MindAR starting... ${seconds}/30 seconds`, 'info');
+              if (seconds <= 45) {
+                addDebugMessage(`⏳ MindAR starting... ${seconds}/45 seconds`, 'info');
               }
             }, 1000);
           };
@@ -511,14 +519,18 @@ const ARExperiencePage = () => {
         // Add multiple timeout strategies
         const startPromise = mindar.start();
         
-        // Short timeout for quick fallback (increased for mobile)
+        // Dynamic timeout based on device capabilities
+        const deviceMemory = navigator.deviceMemory || 4;
+        const timeoutDuration = deviceMemory < 4 ? 30000 : 25000; // 30s for low-memory, 25s for others
+        
+        // Short timeout for quick fallback (dynamic based on device)
         const quickTimeout = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('MindAR start timeout after 15 seconds')), 15000)
+          setTimeout(() => reject(new Error(`MindAR start timeout after ${timeoutDuration / 1000} seconds`)), timeoutDuration)
         );
         
         // Long timeout as backup (increased for complex images)
         const longTimeout = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('MindAR start timeout after 30 seconds')), 30000)
+          setTimeout(() => reject(new Error('MindAR start timeout after 45 seconds')), 45000)
         );
         
         // Race between start, quick timeout, and long timeout
@@ -580,6 +592,9 @@ const ARExperiencePage = () => {
               if (!renderer || !scene || !camera) {
                 throw new Error('Test MindAR objects are undefined');
               }
+              
+              // Fix Three.js deprecation warning for test mode
+              renderer.outputColorSpace = window.THREE.SRGBColorSpace;
               
               mindarRef.current = testMindar;
               rendererRef.current = renderer;
@@ -1048,7 +1063,7 @@ const ARExperiencePage = () => {
             }, 100);
           }
         });
-      }, 500); // 500ms delay to ensure DOM is ready
+      }, 1500); // 1500ms delay to ensure DOM is ready
     }
   }, [librariesLoaded, projectData, isInitialized, initializeMindAR, startScanning, addDebugMessage]);
 
