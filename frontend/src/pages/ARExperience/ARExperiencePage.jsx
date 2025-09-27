@@ -606,6 +606,7 @@ const ARExperiencePage = () => {
             };
             
             try {
+              addDebugMessage('🧪 Attempting to start test MindAR...', 'info');
               await testMindar.start();
               addDebugMessage('✅ MindAR test mode started successfully', 'success');
             } catch (testStartError) {
@@ -621,10 +622,18 @@ const ARExperiencePage = () => {
                }
                
                // Activate camera and AR in test mode
+               addDebugMessage('🎥 Activating camera in test mode...', 'info');
                setCameraActive(true);
                setArReady(true);
                setIsInitialized(true);
                addDebugMessage('🎥 Camera activated in test mode', 'success');
+               
+               // Force startScanning after a short delay to ensure state is set
+               setTimeout(() => {
+                 addDebugMessage('🚀 Triggering startScanning for test mode...', 'info');
+                 startScanning();
+               }, 200);
+               
                return true;
             
           } catch (testError) {
@@ -634,10 +643,18 @@ const ARExperiencePage = () => {
             // Last resort: basic camera without MindAR
             try {
               setError('⚠️ AR tracking failed - Basic camera mode enabled. Video playback available.');
+              addDebugMessage('🎥 Activating basic camera mode...', 'info');
               setCameraActive(true);
               setArReady(true);
               setIsInitialized(true);
               addDebugMessage('🎥 Basic camera mode activated', 'success');
+              
+              // Force startScanning for basic camera mode
+              setTimeout(() => {
+                addDebugMessage('🚀 Triggering startScanning for basic camera mode...', 'info');
+                startScanning();
+              }, 200);
+              
               return true;
             } catch (fallbackError) {
               addDebugMessage(`❌ Even basic camera failed: ${fallbackError.message}`, 'error');
@@ -875,7 +892,7 @@ const ARExperiencePage = () => {
       setError(null);
 
       // Start MindAR if it's not already running
-      if (mindarRef.current && !cameraActive) {
+      if (mindarRef.current) {
         addDebugMessage('🎥 Starting MindAR camera...', 'info');
         try {
           await mindarRef.current.start();
@@ -884,8 +901,11 @@ const ARExperiencePage = () => {
           addDebugMessage(`⚠️ MindAR start warning: ${mindarError.message}`, 'warning');
           // Continue anyway - test mode or basic camera might still work
         }
-      } else if (!mindarRef.current && cameraActive) {
+      } else if (cameraActive) {
         addDebugMessage('🎥 Basic camera mode - no MindAR instance', 'info');
+        addDebugMessage('🎥 Camera should be visible without AR tracking', 'info');
+      } else {
+        addDebugMessage('⚠️ No MindAR instance and camera not active', 'warning');
       }
 
       // Update UI state
