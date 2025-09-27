@@ -8,12 +8,12 @@ const QRCode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
 
-// Import Jimp with correct pattern for modern versions
+// Import Jimp with correct pattern for v0.22.x
 let Jimp;
 
 try {
-  // Try modern Jimp import pattern first (>= 0.16.x)
-  Jimp = require('jimp').default || require('jimp');
+  // For Jimp v0.22.x, use standard require
+  Jimp = require('jimp');
   
   // Verify Jimp.read is available
   if (!Jimp.read || typeof Jimp.read !== 'function') {
@@ -22,8 +22,10 @@ try {
   
   console.log('✅ Jimp loaded successfully');
   console.log('🔍 Jimp object keys:', Object.keys(Jimp));
+  console.log('🔍 Jimp version info:', Jimp.version || 'unknown');
 } catch (error) {
   console.error('❌ Failed to load Jimp:', error.message);
+  console.log('🔍 Jimp module:', require('jimp'));
   throw new Error('Jimp library not available');
 }
 
