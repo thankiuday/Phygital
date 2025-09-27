@@ -36,15 +36,15 @@
     </script>
     <script src="https://hammerjs.github.io/dist/hammer.min.js"></script>
     
-    <!-- Load MindAR from a working UMD build -->
+    <!-- Load MindAR from UMD builds (compatible with regular script tags) -->
     <script>
       (function() {
         console.log('🔄 Loading MindAR for production...');
         
         const mindARSources = [
-          'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js',
-          'https://unpkg.com/mind-ar@1.2.5/dist/mindar-image-three.prod.js',
-          'https://cdn.skypack.dev/mind-ar@1.2.5/dist/mindar-image-three.prod.js'
+          'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.umd.js',
+          'https://unpkg.com/mind-ar@1.2.5/dist/mindar-image-three.umd.js',
+          'https://cdn.skypack.dev/mind-ar@1.2.5/dist/mindar-image-three.umd.js'
         ];
         
         let currentSourceIndex = 0;
