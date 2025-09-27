@@ -306,6 +306,24 @@ const ARExperiencePage = () => {
       if (targetType === '.mind file') {
         addDebugMessage('⚠️ Using .mind file - if AR fails, the file may be corrupted', 'warning');
       }
+      
+      // Pre-validate image URL to detect potential issues
+      if (targetType === 'image file') {
+        addDebugMessage('🔍 Pre-validating image URL...', 'info');
+        try {
+          // Test if image URL is accessible
+          const img = new Image();
+          img.onload = () => {
+            addDebugMessage(`✅ Image validation successful: ${img.naturalWidth}x${img.naturalHeight}`, 'success');
+          };
+          img.onerror = () => {
+            addDebugMessage('⚠️ Image validation failed - may cause AR issues', 'warning');
+          };
+          img.src = targetUrl;
+        } catch (imgError) {
+          addDebugMessage(`⚠️ Image validation error: ${imgError.message}`, 'warning');
+        }
+      }
 
       // Check if we have real MindAR or stub
       const isRealMindAR = window.MindARThree && window.MindARThree.MindARThree && 
@@ -445,21 +463,34 @@ const ARExperiencePage = () => {
         throttledSetVideoPlaying(false);
       };
 
-      // Start MindAR with error handling
+      // Start MindAR with error handling and timeout
       try {
         addDebugMessage('🚀 Starting MindAR...', 'info');
-        await mindar.start();
+        
+        // Add timeout to prevent hanging
+        const startPromise = mindar.start();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('MindAR start timeout after 10 seconds')), 10000)
+        );
+        
+        await Promise.race([startPromise, timeoutPromise]);
         addDebugMessage('✅ MindAR started successfully', 'success');
       } catch (startError) {
         addDebugMessage(`❌ MindAR start failed: ${startError.message}`, 'error');
         
-        // Check if it's a buffer/corruption error
-        if (startError.message.includes('Extra') && startError.message.includes('byte(s)')) {
-          addDebugMessage('🚨 Image file corruption detected!', 'error');
-          addDebugMessage('💡 The design image appears to be corrupted. Enabling test mode...', 'warning');
+        // Log full error details for debugging
+        console.error('Full MindAR start error:', startError);
+        console.error('Error stack:', startError.stack);
+        
+        // Check if it's a buffer/corruption error or timeout
+        if (startError.message.includes('Extra') && startError.message.includes('byte(s)') || 
+            startError.message.includes('timeout') || 
+            startError.message.includes('RangeError')) {
+          addDebugMessage('🚨 Image file corruption or timeout detected!', 'error');
+          addDebugMessage('💡 The design image appears to be corrupted or incompatible. Enabling test mode...', 'warning');
           
           // Instead of failing completely, enable test mode
-          addDebugMessage('🧪 Switching to AR test mode due to image corruption', 'info');
+          addDebugMessage('🧪 Switching to AR test mode due to image issues', 'info');
           
           // Create a test mode MindAR instance
           try {
