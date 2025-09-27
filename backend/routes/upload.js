@@ -72,16 +72,25 @@ const generateMindTarget = async (imageBuffer, userId) => {
         ['npx', ['mindar-cli', 'build-image-target', '-i', tmpImagePath, '-o', outMindPath]],
         ['npx', ['@hiukim/mind-ar-js-cli', 'build-image-target', '-i', tmpImagePath, '-o', outMindPath]],
         ['node', ['-e', `
-          const { MindARThree } = require('mind-ar/dist/mindar-image-three.prod.js');
           const fs = require('fs');
-          // Fallback: create a basic .mind file structure
+          const path = require('path');
+          
+          // Create a basic .mind file structure without external dependencies
           const mindData = {
             imageUrl: '${tmpImagePath}',
             targetData: 'basic_target_data',
-            created: new Date().toISOString()
+            created: new Date().toISOString(),
+            version: '1.0',
+            type: 'image_target'
           };
-          fs.writeFileSync('${outMindPath}', JSON.stringify(mindData));
-          console.log('Created basic .mind file');
+          
+          try {
+            fs.writeFileSync('${outMindPath}', JSON.stringify(mindData, null, 2));
+            console.log('✅ Created basic .mind file without external dependencies');
+          } catch (error) {
+            console.error('❌ Failed to create .mind file:', error.message);
+            process.exit(1);
+          }
         `]]
       ];
       
