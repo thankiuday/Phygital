@@ -243,6 +243,14 @@ const ARExperiencePage = () => {
 
   // Initialize MindAR
   const initializeMindAR = useCallback(async () => {
+    // Debug container element in detail
+    addDebugMessage('🔍 Checking container element...', 'info');
+    addDebugMessage(`📱 containerRef.current:`, containerRef.current, 'info');
+    addDebugMessage(`📱 containerRef.current?.offsetWidth:`, containerRef.current?.offsetWidth, 'info');
+    addDebugMessage(`📱 containerRef.current?.offsetHeight:`, containerRef.current?.offsetHeight, 'info');
+    addDebugMessage(`📱 containerRef.current?.clientWidth:`, containerRef.current?.clientWidth, 'info');
+    addDebugMessage(`📱 containerRef.current?.clientHeight:`, containerRef.current?.clientHeight, 'info');
+    
     if (!librariesLoaded || !projectData || !containerRef.current) {
       addDebugMessage('❌ MindAR init failed: Missing requirements', 'error');
       addDebugMessage(`📊 Requirements check: libraries=${librariesLoaded}, projectData=${!!projectData}, container=${!!containerRef.current}`, 'info');
@@ -265,7 +273,8 @@ const ARExperiencePage = () => {
       // Check if we have real MindAR or stub
       const isRealMindAR = window.MindARThree && window.MindARThree.MindARThree && 
                           typeof window.MindARThree.MindARThree === 'function' &&
-                          !window.MindARThree.MindARThree.toString().includes('stub');
+                          !window.MindARThree.MindARThree.toString().includes('stub') &&
+                          window.MindARThree.MindARThree.toString().length > 1000; // Real MindAR is much larger than stub
 
       if (isRealMindAR) {
         addDebugMessage('✅ Using real MindAR library', 'success');
@@ -322,17 +331,27 @@ const ARExperiencePage = () => {
         return false;
       }
 
-      // Create MindAR instance
+      // Create MindAR instance with proper camera configuration
       addDebugMessage('🔧 Creating MindAR instance...', 'info');
-      const mindar = new window.MindARThree.MindARThree({
+      addDebugMessage(`📱 Container element:`, containerRef.current, 'info');
+      addDebugMessage(`📱 Container dimensions: ${containerRef.current?.offsetWidth}x${containerRef.current?.offsetHeight}`, 'info');
+      
+      const mindarConfig = {
         container: containerRef.current,
         imageTargetSrc: targetUrl,
         maxTrack: 1,
         filterMinCF: 0.0001,
         filterBeta: 0.001,
         warmupTolerance: 5,
-        missTolerance: 5
-      });
+        missTolerance: 5,
+        // Force back camera on mobile
+        facingMode: 'environment',
+        // Optimize for mobile
+        resolution: { width: 640, height: 480 }
+      };
+      
+      addDebugMessage('🔧 MindAR config:', mindarConfig, 'info');
+      const mindar = new window.MindARThree.MindARThree(mindarConfig);
 
       addDebugMessage('✅ MindAR instance created', 'success');
       mindarRef.current = mindar;
