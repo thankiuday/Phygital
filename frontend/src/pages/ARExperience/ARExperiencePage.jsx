@@ -411,9 +411,9 @@ const ARExperiencePage = () => {
       addDebugMessage(`📱 Container dimensions: ${containerRef.current?.offsetWidth}x${containerRef.current?.offsetHeight}`, 'info');
       
         const mindarConfig = {
-          container: containerRef.current,
-          imageTargetSrc: targetUrl,
-          maxTrack: 1,
+        container: containerRef.current,
+        imageTargetSrc: targetUrl,
+        maxTrack: 1,
           filterMinCF: 0.0005, // Relaxed for faster detection
           filterBeta: 0.01,    // Adjusted for better performance
           warmupTolerance: 10, // Increased tolerance for initialization
@@ -589,17 +589,19 @@ const ARExperiencePage = () => {
                } else {
                  setError('⚠️ Image corruption detected - AR is running in test mode. Please re-upload a clean image for full AR functionality.');
                }
+               
+               // Activate camera and AR in test mode
+               setCameraActive(true);
+               setArReady(true);
+               setIsInitialized(true);
+               addDebugMessage('🎥 Camera activated in test mode', 'success');
+               return true;
             
           } catch (testError) {
             addDebugMessage(`❌ Test mode also failed: ${testError.message}`, 'error');
             setError('The design image is corrupted and AR cannot be initialized. Please go back and re-upload a clean image file.');
             return false;
           }
-          
-          setCameraActive(true);
-          setArReady(true);
-          setIsInitialized(true);
-          return true;
         }
         
         // If start fails due to target file issues, try with design image instead
@@ -829,7 +831,19 @@ const ARExperiencePage = () => {
       setIsScanning(true);
       setError(null);
 
-      // MindAR should already be running, just update UI state
+      // Start MindAR if it's not already running
+      if (mindarRef.current && !cameraActive) {
+        addDebugMessage('🎥 Starting MindAR camera...', 'info');
+        try {
+          await mindarRef.current.start();
+          addDebugMessage('✅ MindAR camera started', 'success');
+        } catch (mindarError) {
+          addDebugMessage(`⚠️ MindAR start warning: ${mindarError.message}`, 'warning');
+          // Continue anyway - test mode might still work
+        }
+      }
+
+      // Update UI state
       addDebugMessage('✅ AR scanning active', 'success');
 
     } catch (error) {
@@ -837,7 +851,7 @@ const ARExperiencePage = () => {
       setError(`Failed to start scanning: ${error.message}`);
       setIsScanning(false);
     }
-  }, [isScanning, isInitialized, addDebugMessage]);
+  }, [isScanning, isInitialized, cameraActive, addDebugMessage]);
 
   // Stop AR scanning
   const stopScanning = useCallback(async () => {
@@ -963,7 +977,10 @@ const ARExperiencePage = () => {
       setTimeout(() => {
         initializeMindAR().then(success => {
           if (success) {
-            startScanning();
+            // Add a small delay to ensure MindAR is fully ready
+            setTimeout(() => {
+              startScanning();
+            }, 100);
           }
         });
       }, 500); // 500ms delay to ensure DOM is ready
