@@ -45,7 +45,9 @@ export default defineConfig({
       }
     },
     // Increase chunk size warning limit
-    chunkSizeWarningLimit: 1000
+    chunkSizeWarningLimit: 1000,
+    // Copy public files including service worker and manifest
+    copyPublicDir: true
   },
   define: {
     'process.env': process.env

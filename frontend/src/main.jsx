@@ -24,10 +24,19 @@ const queryClient = new QueryClient({
 })
 
 // Register Service Worker for PWA functionality
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
+if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const registration = await navigator.serviceWorker.register('/sw.js');
+      // Check if service worker file exists before registering
+      const swResponse = await fetch('/sw.js', { method: 'HEAD' });
+      if (!swResponse.ok) {
+        console.log('⚠️ Service Worker file not found, skipping registration');
+        return;
+      }
+      
+      const registration = await navigator.serviceWorker.register('/sw.js', {
+        scope: '/'
+      });
       console.log('✅ Service Worker registered successfully:', registration.scope);
       
       // Handle service worker updates
@@ -37,6 +46,7 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
               // New content is available, prompt user to refresh
+              console.log('🔄 New service worker version available');
               if (confirm('New version available! Refresh to update?')) {
                 window.location.reload();
               }
@@ -44,8 +54,15 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
           });
         }
       });
+      
+      // Handle service worker errors
+      registration.addEventListener('error', (error) => {
+        console.error('❌ Service Worker error:', error);
+      });
+      
     } catch (error) {
       console.error('❌ Service Worker registration failed:', error);
+      // Don't block the app if service worker fails
     }
   });
 }
