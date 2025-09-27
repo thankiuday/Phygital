@@ -69,11 +69,22 @@
           
           // Handle different export patterns
           if (module.MindARThree) {
-            window.MindARThree = module.MindARThree;
+            // MindAR exports { MindARThree: class }
+            window.MindARThree = {
+              MindARThree: module.MindARThree
+            };
             console.log(`✅ MindAR loaded from source ${currentSourceIndex + 1} as MindARThree`);
           } else if (module.default) {
-            window.MindARThree = module.default;
-            console.log(`✅ MindAR loaded from source ${currentSourceIndex + 1} as default`);
+            // Check if default is the class or an object containing the class
+            if (module.default.MindARThree) {
+              window.MindARThree = module.default;
+              console.log(`✅ MindAR loaded from source ${currentSourceIndex + 1} as default.MindARThree`);
+            } else {
+              window.MindARThree = {
+                MindARThree: module.default
+              };
+              console.log(`✅ MindAR loaded from source ${currentSourceIndex + 1} as default`);
+            }
           } else {
             // Try to find any export that looks like MindARThree
             const exports = Object.keys(module);
@@ -83,7 +94,9 @@
             );
             
             if (mindARExport) {
-              window.MindARThree = module[mindARExport];
+              window.MindARThree = {
+                MindARThree: module[mindARExport]
+              };
               console.log(`✅ MindAR loaded from source ${currentSourceIndex + 1} as ${mindARExport}`);
             } else {
               throw new Error('No valid MindAR export found');
@@ -93,7 +106,16 @@
             console.log('📊 Final library check:', {
               THREE: !!window.THREE,
               MindARThree: !!window.MindARThree,
+              MindARThreeConstructor: !!window.MindARThree?.MindARThree,
               Hammer: !!window.Hammer
+            });
+            
+            // Debug MindAR structure
+            console.log('🔍 MindAR structure debug:', {
+              'window.MindARThree': window.MindARThree,
+              'window.MindARThree.MindARThree': window.MindARThree?.MindARThree,
+              'typeof window.MindARThree.MindARThree': typeof window.MindARThree?.MindARThree,
+              'isConstructor': window.MindARThree?.MindARThree && typeof window.MindARThree.MindARThree === 'function'
             });
         
         } catch (error) {
