@@ -453,6 +453,60 @@ const ARExperiencePage = () => {
       } catch (startError) {
         addDebugMessage(`❌ MindAR start failed: ${startError.message}`, 'error');
         
+        // Check if it's a buffer/corruption error
+        if (startError.message.includes('Extra') && startError.message.includes('byte(s)')) {
+          addDebugMessage('🚨 Image file corruption detected!', 'error');
+          addDebugMessage('💡 The design image appears to be corrupted. Enabling test mode...', 'warning');
+          
+          // Instead of failing completely, enable test mode
+          addDebugMessage('🧪 Switching to AR test mode due to image corruption', 'info');
+          
+          // Create a test mode MindAR instance
+          try {
+            const testConfig = {
+              container: containerRef.current,
+              imageTargetSrc: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==', // 1x1 transparent PNG
+              maxTrack: 1
+            };
+            
+            const testMindar = new window.MindARThree.MindARThree(testConfig);
+            mindarRef.current = testMindar;
+            
+            // Setup video for test mode
+            if (projectData.videoUrl) {
+              await setupVideo(testMindar.addAnchor(0));
+            }
+            
+            // Setup test mode event listeners
+            testMindar.onTargetFound = () => {
+              addDebugMessage('🎯 Target detected! (test mode)', 'success');
+              throttledSetTargetDetected(true);
+            };
+
+            testMindar.onTargetLost = () => {
+              addDebugMessage('🔍 Target lost (test mode)', 'warning');
+              throttledSetTargetDetected(false);
+              throttledSetVideoPlaying(false);
+            };
+            
+            await testMindar.start();
+            addDebugMessage('✅ MindAR test mode started successfully', 'success');
+            
+            // Set test mode flag
+            setError('⚠️ Image corruption detected - AR is running in test mode. Please re-upload a clean image for full AR functionality.');
+            
+          } catch (testError) {
+            addDebugMessage(`❌ Test mode also failed: ${testError.message}`, 'error');
+            setError('The design image is corrupted and AR cannot be initialized. Please go back and re-upload a clean image file.');
+            return false;
+          }
+          
+          setCameraActive(true);
+          setArReady(true);
+          setIsInitialized(true);
+          return true;
+        }
+        
         // If start fails due to target file issues, try with design image instead
         if (targetType === '.mind file' && projectData.designUrl) {
           addDebugMessage('🔄 Target file failed, retrying with design image...', 'info');
@@ -489,6 +543,14 @@ const ARExperiencePage = () => {
             addDebugMessage('✅ MindAR started successfully with design image fallback', 'success');
           } catch (fallbackError) {
             addDebugMessage(`❌ Fallback MindAR also failed: ${fallbackError.message}`, 'error');
+            
+            // Check if fallback also has corruption
+            if (fallbackError.message.includes('Extra') && fallbackError.message.includes('byte(s)')) {
+              addDebugMessage('🚨 Design image is also corrupted!', 'error');
+              setError('The design image is corrupted and cannot be used for AR tracking. Please go back and re-upload a clean image file.');
+              return false;
+            }
+            
             throw new Error(`AR initialization failed: ${fallbackError.message}`);
           }
         } else {
