@@ -67,7 +67,8 @@ const userSchema = new mongoose.Schema({
       filename: String,
       url: String,
       size: Number,
-      uploadedAt: Date
+      uploadedAt: Date,
+      generated: { type: Boolean, default: false } // Indicates if auto-generated or manually uploaded
     }
   },
   

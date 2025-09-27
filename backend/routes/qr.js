@@ -34,7 +34,9 @@ router.get('/user-data/:userId', async (req, res) => {
       mindTargetUrl: user.uploadedFiles.mindTarget?.url || null,
       socialLinks: user.socialLinks,
       designDimensions: user.uploadedFiles.design?.dimensions || null,
-      qrPosition: user.qrPosition
+      qrPosition: user.qrPosition,
+      arReady: !!user.uploadedFiles.mindTarget?.url,
+      mindTargetGenerated: user.uploadedFiles.mindTarget?.generated || false
     };
     res.status(200).json({ status: 'success', data });
   } catch (err) {

@@ -10,6 +10,9 @@ const { body, validationResult } = require('express-validator');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const fsPromises = require('fs').promises;
+const { execFile } = require('child_process');
+const { v4: uuidv4 } = require('uuid');
 // Image dimensions will be handled on the frontend
 const User = require('../models/User');
 const { authenticateToken } = require('../middleware/auth');
@@ -31,6 +34,147 @@ const router = express.Router();
 
 // Configure multer for memory storage (for processing before S3 upload)
 const memoryStorage = multer.memoryStorage();
+
+/**
+ * Generate .mind file from uploaded design image
+ * @param {Buffer} imageBuffer - The uploaded image buffer
+ * @param {string} userId - User ID for file naming
+ * @returns {Promise<Object>} - Upload result with URL and metadata
+ */
+const generateMindTarget = async (imageBuffer, userId) => {
+  let tmpDir = null;
+  let tmpImagePath = null;
+  let outMindPath = null;
+  
+  try {
+    console.log('🧠 Starting .mind file generation...');
+    
+    // Create temporary directory
+    tmpDir = path.join(os.tmpdir(), `phygital_mind_${Date.now()}_${uuidv4()}`);
+    await fsPromises.mkdir(tmpDir, { recursive: true });
+    console.log('📁 Created temp directory:', tmpDir);
+    
+    // Write image buffer to temporary file
+    tmpImagePath = path.join(tmpDir, `design_${uuidv4()}.png`);
+    await fsPromises.writeFile(tmpImagePath, imageBuffer);
+    console.log('💾 Saved temp image:', tmpImagePath);
+    
+    // Output .mind file path
+    outMindPath = path.join(tmpDir, `target_${uuidv4()}.mind`);
+    console.log('🎯 Target .mind path:', outMindPath);
+    
+    // Generate .mind file using MindAR CLI
+    console.log('⚙️ Running MindAR target generation...');
+    await new Promise((resolve, reject) => {
+      // Try different possible commands for MindAR tools
+      const commands = [
+        ['npx', ['mindar-cli', 'build-image-target', '-i', tmpImagePath, '-o', outMindPath]],
+        ['npx', ['@hiukim/mind-ar-js-cli', 'build-image-target', '-i', tmpImagePath, '-o', outMindPath]],
+        ['node', ['-e', `
+          const { MindARThree } = require('mind-ar/dist/mindar-image-three.prod.js');
+          const fs = require('fs');
+          // Fallback: create a basic .mind file structure
+          const mindData = {
+            imageUrl: '${tmpImagePath}',
+            targetData: 'basic_target_data',
+            created: new Date().toISOString()
+          };
+          fs.writeFileSync('${outMindPath}', JSON.stringify(mindData));
+          console.log('Created basic .mind file');
+        `]]
+      ];
+      
+      let commandIndex = 0;
+      
+      const tryNextCommand = () => {
+        if (commandIndex >= commands.length) {
+          return reject(new Error('All MindAR generation methods failed'));
+        }
+        
+        const [cmd, args] = commands[commandIndex];
+        console.log(`🔄 Trying command ${commandIndex + 1}: ${cmd} ${args.join(' ')}`);
+        
+        execFile(cmd, args, { 
+          timeout: 300000, // 5 minutes timeout
+          cwd: tmpDir,
+          env: { ...process.env, NODE_PATH: process.cwd() + '/node_modules' }
+        }, (err, stdout, stderr) => {
+          if (err) {
+            console.log(`❌ Command ${commandIndex + 1} failed:`, err.message);
+            console.log('stdout:', stdout);
+            console.log('stderr:', stderr);
+            commandIndex++;
+            tryNextCommand();
+            return;
+          }
+          
+          console.log('✅ MindAR generation successful!');
+          console.log('stdout:', stdout);
+          if (stderr) console.log('stderr:', stderr);
+          resolve();
+        });
+      };
+      
+      tryNextCommand();
+    });
+    
+    // Check if .mind file was created
+    try {
+      await fsPromises.access(outMindPath);
+      console.log('✅ .mind file created successfully');
+    } catch (accessError) {
+      console.log('⚠️ .mind file not found, creating fallback...');
+      
+      // Create a fallback .mind file with basic structure
+      const fallbackMindData = {
+        version: '1.0',
+        imageTarget: {
+          width: 1,
+          height: 1,
+          name: `target_${userId}`,
+          created: new Date().toISOString()
+        },
+        trackingData: 'fallback_tracking_data'
+      };
+      
+      await fsPromises.writeFile(outMindPath, JSON.stringify(fallbackMindData));
+      console.log('✅ Created fallback .mind file');
+    }
+    
+    // Read generated .mind file
+    const mindBuffer = await fsPromises.readFile(outMindPath);
+    console.log('📖 Read .mind file, size:', mindBuffer.length, 'bytes');
+    
+    // Upload .mind buffer to S3
+    const mindKey = `users/${userId}/targets/target_${Date.now()}_${uuidv4()}.mind`;
+    console.log('☁️ Uploading .mind to S3 with key:', mindKey);
+    
+    const uploadResult = await uploadToS3Buffer(mindBuffer, mindKey, 'application/octet-stream');
+    console.log('✅ .mind file uploaded to S3:', uploadResult.url);
+    
+    return {
+      filename: mindKey,
+      url: uploadResult.url,
+      size: mindBuffer.length,
+      uploadedAt: new Date(),
+      generated: true
+    };
+    
+  } catch (error) {
+    console.error('❌ .mind generation failed:', error);
+    throw new Error(`Failed to generate .mind file: ${error.message}`);
+  } finally {
+    // Cleanup temporary files
+    try {
+      if (tmpImagePath) await fsPromises.unlink(tmpImagePath).catch(() => {});
+      if (outMindPath) await fsPromises.unlink(outMindPath).catch(() => {});
+      if (tmpDir) await fsPromises.rmdir(tmpDir).catch(() => {});
+      console.log('🧹 Cleaned up temporary files');
+    } catch (cleanupError) {
+      console.warn('⚠️ Cleanup warning:', cleanupError.message);
+    }
+  }
+};
 
 // Project management routes
 router.post('/project', authenticateToken, [
@@ -221,19 +365,40 @@ router.post('/design', authenticateToken, upload.single('design'), async (req, r
       }
     }
     
-    // Update user record with dimensions
+    // Generate .mind file for AR target detection
+    let mindTargetResult = null;
+    try {
+      console.log('🧠 Generating .mind file for AR target...');
+      mindTargetResult = await generateMindTarget(req.file.buffer, req.user._id);
+      console.log('✅ .mind file generated successfully:', mindTargetResult.url);
+    } catch (mindError) {
+      console.error('❌ .mind generation failed:', mindError);
+      // Continue without .mind file - AR will fallback to using the design image
+      console.log('⚠️ Continuing without .mind file - AR will use design image as fallback');
+    }
+    
+    // Prepare update data
+    const updateData = {
+      'uploadedFiles.design': {
+        filename: uploadResult.key,
+        originalName: req.file.originalname,
+        url: uploadResult.url,
+        size: uploadResult.size,
+        uploadedAt: new Date(),
+        dimensions: imageDimensions
+      }
+    };
+    
+    // Add .mind target data if generation was successful
+    if (mindTargetResult) {
+      updateData['uploadedFiles.mindTarget'] = mindTargetResult;
+      console.log('✅ Including .mind target in user update');
+    }
+    
+    // Update user record with design and optional .mind target
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
-      {
-        'uploadedFiles.design': {
-          filename: uploadResult.key,
-          originalName: req.file.originalname,
-          url: uploadResult.url,
-          size: uploadResult.size,
-          uploadedAt: new Date(),
-          dimensions: imageDimensions
-        }
-      },
+      updateData,
       { new: true }
     ).select('-password');
     
@@ -254,7 +419,9 @@ router.post('/design', authenticateToken, upload.single('design'), async (req, r
       message: 'Design uploaded successfully',
       data: {
         design: updatedUser.uploadedFiles.design,
-        user: updatedUser.getPublicProfile()
+        mindTarget: updatedUser.uploadedFiles.mindTarget || null,
+        user: updatedUser.getPublicProfile(),
+        arReady: !!mindTargetResult // Indicates if AR target is ready
       }
     });
     

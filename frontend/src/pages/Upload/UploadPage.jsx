@@ -79,7 +79,15 @@ const UploadPage = () => {
       setUploadProgress(100)
       
       updateUser(response.data.data.user)
-      toast.success('Design uploaded successfully!')
+      
+      // Show different messages based on AR readiness
+      if (response.data.data.arReady) {
+        toast.success('Design uploaded successfully! AR target generated 🎯')
+      } else if (response.data.data.mindTarget) {
+        toast.success('Design uploaded successfully! AR target processing... ⚙️')
+      } else {
+        toast.success('Design uploaded successfully! AR will use image fallback 📷')
+      }
       
       setTimeout(() => {
         setUploadProgress(0)
