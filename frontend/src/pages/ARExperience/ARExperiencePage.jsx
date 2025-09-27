@@ -251,11 +251,27 @@ const ARExperiencePage = () => {
     addDebugMessage(`📱 containerRef.current?.clientWidth:`, containerRef.current?.clientWidth, 'info');
     addDebugMessage(`📱 containerRef.current?.clientHeight:`, containerRef.current?.clientHeight, 'info');
     
-    if (!librariesLoaded || !projectData || !containerRef.current) {
+    // Check if container is ready with proper dimensions
+    if (!containerRef.current || containerRef.current.offsetWidth === 0 || containerRef.current.offsetHeight === 0) {
+      addDebugMessage('⚠️ Container not ready yet, retrying in 100ms...', 'warning');
+      addDebugMessage(`📊 Container check: exists=${!!containerRef.current}, width=${containerRef.current?.offsetWidth}, height=${containerRef.current?.offsetHeight}`, 'info');
+      
+      // Retry after a short delay
+      setTimeout(() => {
+        addDebugMessage('🔄 Retrying MindAR initialization...', 'info');
+        initializeMindAR();
+      }, 100);
+      return false;
+    }
+    
+    if (!librariesLoaded || !projectData) {
       addDebugMessage('❌ MindAR init failed: Missing requirements', 'error');
       addDebugMessage(`📊 Requirements check: libraries=${librariesLoaded}, projectData=${!!projectData}, container=${!!containerRef.current}`, 'info');
       return false;
     }
+    
+    // Container is ready - log final dimensions
+    addDebugMessage(`✅ Container ready: ${containerRef.current.offsetWidth}x${containerRef.current.offsetHeight}`, 'success');
 
     try {
       addDebugMessage('🚀 Initializing MindAR...', 'info');
@@ -586,13 +602,17 @@ const ARExperiencePage = () => {
   // Initialize MindAR when data is ready
   useEffect(() => {
     if (librariesLoaded && projectData && !isInitialized) {
-      initializeMindAR().then(success => {
-        if (success) {
-          startScanning();
-        }
-      });
+      // Add a small delay to ensure the container is fully rendered
+      addDebugMessage('⏳ Delaying MindAR initialization to ensure container is ready...', 'info');
+      setTimeout(() => {
+        initializeMindAR().then(success => {
+          if (success) {
+            startScanning();
+          }
+        });
+      }, 200); // 200ms delay to ensure DOM is ready
     }
-  }, [librariesLoaded, projectData, isInitialized, initializeMindAR, startScanning]);
+  }, [librariesLoaded, projectData, isInitialized, initializeMindAR, startScanning, addDebugMessage]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -747,7 +767,13 @@ const ARExperiencePage = () => {
       <div 
         ref={containerRef}
         className="absolute inset-0 w-full h-full"
-        style={{ touchAction: 'none' }}
+        style={{ 
+          width: '100%', 
+          height: '100%',
+          touchAction: 'none',
+          minWidth: '320px',
+          minHeight: '240px'
+        }}
       />
 
       {/* Top UI Bar */}

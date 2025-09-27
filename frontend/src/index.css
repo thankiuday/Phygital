@@ -8,11 +8,18 @@
   html {
     font-family: 'Inter', system-ui, sans-serif;
     scroll-behavior: smooth;
+    height: 100%;
   }
   
   body {
     @apply bg-dark-mesh text-slate-100 antialiased;
     background-attachment: fixed;
+    min-height: 100vh;
+    height: 100%;
+  }
+  
+  #root {
+    height: 100%;
     min-height: 100vh;
   }
   
