@@ -99,19 +99,34 @@ const overlayQRCode = async (designImagePath, qrData, position, outputPath) => {
     
     // Try different Jimp API patterns
     let designImage;
-    if (Jimp && typeof Jimp.read === 'function') {
-      designImage = await Jimp.read(designImagePath);
-    } else if (Jimp && typeof Jimp.Jimp === 'function' && typeof Jimp.Jimp.read === 'function') {
-      designImage = await Jimp.Jimp.read(designImagePath);
-    } else if (Jimp && typeof Jimp === 'function') {
-      designImage = await Jimp(designImagePath);
-    } else {
-      throw new Error('No valid Jimp API found - Jimp library not properly loaded');
+    try {
+      if (Jimp && typeof Jimp.read === 'function') {
+        designImage = await Jimp.read(designImagePath);
+      } else if (Jimp && typeof Jimp.Jimp === 'function' && typeof Jimp.Jimp.read === 'function') {
+        designImage = await Jimp.Jimp.read(designImagePath);
+      } else if (Jimp && typeof Jimp === 'function') {
+        designImage = await Jimp(designImagePath);
+      } else {
+        throw new Error('No valid Jimp API found - Jimp library not properly loaded');
+      }
+      
+      console.log('🔍 Design image object:', {
+        type: typeof designImage,
+        keys: designImage ? Object.keys(designImage) : 'undefined',
+        hasGetWidth: designImage && typeof designImage.getWidth === 'function',
+        hasGetHeight: designImage && typeof designImage.getHeight === 'function'
+      });
+      
+      console.log('✅ Design image loaded:', {
+        width: designImage.getWidth(),
+        height: designImage.getHeight()
+      });
+    } catch (loadError) {
+      console.error('❌ Failed to load image with Jimp:', loadError.message);
+      console.log('🔍 Jimp object keys:', Jimp ? Object.keys(Jimp) : 'undefined');
+      console.log('🔍 Jimp type:', typeof Jimp);
+      throw new Error(`Failed to load image: ${loadError.message}`);
     }
-    console.log('✅ Design image loaded:', {
-      width: designImage.getWidth(),
-      height: designImage.getHeight()
-    });
     
     // Validate position is within image bounds
     if (normalizedPosition.x + normalizedPosition.width > designImage.getWidth() ||
