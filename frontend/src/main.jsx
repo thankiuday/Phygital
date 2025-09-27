@@ -23,21 +23,55 @@ const queryClient = new QueryClient({
   },
 })
 
-// Register Service Worker for PWA functionality
-if ('serviceWorker' in navigator) {
+// Register Service Worker for PWA functionality (optional)
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', async () => {
     try {
-      // Check if service worker file exists before registering
-      const swResponse = await fetch('/sw.js', { method: 'HEAD' });
-      if (!swResponse.ok) {
-        console.log('⚠️ Service Worker file not found, skipping registration');
-        return;
-      }
+      // Create a minimal inline service worker if external file not available
+      const swCode = `
+        const CACHE_NAME = 'phygital-v1';
+        
+        self.addEventListener('install', (event) => {
+          console.log('Service Worker installing');
+          self.skipWaiting();
+        });
+        
+        self.addEventListener('activate', (event) => {
+          console.log('Service Worker activating');
+          event.waitUntil(self.clients.claim());
+        });
+        
+        self.addEventListener('fetch', (event) => {
+          // Simple cache-first strategy for static assets
+          if (event.request.destination === 'script' || event.request.destination === 'style') {
+            event.respondWith(
+              caches.match(event.request).then((response) => {
+                return response || fetch(event.request).then((fetchResponse) => {
+                  const responseClone = fetchResponse.clone();
+                  caches.open(CACHE_NAME).then((cache) => {
+                    cache.put(event.request, responseClone);
+                  });
+                  return fetchResponse;
+                });
+              })
+            );
+          }
+        });
+      `;
       
-      const registration = await navigator.serviceWorker.register('/sw.js', {
-        scope: '/'
-      });
-      console.log('✅ Service Worker registered successfully:', registration.scope);
+      // Try external service worker first
+      let registration;
+      try {
+        registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+        console.log('✅ External Service Worker registered:', registration.scope);
+      } catch (swError) {
+        // Fallback to inline service worker
+        const blob = new Blob([swCode], { type: 'application/javascript' });
+        const swUrl = URL.createObjectURL(blob);
+        registration = await navigator.serviceWorker.register(swUrl, { scope: '/' });
+        console.log('✅ Inline Service Worker registered:', registration.scope);
+        URL.revokeObjectURL(swUrl);
+      }
       
       // Handle service worker updates
       registration.addEventListener('updatefound', () => {
@@ -45,24 +79,14 @@ if ('serviceWorker' in navigator) {
         if (newWorker) {
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              // New content is available, prompt user to refresh
-              console.log('🔄 New service worker version available');
-              if (confirm('New version available! Refresh to update?')) {
-                window.location.reload();
-              }
+              console.log('🔄 Service Worker updated');
             }
           });
         }
       });
       
-      // Handle service worker errors
-      registration.addEventListener('error', (error) => {
-        console.error('❌ Service Worker error:', error);
-      });
-      
     } catch (error) {
-      console.error('❌ Service Worker registration failed:', error);
-      // Don't block the app if service worker fails
+      console.log('ℹ️ Service Worker not available, app works fine without PWA features');
     }
   });
 }
