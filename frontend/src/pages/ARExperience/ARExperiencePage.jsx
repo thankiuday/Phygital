@@ -464,11 +464,11 @@ const ARExperiencePage = () => {
       };
 
       // Start MindAR with error handling and timeout
+      let progressInterval = null;
       try {
         addDebugMessage('🚀 Starting MindAR...', 'info');
         
         // Add progress indicators
-        let progressInterval;
         const startProgress = () => {
           let seconds = 0;
           progressInterval = setInterval(() => {
@@ -500,6 +500,7 @@ const ARExperiencePage = () => {
         // Clear progress indicator
         if (progressInterval) {
           clearInterval(progressInterval);
+          progressInterval = null;
         }
         
         addDebugMessage('✅ MindAR started successfully', 'success');
@@ -507,6 +508,7 @@ const ARExperiencePage = () => {
         // Clear progress indicator
         if (progressInterval) {
           clearInterval(progressInterval);
+          progressInterval = null;
         }
         
         addDebugMessage(`❌ MindAR start failed: ${startError.message}`, 'error');
