@@ -5,9 +5,36 @@
  */
 
 const QRCode = require('qrcode');
-const Jimp = require('jimp');
 const path = require('path');
 const fs = require('fs');
+
+// Import Jimp with proper error handling and fallback
+let Jimp;
+let sharp;
+
+try {
+  Jimp = require('jimp');
+  console.log('✅ Jimp loaded successfully');
+  
+  // Verify Jimp has the required methods
+  if (!Jimp.read || typeof Jimp.read !== 'function') {
+    console.warn('⚠️ Jimp.read not available, trying alternative import');
+    // Try default import for newer versions
+    Jimp = require('jimp').default || require('jimp');
+    console.log('✅ Jimp loaded with alternative method');
+  }
+} catch (error) {
+  console.error('❌ Failed to load Jimp:', error.message);
+  
+  // Try Sharp as fallback
+  try {
+    sharp = require('sharp');
+    console.log('✅ Sharp loaded as fallback');
+  } catch (sharpError) {
+    console.error('❌ Both Jimp and Sharp failed to load');
+    throw new Error('No image processing library available');
+  }
+}
 
 /**
  * Generate QR code as buffer
@@ -66,6 +93,12 @@ const overlayQRCode = async (designImagePath, qrData, position, outputPath) => {
     
     // Load the design image using Jimp
     console.log('🖼️ Loading design image:', designImagePath);
+    console.log('🔍 Jimp object:', typeof Jimp, Jimp ? Object.keys(Jimp) : 'undefined');
+    
+    if (!Jimp || typeof Jimp.read !== 'function') {
+      throw new Error('Jimp.read is not available - Jimp library not properly loaded');
+    }
+    
     const designImage = await Jimp.read(designImagePath);
     console.log('✅ Design image loaded:', {
       width: designImage.getWidth(),

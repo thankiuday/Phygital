@@ -1173,16 +1173,54 @@ router.get('/status', authenticateToken, async (req, res) => {
 });
 
 /**
+ * GET /api/upload/debug-final-design
+ * Debug endpoint to check final design generation status
+ */
+router.get('/debug-final-design', authenticateToken, async (req, res) => {
+  try {
+    const user = req.user;
+    
+    const debugInfo = {
+      userId: user._id,
+      hasDesign: !!user.uploadedFiles.design.url,
+      designUrl: user.uploadedFiles.design.url,
+      hasQrPosition: !!user.qrPosition,
+      qrPosition: user.qrPosition,
+      currentProject: user.currentProject,
+      projects: user.projects?.length || 0,
+      environment: process.env.NODE_ENV,
+      frontendUrl: process.env.FRONTEND_URL
+    };
+    
+    console.log('🔍 Debug info for user:', debugInfo);
+    
+    res.status(200).json({
+      status: 'success',
+      data: debugInfo
+    });
+  } catch (error) {
+    console.error('Debug endpoint error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Debug failed',
+      error: error.message
+    });
+  }
+});
+
+/**
  * GET /api/upload/download-final-design
  * Download the final design with QR code overlaid
  * Generates the final image and returns it as a download
  */
 router.get('/download-final-design', authenticateToken, async (req, res) => {
   try {
+    console.log('🎯 Starting final design download for user:', req.user._id);
     const user = req.user;
     
     // Check if user has uploaded design and set QR position
     if (!user.uploadedFiles.design.url) {
+      console.error('❌ No design uploaded for user:', user._id);
       return res.status(400).json({
         status: 'error',
         message: 'Please upload a design first'
@@ -1190,11 +1228,14 @@ router.get('/download-final-design', authenticateToken, async (req, res) => {
     }
     
     if (!user.qrPosition || (user.qrPosition.x === undefined && user.qrPosition.y === undefined)) {
+      console.error('❌ No QR position set for user:', user._id);
       return res.status(400).json({
         status: 'error',
         message: 'Please set QR code position first'
       });
     }
+    
+    console.log('✅ Validation passed for user:', user._id);
     
     // Get current project information
     const currentProject = user.projects?.find(p => p.id === user.currentProject);
@@ -1210,12 +1251,21 @@ router.get('/download-final-design', authenticateToken, async (req, res) => {
     }
     
     // Generate final design with QR code
+    console.log('🎨 Calling generateFinalDesign with:', {
+      designUrl: user.uploadedFiles.design.url,
+      qrData: qrData.substring(0, 50) + '...',
+      qrPosition: user.qrPosition,
+      userId: user._id.toString()
+    });
+    
     const finalDesignPath = await generateFinalDesign(
       user.uploadedFiles.design.url,
       qrData,
       user.qrPosition,
       user._id.toString()
     );
+    
+    console.log('✅ generateFinalDesign completed, path:', finalDesignPath);
     const projectData = currentProject ? {
       id: currentProject.id,
       name: currentProject.name,
