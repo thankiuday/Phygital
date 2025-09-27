@@ -37,149 +37,65 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- HammerJS (non-ESM, so fine) -->
+    <!-- HammerJS (for gestures) -->
     <script src="https://hammerjs.github.io/dist/hammer.min.js"></script>
-    
-    <!-- Fallback MindAR script (if dynamic imports fail) -->
-    <script>
-      // Fallback MindAR loading function
-      window.loadMindARFallback = function() {
-        if (window.MindARThree && window.MindARThree.MindARThree) {
-          console.log('✅ MindAR already loaded via dynamic import');
-          return;
-        }
-        
-        console.log('🔄 Loading MindAR fallback script...');
-        const script = document.createElement('script');
-        script.src = 'https://unpkg.com/mind-ar@1.2.5/dist/mindar-image-three.prod.js';
-        script.type = 'module';
-        script.onload = function() {
-          console.log('✅ MindAR fallback script loaded');
-        };
-        script.onerror = function() {
-          console.error('❌ MindAR fallback script failed to load');
-        };
-        document.head.appendChild(script);
-      };
-    </script>
-    
-    <!-- Load MindAR as ES module with import map resolution -->
+
+    <!-- MindAR Loader -->
     <script type="module">
-      // Load Three.js via import map and expose globally
       import * as THREE from "three";
       window.THREE = THREE;
-      console.log("✅ Three.js loaded via import map");
-      
-      // Load MindAR with fallbacks
-        const mindARSources = [
-          'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js',
-          'https://unpkg.com/mind-ar@1.2.5/dist/mindar-image-three.prod.js',
-          'https://cdn.skypack.dev/mind-ar@1.2.5/dist/mindar-image-three.prod.js'
-        ];
-        
-        let currentSourceIndex = 0;
-        
+      console.log("✅ Three.js loaded");
+
       async function loadMindAR() {
-          if (currentSourceIndex >= mindARSources.length) {
-          console.error('❌ All MindAR sources failed, using stub');
-          createStub();
-            return;
-          }
-        
         try {
-          console.log(`🔄 Loading MindAR from source ${currentSourceIndex + 1}...`);
-          const module = await import(mindARSources[currentSourceIndex]);
+          // Attempt ESM import
+          const module = await import("https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js");
+          window.MindARThree = module.MindARThree ? { MindARThree: module.MindARThree } : { MindARThree: module.default.MindARThree };
+          console.log("✅ MindAR loaded via ESM import");
           
-          // Handle different export patterns
-          if (module.MindARThree) {
-            // MindAR exports { MindARThree: class }
-            window.MindARThree = {
-              MindARThree: module.MindARThree
-            };
-            console.log(`✅ MindAR loaded from source ${currentSourceIndex + 1} as MindARThree`);
-          } else if (module.default) {
-            // Check if default is the class or an object containing the class
-            if (module.default.MindARThree) {
-              window.MindARThree = module.default;
-              console.log(`✅ MindAR loaded from source ${currentSourceIndex + 1} as default.MindARThree`);
-            } else {
-              window.MindARThree = {
-                MindARThree: module.default
-              };
-              console.log(`✅ MindAR loaded from source ${currentSourceIndex + 1} as default`);
-            }
-          } else {
-            // Try to find any export that looks like MindARThree
-            const exports = Object.keys(module);
-            const mindARExport = exports.find(key => 
-              key.toLowerCase().includes('mindar') || 
-              typeof module[key] === 'function'
-            );
-            
-            if (mindARExport) {
-              window.MindARThree = {
-                MindARThree: module[mindARExport]
-              };
-              console.log(`✅ MindAR loaded from source ${currentSourceIndex + 1} as ${mindARExport}`);
-            } else {
-              throw new Error('No valid MindAR export found');
-            }
-            }
-            
-            console.log('📊 Final library check:', {
-              THREE: !!window.THREE,
-              MindARThree: !!window.MindARThree,
-              MindARThreeConstructor: !!window.MindARThree?.MindARThree,
-              Hammer: !!window.Hammer
-            });
-            
-            // Debug MindAR structure
-            console.log('🔍 MindAR structure debug:', {
-              'window.MindARThree': window.MindARThree,
-              'window.MindARThree.MindARThree': window.MindARThree?.MindARThree,
-              'typeof window.MindARThree.MindARThree': typeof window.MindARThree?.MindARThree,
-              'isConstructor': window.MindARThree?.MindARThree && typeof window.MindARThree.MindARThree === 'function'
-            });
-        
-        } catch (error) {
-          console.error(`❌ Failed to load MindAR from source ${currentSourceIndex + 1}:`, error.message);
-          currentSourceIndex++;
+          // Debug MindAR structure
+          console.log('🔍 MindAR structure debug:', {
+            'window.MindARThree': window.MindARThree,
+            'window.MindARThree.MindARThree': window.MindARThree?.MindARThree,
+            'typeof window.MindARThree.MindARThree': typeof window.MindARThree?.MindARThree,
+            'isConstructor': window.MindARThree?.MindARThree && typeof window.MindARThree.MindARThree === 'function'
+          });
           
-          if (currentSourceIndex >= mindARSources.length) {
-            console.log('🔄 All dynamic imports failed, trying fallback script...');
-            window.loadMindARFallback();
-            
-            // Wait a bit for fallback to load, then create stub if still no luck
-            setTimeout(() => {
-              if (!window.MindARThree || !window.MindARThree.MindARThree) {
-                console.error('❌ All MindAR loading methods failed, using stub');
-                createStub();
-              }
-            }, 3000);
-          } else {
-            await loadMindAR();
-          }
+        } catch (e) {
+          console.warn("⚠️ ESM import failed, loading UMD fallback...");
+          const script = document.createElement('script');
+          script.src = "https://unpkg.com/mind-ar@1.2.5/dist/mindar-image-three.prod.js";
+          script.onload = () => {
+            console.log("✅ MindAR loaded via UMD fallback");
+            // Ensure proper structure for UMD
+            if (window.MindARThree && !window.MindARThree.MindARThree) {
+              window.MindARThree = { MindARThree: window.MindARThree };
+            }
+          };
+          script.onerror = () => {
+            console.error("❌ MindAR failed to load, using stub");
+            createMindARStub();
+          };
+          document.head.appendChild(script);
         }
       }
-      
-      function createStub() {
-        console.log('🧪 Using fallback MindAR stub');
+
+      function createMindARStub() {
         window.MindARThree = {
-                MindARThree: function(config) {
-            console.log('Stubbed MindAR initialized:', config);
-                  return {
-              start: async () => { console.log('Stub start'); },
-              stop: async () => { console.log('Stub stop'); },
+          MindARThree: function(config) {
+            console.log("🧪 MindAR stub initialized", config);
+            return {
+              start: async () => console.log("Stub start"),
+              stop: async () => console.log("Stub stop"),
               addAnchor: () => ({ group: { add: () => {} } }),
-              renderer: { domElement: document.createElement('canvas') },
-                    scene: new window.THREE.Scene(),
-              camera: new window.THREE.PerspectiveCamera()
-                  };
-                }
-              };
+              renderer: { domElement: document.createElement("canvas") },
+              scene: new THREE.Scene(),
+              camera: new THREE.PerspectiveCamera()
+            };
+          }
+        };
       }
-      
-      // Start loading MindAR
+
       loadMindAR();
     </script>
   </head>

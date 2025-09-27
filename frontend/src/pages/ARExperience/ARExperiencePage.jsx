@@ -285,14 +285,27 @@ const ARExperiencePage = () => {
       addDebugMessage('🚀 Initializing MindAR...', 'info');
       addDebugMessage('📊 Container element:', containerRef.current, 'info');
 
-      // Determine target image URL
-      const targetUrl = projectData.mindTargetUrl || projectData.designUrl;
+      // Determine target image URL - prefer design image over corrupted .mind file
+      let targetUrl = projectData.designUrl;
+      let targetType = 'image file';
+      
+      // Only use .mind file if design URL is not available
+      if (!targetUrl && projectData.mindTargetUrl) {
+        targetUrl = projectData.mindTargetUrl;
+        targetType = '.mind file';
+      }
+      
       if (!targetUrl) {
         throw new Error('No target image available');
       }
 
-      addDebugMessage(`🎯 Using target: ${targetUrl.includes('mind') ? '.mind file' : 'image file'}`, 'info');
+      addDebugMessage(`🎯 Using target: ${targetType}`, 'info');
       addDebugMessage(`🔗 Target URL: ${targetUrl}`, 'info');
+      
+      // If using .mind file, add warning about potential corruption
+      if (targetType === '.mind file') {
+        addDebugMessage('⚠️ Using .mind file - if AR fails, the file may be corrupted', 'warning');
+      }
 
       // Check if we have real MindAR or stub
       const isRealMindAR = window.MindARThree && window.MindARThree.MindARThree && 
@@ -370,12 +383,37 @@ const ARExperiencePage = () => {
         missTolerance: 5,
         // Force back camera on mobile
         facingMode: 'environment',
-        // Optimize for mobile
-        resolution: { width: 640, height: 480 }
+        // Optimize for mobile - use container dimensions for better compatibility
+        resolution: { 
+          width: Math.min(containerRef.current.offsetWidth, 640), 
+          height: Math.min(containerRef.current.offsetHeight, 480) 
+        }
       };
       
       addDebugMessage('🔧 MindAR config:', mindarConfig, 'info');
-      const mindar = new window.MindARThree.MindARThree(mindarConfig);
+      
+      let mindar;
+      try {
+        mindar = new window.MindARThree.MindARThree(mindarConfig);
+      } catch (mindarError) {
+        addDebugMessage(`❌ MindAR instance creation failed: ${mindarError.message}`, 'error');
+        
+        // Try with simplified config if initial creation fails
+        addDebugMessage('🔄 Retrying with simplified MindAR config...', 'info');
+        const simpleConfig = {
+          container: containerRef.current,
+          imageTargetSrc: targetUrl,
+          maxTrack: 1
+        };
+        
+        try {
+          mindar = new window.MindARThree.MindARThree(simpleConfig);
+          addDebugMessage('✅ MindAR created with simplified config', 'success');
+        } catch (simpleError) {
+          addDebugMessage(`❌ MindAR creation failed even with simple config: ${simpleError.message}`, 'error');
+          throw new Error(`MindAR initialization failed: ${simpleError.message}`);
+        }
+      }
 
       addDebugMessage('✅ MindAR instance created', 'success');
       mindarRef.current = mindar;
@@ -407,8 +445,56 @@ const ARExperiencePage = () => {
         throttledSetVideoPlaying(false);
       };
 
-      // Start MindAR
-      await mindar.start();
+      // Start MindAR with error handling
+      try {
+        addDebugMessage('🚀 Starting MindAR...', 'info');
+        await mindar.start();
+        addDebugMessage('✅ MindAR started successfully', 'success');
+      } catch (startError) {
+        addDebugMessage(`❌ MindAR start failed: ${startError.message}`, 'error');
+        
+        // If start fails due to target file issues, try with design image instead
+        if (targetType === '.mind file' && projectData.designUrl) {
+          addDebugMessage('🔄 Target file failed, retrying with design image...', 'info');
+          
+          try {
+            // Recreate MindAR with design image
+            const fallbackConfig = {
+              container: containerRef.current,
+              imageTargetSrc: projectData.designUrl,
+              maxTrack: 1
+            };
+            
+            const fallbackMindar = new window.MindARThree.MindARThree(fallbackConfig);
+            mindarRef.current = fallbackMindar;
+            
+            // Setup video again
+            if (projectData.videoUrl) {
+              await setupVideo(fallbackMindar.addAnchor(0));
+            }
+            
+            // Setup event listeners
+            fallbackMindar.onTargetFound = () => {
+              addDebugMessage('🎯 Target detected! (using design image)', 'success');
+              throttledSetTargetDetected(true);
+            };
+
+            fallbackMindar.onTargetLost = () => {
+              addDebugMessage('🔍 Target lost', 'warning');
+              throttledSetTargetDetected(false);
+              throttledSetVideoPlaying(false);
+            };
+            
+            await fallbackMindar.start();
+            addDebugMessage('✅ MindAR started successfully with design image fallback', 'success');
+          } catch (fallbackError) {
+            addDebugMessage(`❌ Fallback MindAR also failed: ${fallbackError.message}`, 'error');
+            throw new Error(`AR initialization failed: ${fallbackError.message}`);
+          }
+        } else {
+          throw new Error(`MindAR start failed: ${startError.message}`);
+        }
+      }
       
       addDebugMessage('✅ MindAR initialized successfully', 'success');
       setCameraActive(true);
