@@ -3,9 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Phygital - Bridge Physical to Digital</title>
     <meta name="description" content="Transform your physical designs into interactive digital experiences with QR codes and videos." />
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#3b82f6" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Phygital AR" />
+    
+    <!-- Camera and AR Permissions -->
+    <meta name="permissions" content="camera" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js" as="script" />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link rel="preconnect" href="https://unpkg.com" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -16,17 +32,34 @@
     
     <!-- Load MindAR from a working UMD build -->
     <script>
-      // Create a simple MindAR loader
+      // Production-ready MindAR loader with fallbacks
       (function() {
-        console.log('🔄 Loading MindAR...');
+        console.log('🔄 Loading MindAR for production...');
         
-          // Try to load from a working CDN
+        // Try multiple CDN sources for reliability
+        const mindARSources = [
+          'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js',
+          'https://unpkg.com/mind-ar@1.2.5/dist/mindar-image-three.prod.js',
+          'https://cdn.skypack.dev/mind-ar@1.2.5/dist/mindar-image-three.prod.js'
+        ];
+        
+        let currentSourceIndex = 0;
+        
+        const loadMindAR = () => {
+          if (currentSourceIndex >= mindARSources.length) {
+            console.error('❌ All MindAR sources failed, using enhanced stub');
+            createEnhancedStub();
+            return;
+          }
+          
           const script = document.createElement('script');
-          script.src = 'https://cdn.skypack.dev/mind-ar@1.2.2/dist/mindar-image-three.prod.js';
-        script.crossOrigin = 'anonymous';
+          script.src = mindARSources[currentSourceIndex];
+          script.crossOrigin = 'anonymous';
+          script.type = 'text/javascript';
         
         script.onload = function() {
-          console.log('✅ MindAR script loaded');
+          console.log(`✅ MindAR script loaded from source ${currentSourceIndex + 1}`);
+          
           // Check if MindAR is available and try to expose it
           setTimeout(() => {
             // Check various possible global names
@@ -36,19 +69,40 @@
             for (const name of possibleNames) {
               if (window[name]) {
                 window.MindARThree = window[name];
-                console.log(`✅ MindAR found as window.${name} and mapped to MindARThree`);
+                console.log(`✅ Real MindAR found as window.${name} and mapped to MindARThree`);
                 found = true;
                 break;
               }
             }
             
             if (!found) {
-              console.log('⚠️ MindAR loaded but not found on window');
-              console.log('Available on window:', Object.keys(window).filter(k => k.toLowerCase().includes('mind')));
-              
-              // Create enhanced stub immediately since MindAR isn't available
-              console.log('🔄 Creating enhanced MindAR stub with camera...');
-              window.MindARThree = {
+              console.log('⚠️ MindAR loaded but not found on window, trying next source...');
+              currentSourceIndex++;
+              loadMindAR();
+              return;
+            }
+            
+            console.log('📊 Final library check:', {
+              THREE: !!window.THREE,
+              MindARThree: !!window.MindARThree,
+              MINDAR: !!window.MINDAR,
+              Hammer: !!window.Hammer
+            });
+          }, 500);
+        };
+        
+        script.onerror = function() {
+          console.error(`❌ Failed to load MindAR from source ${currentSourceIndex + 1}`);
+          currentSourceIndex++;
+          loadMindAR();
+        };
+        
+        document.head.appendChild(script);
+      };
+      
+      const createEnhancedStub = () => {
+        console.log('🔄 Creating production-ready MindAR stub with camera...');
+        window.MindARThree = {
                 MindARThree: function(config) {
                   console.log('🧪 Using enhanced MindAR stub with camera');
                   this.container = config.container;
@@ -575,6 +629,9 @@
         };
         
         document.head.appendChild(script);
+      
+      // Start loading MindAR
+      loadMindAR();
       })();
     </script>
   </head>

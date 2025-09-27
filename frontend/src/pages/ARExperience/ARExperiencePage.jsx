@@ -36,18 +36,34 @@ const ARExperiencePage = () => {
   const anchorRef = useRef(null);
   const videoMeshRef = useRef(null);
 
-  // Debug logging
-  const addDebugMessage = useCallback((message, type = 'info') => {
+  // Production-ready debug logging with performance monitoring
+  const addDebugMessage = useCallback((message, type = 'info', data = null) => {
     const timestamp = new Date().toLocaleTimeString();
     const debugEntry = {
       id: Date.now(),
       message,
       type,
-      timestamp
+      timestamp,
+      data
     };
     
-    console.log(`[AR Debug ${timestamp}] ${message}`);
-    setDebugMessages(prev => [...prev.slice(-19), debugEntry]); // Keep last 20 messages
+    // Log to console with performance timing
+    const perfMark = `AR-${Date.now()}`;
+    performance.mark(perfMark);
+    console.log(`[AR Debug ${timestamp}] ${message}`, data || '');
+    
+    // Track performance metrics
+    if (type === 'performance') {
+      console.log(`⏱️ Performance: ${message}`);
+    }
+    
+    setDebugMessages(prev => [...prev.slice(-29), debugEntry]); // Keep last 30 messages
+    
+    // Send critical errors to analytics (in production)
+    if (type === 'error' && process.env.NODE_ENV === 'production') {
+      // Analytics tracking would go here
+      console.error('Critical AR Error:', message, data);
+    }
   }, []);
 
   // Check if libraries are available
@@ -139,8 +155,33 @@ const ARExperiencePage = () => {
     }
   }, [addDebugMessage]);
 
+  // Track analytics events
+  const trackAnalytics = useCallback(async (event, data = {}) => {
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      await fetch(`${apiUrl}/analytics/${event}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: userId || projectId,
+          projectId,
+          timestamp: new Date().toISOString(),
+          userAgent: navigator.userAgent,
+          ...data
+        })
+      });
+      addDebugMessage(`📊 Analytics tracked: ${event}`, 'info');
+    } catch (error) {
+      console.warn('Analytics tracking failed:', error);
+    }
+  }, [userId, projectId, addDebugMessage]);
+
   // Fetch project data
   const fetchProjectData = useCallback(async () => {
+    const startTime = performance.now();
+    
     try {
       console.log('🌐 Starting project data fetch...');
       addDebugMessage('🌐 Fetching project data...', 'info');
@@ -175,15 +216,30 @@ const ARExperiencePage = () => {
       console.log('✅ Project data set:', data.data);
       addDebugMessage('✅ Project data loaded successfully', 'success');
       
+      // Track AR experience start
+      await trackAnalytics('ar-experience-start', {
+        loadTime: performance.now() - startTime,
+        hasVideo: !!data.data.videoUrl,
+        hasDesign: !!data.data.designUrl
+      });
+      
     } catch (error) {
       console.error('❌ Project data fetch error:', error);
       addDebugMessage(`❌ Failed to fetch project data: ${error.message}`, 'error');
       setError(`Failed to load project: ${error.message}`);
+      
+      // Track error
+      await trackAnalytics('ar-experience-error', {
+        error: error.message,
+        step: 'project-data-fetch'
+      });
     } finally {
+      const loadTime = performance.now() - startTime;
+      addDebugMessage(`⏱️ Project data fetch took ${loadTime.toFixed(2)}ms`, 'performance');
       console.log('🌐 Setting isLoading to false');
       setIsLoading(false);
     }
-  }, [projectId, userId, addDebugMessage]);
+  }, [projectId, userId, addDebugMessage, trackAnalytics]);
 
   // Initialize MindAR
   const initializeMindAR = useCallback(async () => {
