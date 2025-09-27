@@ -467,15 +467,48 @@ const ARExperiencePage = () => {
       try {
         addDebugMessage('🚀 Starting MindAR...', 'info');
         
-        // Add timeout to prevent hanging
+        // Add progress indicators
+        let progressInterval;
+        const startProgress = () => {
+          let seconds = 0;
+          progressInterval = setInterval(() => {
+            seconds++;
+            if (seconds <= 10) {
+              addDebugMessage(`⏳ MindAR starting... ${seconds}/10 seconds`, 'info');
+            }
+          }, 1000);
+        };
+        
+        startProgress();
+        
+        // Add multiple timeout strategies
         const startPromise = mindar.start();
-        const timeoutPromise = new Promise((_, reject) => 
+        
+        // Short timeout for quick fallback
+        const quickTimeout = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('MindAR start timeout after 5 seconds')), 5000)
+        );
+        
+        // Long timeout as backup
+        const longTimeout = new Promise((_, reject) => 
           setTimeout(() => reject(new Error('MindAR start timeout after 10 seconds')), 10000)
         );
         
-        await Promise.race([startPromise, timeoutPromise]);
+        // Race between start, quick timeout, and long timeout
+        const result = await Promise.race([startPromise, quickTimeout, longTimeout]);
+        
+        // Clear progress indicator
+        if (progressInterval) {
+          clearInterval(progressInterval);
+        }
+        
         addDebugMessage('✅ MindAR started successfully', 'success');
       } catch (startError) {
+        // Clear progress indicator
+        if (progressInterval) {
+          clearInterval(progressInterval);
+        }
+        
         addDebugMessage(`❌ MindAR start failed: ${startError.message}`, 'error');
         
         // Log full error details for debugging
