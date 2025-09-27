@@ -20,11 +20,12 @@
     <meta name="permissions" content="camera" />
     <meta name="mobile-web-app-capable" content="yes" />
     
-    <!-- Import Map to resolve "three" for MindAR -->
+    <!-- Import Map to resolve "three" and "three/addons/*" for MindAR -->
     <script type="importmap">
     {
       "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
       }
     }
     </script>
