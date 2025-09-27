@@ -8,30 +8,20 @@ const QRCode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
 
-// Import Jimp with proper error handling
+// Import Jimp with correct pattern for modern versions
 let Jimp;
 
 try {
-  // Try different import patterns for Jimp
-  Jimp = require('jimp');
-  console.log('✅ Jimp loaded successfully');
+  // Try modern Jimp import pattern first (>= 0.16.x)
+  Jimp = require('jimp').default || require('jimp');
   
-  // For newer versions of Jimp, the API might be different
+  // Verify Jimp.read is available
   if (!Jimp.read || typeof Jimp.read !== 'function') {
-    console.warn('⚠️ Jimp.read not available, trying alternative import patterns');
-    
-    // Try default export
-    if (Jimp.default && typeof Jimp.default.read === 'function') {
-      Jimp = Jimp.default;
-      console.log('✅ Jimp loaded with default export');
-    } else if (Jimp.Jimp && typeof Jimp.Jimp.read === 'function') {
-      Jimp = Jimp.Jimp;
-      console.log('✅ Jimp loaded with Jimp.Jimp pattern');
-    } else {
-      console.error('❌ No valid Jimp API found');
-      throw new Error('Jimp API not available');
-    }
+    throw new Error('Jimp.read not found');
   }
+  
+  console.log('✅ Jimp loaded successfully');
+  console.log('🔍 Jimp object keys:', Object.keys(Jimp));
 } catch (error) {
   console.error('❌ Failed to load Jimp:', error.message);
   throw new Error('Jimp library not available');
@@ -97,29 +87,34 @@ const overlayQRCode = async (designImagePath, qrData, position, outputPath) => {
     console.log('🖼️ Loading design image:', designImagePath);
     console.log('🔍 Jimp object:', typeof Jimp, Jimp ? Object.keys(Jimp) : 'undefined');
     
-    // Try different Jimp API patterns
+    // Load image using correct Jimp API
     let designImage;
     try {
-      if (Jimp && typeof Jimp.read === 'function') {
-        designImage = await Jimp.read(designImagePath);
-      } else if (Jimp && typeof Jimp.Jimp === 'function' && typeof Jimp.Jimp.read === 'function') {
-        designImage = await Jimp.Jimp.read(designImagePath);
-      } else if (Jimp && typeof Jimp === 'function') {
-        designImage = await Jimp(designImagePath);
-      } else {
-        throw new Error('No valid Jimp API found - Jimp library not properly loaded');
-      }
+      designImage = await Jimp.read(designImagePath);
       
       console.log('🔍 Design image object:', {
         type: typeof designImage,
         keys: designImage ? Object.keys(designImage) : 'undefined',
         hasGetWidth: designImage && typeof designImage.getWidth === 'function',
-        hasGetHeight: designImage && typeof designImage.getHeight === 'function'
+        hasGetHeight: designImage && typeof designImage.getHeight === 'function',
+        hasBitmap: designImage && designImage.bitmap ? 'yes' : 'no'
       });
       
+      // Get dimensions using the correct Jimp API
+      let width, height;
+      if (designImage.getWidth && typeof designImage.getWidth === 'function') {
+        width = designImage.getWidth();
+        height = designImage.getHeight();
+      } else if (designImage.bitmap) {
+        width = designImage.bitmap.width;
+        height = designImage.bitmap.height;
+      } else {
+        throw new Error('Cannot determine image dimensions');
+      }
+      
       console.log('✅ Design image loaded:', {
-        width: designImage.getWidth(),
-        height: designImage.getHeight()
+        width: width,
+        height: height
       });
     } catch (loadError) {
       console.error('❌ Failed to load image with Jimp:', loadError.message);
@@ -129,8 +124,8 @@ const overlayQRCode = async (designImagePath, qrData, position, outputPath) => {
     }
     
     // Validate position is within image bounds
-    if (normalizedPosition.x + normalizedPosition.width > designImage.getWidth() ||
-        normalizedPosition.y + normalizedPosition.height > designImage.getHeight()) {
+    if (normalizedPosition.x + normalizedPosition.width > width ||
+        normalizedPosition.y + normalizedPosition.height > height) {
       throw new Error('QR position is outside image bounds');
     }
     
