@@ -827,15 +827,48 @@ const ARExperiencePage = () => {
                         🧪 This is a functional test of the AR interface. 
                         Real AR requires actual MindAR library.
                       </p>
-                      <button
-                        onClick={() => {
-                          setTargetDetected(!targetDetected);
-                          addDebugMessage(`🧪 Test: Target ${!targetDetected ? 'detected' : 'lost'}`, 'info');
-                        }}
-                        className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs"
-                      >
-                        {targetDetected ? 'Simulate Target Lost' : 'Simulate Target Found'}
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setTargetDetected(!targetDetected);
+                            addDebugMessage(`🧪 Test: Target ${!targetDetected ? 'detected' : 'lost'}`, 'info');
+                            if (!targetDetected && projectData?.videoUrl && videoRef.current) {
+                              // Auto-play video when target is detected
+                              setTimeout(() => {
+                                videoRef.current.play().catch(e => 
+                                  addDebugMessage(`Video autoplay failed: ${e.message}`, 'warning')
+                                );
+                              }, 500);
+                            }
+                          }}
+                          className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs"
+                        >
+                          {targetDetected ? 'Simulate Target Lost' : 'Simulate Target Found'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            // Show target image for reference
+                            if (projectData?.designUrl) {
+                              const popup = window.open('', '_blank', 'width=600,height=400');
+                              popup.document.write(`
+                                <html>
+                                  <head><title>AR Target Image</title></head>
+                                  <body style="margin:0; display:flex; justify-content:center; align-items:center; background:#000;">
+                                    <div style="text-align:center; color:white;">
+                                      <h3>Print this image for AR detection:</h3>
+                                      <img src="${projectData.designUrl}" style="max-width:90%; max-height:80%; border:2px solid lime;">
+                                      <p>Point your camera at this printed image</p>
+                                    </div>
+                                  </body>
+                                </html>
+                              `);
+                            }
+                          }}
+                          className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs"
+                        >
+                          Show Target
+                        </button>
+                      </div>
                     </div>
                   </>
                 );
