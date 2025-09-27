@@ -102,8 +102,16 @@ const overlayQRCode = async (designImagePath, qrData, position, outputPath) => {
  */
 const generateFinalDesign = async (designUrl, qrData, position, userId) => {
   try {
+    console.log('🎨 Starting final design generation:', { designUrl, qrData, position, userId });
+    
+    // Validate inputs
+    if (!designUrl || !qrData || !position || !userId) {
+      throw new Error('Missing required parameters for final design generation');
+    }
+    
     // Determine if it's S3 or local storage
     const isS3Url = designUrl.includes('amazonaws.com') || designUrl.includes('s3');
+    console.log('📡 URL type:', isS3Url ? 'S3' : 'Local');
     
     let designImagePath;
     let designBuffer;
@@ -118,11 +126,24 @@ const generateFinalDesign = async (designUrl, qrData, position, userId) => {
       const client = parsedUrl.protocol === 'https:' ? https : http;
       
       designBuffer = await new Promise((resolve, reject) => {
-        client.get(designUrl, (response) => {
+        const request = client.get(designUrl, (response) => {
+          if (response.statusCode !== 200) {
+            return reject(new Error(`Failed to download image: ${response.statusCode} ${response.statusMessage}`));
+          }
           const chunks = [];
           response.on('data', chunk => chunks.push(chunk));
           response.on('end', () => resolve(Buffer.concat(chunks)));
           response.on('error', reject);
+        });
+        
+        request.on('error', (error) => {
+          console.error('❌ S3 download error:', error);
+          reject(error);
+        });
+        
+        request.setTimeout(30000, () => {
+          request.destroy();
+          reject(new Error('S3 download timeout'));
         });
       });
       
