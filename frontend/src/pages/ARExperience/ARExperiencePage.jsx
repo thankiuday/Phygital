@@ -307,23 +307,42 @@ const ARExperiencePage = () => {
         addDebugMessage('⚠️ Using .mind file - if AR fails, the file may be corrupted', 'warning');
       }
       
-      // Pre-validate image URL to detect potential issues
-      if (targetType === 'image file') {
-        addDebugMessage('🔍 Pre-validating image URL...', 'info');
-        try {
-          // Test if image URL is accessible
-          const img = new Image();
-          img.onload = () => {
-            addDebugMessage(`✅ Image validation successful: ${img.naturalWidth}x${img.naturalHeight}`, 'success');
-          };
-          img.onerror = () => {
-            addDebugMessage('⚠️ Image validation failed - may cause AR issues', 'warning');
-          };
-          img.src = targetUrl;
-        } catch (imgError) {
-          addDebugMessage(`⚠️ Image validation error: ${imgError.message}`, 'warning');
+        // Pre-validate and optimize image URL to detect potential issues
+        if (targetType === 'image file') {
+          addDebugMessage('🔍 Pre-validating and optimizing image URL...', 'info');
+          try {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            
+            await new Promise((resolve, reject) => {
+              img.onload = () => {
+                addDebugMessage(`✅ Image validation successful: ${img.naturalWidth}x${img.naturalHeight}`, 'success');
+                
+                // Resize image if too large for better MindAR performance
+                if (img.naturalWidth > 640 || img.naturalHeight > 640) {
+                  addDebugMessage('🖼️ Image too large, resizing for better performance...', 'info');
+                  const canvas = document.createElement('canvas');
+                  const ctx = canvas.getContext('2d');
+                  const maxSize = 640;
+                  const scale = Math.min(maxSize / img.naturalWidth, maxSize / img.naturalHeight);
+                  canvas.width = img.naturalWidth * scale;
+                  canvas.height = img.naturalHeight * scale;
+                  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                  targetUrl = canvas.toDataURL('image/jpeg', 0.8);
+                  addDebugMessage(`🖼️ Image resized to ${canvas.width}x${canvas.height}`, 'success');
+                }
+                resolve();
+              };
+              img.onerror = () => {
+                addDebugMessage('⚠️ Image validation failed - may cause AR issues', 'warning');
+                reject(new Error('Image load failed'));
+              };
+              img.src = targetUrl;
+            });
+          } catch (imgError) {
+            addDebugMessage(`⚠️ Image processing error: ${imgError.message}`, 'warning');
+          }
         }
-      }
 
       // Check if we have real MindAR or stub
       const isRealMindAR = window.MindARThree && window.MindARThree.MindARThree && 
@@ -391,22 +410,22 @@ const ARExperiencePage = () => {
       addDebugMessage(`📱 Container element:`, containerRef.current, 'info');
       addDebugMessage(`📱 Container dimensions: ${containerRef.current?.offsetWidth}x${containerRef.current?.offsetHeight}`, 'info');
       
-      const mindarConfig = {
-        container: containerRef.current,
-        imageTargetSrc: targetUrl,
-        maxTrack: 1,
-        filterMinCF: 0.0001,
-        filterBeta: 0.001,
-        warmupTolerance: 5,
-        missTolerance: 5,
-        // Force back camera on mobile
-        facingMode: 'environment',
-        // Optimize for mobile - use container dimensions for better compatibility
-        resolution: { 
-          width: Math.min(containerRef.current.offsetWidth, 640), 
-          height: Math.min(containerRef.current.offsetHeight, 480) 
-        }
-      };
+        const mindarConfig = {
+          container: containerRef.current,
+          imageTargetSrc: targetUrl,
+          maxTrack: 1,
+          filterMinCF: 0.0005, // Relaxed for faster detection
+          filterBeta: 0.01,    // Adjusted for better performance
+          warmupTolerance: 10, // Increased tolerance for initialization
+          missTolerance: 10,   // Increased tolerance for target loss
+          // Force back camera on mobile
+          facingMode: 'environment',
+          // Optimize for mobile - use container dimensions for better compatibility
+          resolution: { 
+            width: Math.min(containerRef.current.offsetWidth, 640), 
+            height: Math.min(containerRef.current.offsetHeight, 480) 
+          }
+        };
       
       addDebugMessage('🔧 MindAR config:', mindarConfig, 'info');
       
@@ -473,8 +492,8 @@ const ARExperiencePage = () => {
             let seconds = 0;
             progressInterval = setInterval(() => {
               seconds++;
-              if (seconds <= 20) {
-                addDebugMessage(`⏳ MindAR starting... ${seconds}/20 seconds`, 'info');
+              if (seconds <= 30) {
+                addDebugMessage(`⏳ MindAR starting... ${seconds}/30 seconds`, 'info');
               }
             }, 1000);
           };
@@ -486,12 +505,12 @@ const ARExperiencePage = () => {
         
         // Short timeout for quick fallback (increased for mobile)
         const quickTimeout = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('MindAR start timeout after 10 seconds')), 10000)
+          setTimeout(() => reject(new Error('MindAR start timeout after 15 seconds')), 15000)
         );
         
         // Long timeout as backup (increased for complex images)
         const longTimeout = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('MindAR start timeout after 20 seconds')), 20000)
+          setTimeout(() => reject(new Error('MindAR start timeout after 30 seconds')), 30000)
         );
         
         // Race between start, quick timeout, and long timeout
@@ -947,7 +966,7 @@ const ARExperiencePage = () => {
             startScanning();
           }
         });
-      }, 200); // 200ms delay to ensure DOM is ready
+      }, 500); // 500ms delay to ensure DOM is ready
     }
   }, [librariesLoaded, projectData, isInitialized, initializeMindAR, startScanning, addDebugMessage]);
 
