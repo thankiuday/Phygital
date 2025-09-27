@@ -8,32 +8,33 @@ const QRCode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
 
-// Import Jimp with proper error handling and fallback
+// Import Jimp with proper error handling
 let Jimp;
-let sharp;
 
 try {
+  // Try different import patterns for Jimp
   Jimp = require('jimp');
   console.log('✅ Jimp loaded successfully');
   
-  // Verify Jimp has the required methods
+  // For newer versions of Jimp, the API might be different
   if (!Jimp.read || typeof Jimp.read !== 'function') {
-    console.warn('⚠️ Jimp.read not available, trying alternative import');
-    // Try default import for newer versions
-    Jimp = require('jimp').default || require('jimp');
-    console.log('✅ Jimp loaded with alternative method');
+    console.warn('⚠️ Jimp.read not available, trying alternative import patterns');
+    
+    // Try default export
+    if (Jimp.default && typeof Jimp.default.read === 'function') {
+      Jimp = Jimp.default;
+      console.log('✅ Jimp loaded with default export');
+    } else if (Jimp.Jimp && typeof Jimp.Jimp.read === 'function') {
+      Jimp = Jimp.Jimp;
+      console.log('✅ Jimp loaded with Jimp.Jimp pattern');
+    } else {
+      console.error('❌ No valid Jimp API found');
+      throw new Error('Jimp API not available');
+    }
   }
 } catch (error) {
   console.error('❌ Failed to load Jimp:', error.message);
-  
-  // Try Sharp as fallback
-  try {
-    sharp = require('sharp');
-    console.log('✅ Sharp loaded as fallback');
-  } catch (sharpError) {
-    console.error('❌ Both Jimp and Sharp failed to load');
-    throw new Error('No image processing library available');
-  }
+  throw new Error('Jimp library not available');
 }
 
 /**
@@ -61,6 +62,7 @@ const generateQRCodeBuffer = async (data, size = 200) => {
     throw new Error('Failed to generate QR code');
   }
 };
+
 
 /**
  * Overlay QR code on design image
@@ -95,11 +97,17 @@ const overlayQRCode = async (designImagePath, qrData, position, outputPath) => {
     console.log('🖼️ Loading design image:', designImagePath);
     console.log('🔍 Jimp object:', typeof Jimp, Jimp ? Object.keys(Jimp) : 'undefined');
     
-    if (!Jimp || typeof Jimp.read !== 'function') {
-      throw new Error('Jimp.read is not available - Jimp library not properly loaded');
+    // Try different Jimp API patterns
+    let designImage;
+    if (Jimp && typeof Jimp.read === 'function') {
+      designImage = await Jimp.read(designImagePath);
+    } else if (Jimp && typeof Jimp.Jimp === 'function' && typeof Jimp.Jimp.read === 'function') {
+      designImage = await Jimp.Jimp.read(designImagePath);
+    } else if (Jimp && typeof Jimp === 'function') {
+      designImage = await Jimp(designImagePath);
+    } else {
+      throw new Error('No valid Jimp API found - Jimp library not properly loaded');
     }
-    
-    const designImage = await Jimp.read(designImagePath);
     console.log('✅ Design image loaded:', {
       width: designImage.getWidth(),
       height: designImage.getHeight()
