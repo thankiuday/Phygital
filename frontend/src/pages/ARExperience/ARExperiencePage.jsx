@@ -455,11 +455,19 @@ const ARExperiencePage = () => {
       addDebugMessage('✅ MindAR instance created', 'success');
       mindarRef.current = mindar;
 
-      // Get Three.js objects
+      // Get Three.js objects with proper validation
       const { renderer, scene, camera } = mindar;
+      
+      // Validate MindAR objects before assigning
+      if (!renderer || !scene || !camera) {
+        throw new Error('MindAR objects are undefined - renderer, scene, or camera missing');
+      }
+      
       rendererRef.current = renderer;
       sceneRef.current = scene;
       cameraRef.current = camera;
+      
+      addDebugMessage('✅ MindAR objects validated and assigned', 'success');
 
       // Create anchor
       const anchor = mindar.addAnchor(0);
@@ -552,16 +560,33 @@ const ARExperiencePage = () => {
           // Instead of failing completely, enable test mode
           addDebugMessage('🧪 Switching to AR test mode due to image issues', 'info');
           
-          // Create a test mode MindAR instance
-          try {
-            const testConfig = {
-              container: containerRef.current,
-              imageTargetSrc: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==', // 1x1 transparent PNG
-              maxTrack: 1
-            };
-            
-            const testMindar = new window.MindARThree.MindARThree(testConfig);
-            mindarRef.current = testMindar;
+            // Create a test mode MindAR instance
+            try {
+              const testConfig = {
+                container: containerRef.current,
+                imageTargetSrc: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==', // 1x1 transparent PNG
+                maxTrack: 1,
+                filterMinCF: 0.001, // Relaxed for test mode
+                filterBeta: 0.01,   // Relaxed for test mode
+                warmupTolerance: 5,
+                missTolerance: 5
+              };
+              
+              addDebugMessage('🧪 Creating test mode MindAR with config:', testConfig, 'info');
+              const testMindar = new window.MindARThree.MindARThree(testConfig);
+              
+              // Validate test MindAR objects
+              const { renderer, scene, camera } = testMindar;
+              if (!renderer || !scene || !camera) {
+                throw new Error('Test MindAR objects are undefined');
+              }
+              
+              mindarRef.current = testMindar;
+              rendererRef.current = renderer;
+              sceneRef.current = scene;
+              cameraRef.current = camera;
+              
+              addDebugMessage('✅ Test MindAR objects validated', 'success');
             
             // Setup video for test mode
             if (projectData.videoUrl) {
@@ -580,8 +605,13 @@ const ARExperiencePage = () => {
               throttledSetVideoPlaying(false);
             };
             
-            await testMindar.start();
-            addDebugMessage('✅ MindAR test mode started successfully', 'success');
+            try {
+              await testMindar.start();
+              addDebugMessage('✅ MindAR test mode started successfully', 'success');
+            } catch (testStartError) {
+              addDebugMessage(`⚠️ Test MindAR start failed: ${testStartError.message}`, 'warning');
+              addDebugMessage('🔄 Continuing with camera activation anyway...', 'info');
+            }
             
                // Set test mode flag
                if (startError.message.includes('timeout')) {
@@ -599,8 +629,21 @@ const ARExperiencePage = () => {
             
           } catch (testError) {
             addDebugMessage(`❌ Test mode also failed: ${testError.message}`, 'error');
-            setError('The design image is corrupted and AR cannot be initialized. Please go back and re-upload a clean image file.');
-            return false;
+            addDebugMessage('🔄 Attempting basic camera fallback...', 'info');
+            
+            // Last resort: basic camera without MindAR
+            try {
+              setError('⚠️ AR tracking failed - Basic camera mode enabled. Video playback available.');
+              setCameraActive(true);
+              setArReady(true);
+              setIsInitialized(true);
+              addDebugMessage('🎥 Basic camera mode activated', 'success');
+              return true;
+            } catch (fallbackError) {
+              addDebugMessage(`❌ Even basic camera failed: ${fallbackError.message}`, 'error');
+              setError('Camera initialization failed completely. Please refresh the page and try again.');
+              return false;
+            }
           }
         }
         
@@ -839,8 +882,10 @@ const ARExperiencePage = () => {
           addDebugMessage('✅ MindAR camera started', 'success');
         } catch (mindarError) {
           addDebugMessage(`⚠️ MindAR start warning: ${mindarError.message}`, 'warning');
-          // Continue anyway - test mode might still work
+          // Continue anyway - test mode or basic camera might still work
         }
+      } else if (!mindarRef.current && cameraActive) {
+        addDebugMessage('🎥 Basic camera mode - no MindAR instance', 'info');
       }
 
       // Update UI state
