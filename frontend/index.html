@@ -72,64 +72,133 @@
                       const stream = await navigator.mediaDevices.getUserMedia({ 
                         video: { 
                           facingMode: 'environment',
-                          width: { ideal: 640 },
-                          height: { ideal: 480 }
+                          width: { ideal: 1280 },
+                          height: { ideal: 720 }
                         } 
                       });
+                      
+                      console.log('✅ Camera stream obtained');
+                      console.log('📹 Stream tracks:', stream.getTracks().map(t => ({
+                        kind: t.kind,
+                        enabled: t.enabled,
+                        readyState: t.readyState,
+                        settings: t.getSettings()
+                      })));
                       
                       const video = document.createElement('video');
                       video.srcObject = stream;
                       video.autoplay = true;
                       video.playsInline = true;
                       video.muted = true;
+                      video.style.display = 'none'; // Hide the video element itself
+                      
+                      // Add video to DOM to ensure it loads properly
+                      document.body.appendChild(video);
                       
                       video.onloadedmetadata = () => {
-                        console.log('✅ Camera stream active');
+                        console.log('✅ Camera video metadata loaded');
                         console.log('📹 Video dimensions:', video.videoWidth, 'x', video.videoHeight);
                         console.log('🎨 Canvas dimensions:', canvas.width, 'x', canvas.height);
                         
-                        // Draw video to canvas
-                        const drawFrame = () => {
-                          if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                            // Add a large indicator to show drawing is working
-                            ctx.fillStyle = 'lime';
-                            ctx.fillRect(10, 10, 100, 50);
-                            ctx.fillStyle = 'black';
-                            ctx.font = '20px Arial';
-                            ctx.fillText('LIVE CAMERA', 15, 35);
-                            
-                            // Ensure canvas stays visible
-                            if (canvas.style.zIndex !== '8888') {
-                              canvas.style.zIndex = '8888';
-                              console.log('🔧 Canvas z-index restored to 8888');
+                        // Ensure video is playing
+                        video.play().then(() => {
+                          console.log('▶️ Video playback started');
+                          
+                          // Draw video to canvas with proper scaling
+                          const drawFrame = () => {
+                            try {
+                              if (video.readyState >= video.HAVE_CURRENT_DATA && !video.paused && !video.ended) {
+                                // Clear canvas first
+                                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                                
+                                // Draw video frame to fill entire canvas
+                                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                                
+                                // Add small debug overlay in corner
+                                ctx.fillStyle = 'rgba(0, 255, 0, 0.7)';
+                                ctx.fillRect(10, 10, 150, 40);
+                                ctx.fillStyle = 'black';
+                                ctx.font = 'bold 12px Arial';
+                                ctx.fillText('📹 LIVE CAMERA', 15, 25);
+                                ctx.fillText(`${video.videoWidth}x${video.videoHeight}`, 15, 40);
+                                
+                                console.log('🎬 Drawing video frame:', {
+                                  videoReady: video.readyState,
+                                  videoPaused: video.paused,
+                                  videoEnded: video.ended,
+                                  videoTime: video.currentTime,
+                                  videoDimensions: `${video.videoWidth}x${video.videoHeight}`
+                                });
+                                
+                              } else {
+                                // Draw waiting state with more info
+                                ctx.fillStyle = '#444444';
+                                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                                ctx.fillStyle = '#ffffff';
+                                ctx.font = '20px Arial';
+                                ctx.textAlign = 'center';
+                                ctx.fillText('📹 WAITING FOR CAMERA...', canvas.width/2, canvas.height/2 - 20);
+                                ctx.font = '14px Arial';
+                                ctx.fillText(`Ready: ${video.readyState}, Paused: ${video.paused}`, canvas.width/2, canvas.height/2 + 10);
+                                ctx.textAlign = 'left';
+                                
+                                console.log('⏳ Video not ready:', {
+                                  readyState: video.readyState,
+                                  paused: video.paused,
+                                  ended: video.ended,
+                                  currentTime: video.currentTime
+                                });
+                              }
+                            } catch (drawError) {
+                              console.error('❌ Draw frame error:', drawError);
+                              ctx.fillStyle = '#ff4444';
+                              ctx.fillRect(0, 0, canvas.width, canvas.height);
+                              ctx.fillStyle = '#ffffff';
+                              ctx.font = '16px Arial';
+                              ctx.textAlign = 'center';
+                              ctx.fillText('DRAW ERROR: ' + drawError.message, canvas.width/2, canvas.height/2);
                             }
-                          } else {
-                            // Draw fallback when video not ready
-                            ctx.fillStyle = '#ff0000';
-                            ctx.fillRect(0, 0, canvas.width, canvas.height);
-                            ctx.fillStyle = '#ffffff';
-                            ctx.font = '24px Arial';
-                            ctx.textAlign = 'center';
-                            ctx.fillText('WAITING FOR CAMERA...', canvas.width/2, canvas.height/2);
-                          }
-                          requestAnimationFrame(drawFrame);
-                        };
-                        drawFrame();
-                        console.log('🎬 Video drawing started');
+                            
+                            requestAnimationFrame(drawFrame);
+                          };
+                          
+                          // Start drawing loop
+                          drawFrame();
+                          console.log('🎬 Camera video drawing loop started');
+                          
+                        }).catch(playError => {
+                          console.error('❌ Video play failed:', playError);
+                          ctx.fillStyle = '#ff4444';
+                          ctx.fillRect(0, 0, canvas.width, canvas.height);
+                          ctx.fillStyle = '#ffffff';
+                          ctx.font = '20px Arial';
+                          ctx.textAlign = 'center';
+                          ctx.fillText('VIDEO PLAY FAILED', canvas.width/2, canvas.height/2);
+                        });
+                      };
+                      
+                      video.onerror = (videoError) => {
+                        console.error('❌ Video element error:', videoError);
+                        ctx.fillStyle = '#ff4444';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        ctx.fillStyle = '#ffffff';
+                        ctx.font = '20px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('VIDEO ERROR', canvas.width/2, canvas.height/2);
                       };
                       
                       return stream;
                     } catch (error) {
                       console.log('❌ Camera access failed:', error.message);
-                      // Draw placeholder
+                      console.log('❌ Error details:', error);
+                      // Draw error placeholder
                       ctx.fillStyle = '#1a1a1a';
                       ctx.fillRect(0, 0, canvas.width, canvas.height);
-                      ctx.fillStyle = '#666';
+                      ctx.fillStyle = '#ff6666';
                       ctx.font = '20px Arial';
                       ctx.textAlign = 'center';
-                      ctx.fillText('Camera Access Required', canvas.width/2, canvas.height/2 - 20);
-                      ctx.fillText('Allow camera permission', canvas.width/2, canvas.height/2 + 20);
+                      ctx.fillText('❌ CAMERA ACCESS FAILED', canvas.width/2, canvas.height/2 - 20);
+                      ctx.fillText(error.message, canvas.width/2, canvas.height/2 + 20);
                       return null;
                     }
                   };
@@ -244,42 +313,98 @@
                 navigator.mediaDevices.getUserMedia({ 
                   video: { 
                     facingMode: 'environment',
-                    width: { ideal: 640 },
-                    height: { ideal: 480 }
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
                   } 
                 }).then(stream => {
                   console.log('🎥 IMMEDIATE camera access successful!');
+                  console.log('📹 Stream details:', stream.getTracks().map(t => t.getSettings()));
+                  
                   const video = document.createElement('video');
                   video.srcObject = stream;
                   video.autoplay = true;
                   video.playsInline = true;
                   video.muted = true;
+                  video.style.display = 'none';
+                  document.body.appendChild(video);
                   
                   video.onloadedmetadata = () => {
                     console.log('🎥 IMMEDIATE video metadata loaded');
-                    const drawFrame = () => {
-                      if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                        immediateCtx.drawImage(video, 0, 0, immediateCanvas.width, immediateCanvas.height);
-                        // Add indicator
-                        immediateCtx.fillStyle = 'lime';
-                        immediateCtx.fillRect(10, 10, 120, 50);
-                        immediateCtx.fillStyle = 'black';
-                        immediateCtx.font = '16px Arial';
-                        immediateCtx.fillText('IMMEDIATE CAMERA', 15, 35);
-                      }
-                      requestAnimationFrame(drawFrame);
-                    };
-                    drawFrame();
-                    console.log('🎥 IMMEDIATE camera drawing started!');
+                    console.log('📹 Video size:', video.videoWidth, 'x', video.videoHeight);
+                    
+                    video.play().then(() => {
+                      console.log('▶️ IMMEDIATE video playing');
+                      
+                      const drawFrame = () => {
+                        try {
+                          if (video.readyState >= video.HAVE_CURRENT_DATA && !video.paused) {
+                            // Draw the actual video feed
+                            immediateCtx.drawImage(video, 0, 0, immediateCanvas.width, immediateCanvas.height);
+                            
+                            // Add small overlay to confirm it's working
+                            immediateCtx.fillStyle = 'rgba(0, 255, 0, 0.8)';
+                            immediateCtx.fillRect(10, 10, 180, 30);
+                            immediateCtx.fillStyle = 'black';
+                            immediateCtx.font = 'bold 14px Arial';
+                            immediateCtx.fillText('📹 LIVE CAMERA FEED', 15, 30);
+                            
+                            console.log('🎬 IMMEDIATE: Drawing live video frame');
+                          } else {
+                            // Show loading state
+                            immediateCtx.fillStyle = '#333333';
+                            immediateCtx.fillRect(0, 0, immediateCanvas.width, immediateCanvas.height);
+                            immediateCtx.fillStyle = '#ffffff';
+                            immediateCtx.font = '20px Arial';
+                            immediateCtx.textAlign = 'center';
+                            immediateCtx.fillText('📹 LOADING VIDEO...', immediateCanvas.width/2, immediateCanvas.height/2);
+                            immediateCtx.textAlign = 'left';
+                          }
+                        } catch (err) {
+                          console.error('❌ IMMEDIATE draw error:', err);
+                          immediateCtx.fillStyle = '#ff4444';
+                          immediateCtx.fillRect(0, 0, immediateCanvas.width, immediateCanvas.height);
+                          immediateCtx.fillStyle = '#ffffff';
+                          immediateCtx.font = '16px Arial';
+                          immediateCtx.textAlign = 'center';
+                          immediateCtx.fillText('DRAW ERROR', immediateCanvas.width/2, immediateCanvas.height/2);
+                        }
+                        requestAnimationFrame(drawFrame);
+                      };
+                      
+                      drawFrame();
+                      console.log('🎥 IMMEDIATE camera drawing started!');
+                      
+                    }).catch(playErr => {
+                      console.error('❌ IMMEDIATE video play failed:', playErr);
+                      immediateCtx.fillStyle = '#ff4444';
+                      immediateCtx.fillRect(0, 0, immediateCanvas.width, immediateCanvas.height);
+                      immediateCtx.fillStyle = '#ffffff';
+                      immediateCtx.font = '18px Arial';
+                      immediateCtx.textAlign = 'center';
+                      immediateCtx.fillText('VIDEO PLAY FAILED', immediateCanvas.width/2, immediateCanvas.height/2);
+                    });
                   };
+                  
+                  video.onerror = (err) => {
+                    console.error('❌ IMMEDIATE video error:', err);
+                    immediateCtx.fillStyle = '#ff4444';
+                    immediateCtx.fillRect(0, 0, immediateCanvas.width, immediateCanvas.height);
+                    immediateCtx.fillStyle = '#ffffff';
+                    immediateCtx.font = '18px Arial';
+                    immediateCtx.textAlign = 'center';
+                    immediateCtx.fillText('VIDEO ERROR', immediateCanvas.width/2, immediateCanvas.height/2);
+                  };
+                  
                 }).catch(error => {
                   console.log('❌ IMMEDIATE camera access failed:', error);
+                  console.log('❌ Error details:', error.name, error.message);
                   immediateCtx.fillStyle = '#ff0000';
                   immediateCtx.fillRect(0, 0, immediateCanvas.width, immediateCanvas.height);
                   immediateCtx.fillStyle = '#ffffff';
-                  immediateCtx.font = '24px Arial';
+                  immediateCtx.font = '20px Arial';
                   immediateCtx.textAlign = 'center';
-                  immediateCtx.fillText('CAMERA ACCESS FAILED', immediateCanvas.width/2, immediateCanvas.height/2);
+                  immediateCtx.fillText('❌ CAMERA ACCESS FAILED', immediateCanvas.width/2, immediateCanvas.height/2 - 20);
+                  immediateCtx.fillText(error.name + ': ' + error.message, immediateCanvas.width/2, immediateCanvas.height/2 + 20);
                 });
                 
                 console.log('🧪 Canvas rendering confirmed working!');

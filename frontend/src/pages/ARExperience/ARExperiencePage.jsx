@@ -188,11 +188,14 @@ const ARExperiencePage = () => {
   // Initialize MindAR
   const initializeMindAR = useCallback(async () => {
     if (!librariesLoaded || !projectData || !containerRef.current) {
+      addDebugMessage('❌ MindAR init failed: Missing requirements', 'error');
+      addDebugMessage(`📊 Requirements check: libraries=${librariesLoaded}, projectData=${!!projectData}, container=${!!containerRef.current}`, 'info');
       return false;
     }
 
     try {
       addDebugMessage('🚀 Initializing MindAR...', 'info');
+      addDebugMessage('📊 Container element:', containerRef.current, 'info');
 
       // Determine target image URL
       const targetUrl = projectData.mindTargetUrl || projectData.designUrl;
@@ -201,6 +204,7 @@ const ARExperiencePage = () => {
       }
 
       addDebugMessage(`🎯 Using target: ${targetUrl.includes('mind') ? '.mind file' : 'image file'}`, 'info');
+      addDebugMessage(`🔗 Target URL: ${targetUrl}`, 'info');
 
       // Check if we have real MindAR or stub
       const isRealMindAR = window.MindARThree && window.MindARThree.MindARThree && 
@@ -213,7 +217,57 @@ const ARExperiencePage = () => {
         addDebugMessage('🧪 Using MindAR stub (test mode)', 'info');
       }
 
+      // Check camera permissions before initializing MindAR
+      addDebugMessage('🎥 Checking camera permissions...', 'info');
+      try {
+        const permissionStatus = await navigator.permissions.query({ name: 'camera' });
+        addDebugMessage(`📹 Camera permission status: ${permissionStatus.state}`, 'info');
+        
+        if (permissionStatus.state === 'denied') {
+          addDebugMessage('❌ Camera permission denied by user', 'error');
+          setError('Camera permission is required for AR experience. Please allow camera access and refresh the page.');
+          return false;
+        }
+      } catch (permError) {
+        addDebugMessage(`⚠️ Could not check camera permissions: ${permError.message}`, 'warning');
+      }
+
+      // Test camera access before MindAR initialization
+      addDebugMessage('🎥 Testing camera access...', 'info');
+      try {
+        const testStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            facingMode: 'environment',
+            width: { ideal: 640 },
+            height: { ideal: 480 }
+          } 
+        });
+        addDebugMessage('✅ Camera access test successful', 'success');
+        addDebugMessage(`📹 Camera stream details: ${testStream.getVideoTracks().length} video tracks`, 'info');
+        
+        // Stop test stream
+        testStream.getTracks().forEach(track => {
+          track.stop();
+          addDebugMessage(`🛑 Stopped test track: ${track.kind}`, 'info');
+        });
+      } catch (cameraError) {
+        addDebugMessage(`❌ Camera access test failed: ${cameraError.name} - ${cameraError.message}`, 'error');
+        
+        // Provide specific error messages
+        if (cameraError.name === 'NotAllowedError') {
+          setError('Camera permission denied. Please allow camera access and refresh the page.');
+        } else if (cameraError.name === 'NotFoundError') {
+          setError('No camera found. Please ensure your device has a camera.');
+        } else if (cameraError.name === 'NotReadableError') {
+          setError('Camera is already in use by another application.');
+        } else {
+          setError(`Camera error: ${cameraError.message}`);
+        }
+        return false;
+      }
+
       // Create MindAR instance
+      addDebugMessage('🔧 Creating MindAR instance...', 'info');
       const mindar = new window.MindARThree.MindARThree({
         container: containerRef.current,
         imageTargetSrc: targetUrl,
@@ -224,6 +278,7 @@ const ARExperiencePage = () => {
         missTolerance: 5
       });
 
+      addDebugMessage('✅ MindAR instance created', 'success');
       mindarRef.current = mindar;
 
       // Get Three.js objects
@@ -639,6 +694,77 @@ const ARExperiencePage = () => {
           </div>
           
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                // Test camera display
+                console.log('🧪 Testing camera display...');
+                const testCanvas = document.createElement('canvas');
+                testCanvas.width = 640;
+                testCanvas.height = 480;
+                testCanvas.style.position = 'fixed';
+                testCanvas.style.top = '50px';
+                testCanvas.style.left = '50px';
+                testCanvas.style.width = '300px';
+                testCanvas.style.height = '200px';
+                testCanvas.style.zIndex = '9999';
+                testCanvas.style.border = '3px solid lime';
+                testCanvas.style.backgroundColor = 'black';
+                
+                const ctx = testCanvas.getContext('2d');
+                ctx.fillStyle = '#00ff00';
+                ctx.fillRect(0, 0, testCanvas.width, testCanvas.height);
+                ctx.fillStyle = 'black';
+                ctx.font = '24px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('TEST CAMERA', testCanvas.width/2, testCanvas.height/2);
+                
+                document.body.appendChild(testCanvas);
+                
+                // Start camera test
+                navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+                  const video = document.createElement('video');
+                  video.srcObject = stream;
+                  video.autoplay = true;
+                  video.playsInline = true;
+                  video.muted = true;
+                  video.style.display = 'none';
+                  document.body.appendChild(video);
+                  
+                  video.onloadedmetadata = () => {
+                    const draw = () => {
+                      if (video.readyState >= video.HAVE_CURRENT_DATA) {
+                        ctx.drawImage(video, 0, 0, testCanvas.width, testCanvas.height);
+                        ctx.fillStyle = 'rgba(0, 255, 0, 0.8)';
+                        ctx.fillRect(10, 10, 100, 30);
+                        ctx.fillStyle = 'black';
+                        ctx.font = '12px Arial';
+                        ctx.fillText('LIVE TEST', 15, 30);
+                      }
+                      requestAnimationFrame(draw);
+                    };
+                    draw();
+                  };
+                }).catch(err => {
+                  ctx.fillStyle = 'red';
+                  ctx.fillRect(0, 0, testCanvas.width, testCanvas.height);
+                  ctx.fillStyle = 'white';
+                  ctx.font = '16px Arial';
+                  ctx.textAlign = 'center';
+                  ctx.fillText('CAMERA FAILED', testCanvas.width/2, testCanvas.height/2);
+                });
+                
+                // Remove after 10 seconds
+                setTimeout(() => {
+                  if (testCanvas.parentNode) {
+                    testCanvas.parentNode.removeChild(testCanvas);
+                  }
+                }, 10000);
+              }}
+              className="p-2 bg-green-600/30 hover:bg-green-600/50 rounded-full text-white backdrop-blur-sm"
+              title="Test Camera Display"
+            >
+              📹
+            </button>
             <button
               onClick={() => setShowDebug(true)}
               className="p-2 bg-black/30 hover:bg-black/50 rounded-full text-white backdrop-blur-sm"
