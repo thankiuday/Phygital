@@ -20,25 +20,33 @@
     <meta name="permissions" content="camera" />
     <meta name="mobile-web-app-capable" content="yes" />
     
+    <!-- Import Map to resolve "three" for MindAR -->
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+      }
+    }
+    </script>
+    
     <!-- Preload critical resources -->
-    <link rel="preload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" as="script" crossorigin />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link rel="preconnect" href="https://unpkg.com" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- AR Libraries - Load before React app -->
-    <script type="module">
-      import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-      window.THREE = THREE;
-      console.log('✅ Three.js loaded via ES modules');
-    </script>
+    <!-- HammerJS (non-ESM, so fine) -->
     <script src="https://hammerjs.github.io/dist/hammer.min.js"></script>
     
-    <!-- Load MindAR as ES module -->
+    <!-- Load MindAR as ES module with import map resolution -->
     <script type="module">
-      // Load MindAR as proper ES module with fallbacks
+      // Load Three.js via import map and expose globally
+      import * as THREE from "three";
+      window.THREE = THREE;
+      console.log("✅ Three.js loaded via import map");
+      
+      // Load MindAR with fallbacks
         const mindARSources = [
           'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js',
           'https://unpkg.com/mind-ar@1.2.5/dist/mindar-image-three.prod.js',
