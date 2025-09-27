@@ -29,14 +29,43 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- AR Libraries - Load before React app -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
+    <script async src="https://unpkg.com/es-module-shims@1.7.3/dist/es-module-shims.js"></script>
     <script src="https://hammerjs.github.io/dist/hammer.min.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+          "GLTFLoader": "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js",
+          "RoomEnvironment": "https://unpkg.com/three@0.160.0/examples/jsm/environments/RoomEnvironment.js",
+          "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+        }
+      }
+    </script>
     
     <!-- Load MindAR from a working UMD build -->
+    <script type="module">
+      // Production-ready MindAR loader with ES modules
+      import * as THREE from "three";
+      import { MindARThree } from "mindar-image-three";
+      
+      console.log('🔄 Loading MindAR for production...');
+      
+      // Make MindAR available globally
+      window.THREE = THREE;
+      window.MindARThree = MindARThree;
+      
+      console.log('✅ MindAR loaded successfully:', {
+        THREE: !!window.THREE,
+        MindARThree: !!window.MindARThree,
+        Hammer: !!window.Hammer
+      });
+    </script>
+    
     <script>
-      // Production-ready MindAR loader with fallbacks
+      // Fallback loader for older browsers
       (function() {
-        console.log('🔄 Loading MindAR for production...');
+        console.log('🔄 Loading MindAR fallback...');
         
         // Try multiple CDN sources for reliability
         const mindARSources = [
