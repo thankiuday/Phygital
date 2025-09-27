@@ -58,23 +58,42 @@ const overlayQRCode = async (designImagePath, qrData, position, outputPath) => {
       normalized: normalizedPosition
     });
     
+    // Validate position values
+    if (normalizedPosition.x < 0 || normalizedPosition.y < 0 || 
+        normalizedPosition.width <= 0 || normalizedPosition.height <= 0) {
+      throw new Error('Invalid position values: x, y, width, height must be positive');
+    }
+    
     // Load the design image using Jimp
+    console.log('🖼️ Loading design image:', designImagePath);
     const designImage = await Jimp.read(designImagePath);
-    console.log('Design image loaded:', {
+    console.log('✅ Design image loaded:', {
       width: designImage.getWidth(),
       height: designImage.getHeight()
     });
     
+    // Validate position is within image bounds
+    if (normalizedPosition.x + normalizedPosition.width > designImage.getWidth() ||
+        normalizedPosition.y + normalizedPosition.height > designImage.getHeight()) {
+      throw new Error('QR position is outside image bounds');
+    }
+    
     // Generate QR code buffer
+    console.log('🔲 Generating QR code for data:', qrData.substring(0, 50) + '...');
     const qrCodeBuffer = await generateQRCodeBuffer(qrData, normalizedPosition.width);
+    console.log('✅ QR code generated, buffer size:', qrCodeBuffer.length);
     
     // Load QR code image using Jimp
+    console.log('🖼️ Loading QR code image...');
     const qrCodeImage = await Jimp.read(qrCodeBuffer);
+    console.log('✅ QR code image loaded');
     
     // Resize QR code to match the specified dimensions
+    console.log('📏 Resizing QR code to:', normalizedPosition.width, 'x', normalizedPosition.height);
     qrCodeImage.resize(normalizedPosition.width, normalizedPosition.height);
     
     // Composite the QR code onto the design image
+    console.log('🎨 Compositing QR code onto design...');
     designImage.composite(qrCodeImage, normalizedPosition.x, normalizedPosition.y, {
       mode: Jimp.BLEND_SOURCE_OVER,
       opacitySource: 1.0,
@@ -82,8 +101,9 @@ const overlayQRCode = async (designImagePath, qrData, position, outputPath) => {
     });
     
     // Save the final composite image
+    console.log('💾 Saving composite image to:', outputPath);
     await designImage.writeAsync(outputPath);
-    console.log('Composite image saved to:', outputPath);
+    console.log('✅ Composite image saved successfully');
     
     return outputPath;
   } catch (error) {
@@ -106,7 +126,14 @@ const generateFinalDesign = async (designUrl, qrData, position, userId) => {
     
     // Validate inputs
     if (!designUrl || !qrData || !position || !userId) {
+      console.error('❌ Missing required parameters:', { designUrl: !!designUrl, qrData: !!qrData, position: !!position, userId: !!userId });
       throw new Error('Missing required parameters for final design generation');
+    }
+    
+    // Validate position data
+    if (position.x === undefined || position.y === undefined || position.width === undefined || position.height === undefined) {
+      console.error('❌ Invalid position data:', position);
+      throw new Error('Invalid QR position data');
     }
     
     // Determine if it's S3 or local storage
@@ -118,6 +145,7 @@ const generateFinalDesign = async (designUrl, qrData, position, userId) => {
     
     if (isS3Url) {
       // For S3 URLs, we need to download the image first
+      console.log('📥 Downloading image from S3:', designUrl);
       const https = require('https');
       const http = require('http');
       const url = require('url');
@@ -127,13 +155,20 @@ const generateFinalDesign = async (designUrl, qrData, position, userId) => {
       
       designBuffer = await new Promise((resolve, reject) => {
         const request = client.get(designUrl, (response) => {
+          console.log('📡 S3 response status:', response.statusCode);
           if (response.statusCode !== 200) {
             return reject(new Error(`Failed to download image: ${response.statusCode} ${response.statusMessage}`));
           }
           const chunks = [];
           response.on('data', chunk => chunks.push(chunk));
-          response.on('end', () => resolve(Buffer.concat(chunks)));
-          response.on('error', reject);
+          response.on('end', () => {
+            console.log('✅ S3 download completed, buffer size:', Buffer.concat(chunks).length);
+            resolve(Buffer.concat(chunks));
+          });
+          response.on('error', (err) => {
+            console.error('❌ S3 response error:', err);
+            reject(err);
+          });
         });
         
         request.on('error', (error) => {
@@ -141,7 +176,8 @@ const generateFinalDesign = async (designUrl, qrData, position, userId) => {
           reject(error);
         });
         
-        request.setTimeout(30000, () => {
+        request.setTimeout(60000, () => { // Increased timeout to 60 seconds
+          console.error('❌ S3 download timeout');
           request.destroy();
           reject(new Error('S3 download timeout'));
         });
@@ -150,12 +186,21 @@ const generateFinalDesign = async (designUrl, qrData, position, userId) => {
       // Save temporarily - use os.tmpdir() for better compatibility
       const os = require('os');
       const tempDir = path.join(os.tmpdir(), 'phygital-temp');
-      if (!fs.existsSync(tempDir)) {
-        fs.mkdirSync(tempDir, { recursive: true });
+      console.log('📁 Using temp directory:', tempDir);
+      
+      try {
+        if (!fs.existsSync(tempDir)) {
+          fs.mkdirSync(tempDir, { recursive: true });
+          console.log('✅ Created temp directory');
+        }
+        const tempPath = path.join(tempDir, `design-${userId}-${Date.now()}.png`);
+        fs.writeFileSync(tempPath, designBuffer);
+        designImagePath = tempPath;
+        console.log('✅ Saved temp image:', tempPath);
+      } catch (fsError) {
+        console.error('❌ File system error:', fsError);
+        throw new Error('Failed to save temporary image file');
       }
-      const tempPath = path.join(tempDir, `design-${userId}-${Date.now()}.png`);
-      fs.writeFileSync(tempPath, designBuffer);
-      designImagePath = tempPath;
     } else {
       // For local storage
       const fileName = path.basename(designUrl);
@@ -169,20 +214,37 @@ const generateFinalDesign = async (designUrl, qrData, position, userId) => {
     // Generate output path - use os.tmpdir() for better compatibility
     const os = require('os');
     const tempDir = path.join(os.tmpdir(), 'phygital-temp');
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
+    console.log('📁 Preparing output directory:', tempDir);
+    
+    try {
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+        console.log('✅ Created output temp directory');
+      }
+      const outputPath = path.join(tempDir, `final-design-${userId}-${Date.now()}.png`);
+      console.log('📄 Output path:', outputPath);
+      
+      // Overlay QR code
+      console.log('🎨 Starting QR code overlay...');
+      const finalImagePath = await overlayQRCode(designImagePath, qrData, position, outputPath);
+      console.log('✅ QR overlay completed:', finalImagePath);
+      
+      // Clean up temporary design file if it was downloaded from S3
+      if (isS3Url && fs.existsSync(designImagePath)) {
+        fs.unlinkSync(designImagePath);
+        console.log('🧹 Cleaned up temp design file');
+      }
+      
+      return finalImagePath;
+    } catch (overlayError) {
+      console.error('❌ QR overlay error:', overlayError);
+      // Clean up temporary design file if it was downloaded from S3
+      if (isS3Url && fs.existsSync(designImagePath)) {
+        fs.unlinkSync(designImagePath);
+        console.log('🧹 Cleaned up temp design file after error');
+      }
+      throw overlayError;
     }
-    const outputPath = path.join(tempDir, `final-design-${userId}-${Date.now()}.png`);
-    
-    // Overlay QR code
-    const finalImagePath = await overlayQRCode(designImagePath, qrData, position, outputPath);
-    
-    // Clean up temporary design file if it was downloaded from S3
-    if (isS3Url && fs.existsSync(designImagePath)) {
-      fs.unlinkSync(designImagePath);
-    }
-    
-    return finalImagePath;
   } catch (error) {
     console.error('Final design generation error:', error);
     throw new Error('Failed to generate final design');
