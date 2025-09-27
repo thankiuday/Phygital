@@ -8,26 +8,12 @@ const QRCode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
 
-// Import Jimp with correct pattern for v0.22.x
-let Jimp;
+// Import Jimp with standard CommonJS pattern
+const Jimp = require('jimp');
 
-try {
-  // For Jimp v0.22.x, use standard require
-  Jimp = require('jimp');
-  
-  // Verify Jimp.read is available
-  if (!Jimp.read || typeof Jimp.read !== 'function') {
-    throw new Error('Jimp.read not found');
-  }
-  
-  console.log('✅ Jimp loaded successfully');
-  console.log('🔍 Jimp object keys:', Object.keys(Jimp));
-  console.log('🔍 Jimp version info:', Jimp.version || 'unknown');
-} catch (error) {
-  console.error('❌ Failed to load Jimp:', error.message);
-  console.log('🔍 Jimp module:', require('jimp'));
-  throw new Error('Jimp library not available');
-}
+console.log('✅ Jimp loaded successfully');
+console.log('🔍 Jimp object keys:', Object.keys(Jimp));
+console.log('🔍 Jimp version info:', Jimp.version || 'unknown');
 
 /**
  * Generate QR code as buffer
@@ -90,7 +76,7 @@ const overlayQRCode = async (designImagePath, qrData, position, outputPath) => {
     console.log('🔍 Jimp object:', typeof Jimp, Jimp ? Object.keys(Jimp) : 'undefined');
     
     // Load image using correct Jimp API
-    let designImage;
+    let designImage, width, height;
     try {
       designImage = await Jimp.read(designImagePath);
       
@@ -103,7 +89,6 @@ const overlayQRCode = async (designImagePath, qrData, position, outputPath) => {
       });
       
       // Get dimensions using the correct Jimp API
-      let width, height;
       if (designImage.getWidth && typeof designImage.getWidth === 'function') {
         width = designImage.getWidth();
         height = designImage.getHeight();
