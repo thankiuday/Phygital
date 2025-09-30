@@ -174,16 +174,18 @@ const generateFinalDesign = async (designUrl, qrData, position, userId) => {
       throw new Error('Invalid QR position data');
     }
     
-    // Determine if it's S3 or local storage
+    // Determine if it's S3, Cloudinary, or local storage
     const isS3Url = designUrl.includes('amazonaws.com') || designUrl.includes('s3');
-    console.log('📡 URL type:', isS3Url ? 'S3' : 'Local');
+    const isCloudinaryUrl = designUrl.includes('cloudinary.com') || designUrl.includes('res.cloudinary.com');
+    const isRemoteUrl = isS3Url || isCloudinaryUrl;
+    console.log('📡 URL type:', isS3Url ? 'S3' : isCloudinaryUrl ? 'Cloudinary' : 'Local');
     
     let designImagePath;
     let designBuffer;
     
-    if (isS3Url) {
-      // For S3 URLs, we need to download the image first
-      console.log('📥 Downloading image from S3:', designUrl);
+    if (isRemoteUrl) {
+      // For S3 or Cloudinary URLs, we need to download the image first
+      console.log('📥 Downloading image from remote storage:', designUrl);
       const https = require('https');
       const http = require('http');
       const url = require('url');
@@ -193,31 +195,31 @@ const generateFinalDesign = async (designUrl, qrData, position, userId) => {
       
       designBuffer = await new Promise((resolve, reject) => {
         const request = client.get(designUrl, (response) => {
-          console.log('📡 S3 response status:', response.statusCode);
+          console.log('📡 Remote storage response status:', response.statusCode);
           if (response.statusCode !== 200) {
             return reject(new Error(`Failed to download image: ${response.statusCode} ${response.statusMessage}`));
           }
           const chunks = [];
           response.on('data', chunk => chunks.push(chunk));
           response.on('end', () => {
-            console.log('✅ S3 download completed, buffer size:', Buffer.concat(chunks).length);
+            console.log('✅ Remote download completed, buffer size:', Buffer.concat(chunks).length);
             resolve(Buffer.concat(chunks));
           });
           response.on('error', (err) => {
-            console.error('❌ S3 response error:', err);
+            console.error('❌ Remote response error:', err);
             reject(err);
           });
         });
         
         request.on('error', (error) => {
-          console.error('❌ S3 download error:', error);
+          console.error('❌ Remote download error:', error);
           reject(error);
         });
         
         request.setTimeout(60000, () => { // Increased timeout to 60 seconds
-          console.error('❌ S3 download timeout');
+          console.error('❌ Remote download timeout');
           request.destroy();
-          reject(new Error('S3 download timeout'));
+          reject(new Error('Remote download timeout'));
         });
       });
       
@@ -267,8 +269,8 @@ const generateFinalDesign = async (designUrl, qrData, position, userId) => {
       const finalImagePath = await overlayQRCode(designImagePath, qrData, position, outputPath);
       console.log('✅ QR overlay completed:', finalImagePath);
       
-      // Clean up temporary design file if it was downloaded from S3
-      if (isS3Url && fs.existsSync(designImagePath)) {
+      // Clean up temporary design file if it was downloaded from remote storage
+      if (isRemoteUrl && fs.existsSync(designImagePath)) {
         fs.unlinkSync(designImagePath);
         console.log('🧹 Cleaned up temp design file');
       }
@@ -276,8 +278,8 @@ const generateFinalDesign = async (designUrl, qrData, position, userId) => {
       return finalImagePath;
     } catch (overlayError) {
       console.error('❌ QR overlay error:', overlayError);
-      // Clean up temporary design file if it was downloaded from S3
-      if (isS3Url && fs.existsSync(designImagePath)) {
+      // Clean up temporary design file if it was downloaded from remote storage
+      if (isRemoteUrl && fs.existsSync(designImagePath)) {
         fs.unlinkSync(designImagePath);
         console.log('🧹 Cleaned up temp design file after error');
       }
