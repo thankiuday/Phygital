@@ -33,35 +33,81 @@ const allowedOrigins = [
   'http://localhost:5173',
   /^https:\/\/.*\.onrender\.com$/,
   'http://127.0.0.1:5173',
-  'http://127.0.0.1:3000'
+  'http://127.0.0.1:3000',
+  'https://phygital-frontend.onrender.com',
+  'https://phygital-backend-wcgs.onrender.com'
 ];
 
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
+    console.log('🔍 CORS check - Origin:', origin);
+    console.log('🔍 CORS check - Allowed origins:', allowedOrigins);
+    
+    if (!origin) {
+      console.log('✅ CORS - No origin (server-to-server request)');
+      return callback(null, true);
+    }
+    
     const isAllowed = allowedOrigins.some(allowedOrigin => {
       if (typeof allowedOrigin === 'string') {
-        return allowedOrigin === origin;
+        const match = allowedOrigin === origin;
+        console.log(`🔍 CORS - String check: ${allowedOrigin} === ${origin} = ${match}`);
+        return match;
       } else if (allowedOrigin instanceof RegExp) {
-        return allowedOrigin.test(origin);
+        const match = allowedOrigin.test(origin);
+        console.log(`🔍 CORS - Regex check: ${allowedOrigin} test ${origin} = ${match}`);
+        return match;
       }
       return false;
     });
+    
     if (isAllowed) {
+      console.log('✅ CORS - Origin allowed:', origin);
       callback(null, true);
     } else {
-      console.warn(`CORS blocked origin: ${origin}`);
+      console.warn(`❌ CORS - Origin blocked: ${origin}`);
+      console.warn(`❌ CORS - Allowed origins:`, allowedOrigins);
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 };
 
 app.use(cors(corsOptions));
 // Ensure preflight requests always succeed with proper headers
 app.options('*', cors(corsOptions));
+
+// Additional CORS middleware for development/debugging
+if (process.env.NODE_ENV === 'development') {
+  app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    
+    if (req.method === 'OPTIONS') {
+      res.sendStatus(200);
+    } else {
+      next();
+    }
+  });
+}
+
+// Production CORS fallback for Render deployment
+if (process.env.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin && (origin.includes('onrender.com') || origin.includes('localhost'))) {
+      res.header('Access-Control-Allow-Origin', origin);
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+      res.header('Access-Control-Allow-Credentials', 'true');
+    }
+    next();
+  });
+}
 
 // Security middleware
 app.use(helmet());
