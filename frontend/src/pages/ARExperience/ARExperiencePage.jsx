@@ -394,11 +394,11 @@ const ARExperiencePage = () => {
             img.crossOrigin = 'anonymous';
             
             await new Promise((resolve, reject) => {
-              img.onload = () => {
+              img.onload = async () => {
                 addDebugMessage(`✅ Image validation successful: ${img.naturalWidth}x${img.naturalHeight}`, 'success');
                 
-                // Only resize if image is extremely large (over 1024px) to avoid corruption
-                if (img.naturalWidth > 1024 || img.naturalHeight > 1024) {
+                // Only resize if image is extremely large (over 2048px) to avoid corruption
+                if (img.naturalWidth > 2048 || img.naturalHeight > 2048) {
                   addDebugMessage('🖼️ Image very large, resizing for better performance...', 'info');
                   try {
                     const canvas = document.createElement('canvas');
@@ -409,17 +409,20 @@ const ARExperiencePage = () => {
                       throw new Error('Canvas 2D context not available');
                     }
                     
-                    const maxSize = 1024; // Increased from 480 to reduce compression artifacts
+                    const maxSize = 2048; // Increased to reduce compression artifacts
                     const scale = Math.min(maxSize / img.naturalWidth, maxSize / img.naturalHeight);
                     
                     // Set canvas dimensions with proper rounding
                     canvas.width = Math.round(img.naturalWidth * scale);
                     canvas.height = Math.round(img.naturalHeight * scale);
                     
-                    // Ensure canvas dimensions are valid
-                    if (canvas.width <= 0 || canvas.height <= 0) {
+                    // Ensure canvas dimensions are valid and reasonable
+                    if (canvas.width <= 0 || canvas.height <= 0 || canvas.width > 4096 || canvas.height > 4096) {
                       throw new Error('Invalid canvas dimensions after resize');
                     }
+                    
+                    // Clear canvas before drawing
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
                     
                     // Draw image with proper smoothing
                     ctx.imageSmoothingEnabled = true;
@@ -438,6 +441,14 @@ const ARExperiencePage = () => {
                     if (!dataUrl.startsWith('data:image/png;base64,')) {
                       throw new Error('Invalid data URL format');
                     }
+                    
+                    // Test if the data URL can be loaded back as an image
+                    const testImg = new Image();
+                    await new Promise((resolve, reject) => {
+                      testImg.onload = resolve;
+                      testImg.onerror = () => reject(new Error('Generated data URL is corrupted'));
+                      testImg.src = dataUrl;
+                    });
                     
                     targetUrl = dataUrl;
                     addDebugMessage(`🖼️ Image resized to ${canvas.width}x${canvas.height}`, 'success');

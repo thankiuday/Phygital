@@ -94,8 +94,10 @@ const userSchema = new mongoose.Schema({
     totalScans: { type: Number, default: 0 },
     videoViews: { type: Number, default: 0 },
     linkClicks: { type: Number, default: 0 },
+    arExperienceStarts: { type: Number, default: 0 },
     lastScanAt: Date,
-    lastVideoViewAt: Date
+    lastVideoViewAt: Date,
+    lastArExperienceStartAt: Date
   },
   
   // Project management
@@ -170,6 +172,10 @@ userSchema.methods.updateAnalytics = function(type, increment = 1) {
         break;
       case 'linkClick':
         this.analytics.linkClicks += increment;
+        break;
+      case 'arExperienceStart':
+        this.analytics.arExperienceStarts += increment;
+        this.analytics.lastArExperienceStartAt = new Date();
         break;
       default:
         throw new Error('Invalid analytics type');

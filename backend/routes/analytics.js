@@ -386,6 +386,92 @@ router.get('/dashboard/:userId', authenticateToken, async (req, res) => {
 });
 
 /**
+ * POST /api/analytics/ar-experience-start
+ * Track AR experience start event
+ * Logs when users start AR experience with performance metrics
+ */
+router.post('/ar-experience-start', [
+  body('userId').isString().withMessage('User ID is required'),
+  body('projectId').isString().withMessage('Project ID is required'),
+  body('timestamp').isISO8601().withMessage('Valid timestamp is required'),
+  body('loadTime').optional().isNumeric().withMessage('Load time must be a number'),
+  body('hasDesign').optional().isBoolean().withMessage('Has design must be boolean'),
+  body('hasVideo').optional().isBoolean().withMessage('Has video must be boolean'),
+  body('userAgent').optional().isString().withMessage('User agent must be string')
+], async (req, res) => {
+  try {
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+    
+    const { 
+      userId, 
+      projectId, 
+      timestamp, 
+      loadTime = 0, 
+      hasDesign = false, 
+      hasVideo = false, 
+      userAgent 
+    } = req.body;
+    
+    // Validate if userId is a valid ObjectId format (24 hex characters)
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
+    
+    // Find user by ID or username
+    let user;
+    if (isValidObjectId) {
+      user = await User.findById(userId);
+    } else {
+      user = await User.findOne({ username: userId });
+    }
+    
+    if (!user) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'User not found'
+      });
+    }
+    
+    // Update user analytics
+    await user.updateAnalytics('arExperienceStart');
+    
+    // Track detailed analytics
+    await Analytics.trackEvent(userId, 'arExperienceStart', {
+      projectId,
+      loadTime: parseFloat(loadTime),
+      hasDesign: Boolean(hasDesign),
+      hasVideo: Boolean(hasVideo),
+      userAgent: userAgent || req.headers['user-agent'],
+      ipAddress: req.ip || req.connection.remoteAddress,
+      referrer: req.headers.referer,
+      timestamp: new Date(timestamp)
+    });
+    
+    res.status(200).json({
+      status: 'success',
+      message: 'AR experience start tracked successfully',
+      data: {
+        totalArStarts: user.analytics.arExperienceStarts || 0
+      }
+    });
+    
+  } catch (error) {
+    console.error('AR experience start tracking error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to track AR experience start',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+/**
  * POST /api/analytics/page-view
  * Track page view event
  * Logs when users visit the personalized page
