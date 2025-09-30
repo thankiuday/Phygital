@@ -66,6 +66,70 @@ const ARExperiencePage = () => {
     }
   }, []);
 
+  // Validate image for MindAR compatibility
+  const validateImageForMindAR = useCallback(async (imageUrl) => {
+    try {
+      addDebugMessage('🔍 Validating image for MindAR compatibility...', 'info');
+      
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
+      return new Promise((resolve, reject) => {
+        img.onload = () => {
+          try {
+            // Check image dimensions
+            if (img.naturalWidth < 100 || img.naturalHeight < 100) {
+              throw new Error('Image too small for AR tracking (minimum 100x100px)');
+            }
+            
+            if (img.naturalWidth > 2048 || img.naturalHeight > 2048) {
+              addDebugMessage('⚠️ Image very large, may cause performance issues', 'warning');
+            }
+            
+            // Check if image is corrupted by trying to draw it on canvas
+            const testCanvas = document.createElement('canvas');
+            const testCtx = testCanvas.getContext('2d');
+            
+            if (!testCtx) {
+              throw new Error('Canvas context not available for validation');
+            }
+            
+            testCanvas.width = Math.min(img.naturalWidth, 512);
+            testCanvas.height = Math.min(img.naturalHeight, 512);
+            
+            // Try to draw the image
+            testCtx.drawImage(img, 0, 0, testCanvas.width, testCanvas.height);
+            
+            // Check if canvas has content
+            const imageData = testCtx.getImageData(0, 0, testCanvas.width, testCanvas.height);
+            const hasContent = imageData.data.some(pixel => pixel !== 0);
+            
+            if (!hasContent) {
+              throw new Error('Image appears to be empty or corrupted');
+            }
+            
+            addDebugMessage(`✅ Image validation passed: ${img.naturalWidth}x${img.naturalHeight}`, 'success');
+            resolve(true);
+          } catch (validationError) {
+            addDebugMessage(`❌ Image validation failed: ${validationError.message}`, 'error');
+            reject(validationError);
+          }
+        };
+        
+        img.onerror = () => {
+          const error = new Error('Failed to load image for validation');
+          addDebugMessage(`❌ Image load failed: ${error.message}`, 'error');
+          reject(error);
+        };
+        
+        img.src = imageUrl;
+      });
+    } catch (error) {
+      addDebugMessage(`❌ Image validation error: ${error.message}`, 'error');
+      throw error;
+    }
+  }, [addDebugMessage]);
+
   // Check if libraries are available
   const checkLibraries = useCallback(async () => {
     console.log('🔍 Starting library check...');
@@ -312,6 +376,16 @@ const ARExperiencePage = () => {
         addDebugMessage('⚠️ Using .mind file - if AR fails, the file may be corrupted', 'warning');
       }
       
+      // Validate image before using with MindAR
+      if (targetType === 'image file') {
+        try {
+          await validateImageForMindAR(targetUrl);
+        } catch (validationError) {
+          addDebugMessage(`❌ Image validation failed: ${validationError.message}`, 'error');
+          throw new Error(`Image validation failed: ${validationError.message}`);
+        }
+      }
+      
         // Pre-validate and optimize image URL to detect potential issues
         if (targetType === 'image file') {
           addDebugMessage('🔍 Pre-validating and optimizing image URL...', 'info');
@@ -323,9 +397,9 @@ const ARExperiencePage = () => {
               img.onload = () => {
                 addDebugMessage(`✅ Image validation successful: ${img.naturalWidth}x${img.naturalHeight}`, 'success');
                 
-                // Resize image if too large for better MindAR performance
-                if (img.naturalWidth > 480 || img.naturalHeight > 480) {
-                  addDebugMessage('🖼️ Image too large, resizing for better performance...', 'info');
+                // Only resize if image is extremely large (over 1024px) to avoid corruption
+                if (img.naturalWidth > 1024 || img.naturalHeight > 1024) {
+                  addDebugMessage('🖼️ Image very large, resizing for better performance...', 'info');
                   try {
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
@@ -335,7 +409,7 @@ const ARExperiencePage = () => {
                       throw new Error('Canvas 2D context not available');
                     }
                     
-                    const maxSize = 480; // Further reduced for mobile
+                    const maxSize = 1024; // Increased from 480 to reduce compression artifacts
                     const scale = Math.min(maxSize / img.naturalWidth, maxSize / img.naturalHeight);
                     
                     // Set canvas dimensions with proper rounding
@@ -352,12 +426,17 @@ const ARExperiencePage = () => {
                     ctx.imageSmoothingQuality = 'high';
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                     
-                    // Convert to data URL with error handling
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.8); // Increased quality to prevent corruption
+                    // Use PNG format instead of JPEG to avoid compression artifacts
+                    const dataUrl = canvas.toDataURL('image/png', 1.0); // Use PNG with maximum quality
                     
                     // Validate the data URL
                     if (!dataUrl || dataUrl === 'data:,') {
                       throw new Error('Failed to generate valid data URL');
+                    }
+                    
+                    // Additional validation: check if data URL is properly formatted
+                    if (!dataUrl.startsWith('data:image/png;base64,')) {
+                      throw new Error('Invalid data URL format');
                     }
                     
                     targetUrl = dataUrl;
@@ -367,6 +446,8 @@ const ARExperiencePage = () => {
                     addDebugMessage('🔄 Using original image URL instead', 'info');
                     // Keep original targetUrl if resize fails
                   }
+                } else {
+                  addDebugMessage('✅ Image size is acceptable, using original URL', 'success');
                 }
                 resolve();
               };
@@ -593,9 +674,9 @@ const ARExperiencePage = () => {
         console.error('Error stack:', startError.stack);
         
         // Check if it's a buffer/corruption error or timeout
-        if (startError.message.includes('timeout') || startError.message.includes('Extra') || startError.message.includes('RangeError')) {
-          addDebugMessage('⏰ MindAR start timeout - image processing taking too long', 'warning');
-          addDebugMessage('💡 This can happen with complex images on mobile devices. Enabling test mode...', 'info');
+        if (startError.message.includes('timeout') || startError.message.includes('Extra') || startError.message.includes('RangeError') || startError.message.includes('buffer')) {
+          addDebugMessage('⏰ MindAR start failed - image processing error detected', 'warning');
+          addDebugMessage('💡 This can happen with corrupted or incompatible images. Enabling test mode...', 'info');
           
           // If we resized the image and it's causing issues, try with original
           if (targetUrl !== projectData.designUrl && projectData.designUrl) {
@@ -737,6 +818,9 @@ const ARExperiencePage = () => {
           addDebugMessage('🔄 Target file failed, retrying with design image...', 'info');
           
           try {
+            // Validate design image first
+            await validateImageForMindAR(projectData.designUrl);
+            
             // Recreate MindAR with design image
             const fallbackConfig = {
               container: containerRef.current,
@@ -777,6 +861,58 @@ const ARExperiencePage = () => {
             }
             
             throw new Error(`AR initialization failed: ${fallbackError.message}`);
+          }
+        } else if (targetType === 'image file' && startError.message.includes('Extra')) {
+          // Try to create a simple test image if the original is corrupted
+          addDebugMessage('🔄 Original image corrupted, creating test image...', 'info');
+          try {
+            const testCanvas = document.createElement('canvas');
+            const testCtx = testCanvas.getContext('2d');
+            testCanvas.width = 512;
+            testCanvas.height = 512;
+            
+            // Create a simple test pattern
+            testCtx.fillStyle = '#ffffff';
+            testCtx.fillRect(0, 0, 512, 512);
+            testCtx.fillStyle = '#000000';
+            testCtx.fillRect(100, 100, 312, 312);
+            testCtx.fillStyle = '#ffffff';
+            testCtx.fillRect(200, 200, 112, 112);
+            
+            const testImageUrl = testCanvas.toDataURL('image/png');
+            
+            const testConfig = {
+              container: containerRef.current,
+              imageTargetSrc: testImageUrl,
+              maxTrack: 1
+            };
+            
+            const testMindar = new window.MindARThree.MindARThree(testConfig);
+            mindarRef.current = testMindar;
+            
+            // Setup video
+            if (projectData.videoUrl) {
+              await setupVideo(testMindar.addAnchor(0));
+            }
+            
+            // Setup event listeners
+            testMindar.onTargetFound = () => {
+              addDebugMessage('🎯 Target detected! (using test image)', 'success');
+              throttledSetTargetDetected(true);
+            };
+
+            testMindar.onTargetLost = () => {
+              addDebugMessage('🔍 Target lost', 'warning');
+              throttledSetTargetDetected(false);
+              throttledSetVideoPlaying(false);
+            };
+            
+            await testMindar.start();
+            addDebugMessage('✅ MindAR started with test image', 'success');
+            setError('⚠️ Original image corrupted - AR is running with test pattern. Please re-upload a clean image for proper AR tracking.');
+          } catch (testError) {
+            addDebugMessage(`❌ Test image also failed: ${testError.message}`, 'error');
+            throw new Error(`AR initialization failed: ${startError.message}`);
           }
         } else {
           throw new Error(`MindAR start failed: ${startError.message}`);

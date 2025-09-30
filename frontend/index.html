@@ -39,7 +39,7 @@
     
     <!-- HammerJS (for gestures) -->
     <script src="https://hammerjs.github.io/dist/hammer.min.js"></script>
-
+    
     <!-- MindAR Loader -->
     <script type="module">
       import * as THREE from "three";
@@ -81,19 +81,19 @@
       }
 
       function createMindARStub() {
-        window.MindARThree = {
-          MindARThree: function(config) {
+              window.MindARThree = {
+                MindARThree: function(config) {
             console.log("🧪 MindAR stub initialized", config);
-            return {
+              return {
               start: async () => console.log("Stub start"),
               stop: async () => console.log("Stub stop"),
               addAnchor: () => ({ group: { add: () => {} } }),
               renderer: { domElement: document.createElement("canvas") },
               scene: new THREE.Scene(),
               camera: new THREE.PerspectiveCamera()
-            };
-          }
-        };
+              };
+            }
+          };
       }
 
       loadMindAR();
