@@ -1545,66 +1545,78 @@ router.delete('/project/:projectId', authenticateToken, async (req, res) => {
     
     const project = user.projects[projectIndex];
     
-    // Delete files from S3 if they exist
+    // Delete files from Cloudinary if they exist
     const filesToDelete = [];
     
-    // Helper function to extract S3 key from URL
-    const extractS3Key = (url) => {
+    // Helper function to extract Cloudinary public_id from URL
+    const extractCloudinaryPublicId = (url) => {
       try {
         if (!url) return null;
         
-        // For S3 URLs: https://bucket.s3.region.amazonaws.com/users/userId/type/filename
-        // We need to extract: users/userId/type/filename
-        const urlParts = url.split('/');
-        
-        // Find the index of 'users' in the URL
-        const usersIndex = urlParts.findIndex(part => part === 'users');
-        if (usersIndex !== -1) {
-          // Extract everything from 'users' onwards
-          return urlParts.slice(usersIndex).join('/');
-        }
-        
-        // Fallback: if it's a local URL, extract the path after the domain
-        const domainIndex = urlParts.findIndex(part => part.includes('localhost') || part.includes('127.0.0.1'));
-        if (domainIndex !== -1 && domainIndex + 1 < urlParts.length) {
-          return urlParts.slice(domainIndex + 1).join('/');
+        // For Cloudinary URLs: https://res.cloudinary.com/cloud_name/image/upload/v1234567890/phygital-zone/users/userId/type/filename
+        // We need to extract the public_id: phygital-zone/users/userId/type/filename
+        if (url.includes('cloudinary.com')) {
+          const urlParts = url.split('/');
+          const uploadIndex = urlParts.findIndex(part => part === 'upload');
+          if (uploadIndex !== -1 && uploadIndex + 2 < urlParts.length) {
+            // Extract everything after 'upload/v1234567890/'
+            return urlParts.slice(uploadIndex + 2).join('/').split('.')[0]; // Remove file extension
+          }
         }
         
         return null;
       } catch (error) {
-        console.error('Error extracting S3 key from URL:', url, error);
+        console.error('Error extracting Cloudinary public_id from URL:', url, error);
         return null;
       }
     };
     
     // Check for design file
     if (user.uploadedFiles.design?.url) {
-      const designKey = extractS3Key(user.uploadedFiles.design.url);
-      if (designKey) {
-        filesToDelete.push(designKey);
-        console.log('Design file to delete:', designKey);
+      const designPublicId = extractCloudinaryPublicId(user.uploadedFiles.design.url);
+      if (designPublicId) {
+        filesToDelete.push(designPublicId);
+        console.log('Design file to delete:', designPublicId);
       }
     }
     
     // Check for video file
     if (user.uploadedFiles.video?.url) {
-      const videoKey = extractS3Key(user.uploadedFiles.video.url);
-      if (videoKey) {
-        filesToDelete.push(videoKey);
-        console.log('Video file to delete:', videoKey);
+      const videoPublicId = extractCloudinaryPublicId(user.uploadedFiles.video.url);
+      if (videoPublicId) {
+        filesToDelete.push(videoPublicId);
+        console.log('Video file to delete:', videoPublicId);
       }
     }
     
-    // Delete files from S3
-    console.log(`Attempting to delete ${filesToDelete.length} files from S3:`, filesToDelete);
-    for (const key of filesToDelete) {
+    // Check for composite design file
+    if (user.uploadedFiles.compositeDesign?.url) {
+      const compositePublicId = extractCloudinaryPublicId(user.uploadedFiles.compositeDesign.url);
+      if (compositePublicId) {
+        filesToDelete.push(compositePublicId);
+        console.log('Composite design file to delete:', compositePublicId);
+      }
+    }
+    
+    // Check for mind target file
+    if (user.uploadedFiles.mindTarget?.url) {
+      const mindPublicId = extractCloudinaryPublicId(user.uploadedFiles.mindTarget.url);
+      if (mindPublicId) {
+        filesToDelete.push(mindPublicId);
+        console.log('Mind target file to delete:', mindPublicId);
+      }
+    }
+    
+    // Delete files from Cloudinary
+    console.log(`Attempting to delete ${filesToDelete.length} files from Cloudinary:`, filesToDelete);
+    for (const publicId of filesToDelete) {
       try {
-        console.log(`Deleting file from S3: ${key}`);
-        const deleteResult = await deleteFromS3(key);
-        console.log(`Successfully deleted file from S3: ${key}`, deleteResult);
+        console.log(`Deleting file from Cloudinary: ${publicId}`);
+        const deleteResult = await deleteFromCloudinary(publicId);
+        console.log(`Successfully deleted file from Cloudinary: ${publicId}`, deleteResult);
       } catch (error) {
-        console.error(`Failed to delete file from S3: ${key}`, error);
-        // Continue with deletion even if S3 deletion fails
+        console.error(`Failed to delete file from Cloudinary: ${publicId}`, error);
+        // Continue with deletion even if Cloudinary deletion fails
       }
     }
     

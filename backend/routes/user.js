@@ -304,7 +304,7 @@ router.delete('/account', authenticateToken, [
       });
     }
     
-    // TODO: Delete files from S3
+    // TODO: Delete files from Cloudinary
     // TODO: Delete analytics data
     // TODO: Send deletion confirmation email
     
