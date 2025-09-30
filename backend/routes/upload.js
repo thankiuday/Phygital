@@ -16,7 +16,7 @@ const { v4: uuidv4 } = require('uuid');
 // Image dimensions will be handled on the frontend
 const User = require('../models/User');
 const { authenticateToken } = require('../middleware/auth');
-const { uploadToS3, uploadToS3Buffer, deleteFromS3, checkS3Connection } = require('../config/aws');
+const { uploadToCloudinary, uploadToCloudinaryBuffer, deleteFromCloudinary, checkCloudinaryConnection } = require('../config/cloudinary');
 const os = require('os');
 const { generateFinalDesign, cleanupTempFile } = require('../services/qrOverlayService');
 const { 
@@ -155,15 +155,15 @@ const generateMindTarget = async (imageBuffer, userId) => {
     const mindBuffer = await fsPromises.readFile(outMindPath);
     console.log('📖 Read .mind file, size:', mindBuffer.length, 'bytes');
     
-    // Upload .mind buffer to S3
-    const mindKey = `users/${userId}/targets/target_${Date.now()}_${uuidv4()}.mind`;
-    console.log('☁️ Uploading .mind to S3 with key:', mindKey);
+    // Upload .mind buffer to Cloudinary
+    const mindFilename = `target_${Date.now()}_${uuidv4()}.mind`;
+    console.log('☁️ Uploading .mind to Cloudinary with filename:', mindFilename);
     
-    const uploadResult = await uploadToS3Buffer(mindBuffer, mindKey, 'application/octet-stream');
-    console.log('✅ .mind file uploaded to S3:', uploadResult.url);
+    const uploadResult = await uploadToCloudinaryBuffer(mindBuffer, userId, 'targets', mindFilename, 'application/octet-stream');
+    console.log('✅ .mind file uploaded to Cloudinary:', uploadResult.url);
     
     return {
-      filename: mindKey,
+      filename: uploadResult.public_id,
       url: uploadResult.url,
       size: mindBuffer.length,
       uploadedAt: new Date(),
@@ -352,17 +352,17 @@ router.post('/design', authenticateToken, upload.single('design'), async (req, r
       });
     }
     
-    // Check S3 connection
-    console.log('Checking S3 connection...');
-    const s3Connected = await checkS3Connection();
-    if (!s3Connected) {
-      console.log('ERROR: S3 connection failed');
+    // Check Cloudinary connection
+    console.log('Checking Cloudinary connection...');
+    const cloudinaryConnected = await checkCloudinaryConnection();
+    if (!cloudinaryConnected) {
+      console.log('ERROR: Cloudinary connection failed');
       return res.status(500).json({
         status: 'error',
         message: 'File storage service unavailable'
       });
     }
-    console.log('✅ S3 connection successful');
+    console.log('✅ Cloudinary connection successful');
     
     // Image dimensions will be provided by frontend
     const imageDimensions = {
@@ -371,8 +371,8 @@ router.post('/design', authenticateToken, upload.single('design'), async (req, r
       aspectRatio: 800 / 600
     };
     
-    // Upload to S3
-    console.log('Starting S3 upload...');
+    // Upload to Cloudinary
+    console.log('Starting Cloudinary upload...');
     console.log('Upload parameters:', {
       userId: req.user._id,
       fieldName: 'design',
@@ -382,17 +382,17 @@ router.post('/design', authenticateToken, upload.single('design'), async (req, r
     
     let uploadResult;
     try {
-      uploadResult = await uploadToS3(req.file, req.user._id, 'design');
-      console.log('✅ S3 upload successful:', uploadResult.url);
+      uploadResult = await uploadToCloudinary(req.file, req.user._id, 'design');
+      console.log('✅ Cloudinary upload successful:', uploadResult.url);
     } catch (uploadError) {
-      console.error('❌ S3 upload failed:', uploadError);
+      console.error('❌ Cloudinary upload failed:', uploadError);
       console.error('Upload error details:', {
         message: uploadError.message,
         stack: uploadError.stack,
         userId: req.user._id,
         fileSize: req.file.size
       });
-      throw new Error(`S3 upload failed: ${uploadError.message}`);
+      throw new Error(`Cloudinary upload failed: ${uploadError.message}`);
     }
     
     // Store old design data for history
@@ -402,8 +402,11 @@ router.post('/design', authenticateToken, upload.single('design'), async (req, r
     // Delete old design file if exists
     if (oldDesign.url) {
       try {
-        const oldKey = oldDesign.url.split('/').slice(-2).join('/');
-        await deleteFromS3(oldKey);
+        // Extract public_id from Cloudinary URL
+        const urlParts = oldDesign.url.split('/');
+        const publicId = urlParts[urlParts.length - 1].split('.')[0]; // Remove file extension
+        await deleteFromCloudinary(publicId);
+        console.log('✅ Old design file deleted from Cloudinary');
       } catch (error) {
         console.error('Failed to delete old design file:', error);
         // Continue with update even if old file deletion fails
@@ -554,9 +557,9 @@ router.post('/video', authenticateToken, upload.single('video'), async (req, res
       });
     }
     
-    // Check S3 connection
-    const s3Connected = await checkS3Connection();
-    if (!s3Connected) {
+    // Check Cloudinary connection
+    const cloudinaryConnected = await checkCloudinaryConnection();
+    if (!cloudinaryConnected) {
       return res.status(500).json({
         status: 'error',
         message: 'File storage service unavailable'
@@ -567,13 +570,16 @@ router.post('/video', authenticateToken, upload.single('video'), async (req, res
     // In production, you would implement video compression here
     // using ffmpeg or similar tools
     
-    const uploadResult = await uploadToS3(req.file, req.user._id, 'video');
+    const uploadResult = await uploadToCloudinary(req.file, req.user._id, 'video');
     
     // Delete old video file if exists
     if (req.user.uploadedFiles.video.url) {
       try {
-        const oldKey = req.user.uploadedFiles.video.url.split('/').slice(-2).join('/');
-        await deleteFromS3(oldKey);
+        // Extract public_id from Cloudinary URL
+        const urlParts = req.user.uploadedFiles.video.url.split('/');
+        const publicId = urlParts[urlParts.length - 1].split('.')[0]; // Remove file extension
+        await deleteFromCloudinary(publicId);
+        console.log('✅ Old video file deleted from Cloudinary');
       } catch (error) {
         console.error('Failed to delete old video file:', error);
         // Continue with update even if old file deletion fails
