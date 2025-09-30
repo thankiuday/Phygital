@@ -336,20 +336,37 @@ const getSignedUrl = async (key, expiresIn = 3600) => {
  */
 const checkS3Connection = async () => {
   try {
-    if (process.env.AWS_S3_BUCKET) {
-      // Check S3 connection
-      await s3.headBucket({ Bucket: process.env.AWS_S3_BUCKET }).promise();
-      return true;
+    // Check if AWS credentials are properly configured
+    const hasValidCredentials = process.env.AWS_ACCESS_KEY_ID && 
+                               process.env.AWS_SECRET_ACCESS_KEY && 
+                               process.env.AWS_S3_BUCKET &&
+                               process.env.AWS_ACCESS_KEY_ID !== 'your_aws_access_key_id_here' &&
+                               process.env.AWS_SECRET_ACCESS_KEY !== 'your_aws_secret_access_key_here';
+    
+    if (hasValidCredentials && process.env.AWS_S3_BUCKET) {
+      try {
+        // Check S3 connection
+        await s3.headBucket({ Bucket: process.env.AWS_S3_BUCKET }).promise();
+        console.log('✅ S3 connection successful');
+        return true;
+      } catch (s3Error) {
+        console.error('❌ S3 connection failed:', s3Error.message);
+        console.log('🔄 Falling back to local storage');
+        return false;
+      }
     } else {
+      console.log('⚠️ AWS credentials not configured, using local storage');
       // Check local storage availability
       const fs = require('fs');
       if (!fs.existsSync('uploads')) {
         fs.mkdirSync('uploads', { recursive: true });
+        console.log('📁 Created local uploads directory');
       }
       return true;
     }
   } catch (error) {
     console.error('Storage connection check failed:', error);
+    console.log('🔄 Falling back to local storage');
     return false;
   }
 };

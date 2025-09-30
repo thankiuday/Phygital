@@ -333,8 +333,19 @@ const upload = multer({
  */
 router.post('/design', authenticateToken, upload.single('design'), async (req, res) => {
   try {
+    console.log('=== DESIGN UPLOAD DEBUG ===');
+    console.log('User ID:', req.user._id);
+    console.log('File received:', !!req.file);
+    console.log('File details:', req.file ? {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      fieldname: req.file.fieldname
+    } : 'No file');
+    
     // Check if file was uploaded
     if (!req.file) {
+      console.log('ERROR: No file uploaded');
       return res.status(400).json({
         status: 'error',
         message: 'No design file uploaded'
@@ -342,13 +353,16 @@ router.post('/design', authenticateToken, upload.single('design'), async (req, r
     }
     
     // Check S3 connection
+    console.log('Checking S3 connection...');
     const s3Connected = await checkS3Connection();
     if (!s3Connected) {
+      console.log('ERROR: S3 connection failed');
       return res.status(500).json({
         status: 'error',
         message: 'File storage service unavailable'
       });
     }
+    console.log('✅ S3 connection successful');
     
     // Image dimensions will be provided by frontend
     const imageDimensions = {
@@ -358,7 +372,28 @@ router.post('/design', authenticateToken, upload.single('design'), async (req, r
     };
     
     // Upload to S3
-    const uploadResult = await uploadToS3(req.file, req.user._id, 'design');
+    console.log('Starting S3 upload...');
+    console.log('Upload parameters:', {
+      userId: req.user._id,
+      fieldName: 'design',
+      fileSize: req.file.size,
+      mimetype: req.file.mimetype
+    });
+    
+    let uploadResult;
+    try {
+      uploadResult = await uploadToS3(req.file, req.user._id, 'design');
+      console.log('✅ S3 upload successful:', uploadResult.url);
+    } catch (uploadError) {
+      console.error('❌ S3 upload failed:', uploadError);
+      console.error('Upload error details:', {
+        message: uploadError.message,
+        stack: uploadError.stack,
+        userId: req.user._id,
+        fileSize: req.file.size
+      });
+      throw new Error(`S3 upload failed: ${uploadError.message}`);
+    }
     
     // Store old design data for history
     const oldDesign = req.user.uploadedFiles.design;
@@ -379,10 +414,20 @@ router.post('/design', authenticateToken, upload.single('design'), async (req, r
     let mindTargetResult = null;
     try {
       console.log('🧠 Generating .mind file for AR target...');
+      console.log('Mind target generation parameters:', {
+        bufferSize: req.file.buffer.length,
+        userId: req.user._id
+      });
+      
       mindTargetResult = await generateMindTarget(req.file.buffer, req.user._id);
       console.log('✅ .mind file generated successfully:', mindTargetResult.url);
     } catch (mindError) {
       console.error('❌ .mind generation failed:', mindError);
+      console.error('Mind generation error details:', {
+        message: mindError.message,
+        stack: mindError.stack,
+        bufferSize: req.file.buffer.length
+      });
       // Continue without .mind file - AR will fallback to using the design image
       console.log('⚠️ Continuing without .mind file - AR will use design image as fallback');
     }
@@ -406,11 +451,34 @@ router.post('/design', authenticateToken, upload.single('design'), async (req, r
     }
     
     // Update user record with design and optional .mind target
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user._id,
-      updateData,
-      { new: true }
-    ).select('-password');
+    console.log('Updating user record with design data...');
+    console.log('Update data:', {
+      hasDesign: !!updateData['uploadedFiles.design'],
+      hasMindTarget: !!updateData['uploadedFiles.mindTarget'],
+      userId: req.user._id
+    });
+    
+    let updatedUser;
+    try {
+      updatedUser = await User.findByIdAndUpdate(
+        req.user._id,
+        updateData,
+        { new: true }
+      ).select('-password');
+      
+      if (!updatedUser) {
+        throw new Error('User not found after update');
+      }
+      console.log('✅ User record updated successfully');
+    } catch (dbError) {
+      console.error('❌ Database update failed:', dbError);
+      console.error('Database error details:', {
+        message: dbError.message,
+        stack: dbError.stack,
+        userId: req.user._id
+      });
+      throw new Error(`Database update failed: ${dbError.message}`);
+    }
     
     // Log activity in history
     const historyOptions = {
@@ -436,11 +504,37 @@ router.post('/design', authenticateToken, upload.single('design'), async (req, r
     });
     
   } catch (error) {
-    console.error('Design upload error:', error);
-    res.status(500).json({
+    console.error('=== DESIGN UPLOAD ERROR ===');
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    console.error('User ID:', req.user?._id);
+    console.error('File info:', req.file ? {
+      originalname: req.file.originalname,
+      size: req.file.size,
+      mimetype: req.file.mimetype
+    } : 'No file');
+    
+    // Determine specific error type
+    let errorMessage = 'Failed to upload design';
+    let statusCode = 500;
+    
+    if (error.message.includes('S3 upload failed')) {
+      errorMessage = 'File storage service error';
+    } else if (error.message.includes('Database update failed')) {
+      errorMessage = 'Database error occurred';
+    } else if (error.message.includes('Invalid file')) {
+      errorMessage = 'Invalid file format';
+      statusCode = 400;
+    } else if (error.message.includes('File too large')) {
+      errorMessage = 'File size exceeds limit';
+      statusCode = 413;
+    }
+    
+    res.status(statusCode).json({
       status: 'error',
-      message: 'Failed to upload design',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: errorMessage,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      timestamp: new Date().toISOString()
     });
   }
 });
