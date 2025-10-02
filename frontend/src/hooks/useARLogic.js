@@ -364,22 +364,6 @@ export const useARLogic = ({
     addDebugMessage(`🔊 Video ${videoRef.current.muted ? 'muted' : 'unmuted'}`, 'info');
   }, [addDebugMessage]);
 
-  // Restart AR
-  const restartAR = useCallback(async () => {
-    addDebugMessage('🔄 Restarting AR...', 'info');
-    
-    await stopScanning();
-    await cleanupAR();
-    resetARState();
-
-    setTimeout(async () => {
-      const success = await initializeMindAR();
-      if (success) {
-        await startScanning();
-      }
-    }, 1000);
-  }, [stopScanning, cleanupAR, resetARState, initializeMindAR, startScanning, addDebugMessage]);
-
   // Cleanup function
   const cleanupAR = useCallback(async () => {
     addDebugMessage('🧹 Cleaning up AR resources...', 'info');
@@ -449,6 +433,22 @@ export const useARLogic = ({
       addDebugMessage(`❌ Cleanup error: ${error.message}`, 'error');
     }
   }, [addDebugMessage]);
+
+  // Restart AR
+  const restartAR = useCallback(async () => {
+    addDebugMessage('🔄 Restarting AR...', 'info');
+    
+    await stopScanning();
+    await cleanupAR();
+    resetARState();
+
+    setTimeout(async () => {
+      const success = await initializeMindAR();
+      if (success) {
+        await startScanning();
+      }
+    }, 1000);
+  }, [stopScanning, cleanupAR, resetARState, initializeMindAR, startScanning, addDebugMessage]);
 
   // Cleanup on unmount
   useEffect(() => {
