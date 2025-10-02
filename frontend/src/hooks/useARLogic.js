@@ -11,6 +11,7 @@ export const useARLogic = ({
   projectData,
   isInitialized,
   isScanning,
+  videoPlaying,
   setError,
   setCameraActive,
   setArReady,

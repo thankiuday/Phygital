@@ -199,7 +199,15 @@ const HistoryPage = () => {
       const response = await uploadAPI.deleteProject(projectToDelete.id)
       
       if (response.data.success) {
-        toast.success('Project deleted successfully!')
+        const deletedFilesCount = response.data.data?.deletedFiles || 0
+        const cloudinaryDeletion = response.data.data?.cloudinaryDeletion
+        
+        if (cloudinaryDeletion && cloudinaryDeletion.failed > 0) {
+          toast.success(`Project deleted successfully! ${cloudinaryDeletion.successful}/${deletedFilesCount} files removed from Cloudinary.`)
+        } else {
+          toast.success(`Project deleted successfully! ${deletedFilesCount} files removed from Cloudinary.`)
+        }
+        
         setShowDeleteModal(false)
         setProjectToDelete(null)
         loadHistory() // Refresh the list
@@ -208,7 +216,17 @@ const HistoryPage = () => {
       }
     } catch (error) {
       console.error('Delete project error:', error)
-      toast.error('Failed to delete project')
+      
+      // Provide more specific error messages
+      if (error.response?.status === 404) {
+        toast.error('Project not found or already deleted')
+      } else if (error.response?.status === 403) {
+        toast.error('You do not have permission to delete this project')
+      } else if (error.response?.status >= 500) {
+        toast.error('Server error occurred. Some files may not have been deleted from Cloudinary.')
+      } else {
+        toast.error('Failed to delete project. Please try again.')
+      }
     } finally {
       setIsDeleting(false)
     }
@@ -449,9 +467,11 @@ const HistoryPage = () => {
                   </p>
                   <ul className="text-xs sm:text-sm text-slate-300 mt-2 list-disc list-inside">
                     <li>Project data from database</li>
-                    <li>Design image from S3 storage</li>
-                    <li>Video file from S3 storage</li>
-                    <li>All project history</li>
+                    <li>Design image from Cloudinary storage</li>
+                    <li>Video file from Cloudinary storage</li>
+                    <li>Composite design (if generated)</li>
+                    <li>AR target file (.mind file)</li>
+                    <li>All project history and analytics</li>
                   </ul>
                 </div>
                 <p className="text-xs sm:text-sm text-neon-red mt-2 sm:mt-3 font-medium">

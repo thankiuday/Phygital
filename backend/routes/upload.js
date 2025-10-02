@@ -1609,13 +1609,20 @@ router.delete('/project/:projectId', authenticateToken, async (req, res) => {
     
     // Delete files from Cloudinary
     console.log(`Attempting to delete ${filesToDelete.length} files from Cloudinary:`, filesToDelete);
+    const cloudinaryDeletionResults = {
+      successful: [],
+      failed: []
+    };
+    
     for (const publicId of filesToDelete) {
       try {
         console.log(`Deleting file from Cloudinary: ${publicId}`);
         const deleteResult = await deleteFromCloudinary(publicId);
         console.log(`Successfully deleted file from Cloudinary: ${publicId}`, deleteResult);
+        cloudinaryDeletionResults.successful.push(publicId);
       } catch (error) {
         console.error(`Failed to delete file from Cloudinary: ${publicId}`, error);
+        cloudinaryDeletionResults.failed.push({ publicId, error: error.message });
         // Continue with deletion even if Cloudinary deletion fails
       }
     }
@@ -1650,15 +1657,26 @@ router.delete('/project/:projectId', authenticateToken, async (req, res) => {
       userAgent: req.get('User-Agent')
     });
     
+    // Prepare response message based on deletion results
+    let responseMessage = 'Project deleted successfully';
+    if (cloudinaryDeletionResults.failed.length > 0) {
+      responseMessage += ` (${cloudinaryDeletionResults.successful.length}/${filesToDelete.length} files deleted from Cloudinary)`;
+    }
+
     res.json({
       success: true,
-      message: 'Project deleted successfully',
+      message: responseMessage,
       data: {
         deletedProject: {
           id: project.id,
           name: project.name
         },
-        deletedFiles: filesToDelete.length
+        deletedFiles: filesToDelete.length,
+        cloudinaryDeletion: {
+          successful: cloudinaryDeletionResults.successful.length,
+          failed: cloudinaryDeletionResults.failed.length,
+          details: cloudinaryDeletionResults
+        }
       }
     });
     
