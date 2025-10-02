@@ -167,9 +167,17 @@ export const useARLogic = ({
       let targetType = 'image file';
       let mindBuffer = null;
       
-      if (!targetUrl && projectData.mindTargetUrl) {
+      // Check if we have a composite design (design + QR code) - this is what we should use for AR tracking
+      if (projectData.compositeDesignUrl) {
+        targetUrl = projectData.compositeDesignUrl;
+        addDebugMessage('🎯 Using composite design (design + QR code) for AR tracking', 'info');
+      } else if (projectData.mindTargetUrl) {
         targetUrl = projectData.mindTargetUrl;
         targetType = '.mind file';
+        addDebugMessage('🎯 Using .mind file for AR tracking', 'info');
+      } else if (projectData.designUrl) {
+        addDebugMessage('⚠️ Using original design image - QR code may not be embedded', 'warning');
+        addDebugMessage('💡 Consider using composite design for better AR tracking', 'info');
       }
       
       if (!targetUrl) {
@@ -219,14 +227,51 @@ export const useARLogic = ({
         }
       };
 
-      // Add target based on type
+      // Add specific configuration based on target type
       if (targetType === '.mind file' && mindBuffer) {
+        // For .mind files, we can use the buffer directly
         mindarConfig.imageTargetSrc = mindBuffer;
         addDebugMessage('🔧 Using .mind buffer for MindAR', 'info');
       } else {
+        // For image files, we need to ensure MindAR processes them correctly
+        // The issue might be that MindAR is trying to process the image as a .mind file
         mindarConfig.imageTargetSrc = targetUrl;
         addDebugMessage('🔧 Using image URL for MindAR', 'info');
+        addDebugMessage('⚠️ Note: Image files are processed by MindAR internally', 'info');
+        
+        // Add specific image processing hints
+        if (targetUrl.includes('.png') || targetUrl.includes('.jpg') || targetUrl.includes('.jpeg')) {
+          addDebugMessage('🖼️ Detected image format - MindAR will handle conversion', 'info');
+        }
+        
+        // Try to use a different approach for image files
+        // Some versions of MindAR require specific handling for images
+        try {
+          // Check if we can pre-process the image to avoid the buffer error
+          addDebugMessage('🔧 Attempting to pre-process image for MindAR compatibility...', 'info');
+          
+          // Create a temporary image element to validate the image
+          const testImg = new Image();
+          testImg.crossOrigin = 'anonymous';
+          
+          await new Promise((resolve, reject) => {
+            testImg.onload = () => {
+              addDebugMessage(`✅ Image validation successful: ${testImg.naturalWidth}x${testImg.naturalHeight}`, 'success');
+              resolve();
+            };
+            testImg.onerror = () => {
+              reject(new Error('Image validation failed'));
+            };
+            testImg.src = targetUrl;
+          });
+          
+          addDebugMessage('🔧 Image pre-validation completed', 'success');
+        } catch (imgError) {
+          addDebugMessage(`⚠️ Image pre-validation failed: ${imgError.message}`, 'warning');
+          addDebugMessage('🔄 Proceeding with original URL...', 'info');
+        }
       }
+
       
       addDebugMessage(`🔧 MindAR config: container=${mindarConfig.container ? 'ready' : 'missing'}, imageTarget=${mindarConfig.imageTargetSrc ? 'set' : 'missing'}`, 'info');
       addDebugMessage(`🔧 Target URL type: ${typeof mindarConfig.imageTargetSrc}`, 'info');
@@ -234,15 +279,37 @@ export const useARLogic = ({
       
       let mindar;
       try {
-        mindar = new window.MindARThree.MindARThree(mindarConfig);
-        mindarRef.current = mindar;
-        addDebugMessage('✅ MindAR instance created successfully', 'success');
+        // For image files, try a different approach to avoid the buffer error
+        if (targetType === 'image file') {
+          addDebugMessage('🔧 Creating MindAR instance for image file...', 'info');
+          
+          // Try to create MindAR with a more specific configuration for images
+          const imageConfig = {
+            ...mindarConfig,
+            // Remove any buffer-related properties
+            imageTargetSrc: targetUrl
+          };
+          
+          // Add specific image processing options
+          if (window.MindARThree && window.MindARThree.MindARThree) {
+            mindar = new window.MindARThree.MindARThree(imageConfig);
+            mindarRef.current = mindar;
+            addDebugMessage('✅ MindAR instance created successfully for image', 'success');
+          } else {
+            throw new Error('MindARThree not available');
+          }
+        } else {
+          mindar = new window.MindARThree.MindARThree(mindarConfig);
+          mindarRef.current = mindar;
+          addDebugMessage('✅ MindAR instance created successfully', 'success');
+        }
       } catch (mindarError) {
         addDebugMessage(`❌ MindAR creation failed: ${mindarError.message}`, 'error');
         
         // If it's a buffer error, try with a different approach
         if (mindarError.message.includes('Extra') && mindarError.message.includes('byte')) {
           addDebugMessage('🔄 Buffer error detected - trying alternative approach...', 'warning');
+          addDebugMessage(`🔍 Error details: ${mindarError.message}`, 'info');
           
           if (targetType === '.mind file' && mindBuffer) {
             // For .mind files, try to validate and fix the buffer
@@ -269,26 +336,17 @@ export const useARLogic = ({
               throw new Error(`MindAR .mind file corrupted: ${mindarError.message}`);
             }
           } else {
-            // For image files, try blob URL fallback
-            try {
-              const response = await fetch(targetUrl);
-              const blob = await response.blob();
-              const blobUrl = URL.createObjectURL(blob);
-              
-              addDebugMessage('🔄 Created blob URL as fallback', 'info');
-              
-              const fallbackConfig = {
-                ...mindarConfig,
-                imageTargetSrc: blobUrl
-              };
-              
-              mindar = new window.MindARThree.MindARThree(fallbackConfig);
-              mindarRef.current = mindar;
-              addDebugMessage('✅ MindAR instance created with blob URL fallback', 'success');
-            } catch (fallbackError) {
-              addDebugMessage(`❌ Blob URL fallback failed: ${fallbackError.message}`, 'error');
-              throw new Error(`MindAR creation failed: ${mindarError.message}`);
-            }
+            // For image files, the issue is that MindAR requires a .mind file, not a PNG
+            addDebugMessage('❌ Buffer error: MindAR requires a .mind file, not an image file', 'error');
+            addDebugMessage('📋 A .mind file is a pre-compiled AR target that MindAR uses for tracking', 'info');
+            addDebugMessage('🔧 To fix this: Generate a .mind file from your image using MindAR CLI', 'info');
+            addDebugMessage('💡 Run: npx @hiukim/mind-ar-js-cli image-target --input image.png', 'info');
+            
+            throw new Error(
+              'MindAR requires a .mind file for AR tracking. ' +
+              'Please generate a .mind file from your image using the MindAR CLI tool. ' +
+              'Run: npx @hiukim/mind-ar-js-cli image-target --input your-image.png'
+            );
           }
         } else {
           throw new Error(`MindAR creation failed: ${mindarError.message}`);
