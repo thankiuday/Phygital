@@ -77,6 +77,7 @@ const ARExperiencePage = () => {
     isInitialized,
     isScanning,
     videoPlaying,
+    targetDetected,
     setError,
     setCameraActive: arState.setCameraActive,
     setArReady: arState.setArReady,
