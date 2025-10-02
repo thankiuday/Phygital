@@ -41,14 +41,14 @@ export const useARState = () => {
     if (ready) {
       setCameraActive(true);
     }
-  }, []);
+  }, [setCameraActive]);
 
   const setTargetFound = useCallback((found) => {
     setTargetDetected(found);
     if (!found) {
       setVideoPlaying(false);
     }
-  }, []);
+  }, [setVideoPlaying]);
 
   return {
     // State

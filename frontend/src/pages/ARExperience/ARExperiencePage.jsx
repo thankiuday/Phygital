@@ -136,7 +136,7 @@ const ARExperiencePage = () => {
         });
       }, 1500);
     }
-  }, [librariesLoaded, projectData, isInitialized, arLogic, startScanning, addDebugMessage]);
+  }, [librariesLoaded, projectData, isInitialized, addDebugMessage]);
 
   // Loading screen
   if (isLoading) {

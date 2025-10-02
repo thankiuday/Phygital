@@ -98,17 +98,17 @@ export const useARLogic = ({
       });
 
       video.addEventListener('play', () => {
-        throttledSetVideoPlaying(true);
+        setVideoPlaying(true);
         addDebugMessage('▶️ Video started playing', 'success');
       });
 
       video.addEventListener('pause', () => {
-        throttledSetVideoPlaying(false);
+        setVideoPlaying(false);
         addDebugMessage('⏸️ Video paused', 'info');
       });
 
       video.addEventListener('ended', () => {
-        throttledSetVideoPlaying(false);
+        setVideoPlaying(false);
         addDebugMessage('🔚 Video ended', 'info');
       });
 
@@ -117,7 +117,7 @@ export const useARLogic = ({
     } catch (error) {
       addDebugMessage(`❌ Video setup failed: ${error.message}`, 'error');
     }
-  }, [projectData, addDebugMessage, throttledSetVideoPlaying]);
+  }, [projectData, addDebugMessage, setVideoPlaying]);
 
   // Initialize MindAR
   const initializeMindAR = useCallback(async (retryCount = 0, maxRetries = 3) => {
@@ -126,6 +126,12 @@ export const useARLogic = ({
     // Prevent multiple initializations
     if (mindarRef.current) {
       addDebugMessage('⚠️ MindAR already initialized, skipping...', 'warning');
+      return true;
+    }
+    
+    // Check if we're already in the process of initializing
+    if (isInitialized) {
+      addDebugMessage('⚠️ AR already initialized, skipping...', 'warning');
       return true;
     }
     
@@ -229,13 +235,13 @@ export const useARLogic = ({
 
       mindar.onTargetFound = () => {
         addDebugMessage('🎯 Target detected!', 'success');
-        throttledSetTargetDetected(true);
+        setTargetDetected(true);
       };
 
       mindar.onTargetLost = () => {
         addDebugMessage('🔍 Target lost', 'warning');
-        throttledSetTargetDetected(false);
-        throttledSetVideoPlaying(false);
+        setTargetDetected(false);
+        setVideoPlaying(false);
       };
 
       // Start MindAR
@@ -274,7 +280,7 @@ export const useARLogic = ({
       setError(`AR initialization failed: ${error.message}`);
       return false;
     }
-  }, [librariesLoaded, projectData, addDebugMessage, setError, setCameraActive, setArReady, setIsInitialized, setupVideo, throttledSetTargetDetected, throttledSetVideoPlaying]);
+  }, [librariesLoaded, projectData, isInitialized, addDebugMessage, setError, setCameraActive, setArReady, setIsInitialized, setTargetDetected, setVideoPlaying, setupVideo]);
 
   // Start AR scanning
   const startScanning = useCallback(async () => {
