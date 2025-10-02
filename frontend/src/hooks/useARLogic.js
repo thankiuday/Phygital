@@ -4,7 +4,7 @@
  */
 
 import { useRef, useCallback, useEffect } from 'react';
-import { validateImageForMindAR, processImageForAR, throttle } from '../utils/arUtils';
+import { validateImageForMindAR, processImageForAR, fetchMindFile, base64ToUint8Array, isValidMindBuffer, throttle } from '../utils/arUtils';
 
 export const useARLogic = ({
   librariesLoaded,
@@ -165,6 +165,7 @@ export const useARLogic = ({
 
       let targetUrl = projectData.designUrl;
       let targetType = 'image file';
+      let mindBuffer = null;
       
       if (!targetUrl && projectData.mindTargetUrl) {
         targetUrl = projectData.mindTargetUrl;
@@ -191,7 +192,14 @@ export const useARLogic = ({
         }
       } else if (targetType === '.mind file') {
         addDebugMessage('🎯 Using .mind file target', 'info');
-        addDebugMessage('⚠️ .mind files require proper binary handling - ensure server serves with correct headers', 'warning');
+        try {
+          // Fetch .mind file as binary buffer
+          mindBuffer = await fetchMindFile(targetUrl, addDebugMessage);
+          addDebugMessage('✅ .mind file loaded successfully', 'success');
+        } catch (mindError) {
+          addDebugMessage(`❌ Failed to load .mind file: ${mindError.message}`, 'error');
+          throw new Error(`MindAR .mind file failed to load: ${mindError.message}`);
+        }
       }
 
       // Create MindAR instance
@@ -199,7 +207,6 @@ export const useARLogic = ({
       
       const mindarConfig = {
         container: containerRef.current,
-        imageTargetSrc: targetUrl,
         maxTrack: 1,
         filterMinCF: 0.00005,
         filterBeta: 0.002,
@@ -211,6 +218,15 @@ export const useARLogic = ({
           height: Math.min(containerRef.current.offsetHeight, 360) 
         }
       };
+
+      // Add target based on type
+      if (targetType === '.mind file' && mindBuffer) {
+        mindarConfig.imageTargetSrc = mindBuffer;
+        addDebugMessage('🔧 Using .mind buffer for MindAR', 'info');
+      } else {
+        mindarConfig.imageTargetSrc = targetUrl;
+        addDebugMessage('🔧 Using image URL for MindAR', 'info');
+      }
       
       addDebugMessage(`🔧 MindAR config: container=${mindarConfig.container ? 'ready' : 'missing'}, imageTarget=${mindarConfig.imageTargetSrc ? 'set' : 'missing'}`, 'info');
       addDebugMessage(`🔧 Target URL type: ${typeof mindarConfig.imageTargetSrc}`, 'info');
@@ -228,25 +244,51 @@ export const useARLogic = ({
         if (mindarError.message.includes('Extra') && mindarError.message.includes('byte')) {
           addDebugMessage('🔄 Buffer error detected - trying alternative approach...', 'warning');
           
-          // Try to fetch the image and create a blob URL
-          try {
-            const response = await fetch(targetUrl);
-            const blob = await response.blob();
-            const blobUrl = URL.createObjectURL(blob);
+          if (targetType === '.mind file' && mindBuffer) {
+            // For .mind files, try to validate and fix the buffer
+            addDebugMessage('🔧 Attempting to fix .mind buffer...', 'info');
             
-            addDebugMessage('🔄 Created blob URL as fallback', 'info');
-            
-            const fallbackConfig = {
-              ...mindarConfig,
-              imageTargetSrc: blobUrl
-            };
-            
-            mindar = new window.MindARThree.MindARThree(fallbackConfig);
-            mindarRef.current = mindar;
-            addDebugMessage('✅ MindAR instance created with blob URL fallback', 'success');
-          } catch (fallbackError) {
-            addDebugMessage(`❌ Blob URL fallback failed: ${fallbackError.message}`, 'error');
-            throw new Error(`MindAR creation failed: ${mindarError.message}`);
+            try {
+              // Check if buffer is valid
+              if (!isValidMindBuffer(mindBuffer)) {
+                throw new Error('Invalid .mind buffer format');
+              }
+              
+              // Try with a fresh buffer copy
+              const freshBuffer = new Uint8Array(mindBuffer);
+              const fallbackConfig = {
+                ...mindarConfig,
+                imageTargetSrc: freshBuffer
+              };
+              
+              mindar = new window.MindARThree.MindARThree(fallbackConfig);
+              mindarRef.current = mindar;
+              addDebugMessage('✅ MindAR instance created with fresh .mind buffer', 'success');
+            } catch (bufferError) {
+              addDebugMessage(`❌ .mind buffer fix failed: ${bufferError.message}`, 'error');
+              throw new Error(`MindAR .mind file corrupted: ${mindarError.message}`);
+            }
+          } else {
+            // For image files, try blob URL fallback
+            try {
+              const response = await fetch(targetUrl);
+              const blob = await response.blob();
+              const blobUrl = URL.createObjectURL(blob);
+              
+              addDebugMessage('🔄 Created blob URL as fallback', 'info');
+              
+              const fallbackConfig = {
+                ...mindarConfig,
+                imageTargetSrc: blobUrl
+              };
+              
+              mindar = new window.MindARThree.MindARThree(fallbackConfig);
+              mindarRef.current = mindar;
+              addDebugMessage('✅ MindAR instance created with blob URL fallback', 'success');
+            } catch (fallbackError) {
+              addDebugMessage(`❌ Blob URL fallback failed: ${fallbackError.message}`, 'error');
+              throw new Error(`MindAR creation failed: ${mindarError.message}`);
+            }
           }
         } else {
           throw new Error(`MindAR creation failed: ${mindarError.message}`);
@@ -259,10 +301,16 @@ export const useARLogic = ({
         throw new Error('MindAR objects are undefined');
       }
       
+      // Fix Three.js deprecation warnings
       if (renderer.outputEncoding !== undefined) {
         delete renderer.outputEncoding;
       }
       renderer.outputColorSpace = window.THREE.SRGBColorSpace;
+      
+      // Ensure we're using the same THREE instance as MindAR
+      if (window.THREE && window.THREE.WebGLRenderer) {
+        addDebugMessage('✅ Using shared THREE.js instance', 'success');
+      }
       
       rendererRef.current = renderer;
       sceneRef.current = scene;

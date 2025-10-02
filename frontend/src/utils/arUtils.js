@@ -67,6 +67,63 @@ export const validateImageForMindAR = async (imageUrl, addDebugMessage) => {
   }
 };
 
+// Safe fetch for .mind file
+export const fetchMindFile = async (url, addDebugMessage) => {
+  try {
+    addDebugMessage(`🔄 Fetching .mind file from: ${url}`, 'info');
+    
+    const res = await fetch(url, { 
+      method: 'GET', 
+      mode: 'cors',
+      headers: {
+        'Accept': 'application/octet-stream'
+      }
+    });
+    
+    if (!res.ok) {
+      throw new Error(`Failed to fetch .mind: ${res.status} ${res.statusText}`);
+    }
+    
+    const buffer = await res.arrayBuffer(); // CRITICAL: arrayBuffer, not text
+    addDebugMessage(`✅ Fetched .mind file: ${buffer.byteLength} bytes`, 'success');
+    
+    // Validate buffer
+    if (!isValidMindBuffer(buffer)) {
+      throw new Error('Invalid .mind buffer format');
+    }
+    
+    // Log first/last bytes to detect issues
+    const u8 = new Uint8Array(buffer);
+    addDebugMessage(`🔍 First 16 bytes: ${Array.from(u8.slice(0, 16)).map(b => b.toString(16).padStart(2, '0')).join(' ')}`, 'info');
+    addDebugMessage(`🔍 Last 16 bytes: ${Array.from(u8.slice(-16)).map(b => b.toString(16).padStart(2, '0')).join(' ')}`, 'info');
+    
+    return new Uint8Array(buffer); // MindAR expects binary buffer-like
+  } catch (error) {
+    addDebugMessage(`❌ Failed to fetch .mind file: ${error.message}`, 'error');
+    throw error;
+  }
+};
+
+// Convert base64 data URL to Uint8Array
+export const base64ToUint8Array = (dataUrl) => {
+  try {
+    // dataUrl like "data:application/octet-stream;base64,AAAA..."
+    const base64 = dataUrl.split(',')[1];
+    const binary = atob(base64);
+    const len = binary.length;
+    const arr = new Uint8Array(len);
+    for (let i = 0; i < len; i++) arr[i] = binary.charCodeAt(i);
+    return arr;
+  } catch (error) {
+    throw new Error(`Failed to convert base64 to Uint8Array: ${error.message}`);
+  }
+};
+
+// Validate if buffer is valid for MindAR
+export const isValidMindBuffer = (buf) => {
+  return buf && (buf instanceof ArrayBuffer || buf instanceof Uint8Array);
+};
+
 // Process and resize image if needed
 export const processImageForAR = async (imageUrl, addDebugMessage) => {
   try {

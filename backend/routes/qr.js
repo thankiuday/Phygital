@@ -9,8 +9,64 @@ const QRCode = require('qrcode');
 const User = require('../models/User');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
 const { requireUploadedFiles } = require('../middleware/auth');
+const path = require('path');
+const fs = require('fs');
 
 const router = express.Router();
+
+/**
+ * GET /api/assets/targets/:file
+ * Serve .mind files as raw binary with correct headers
+ */
+router.get('/assets/targets/:file', (req, res) => {
+  try {
+    const fileName = req.params.file;
+    
+    // Validate file extension
+    if (!fileName.endsWith('.mind')) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Only .mind files are allowed'
+      });
+    }
+    
+    // Construct file path (adjust based on your file structure)
+    const filePath = path.join(__dirname, '..', 'public', 'targets', fileName);
+    
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Mind file not found'
+      });
+    }
+    
+    // Set correct headers for binary .mind file
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    
+    // Send file as binary
+    res.sendFile(filePath, (err) => {
+      if (err) {
+        console.error('sendFile error:', err);
+        res.status(500).json({
+          status: 'error',
+          message: 'Failed to serve mind file'
+        });
+      }
+    });
+    
+  } catch (error) {
+    console.error('Mind file serve error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to serve mind file',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
 /**
  * GET /api/qr/user-data/:userId
  * Returns AR project data including design, video and optional mind target
