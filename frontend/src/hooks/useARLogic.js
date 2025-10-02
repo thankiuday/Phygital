@@ -209,7 +209,7 @@ export const useARLogic = ({
         }
       };
       
-      addDebugMessage(`🔧 MindAR config: ${JSON.stringify(mindarConfig, null, 2)}`, 'info');
+      addDebugMessage(`🔧 MindAR config: container=${mindarConfig.container ? 'ready' : 'missing'}, imageTarget=${mindarConfig.imageTargetSrc ? 'set' : 'missing'}`, 'info');
       
       let mindar;
       try {
