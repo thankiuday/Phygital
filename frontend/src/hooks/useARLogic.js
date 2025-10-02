@@ -234,6 +234,26 @@ export const useARLogic = ({
 
       // Start MindAR
       addDebugMessage('🚀 Starting MindAR...', 'info');
+      
+      // Request camera permission explicitly before starting MindAR
+      try {
+        addDebugMessage('📷 Requesting camera permission...', 'info');
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            facingMode: 'environment',
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          } 
+        });
+        
+        // Stop the test stream as MindAR will handle the camera
+        stream.getTracks().forEach(track => track.stop());
+        addDebugMessage('✅ Camera permission granted', 'success');
+      } catch (permissionError) {
+        addDebugMessage(`❌ Camera permission denied: ${permissionError.message}`, 'error');
+        throw new Error(`Camera access denied: ${permissionError.message}`);
+      }
+      
       await mindar.start();
       addDebugMessage('✅ MindAR started successfully', 'success');
       
@@ -259,16 +279,7 @@ export const useARLogic = ({
       setIsScanning(true);
       setError(null);
 
-      if (mindarRef.current) {
-        addDebugMessage('🎥 Starting MindAR camera...', 'info');
-        try {
-          await mindarRef.current.start();
-          addDebugMessage('✅ MindAR camera started', 'success');
-        } catch (mindarError) {
-          addDebugMessage(`⚠️ MindAR start warning: ${mindarError.message}`, 'warning');
-        }
-      }
-
+      // MindAR is already started during initialization, just set scanning state
       addDebugMessage('✅ AR scanning active', 'success');
 
     } catch (error) {
