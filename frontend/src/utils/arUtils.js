@@ -70,70 +70,25 @@ export const validateImageForMindAR = async (imageUrl, addDebugMessage) => {
 // Process and resize image if needed
 export const processImageForAR = async (imageUrl, addDebugMessage) => {
   try {
+    addDebugMessage('🔄 Validating image for MindAR compatibility...', 'info');
+    
+    // Just validate the image and return the original URL
+    // Let MindAR handle the image processing internally
     const img = new Image();
     img.crossOrigin = 'anonymous';
     
     return new Promise((resolve, reject) => {
-      img.onload = async () => {
+      img.onload = () => {
         addDebugMessage(`✅ Image validation successful: ${img.naturalWidth}x${img.naturalHeight}`, 'success');
         
-        // Convert image to data URL to avoid CORS issues with MindAR
-        addDebugMessage('🔄 Converting image to data URL for MindAR compatibility...', 'info');
-        try {
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          
-          if (!ctx) {
-            throw new Error('Canvas 2D context not available');
-          }
-          
-          // Set canvas size to image size (or resize if too large)
-          let canvasWidth = img.naturalWidth;
-          let canvasHeight = img.naturalHeight;
-          
-          if (canvasWidth > 2048 || canvasHeight > 2048) {
-            const maxSize = 2048;
-            const scale = Math.min(maxSize / canvasWidth, maxSize / canvasHeight);
-            canvasWidth = Math.round(canvasWidth * scale);
-            canvasHeight = Math.round(canvasHeight * scale);
-            addDebugMessage(`🖼️ Resizing large image to ${canvasWidth}x${canvasHeight}`, 'info');
-          }
-          
-          canvas.width = canvasWidth;
-          canvas.height = canvasHeight;
-          
-          if (canvas.width <= 0 || canvas.height <= 0 || canvas.width > 4096 || canvas.height > 4096) {
-            throw new Error('Invalid canvas dimensions');
-          }
-          
-          // Clear and draw image
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          
-          // Convert to PNG data URL
-          const dataUrl = canvas.toDataURL('image/png', 1.0);
-          
-          if (!dataUrl || dataUrl === 'data:,' || !dataUrl.startsWith('data:image/png;base64,')) {
-            throw new Error('Failed to generate valid data URL');
-          }
-          
-          // Test if the data URL can be loaded back as an image
-          const testImg = new Image();
-          await new Promise((resolve, reject) => {
-            testImg.onload = resolve;
-            testImg.onerror = () => reject(new Error('Generated data URL is corrupted'));
-            testImg.src = dataUrl;
-          });
-          
-          addDebugMessage(`✅ Image converted to data URL: ${canvas.width}x${canvas.height}`, 'success');
-          resolve(dataUrl);
-        } catch (conversionError) {
-          addDebugMessage(`⚠️ Image conversion failed: ${conversionError.message}`, 'warning');
-          addDebugMessage('🔄 Using original image URL instead', 'info');
-          resolve(imageUrl);
+        // Only resize if image is extremely large (over 2048px)
+        if (img.naturalWidth > 2048 || img.naturalHeight > 2048) {
+          addDebugMessage('⚠️ Image very large, may cause performance issues', 'warning');
+          addDebugMessage('🔄 Consider using a smaller image for better AR performance', 'info');
         }
+        
+        addDebugMessage('✅ Using original image URL - letting MindAR handle processing', 'success');
+        resolve(imageUrl);
       };
       
       img.onerror = () => {
@@ -145,6 +100,7 @@ export const processImageForAR = async (imageUrl, addDebugMessage) => {
     });
   } catch (error) {
     addDebugMessage(`⚠️ Image processing error: ${error.message}`, 'warning');
+    addDebugMessage('🔄 Using original image URL as fallback', 'info');
     return imageUrl;
   }
 };

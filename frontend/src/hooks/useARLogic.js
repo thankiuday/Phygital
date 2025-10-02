@@ -441,6 +441,10 @@ export const useARLogic = ({
         rendererRef.current = null;
       }
       
+      // Clean up any blob URLs that might have been created
+      // Note: This is a best-effort cleanup as we don't track blob URLs
+      // The browser will clean them up when the page unloads
+      
       // Clear other refs
       sceneRef.current = null;
       cameraRef.current = null;
