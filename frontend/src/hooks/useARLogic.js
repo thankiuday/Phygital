@@ -189,6 +189,9 @@ export const useARLogic = ({
           addDebugMessage('🔄 Attempting to use original URL as fallback...', 'warning');
           // Don't throw error, try with original URL
         }
+      } else if (targetType === '.mind file') {
+        addDebugMessage('🎯 Using .mind file target', 'info');
+        addDebugMessage('⚠️ .mind files require proper binary handling - ensure server serves with correct headers', 'warning');
       }
 
       // Create MindAR instance
@@ -210,6 +213,8 @@ export const useARLogic = ({
       };
       
       addDebugMessage(`🔧 MindAR config: container=${mindarConfig.container ? 'ready' : 'missing'}, imageTarget=${mindarConfig.imageTargetSrc ? 'set' : 'missing'}`, 'info');
+      addDebugMessage(`🔧 Target URL type: ${typeof mindarConfig.imageTargetSrc}`, 'info');
+      addDebugMessage(`🔧 Target URL length: ${mindarConfig.imageTargetSrc ? mindarConfig.imageTargetSrc.length : 'N/A'}`, 'info');
       
       let mindar;
       try {
@@ -218,7 +223,34 @@ export const useARLogic = ({
         addDebugMessage('✅ MindAR instance created successfully', 'success');
       } catch (mindarError) {
         addDebugMessage(`❌ MindAR creation failed: ${mindarError.message}`, 'error');
-        throw new Error(`MindAR creation failed: ${mindarError.message}`);
+        
+        // If it's a buffer error, try with a different approach
+        if (mindarError.message.includes('Extra') && mindarError.message.includes('byte')) {
+          addDebugMessage('🔄 Buffer error detected - trying alternative approach...', 'warning');
+          
+          // Try to fetch the image and create a blob URL
+          try {
+            const response = await fetch(targetUrl);
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            
+            addDebugMessage('🔄 Created blob URL as fallback', 'info');
+            
+            const fallbackConfig = {
+              ...mindarConfig,
+              imageTargetSrc: blobUrl
+            };
+            
+            mindar = new window.MindARThree.MindARThree(fallbackConfig);
+            mindarRef.current = mindar;
+            addDebugMessage('✅ MindAR instance created with blob URL fallback', 'success');
+          } catch (fallbackError) {
+            addDebugMessage(`❌ Blob URL fallback failed: ${fallbackError.message}`, 'error');
+            throw new Error(`MindAR creation failed: ${mindarError.message}`);
+          }
+        } else {
+          throw new Error(`MindAR creation failed: ${mindarError.message}`);
+        }
       }
 
       const { renderer, scene, camera } = mindar;
