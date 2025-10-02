@@ -12,13 +12,33 @@ const ARControls = ({
   targetDetected,
   videoPlaying,
   videoMuted,
-  projectData,
+  projectData = {}, // Default empty object to prevent crashes
   onStartScanning,
   onStopScanning,
   onRestartAR,
   onToggleVideo,
   onToggleMute
 }) => {
+  // Safe handler functions with fallbacks
+  const safeToggleVideo = onToggleVideo || (() => {
+    console.warn('onToggleVideo handler not provided');
+  });
+  
+  const safeToggleMute = onToggleMute || (() => {
+    console.warn('onToggleMute handler not provided');
+  });
+  
+  const safeStartScanning = onStartScanning || (() => {
+    console.warn('onStartScanning handler not provided');
+  });
+  
+  const safeStopScanning = onStopScanning || (() => {
+    console.warn('onStopScanning handler not provided');
+  });
+  
+  const safeRestartAR = onRestartAR || (() => {
+    console.warn('onRestartAR handler not provided');
+  });
   return (
     <>
       {/* Status Indicators */}
@@ -38,12 +58,13 @@ const ARControls = ({
 
       {/* Video Controls */}
       {targetDetected && projectData?.videoUrl && (
-        <div className="absolute bottom-32 left-4 right-4 z-30">
+        <div className="absolute bottom-32 sm:bottom-16 left-4 right-4 z-30">
           <div className="bg-black/50 backdrop-blur-sm rounded-lg p-4">
             <div className="flex items-center justify-center gap-4">
               <button
-                onClick={onToggleVideo}
-                className="p-3 bg-white/20 hover:bg-white/30 rounded-full text-white"
+                onClick={safeToggleVideo}
+                className="p-3 bg-white/20 hover:bg-white/30 rounded-full text-white transition-colors"
+                aria-label={videoPlaying ? 'Pause video' : 'Play video'}
               >
                 {videoPlaying ? <Pause size={24} /> : <Play size={24} />}
               </button>
@@ -55,8 +76,9 @@ const ARControls = ({
               </div>
               
               <button
-                onClick={onToggleMute}
-                className="p-3 bg-white/20 hover:bg-white/30 rounded-full text-white"
+                onClick={safeToggleMute}
+                className="p-3 bg-white/20 hover:bg-white/30 rounded-full text-white transition-colors"
+                aria-label={videoMuted ? 'Unmute video' : 'Mute video'}
               >
                 {videoMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
               </button>
@@ -70,9 +92,10 @@ const ARControls = ({
         <div className="flex items-center justify-center gap-4">
           {!isScanning ? (
             <button
-              onClick={onStartScanning}
+              onClick={safeStartScanning}
               disabled={!arReady}
-              className="px-8 py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:opacity-50 text-white rounded-full font-semibold flex items-center gap-2"
+              className="px-8 py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:opacity-50 text-white rounded-full font-semibold flex items-center gap-2 transition-colors"
+              aria-label="Start AR Experience"
             >
               <Camera size={20} />
               Start AR Experience
@@ -80,15 +103,17 @@ const ARControls = ({
           ) : (
             <div className="flex gap-3">
               <button
-                onClick={onStopScanning}
-                className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-full font-medium"
+                onClick={safeStopScanning}
+                className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-full font-medium transition-colors"
+                aria-label="Stop Scanning"
               >
                 Stop Scanning
               </button>
               
               <button
-                onClick={onRestartAR}
-                className="p-3 bg-gray-600 hover:bg-gray-700 text-white rounded-full"
+                onClick={safeRestartAR}
+                className="p-3 bg-gray-600 hover:bg-gray-700 text-white rounded-full transition-colors"
+                aria-label="Restart AR"
               >
                 <RefreshCw size={20} />
               </button>

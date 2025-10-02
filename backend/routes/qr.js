@@ -14,6 +14,90 @@ const fs = require('fs');
 
 const router = express.Router();
 
+// Centralized QR code generation helper
+const generateQRCode = async (url, format = 'png', size = 200) => {
+  const qrOptions = {
+    type: format === 'svg' ? 'svg' : 'png',
+    quality: 0.92,
+    margin: 1,
+    color: {
+      dark: '#000000',
+      light: '#FFFFFF'
+    },
+    width: parseInt(size)
+  };
+  
+  if (format === 'svg') {
+    return await QRCode.toString(url, qrOptions);
+  } else {
+    return await QRCode.toDataURL(url, qrOptions);
+  }
+};
+
+// Validation middleware for user existence
+const validateUser = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    
+    // Validate ObjectId format
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
+    if (!isValidObjectId) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Invalid user ID format'
+      });
+    }
+    
+    const user = await User.findById(userId).select('-password -email');
+    if (!user) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'User not found'
+      });
+    }
+    
+    req.user = user;
+    next();
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: 'User validation failed'
+    });
+  }
+};
+
+// Validation middleware for project existence
+const validateProject = async (req, res, next) => {
+  try {
+    const { projectId } = req.params;
+    
+    const user = await User.findOne({ 'projects.id': projectId }).select('-password -email');
+    if (!user) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Project not found'
+      });
+    }
+    
+    const project = user.projects.find(p => p.id === projectId);
+    if (!project) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Project not found'
+      });
+    }
+    
+    req.user = user;
+    req.project = project;
+    next();
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: 'Project validation failed'
+    });
+  }
+};
+
 /**
  * GET /api/assets/targets/:file
  * Serve .mind files as raw binary with correct headers
@@ -71,16 +155,18 @@ router.get('/assets/targets/:file', (req, res) => {
  * GET /api/qr/user-data/:userId
  * Returns AR project data including design, video and optional mind target
  */
-router.get('/user-data/:userId', async (req, res) => {
+router.get('/user-data/:userId', validateUser, async (req, res) => {
   try {
-    const { userId } = req.params;
-    const user = await User.findById(userId).select('-password -email');
-    if (!user) {
-      return res.status(404).json({ status: 'error', message: 'User not found' });
+    const user = req.user;
+    
+    // Check if user has completed setup with null safety
+    if (!user.uploadedFiles?.design?.url || !user.uploadedFiles?.video?.url) {
+      return res.status(400).json({ 
+        status: 'error', 
+        message: 'User profile not complete' 
+      });
     }
-    if (!user.uploadedFiles.design?.url || !user.uploadedFiles.video?.url) {
-      return res.status(400).json({ status: 'error', message: 'User profile not complete' });
-    }
+    
     const data = {
       userId: user._id.toString(),
       projectId: user.currentProject || null,
@@ -88,34 +174,41 @@ router.get('/user-data/:userId', async (req, res) => {
       designUrl: user.uploadedFiles.compositeDesign?.url || user.uploadedFiles.design.url,
       videoUrl: user.uploadedFiles.video.url,
       mindTargetUrl: user.uploadedFiles.mindTarget?.url || null,
-      socialLinks: user.socialLinks,
+      socialLinks: user.socialLinks || {},
       designDimensions: user.uploadedFiles.design?.dimensions || null,
       qrPosition: user.qrPosition,
       arReady: !!user.uploadedFiles.mindTarget?.url,
       mindTargetGenerated: user.uploadedFiles.mindTarget?.generated || false
     };
+    
     res.status(200).json({ status: 'success', data });
   } catch (err) {
     console.error('user-data error:', err);
-    res.status(500).json({ status: 'error', message: 'Failed to fetch user data' });
+    res.status(500).json({ 
+      status: 'error', 
+      message: 'Failed to fetch user data' 
+    });
   }
 });
 
 /**
  * GET /api/qr/project-data/:projectId
- * For now, projectId is a user-owned id; return same structure as user-data
+ * Returns project-specific data for AR experience
  */
-router.get('/project-data/:projectId', async (req, res) => {
+router.get('/project-data/:projectId', validateProject, async (req, res) => {
   try {
     const { projectId } = req.params;
-    // Find a user that has this project id
-    const user = await User.findOne({ 'projects.id': projectId }).select('-password -email');
-    if (!user) {
-      return res.status(404).json({ status: 'error', message: 'Project not found' });
+    const user = req.user;
+    const project = req.project;
+    
+    // Check if user has completed setup with null safety
+    if (!user.uploadedFiles?.design?.url || !user.uploadedFiles?.video?.url) {
+      return res.status(400).json({ 
+        status: 'error', 
+        message: 'User profile not complete' 
+      });
     }
-    if (!user.uploadedFiles.design?.url || !user.uploadedFiles.video?.url) {
-      return res.status(400).json({ status: 'error', message: 'User profile not complete' });
-    }
+    
     const data = {
       userId: user._id.toString(),
       projectId,
@@ -123,14 +216,20 @@ router.get('/project-data/:projectId', async (req, res) => {
       designUrl: user.uploadedFiles.compositeDesign?.url || user.uploadedFiles.design.url,
       videoUrl: user.uploadedFiles.video.url,
       mindTargetUrl: user.uploadedFiles.mindTarget?.url || null,
-      socialLinks: user.socialLinks,
+      socialLinks: user.socialLinks || {},
       designDimensions: user.uploadedFiles.design?.dimensions || null,
-      qrPosition: user.qrPosition
+      qrPosition: user.qrPosition,
+      arReady: !!user.uploadedFiles.mindTarget?.url,
+      mindTargetGenerated: user.uploadedFiles.mindTarget?.generated || false
     };
+    
     res.status(200).json({ status: 'success', data });
   } catch (err) {
     console.error('project-data error:', err);
-    res.status(500).json({ status: 'error', message: 'Failed to fetch project data' });
+    res.status(500).json({ 
+      status: 'error', 
+      message: 'Failed to fetch project data' 
+    });
   }
 });
 
@@ -139,22 +238,13 @@ router.get('/project-data/:projectId', async (req, res) => {
  * Generate QR code for a specific user
  * Returns QR code as base64 image or SVG
  */
-router.get('/generate/:userId', async (req, res) => {
+router.get('/generate/:userId', validateUser, async (req, res) => {
   try {
-    const { userId } = req.params;
     const { format = 'png', size = 200 } = req.query;
-    
-    // Find user
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'User not found'
-      });
-    }
+    const user = req.user;
     
     // Check if user has at least uploaded a design (video can be optional for QR generation)
-    if (!user.uploadedFiles.design || !user.uploadedFiles.design.url) {
+    if (!user.uploadedFiles?.design?.url) {
       return res.status(400).json({
         status: 'error',
         message: 'User must upload a design first'
@@ -164,34 +254,13 @@ router.get('/generate/:userId', async (req, res) => {
     // Generate personalized URL - use scan route for AR experience with hash routing
     const personalizedUrl = `${process.env.FRONTEND_URL}/#/scan/${user._id}`;
     
-    // QR code options
-    const qrOptions = {
-      type: format === 'svg' ? 'svg' : 'png',
-      quality: 0.92,
-      margin: 1,
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF'
-      },
-      width: parseInt(size)
-    };
+    // Generate QR code using centralized function
+    const qrCodeData = await generateQRCode(personalizedUrl, format, size);
     
-    // Generate QR code
-    let qrCodeData;
     if (format === 'svg') {
-      qrCodeData = await QRCode.toString(personalizedUrl, {
-        type: 'svg',
-        quality: qrOptions.quality,
-        margin: qrOptions.margin,
-        color: qrOptions.color,
-        width: qrOptions.width
-      });
-      
       res.setHeader('Content-Type', 'image/svg+xml');
       res.send(qrCodeData);
     } else {
-      qrCodeData = await QRCode.toDataURL(personalizedUrl, qrOptions);
-      
       // Extract base64 data
       const base64Data = qrCodeData.split(',')[1];
       const buffer = Buffer.from(base64Data, 'base64');
@@ -223,34 +292,13 @@ router.get('/my-qr', authenticateToken, async (req, res) => {
     // Generate personalized URL - use scan route for AR experience with hash routing
     const personalizedUrl = `${process.env.FRONTEND_URL}/#/scan/${req.user._id}`;
     
-    // QR code options
-    const qrOptions = {
-      type: format === 'svg' ? 'svg' : 'png',
-      quality: 0.92,
-      margin: 1,
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF'
-      },
-      width: parseInt(size)
-    };
+    // Generate QR code using centralized function
+    const qrCodeData = await generateQRCode(personalizedUrl, format, size);
     
-    // Generate QR code
-    let qrCodeData;
     if (format === 'svg') {
-      qrCodeData = await QRCode.toString(personalizedUrl, {
-        type: 'svg',
-        quality: qrOptions.quality,
-        margin: qrOptions.margin,
-        color: qrOptions.color,
-        width: qrOptions.width
-      });
-      
       res.setHeader('Content-Type', 'image/svg+xml');
       res.send(qrCodeData);
     } else {
-      qrCodeData = await QRCode.toDataURL(personalizedUrl, qrOptions);
-      
       // Extract base64 data
       const base64Data = qrCodeData.split(',')[1];
       const buffer = Buffer.from(base64Data, 'base64');
@@ -474,72 +522,6 @@ router.get('/project-data/:projectId', async (req, res) => {
   }
 });
 
-/**
- * GET /api/qr/user-data/:userId
- * Get user data for QR scan page (legacy support)
- * Returns user data formatted for AR experience
- */
-router.get('/user-data/:userId', async (req, res) => {
-  try {
-    const { userId } = req.params;
-    
-    // Validate if userId is a valid ObjectId format (24 hex characters)
-    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
-    
-    // Build query based on whether userId is a valid ObjectId or username
-    let query;
-    if (isValidObjectId) {
-      query = { _id: userId };
-    } else {
-      query = { username: userId };
-    }
-    
-    // Find user by ID or username
-    const user = await User.findOne(query).select('-password -email');
-    
-    if (!user) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'User not found'
-      });
-    }
-    
-    // Check if user has completed setup
-    if (!user.uploadedFiles.design.url || !user.uploadedFiles.video.url) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'User profile not complete'
-      });
-    }
-    
-    // Return formatted data for AR experience
-    const projectData = {
-      id: user._id,
-      designUrl: user.uploadedFiles.design.url,
-      videoUrl: user.uploadedFiles.video.url,
-      socialLinks: user.socialLinks || {},
-      qrPosition: user.qrPosition,
-      designDimensions: {
-        width: 0.32,
-        height: 0.44
-      },
-      username: user.username
-    };
-    
-    res.status(200).json({
-      status: 'success',
-      data: projectData
-    });
-    
-  } catch (error) {
-    console.error('Project data fetch error:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Failed to get project data',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
 
 /**
  * GET /api/qr/project/:projectId

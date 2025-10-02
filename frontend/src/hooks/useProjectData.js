@@ -14,7 +14,12 @@ export const useProjectData = (projectId, userId, setIsLoading, setProjectData, 
       addDebugMessage('🌐 Fetching project data...', 'info');
       setIsLoading(true);
       
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      // Validate environment variables
+      const apiUrl = import.meta.env.VITE_API_URL;
+      if (!apiUrl) {
+        throw new Error('VITE_API_URL environment variable not defined');
+      }
+      
       const endpoint = projectId 
         ? `/qr/project-data/${projectId}` 
         : `/qr/user-data/${userId}`;
@@ -39,30 +44,52 @@ export const useProjectData = (projectId, userId, setIsLoading, setProjectData, 
         throw new Error(data.message || 'Failed to fetch project data');
       }
       
-      setProjectData(data.data);
-      console.log('✅ Project data set:', data.data);
+      // Validate data structure
+      const projectData = data?.data;
+      if (!projectData) {
+        throw new Error('Invalid response format: missing data field');
+      }
+      
+      setProjectData(projectData);
+      console.log('✅ Project data set:', projectData);
       addDebugMessage('✅ Project data loaded successfully', 'success');
       
-      // Track AR experience start
-      await trackAnalytics('ar-experience-start', {
-        loadTime: performance.now() - startTime,
-        hasVideo: !!data.data.videoUrl,
-        hasDesign: !!data.data.designUrl
-      });
+      // Track AR experience start with error handling
+      try {
+        await trackAnalytics('ar-experience-start', {
+          loadTime: performance.now() - startTime,
+          hasVideo: !!projectData.videoUrl,
+          hasDesign: !!projectData.designUrl
+        });
+      } catch (analyticsError) {
+        console.warn('Analytics tracking failed:', analyticsError);
+        // Don't block the main flow for analytics failures
+      }
       
     } catch (error) {
       console.error('❌ Project data fetch error:', error);
       addDebugMessage(`❌ Failed to fetch project data: ${error.message}`, 'error');
       setError(`Failed to load project: ${error.message}`);
       
-      // Track error
-      await trackAnalytics('ar-experience-error', {
-        error: error.message,
-        step: 'project-data-fetch'
-      });
+      // Track error with individual try/catch
+      try {
+        await trackAnalytics('ar-experience-error', {
+          error: error.message,
+          step: 'project-data-fetch'
+        });
+      } catch (analyticsError) {
+        console.warn('Analytics error tracking failed:', analyticsError);
+        // Don't block the main flow for analytics failures
+      }
     } finally {
       const loadTime = performance.now() - startTime;
-      addDebugMessage(`⏱️ Project data fetch took ${loadTime.toFixed(2)}ms`, 'performance');
+      
+      // Only log performance in development
+      if (import.meta.env.DEV) {
+        addDebugMessage(`⏱️ Project data fetch took ${loadTime.toFixed(2)}ms`, 'performance');
+        console.log('⏱️ Performance:', `⏱️ Project data fetch took ${loadTime.toFixed(2)}ms`);
+      }
+      
       console.log('🌐 Setting isLoading to false');
       setIsLoading(false);
     }
