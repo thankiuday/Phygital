@@ -123,6 +123,12 @@ export const useARLogic = ({
   const initializeMindAR = useCallback(async (retryCount = 0, maxRetries = 3) => {
     const retryDelay = Math.min(1000 * Math.pow(2, retryCount), 5000);
     
+    // Prevent multiple initializations
+    if (mindarRef.current) {
+      addDebugMessage('⚠️ MindAR already initialized, skipping...', 'warning');
+      return true;
+    }
+    
     addDebugMessage(`🔍 Checking container element (attempt ${retryCount + 1}/${maxRetries + 1})...`, 'info');
     
     if (!containerRef.current || containerRef.current.offsetWidth === 0 || containerRef.current.offsetHeight === 0) {
@@ -363,6 +369,7 @@ export const useARLogic = ({
     addDebugMessage('🔄 Restarting AR...', 'info');
     
     await stopScanning();
+    await cleanupAR();
     resetARState();
 
     setTimeout(async () => {
@@ -371,23 +378,28 @@ export const useARLogic = ({
         await startScanning();
       }
     }, 1000);
-  }, [stopScanning, resetARState, initializeMindAR, startScanning, addDebugMessage]);
+  }, [stopScanning, cleanupAR, resetARState, initializeMindAR, startScanning, addDebugMessage]);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      addDebugMessage('🧹 Cleaning up AR resources...', 'info');
-      
+  // Cleanup function
+  const cleanupAR = useCallback(async () => {
+    addDebugMessage('🧹 Cleaning up AR resources...', 'info');
+    
+    try {
+      // Stop MindAR first
       if (mindarRef.current) {
-        mindarRef.current.stop().catch(console.error);
+        await mindarRef.current.stop();
+        mindarRef.current = null;
       }
       
+      // Clean up video
       if (videoRef.current) {
         videoRef.current.pause();
         videoRef.current.src = '';
         videoRef.current.load();
+        videoRef.current = null;
       }
       
+      // Clean up video mesh
       if (videoMeshRef.current) {
         try {
           if (videoMeshRef.current.material && videoMeshRef.current.material.map) {
@@ -408,19 +420,42 @@ export const useARLogic = ({
         } catch (error) {
           console.warn('Error disposing video mesh:', error);
         }
+        videoMeshRef.current = null;
       }
       
+      // Clean up renderer and WebGL context
       if (rendererRef.current) {
         try {
+          // Dispose of the renderer to free WebGL context
           rendererRef.current.dispose();
+          // Clear the canvas
+          const canvas = rendererRef.current.domElement;
+          if (canvas && canvas.parentNode) {
+            canvas.parentNode.removeChild(canvas);
+          }
         } catch (error) {
           console.warn('Error disposing renderer:', error);
         }
+        rendererRef.current = null;
       }
       
+      // Clear other refs
+      sceneRef.current = null;
+      cameraRef.current = null;
+      anchorRef.current = null;
+      
       addDebugMessage('✅ AR cleanup completed', 'info');
-    };
+    } catch (error) {
+      addDebugMessage(`❌ Cleanup error: ${error.message}`, 'error');
+    }
   }, [addDebugMessage]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      cleanupAR();
+    };
+  }, [cleanupAR]);
 
   return {
     // Refs
@@ -439,6 +474,7 @@ export const useARLogic = ({
     stopScanning,
     toggleVideo,
     toggleMute,
-    restartAR
+    restartAR,
+    cleanupAR
   };
 };

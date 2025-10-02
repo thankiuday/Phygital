@@ -28,6 +28,7 @@ export const useARState = () => {
   // State update functions
   const resetARState = useCallback(() => {
     setIsInitialized(false);
+    setIsScanning(false);
     setArReady(false);
     setCameraActive(false);
     setTargetDetected(false);
