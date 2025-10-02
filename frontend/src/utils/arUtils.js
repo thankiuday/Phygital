@@ -77,55 +77,61 @@ export const processImageForAR = async (imageUrl, addDebugMessage) => {
       img.onload = async () => {
         addDebugMessage(`✅ Image validation successful: ${img.naturalWidth}x${img.naturalHeight}`, 'success');
         
-        // Only resize if image is extremely large (over 2048px) to avoid corruption
-        if (img.naturalWidth > 2048 || img.naturalHeight > 2048) {
-          addDebugMessage('🖼️ Image very large, resizing for better performance...', 'info');
-          try {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            if (!ctx) {
-              throw new Error('Canvas 2D context not available');
-            }
-            
-            const maxSize = 2048;
-            const scale = Math.min(maxSize / img.naturalWidth, maxSize / img.naturalHeight);
-            
-            canvas.width = Math.round(img.naturalWidth * scale);
-            canvas.height = Math.round(img.naturalHeight * scale);
-            
-            if (canvas.width <= 0 || canvas.height <= 0 || canvas.width > 4096 || canvas.height > 4096) {
-              throw new Error('Invalid canvas dimensions after resize');
-            }
-            
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            
-            const dataUrl = canvas.toDataURL('image/png', 1.0);
-            
-            if (!dataUrl || dataUrl === 'data:,' || !dataUrl.startsWith('data:image/png;base64,')) {
-              throw new Error('Failed to generate valid data URL');
-            }
-            
-            // Test if the data URL can be loaded back as an image
-            const testImg = new Image();
-            await new Promise((resolve, reject) => {
-              testImg.onload = resolve;
-              testImg.onerror = () => reject(new Error('Generated data URL is corrupted'));
-              testImg.src = dataUrl;
-            });
-            
-            addDebugMessage(`🖼️ Image resized to ${canvas.width}x${canvas.height}`, 'success');
-            resolve(dataUrl);
-          } catch (resizeError) {
-            addDebugMessage(`⚠️ Image resize failed: ${resizeError.message}`, 'warning');
-            addDebugMessage('🔄 Using original image URL instead', 'info');
-            resolve(imageUrl);
+        // Convert image to data URL to avoid CORS issues with MindAR
+        addDebugMessage('🔄 Converting image to data URL for MindAR compatibility...', 'info');
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          if (!ctx) {
+            throw new Error('Canvas 2D context not available');
           }
-        } else {
-          addDebugMessage('✅ Image size is acceptable, using original URL', 'success');
+          
+          // Set canvas size to image size (or resize if too large)
+          let canvasWidth = img.naturalWidth;
+          let canvasHeight = img.naturalHeight;
+          
+          if (canvasWidth > 2048 || canvasHeight > 2048) {
+            const maxSize = 2048;
+            const scale = Math.min(maxSize / canvasWidth, maxSize / canvasHeight);
+            canvasWidth = Math.round(canvasWidth * scale);
+            canvasHeight = Math.round(canvasHeight * scale);
+            addDebugMessage(`🖼️ Resizing large image to ${canvasWidth}x${canvasHeight}`, 'info');
+          }
+          
+          canvas.width = canvasWidth;
+          canvas.height = canvasHeight;
+          
+          if (canvas.width <= 0 || canvas.height <= 0 || canvas.width > 4096 || canvas.height > 4096) {
+            throw new Error('Invalid canvas dimensions');
+          }
+          
+          // Clear and draw image
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          
+          // Convert to PNG data URL
+          const dataUrl = canvas.toDataURL('image/png', 1.0);
+          
+          if (!dataUrl || dataUrl === 'data:,' || !dataUrl.startsWith('data:image/png;base64,')) {
+            throw new Error('Failed to generate valid data URL');
+          }
+          
+          // Test if the data URL can be loaded back as an image
+          const testImg = new Image();
+          await new Promise((resolve, reject) => {
+            testImg.onload = resolve;
+            testImg.onerror = () => reject(new Error('Generated data URL is corrupted'));
+            testImg.src = dataUrl;
+          });
+          
+          addDebugMessage(`✅ Image converted to data URL: ${canvas.width}x${canvas.height}`, 'success');
+          resolve(dataUrl);
+        } catch (conversionError) {
+          addDebugMessage(`⚠️ Image conversion failed: ${conversionError.message}`, 'warning');
+          addDebugMessage('🔄 Using original image URL instead', 'info');
           resolve(imageUrl);
         }
       };

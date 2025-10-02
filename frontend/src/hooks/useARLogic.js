@@ -181,10 +181,13 @@ export const useARLogic = ({
       if (targetType === 'image file') {
         try {
           await validateImageForMindAR(targetUrl, addDebugMessage);
-          targetUrl = await processImageForAR(targetUrl, addDebugMessage);
+          const processedUrl = await processImageForAR(targetUrl, addDebugMessage);
+          targetUrl = processedUrl;
+          addDebugMessage(`✅ Using processed image URL: ${processedUrl.substring(0, 50)}...`, 'success');
         } catch (validationError) {
           addDebugMessage(`❌ Image validation failed: ${validationError.message}`, 'error');
-          throw new Error(`Image validation failed: ${validationError.message}`);
+          addDebugMessage('🔄 Attempting to use original URL as fallback...', 'warning');
+          // Don't throw error, try with original URL
         }
       }
 
@@ -206,8 +209,17 @@ export const useARLogic = ({
         }
       };
       
-      const mindar = new window.MindARThree.MindARThree(mindarConfig);
-      mindarRef.current = mindar;
+      addDebugMessage(`🔧 MindAR config: ${JSON.stringify(mindarConfig, null, 2)}`, 'info');
+      
+      let mindar;
+      try {
+        mindar = new window.MindARThree.MindARThree(mindarConfig);
+        mindarRef.current = mindar;
+        addDebugMessage('✅ MindAR instance created successfully', 'success');
+      } catch (mindarError) {
+        addDebugMessage(`❌ MindAR creation failed: ${mindarError.message}`, 'error');
+        throw new Error(`MindAR creation failed: ${mindarError.message}`);
+      }
 
       const { renderer, scene, camera } = mindar;
       
