@@ -501,7 +501,11 @@ export const useARLogic = ({
       await mindar.start();
       addDebugMessage('✅ MindAR started successfully', 'success');
       
-      // Give MindAR a moment to create the canvas
+      // Mark camera as active immediately after start
+      setCameraActive(true);
+      addDebugMessage('✅ Camera marked as active', 'success');
+      
+      // Give MindAR a moment to create the canvas and video
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Force check for canvas multiple times
@@ -663,9 +667,122 @@ export const useARLogic = ({
         addDebugMessage(`📍 Container dimensions: ${containerRect.width}x${containerRect.height}`, 'info');
       }
       
+      // Ensure camera is active and AR is ready
       setCameraActive(true);
       setArReady(true);
       setIsInitialized(true);
+      
+      // On mobile, if we still don't have a visible video element, force create one
+      const isMobile = isMobileDevice();
+      if (isMobile) {
+        addDebugMessage('📱 Mobile device detected - verifying video visibility...', 'info');
+        
+        // Wait a bit more for MindAR to fully initialize
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Check for ALL video elements
+        const allVideos = containerRef.current?.querySelectorAll('video');
+        addDebugMessage(`🔍 Found ${allVideos?.length || 0} video element(s) in container`, 'info');
+        
+        if (allVideos && allVideos.length > 0) {
+          Array.from(allVideos).forEach((vid, index) => {
+            addDebugMessage(`📹 Video ${index}: ${vid.videoWidth}x${vid.videoHeight}, paused=${vid.paused}, srcObject=${!!vid.srcObject}`, 'info');
+          });
+        }
+        
+        const video = containerRef.current?.querySelector('video');
+        if (!video) {
+          addDebugMessage('⚠️ No video element found on mobile - creating manual stream...', 'warning');
+          
+          try {
+            // Get camera stream again
+            const videoConstraints = getCameraConstraints(false);
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+              video: videoConstraints,
+              audio: false
+            });
+            
+            // Create video element manually
+            const manualVideo = document.createElement('video');
+            manualVideo.srcObject = stream;
+            manualVideo.autoplay = true;
+            manualVideo.muted = true;
+            manualVideo.playsInline = true;
+            manualVideo.setAttribute('playsinline', '');
+            manualVideo.setAttribute('webkit-playsinline', '');
+            manualVideo.setAttribute('muted', '');
+            manualVideo.setAttribute('autoplay', '');
+            
+            // Style for full visibility
+            manualVideo.style.position = 'absolute';
+            manualVideo.style.top = '0';
+            manualVideo.style.left = '0';
+            manualVideo.style.width = '100%';
+            manualVideo.style.height = '100%';
+            manualVideo.style.objectFit = 'cover';
+            manualVideo.style.zIndex = '1';
+            
+            // Add to container
+            containerRef.current.insertBefore(manualVideo, containerRef.current.firstChild);
+            
+            // Force play
+            await manualVideo.play().catch(err => {
+              addDebugMessage(`⚠️ Manual video play failed: ${err.message}`, 'warning');
+            });
+            
+            addDebugMessage('✅ Manual video stream created and playing', 'success');
+          } catch (streamError) {
+            addDebugMessage(`❌ Failed to create manual video stream: ${streamError.message}`, 'error');
+          }
+        } else {
+          // Video exists, ensure it's visible and playing
+          addDebugMessage('✅ Video element found - ensuring visibility...', 'success');
+          
+          // Log current video state before modifications
+          addDebugMessage(`📹 Video current state: width=${video.videoWidth}, height=${video.videoHeight}, paused=${video.paused}, srcObject=${!!video.srcObject}`, 'info');
+          addDebugMessage(`📹 Video style: display=${video.style.display}, visibility=${video.style.visibility}, opacity=${video.style.opacity}`, 'info');
+          
+          video.style.position = 'absolute';
+          video.style.top = '0';
+          video.style.left = '0';
+          video.style.width = '100%';
+          video.style.height = '100%';
+          video.style.objectFit = 'cover';
+          video.style.zIndex = '1';
+          video.style.display = 'block';
+          video.style.visibility = 'visible';
+          video.style.opacity = '1';
+          
+          // Ensure mobile attributes are set
+          video.setAttribute('playsinline', '');
+          video.setAttribute('webkit-playsinline', '');
+          video.setAttribute('muted', '');
+          video.setAttribute('autoplay', '');
+          video.muted = true;
+          video.autoplay = true;
+          
+          // Check if video has a stream
+          if (!video.srcObject) {
+            addDebugMessage('⚠️ Video element has no srcObject - may not have camera stream!', 'warning');
+          }
+          
+          // Force play
+          if (video.paused) {
+            addDebugMessage('🎬 Video is paused, attempting to play...', 'info');
+            try {
+              await video.play();
+              addDebugMessage('✅ Video play succeeded', 'success');
+            } catch (err) {
+              addDebugMessage(`❌ Video play failed: ${err.message}`, 'error');
+            }
+          } else {
+            addDebugMessage('✅ Video is already playing', 'success');
+          }
+          
+          // Log final state
+          addDebugMessage(`📹 Video final state: ${video.videoWidth}x${video.videoHeight}, paused: ${video.paused}, readyState: ${video.readyState}`, 'info');
+        }
+      }
       
       return true;
 

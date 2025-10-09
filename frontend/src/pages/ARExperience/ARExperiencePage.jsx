@@ -187,7 +187,14 @@ const ARExperiencePage = () => {
           touchAction: 'none',
           minWidth: '320px',
           minHeight: '240px',
-          backgroundColor: '#000' // Add black background to see if canvas appears
+          backgroundColor: '#000', // Black background
+          overflow: 'hidden',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 0
         }}
       />
 
