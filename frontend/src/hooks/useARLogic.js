@@ -218,8 +218,11 @@ export const useARLogic = ({
         addDebugMessage('💡 Users need to scan the composite image (design + QR code)', 'info');
         addDebugMessage('🔧 Please generate composite design and .mind file (Step 2: Save QR Position)', 'info');
       } else if (!projectData.mindTargetUrl) {
-        addDebugMessage('⚠️ .mind file not available - using composite image (may be slower)', 'warning');
-        addDebugMessage('💡 .mind files are generated automatically when you save QR position (Step 2)', 'info');
+        addDebugMessage('❌ .mind file not available - cannot proceed', 'error');
+        addDebugMessage('💡 MindAR requires .mind files - PNG images cannot be used directly', 'warning');
+        addDebugMessage('🔧 Please complete Step 2: Save QR Position to generate .mind file', 'info');
+        setError('AR tracking requires a .mind file. Please go back to the upload page and complete Step 2: "Save QR Position" to generate the required .mind file.');
+        return false;
       }
 
       addDebugMessage(`🎯 Using target: ${targetType}`, 'info');
@@ -498,8 +501,23 @@ export const useARLogic = ({
         }
       }
       
-      await mindar.start();
-      addDebugMessage('✅ MindAR started successfully', 'success');
+      try {
+        await mindar.start();
+        addDebugMessage('✅ MindAR started successfully', 'success');
+      } catch (startError) {
+        // Check if it's the buffer/mind file error
+        if (startError.message && startError.message.includes('Extra') && startError.message.includes('byte')) {
+          addDebugMessage('❌ MindAR failed to start: Invalid target format', 'error');
+          addDebugMessage('⚠️ PNG images cannot be used directly - .mind file required', 'warning');
+          addDebugMessage('💡 Please complete Step 2: Save QR Position to generate .mind file', 'info');
+          throw new Error(
+            'AR tracking requires a .mind file. Please go back to the upload page and complete Step 2: "Save QR Position" to generate the required .mind file for AR tracking.'
+          );
+        } else {
+          addDebugMessage(`❌ MindAR failed to start: ${startError.message}`, 'error');
+          throw new Error(`MindAR start failed: ${startError.message}`);
+        }
+      }
       
       // Mark camera as active immediately after start
       setCameraActive(true);
