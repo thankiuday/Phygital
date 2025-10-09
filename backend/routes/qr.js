@@ -167,6 +167,15 @@ router.get('/user-data/:userId', validateUser, async (req, res) => {
       });
     }
     
+    // Check if we have a composite design, if not, we need to generate one
+    const hasCompositeDesign = user.uploadedFiles.compositeDesign?.url;
+    const hasOriginalDesign = user.uploadedFiles.design?.url;
+    
+    if (!hasCompositeDesign && hasOriginalDesign) {
+      console.warn('⚠️ No composite design found - AR tracking may not work properly');
+      console.log('💡 Composite design (design + QR code) is required for AR tracking');
+    }
+    
     const data = {
       userId: user._id.toString(),
       projectId: user.currentProject || null,
@@ -180,7 +189,9 @@ router.get('/user-data/:userId', validateUser, async (req, res) => {
       designDimensions: user.uploadedFiles.design?.dimensions || null,
       qrPosition: user.qrPosition,
       arReady: !!user.uploadedFiles.mindTarget?.url,
-      mindTargetGenerated: user.uploadedFiles.mindTarget?.generated || false
+      mindTargetGenerated: user.uploadedFiles.mindTarget?.generated || false,
+      hasCompositeDesign: !!hasCompositeDesign,
+      needsCompositeGeneration: !hasCompositeDesign && hasOriginalDesign
     };
     
     res.status(200).json({ status: 'success', data });
@@ -211,6 +222,15 @@ router.get('/project-data/:projectId', validateProject, async (req, res) => {
       });
     }
     
+    // Check if we have a composite design, if not, we need to generate one
+    const hasCompositeDesign = user.uploadedFiles.compositeDesign?.url;
+    const hasOriginalDesign = user.uploadedFiles.design?.url;
+    
+    if (!hasCompositeDesign && hasOriginalDesign) {
+      console.warn('⚠️ No composite design found - AR tracking may not work properly');
+      console.log('💡 Composite design (design + QR code) is required for AR tracking');
+    }
+    
     const data = {
       userId: user._id.toString(),
       projectId,
@@ -224,12 +244,142 @@ router.get('/project-data/:projectId', validateProject, async (req, res) => {
       designDimensions: user.uploadedFiles.design?.dimensions || null,
       qrPosition: user.qrPosition,
       arReady: !!user.uploadedFiles.mindTarget?.url,
-      mindTargetGenerated: user.uploadedFiles.mindTarget?.generated || false
+      mindTargetGenerated: user.uploadedFiles.mindTarget?.generated || false,
+      hasCompositeDesign: !!hasCompositeDesign,
+      needsCompositeGeneration: !hasCompositeDesign && hasOriginalDesign
     };
     
     res.status(200).json({ status: 'success', data });
   } catch (err) {
     console.error('project-data error:', err);
+    res.status(500).json({ 
+      status: 'error', 
+      message: 'Failed to fetch project data' 
+    });
+  }
+});
+
+/**
+ * GET /api/qr/user/:userId/project/:projectId
+ * Returns project-specific data for a user's project
+ * This is the new endpoint that matches the URL structure: /ar/user/{userId}/project/{projectId}
+ */
+router.get('/user/:userId/project/:projectId', async (req, res) => {
+  try {
+    const { userId, projectId } = req.params;
+    console.log(`🔍 Looking for project ${projectId} belonging to user ${userId}`);
+    
+    // Find user
+    const user = await User.findById(userId).select('-password');
+    
+    if (!user) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'User not found'
+      });
+    }
+    
+    // Find the specific project
+    let project = user.projects?.find(p => p.id === projectId);
+    
+    // BACKWARD COMPATIBILITY: If project not found, use root-level uploadedFiles
+    // This handles both 'default' and timestamp-based project IDs for existing users
+    if (!project) {
+      console.log(`📦 Project ${projectId} not found in projects array - using root-level data for backward compatibility`);
+      
+      // Check if user has root-level data
+      if (user.uploadedFiles?.design?.url || user.uploadedFiles?.video?.url) {
+        console.log('✅ Found root-level uploadedFiles - creating virtual project');
+        project = {
+          id: projectId, // Use the requested project ID
+          name: user.uploadedFiles?.design?.originalName || 'Default Project',
+          uploadedFiles: user.uploadedFiles,
+          qrPosition: user.qrPosition,
+          analytics: user.analytics,
+          status: 'active',
+          description: 'Auto-migrated from root-level data'
+        };
+      } else {
+        return res.status(404).json({
+          status: 'error',
+          message: 'Project not found and no root-level data available'
+        });
+      }
+    }
+    
+    // Check if project has completed setup
+    const hasDesign = !!project.uploadedFiles?.design?.url;
+    const hasVideo = !!project.uploadedFiles?.video?.url;
+    
+    if (!hasDesign || !hasVideo) {
+      const missing = [];
+      if (!hasDesign) missing.push('design');
+      if (!hasVideo) missing.push('video');
+      
+      console.log(`⚠️ Project incomplete - missing: ${missing.join(', ')}`);
+      return res.status(400).json({ 
+        status: 'error', 
+        message: `Project not complete - missing ${missing.join(' and ')}`,
+        missingFiles: missing
+      });
+    }
+    
+    // Check for composite design
+    const hasCompositeDesign = project.uploadedFiles.compositeDesign?.url;
+    const hasOriginalDesign = project.uploadedFiles.design?.url;
+    
+    if (!hasCompositeDesign && hasOriginalDesign) {
+      console.warn('⚠️ No composite design found for project - AR tracking may not work properly');
+      console.log('💡 Composite design (design + QR code) is required for AR tracking');
+    }
+    
+    // Log what files are available
+    console.log('📊 Project files available:', {
+      hasDesign: !!project.uploadedFiles?.design?.url,
+      hasVideo: !!project.uploadedFiles?.video?.url,
+      hasComposite: !!project.uploadedFiles?.compositeDesign?.url,
+      hasMindTarget: !!project.uploadedFiles?.mindTarget?.url,
+      compositeUrl: project.uploadedFiles?.compositeDesign?.url?.substring(0, 50) + '...',
+      mindTargetUrl: project.uploadedFiles?.mindTarget?.url?.substring(0, 50) + '...'
+    });
+    
+    // Process mindTarget URL to ensure raw binary download from Cloudinary
+    let mindTargetUrl = project.uploadedFiles.mindTarget?.url || null;
+    if (mindTargetUrl && mindTargetUrl.includes('cloudinary.com')) {
+      // Add fl_attachment flag to force binary download without any transformations
+      const urlParts = mindTargetUrl.split('/upload/');
+      if (urlParts.length === 2) {
+        mindTargetUrl = `${urlParts[0]}/upload/fl_attachment/${urlParts[1]}`;
+        console.log('🔧 Modified .mind URL for raw binary download:', mindTargetUrl);
+      }
+    }
+    
+    const data = {
+      userId: user._id.toString(),
+      projectId,
+      projectName: project.name,
+      name: user.username,
+      designUrl: project.uploadedFiles.compositeDesign?.url || project.uploadedFiles.design.url,
+      compositeDesignUrl: project.uploadedFiles.compositeDesign?.url || null,
+      originalDesignUrl: project.uploadedFiles.design?.url || null,
+      videoUrl: project.uploadedFiles.video.url,
+      mindTargetUrl: mindTargetUrl,
+      socialLinks: user.socialLinks || {},
+      designDimensions: project.uploadedFiles.design?.dimensions || null,
+      qrPosition: project.qrPosition,
+      arReady: !!project.uploadedFiles.mindTarget?.url,
+      mindTargetGenerated: project.uploadedFiles.mindTarget?.generated || false,
+      hasCompositeDesign: !!hasCompositeDesign,
+      needsCompositeGeneration: !hasCompositeDesign && hasOriginalDesign,
+      projectStatus: project.status,
+      projectDescription: project.description
+    };
+    
+    console.log('📤 Sending response with mindTargetUrl:', data.mindTargetUrl || 'null');
+    
+    res.status(200).json({ status: 'success', data });
+  } catch (err) {
+    console.error('user/project data error:', err);
     res.status(500).json({ 
       status: 'error', 
       message: 'Failed to fetch project data' 
@@ -256,7 +406,9 @@ router.get('/generate/:userId', validateUser, async (req, res) => {
     }
     
     // Generate personalized URL - use scan route for AR experience with hash routing
-    const personalizedUrl = `${process.env.FRONTEND_URL}/#/scan/${user._id}`;
+    // Format: /ar/user/{userId}/project/{projectId}
+    const currentProjectId = user.currentProject || 'default';
+    const personalizedUrl = `${process.env.FRONTEND_URL}/#/ar/user/${user._id}/project/${currentProjectId}`;
     
     // Generate QR code using centralized function
     const qrCodeData = await generateQRCode(personalizedUrl, format, size);
@@ -294,7 +446,10 @@ router.get('/my-qr', authenticateToken, async (req, res) => {
     const { format = 'png', size = 200 } = req.query;
     
     // Generate personalized URL - use scan route for AR experience with hash routing
-    const personalizedUrl = `${process.env.FRONTEND_URL}/#/scan/${req.user._id}`;
+    // Format: /ar/user/{userId}/project/{projectId}
+    const user = await User.findById(req.user._id);
+    const currentProjectId = user?.currentProject || 'default';
+    const personalizedUrl = `${process.env.FRONTEND_URL}/#/ar/user/${req.user._id}/project/${currentProjectId}`;
     
     // Generate QR code using centralized function
     const qrCodeData = await generateQRCode(personalizedUrl, format, size);
@@ -564,7 +719,8 @@ router.get('/project/:projectId', authenticateToken, async (req, res) => {
     }
     
     // Generate project-specific URL - use project ID for specific AR experience with hash routing
-    const personalizedUrl = `${process.env.FRONTEND_URL}/#/scan/project/${projectId}`;
+    // Format: /ar/user/{userId}/project/{projectId}
+    const personalizedUrl = `${process.env.FRONTEND_URL}/#/ar/user/${user._id}/project/${projectId}`;
     
     // QR code options
     const qrOptions = {
@@ -642,7 +798,9 @@ router.get('/download/project/:projectId', authenticateToken, async (req, res) =
     }
     
     // Generate personalized URL with project context - use scan route for AR experience
-    const personalizedUrl = `${process.env.FRONTEND_URL}/scan/${user._id}`;
+    // Format: /ar/user/{userId}/project/{projectId}
+    const currentProjectId = user.currentProject || 'default';
+    const personalizedUrl = `${process.env.FRONTEND_URL}/#/ar/user/${user._id}/project/${currentProjectId}`;
     
     // QR code options
     const qrOptions = {

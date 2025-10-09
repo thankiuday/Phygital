@@ -41,11 +41,22 @@ const DesignUploadLevel = ({ onComplete, currentDesign, forceStartFromLevel1 = f
       updateUser(response.data.data.user);
       toast.success('🎨 Design uploaded successfully!');
       
-      // Complete the level
+      console.log('📤 Design upload response:', response.data.data);
+      
+      // Complete the level - use the design from response (could be in project or root level)
+      const designData = response.data.data.design || response.data.data.user?.uploadedFiles?.design;
+      
+      if (!designData || !designData.url) {
+        console.error('❌ No design data in response:', response.data.data);
+        toast.error('Design uploaded but URL not found');
+        return;
+      }
+      
+      console.log('✅ Completing level with design:', designData);
       onComplete({
-        url: response.data.data.user.uploadedFiles.design.url,
-        name: response.data.data.user.uploadedFiles.design.originalName,
-        size: response.data.data.user.uploadedFiles.design.size
+        url: designData.url,
+        name: designData.originalName || designData.name,
+        size: designData.size
       });
       
       setTimeout(() => {

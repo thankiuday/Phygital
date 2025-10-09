@@ -100,12 +100,71 @@ const userSchema = new mongoose.Schema({
     lastArExperienceStartAt: Date
   },
   
-  // Project management
+  // Project management - Each project has its own files and settings
   projects: [{
     id: { type: String, required: true },
     name: { type: String, required: true, trim: true },
     description: { type: String, trim: true },
     status: { type: String, enum: ['active', 'completed', 'archived'], default: 'active' },
+    
+    // Project-specific files
+    uploadedFiles: {
+      design: {
+        filename: String,
+        originalName: String,
+        url: String,
+        size: Number,
+        uploadedAt: Date,
+        dimensions: {
+          width: Number,
+          height: Number,
+          aspectRatio: Number
+        }
+      },
+      video: {
+        filename: String,
+        originalName: String,
+        url: String,
+        size: Number,
+        duration: Number,
+        uploadedAt: Date,
+        compressed: Boolean
+      },
+      compositeDesign: {
+        filename: String,
+        originalName: String,
+        url: String,
+        size: Number,
+        uploadedAt: Date
+      },
+      mindTarget: {
+        filename: String,
+        url: String,
+        size: Number,
+        uploadedAt: Date,
+        generated: { type: Boolean, default: false }
+      }
+    },
+    
+    // Project-specific QR position
+    qrPosition: {
+      x: { type: Number, default: 0 },
+      y: { type: Number, default: 0 },
+      width: { type: Number, default: 100 },
+      height: { type: Number, default: 100 }
+    },
+    
+    // Project-specific analytics
+    analytics: {
+      totalScans: { type: Number, default: 0 },
+      videoViews: { type: Number, default: 0 },
+      linkClicks: { type: Number, default: 0 },
+      arExperienceStarts: { type: Number, default: 0 },
+      lastScanAt: Date,
+      lastVideoViewAt: Date,
+      lastArExperienceStartAt: Date
+    },
+    
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }
   }],

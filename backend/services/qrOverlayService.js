@@ -216,7 +216,7 @@ const generateFinalDesign = async (designUrl, qrData, position, userId) => {
           reject(error);
         });
         
-        request.setTimeout(60000, () => { // Increased timeout to 60 seconds
+        request.setTimeout(30000, () => { // 30 seconds timeout
           console.error('❌ Remote download timeout');
           request.destroy();
           reject(new Error('Remote download timeout'));

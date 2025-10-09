@@ -37,6 +37,77 @@ const router = express.Router();
 const memoryStorage = multer.memoryStorage();
 
 /**
+ * Generate composite image (design + QR code) and upload to Cloudinary
+ * @param {String} designUrl - URL of the uploaded design image
+ * @param {String} userId - User ID for file naming
+ * @param {Object} qrPosition - QR code position data
+ * @returns {Promise<Object>} - Upload result with URL and metadata
+ */
+const generateCompositeImage = async (designUrl, userId, qrPosition) => {
+  let tempCompositePath = null;
+  
+  try {
+    console.log('🎨 Starting composite image generation...');
+    console.log('📋 Parameters:', { designUrl, userId, qrPosition });
+    
+    // Generate personalized URL for QR code
+    // Format: /ar/user/{userId}/project/{projectId}
+    const user = await User.findById(userId);
+    const currentProjectId = user?.currentProject || 'default';
+    const personalizedUrl = `${process.env.FRONTEND_URL}/#/ar/user/${userId}/project/${currentProjectId}`;
+    console.log('🔗 Personalized URL:', personalizedUrl);
+    
+    // Generate composite image using existing service
+    console.log('🖼️ Generating composite image with QR code...');
+    tempCompositePath = await generateFinalDesign(designUrl, personalizedUrl, qrPosition, userId);
+    console.log('✅ Composite image generated:', tempCompositePath);
+    
+    // Read the composite image file
+    const compositeBuffer = await fsPromises.readFile(tempCompositePath);
+    console.log('📖 Composite image buffer size:', compositeBuffer.length, 'bytes');
+    
+    // Generate unique filename for composite image
+    const compositeFilename = `composite-${Date.now()}-${uuidv4()}.png`;
+    console.log('📁 Composite filename:', compositeFilename);
+    
+    // Upload composite image to Cloudinary in composite-image folder
+    console.log('☁️ Uploading composite image to Cloudinary...');
+    const uploadResult = await uploadToCloudinaryBuffer(
+      compositeBuffer, 
+      userId, 
+      'composite-image', // New folder for composite images
+      compositeFilename, 
+      'image/png'
+    );
+    
+    console.log('✅ Composite image uploaded to Cloudinary:', uploadResult.url);
+    
+    return {
+      filename: uploadResult.public_id,
+      url: uploadResult.url,
+      size: compositeBuffer.length,
+      uploadedAt: new Date(),
+      generated: true,
+      folder: 'composite-image'
+    };
+    
+  } catch (error) {
+    console.error('❌ Composite image generation failed:', error);
+    throw new Error(`Failed to generate composite image: ${error.message}`);
+  } finally {
+    // Clean up temporary composite file
+    if (tempCompositePath && fs.existsSync(tempCompositePath)) {
+      try {
+        fs.unlinkSync(tempCompositePath);
+        console.log('🧹 Cleaned up temporary composite file');
+      } catch (cleanupError) {
+        console.error('⚠️ Failed to clean up temporary composite file:', cleanupError);
+      }
+    }
+  }
+};
+
+/**
  * Generate .mind file from uploaded design image
  * @param {Buffer} imageBuffer - The uploaded image buffer
  * @param {string} userId - User ID for file naming
@@ -327,6 +398,152 @@ const upload = multer({
 });
 
 /**
+ * POST /api/upload/generate-composite
+ * Generate composite image for existing user
+ * Creates composite image from existing design and QR code
+ */
+router.post('/generate-composite', authenticateToken, async (req, res) => {
+  try {
+    console.log('=== COMPOSITE GENERATION DEBUG ===');
+    console.log('User ID:', req.user._id);
+    console.log('User uploaded files:', req.user.uploadedFiles);
+    
+    // Check if user has a design
+    if (!req.user.uploadedFiles?.design?.url) {
+      return res.status(400).json({
+        success: false,
+        message: 'User must upload a design first'
+      });
+    }
+    
+    // Get QR position from request body or user data
+    let qrPosition = req.body.qrPosition || req.user.qrPosition;
+    
+    // Handle Mongoose document and null values
+    if (!qrPosition || qrPosition === null || qrPosition === undefined || (typeof qrPosition === 'object' && Object.keys(qrPosition).length === 0)) {
+      qrPosition = {
+        x: 50,
+        y: 50,
+        width: 200,
+        height: 200
+      };
+      console.log('📋 Using default QR position:', qrPosition);
+    } else {
+      // Convert Mongoose document to plain object if needed
+      if (qrPosition.toObject) {
+        qrPosition = qrPosition.toObject();
+      }
+      console.log('📋 Using provided QR position:', qrPosition);
+    }
+    
+    console.log('QR position:', qrPosition);
+    
+    // Generate composite image
+    let compositeResult = null;
+    try {
+      console.log('🎨 Generating composite image...');
+      compositeResult = await generateCompositeImage(
+        req.user.uploadedFiles.design.url, 
+        req.user._id, 
+        qrPosition
+      );
+      console.log('✅ Composite image generated:', compositeResult.url);
+    } catch (compositeError) {
+      console.error('❌ Composite generation failed:', compositeError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to generate composite image',
+        error: compositeError.message
+      });
+    }
+    
+    // Generate .mind file from composite image
+    let mindTargetResult = null;
+    try {
+      console.log('🧠 Generating .mind file from composite image...');
+      
+      // Download composite image buffer for .mind generation
+      const https = require('https');
+      const http = require('http');
+      const url = require('url');
+      
+      const parsedUrl = new URL(compositeResult.url);
+      const client = parsedUrl.protocol === 'https:' ? https : http;
+      
+      const compositeBuffer = await new Promise((resolve, reject) => {
+        const request = client.get(compositeResult.url, (response) => {
+          if (response.statusCode !== 200) {
+            return reject(new Error(`Failed to download composite image: ${response.statusCode}`));
+          }
+          const chunks = [];
+          response.on('data', chunk => chunks.push(chunk));
+          response.on('end', () => resolve(Buffer.concat(chunks)));
+          response.on('error', reject);
+        });
+        request.on('error', reject);
+        request.setTimeout(60000, () => {
+          request.destroy();
+          reject(new Error('Composite image download timeout'));
+        });
+      });
+      
+      console.log('📥 Downloaded composite image buffer:', compositeBuffer.length, 'bytes');
+      
+      // Generate .mind file from composite image buffer
+      mindTargetResult = await generateMindTarget(compositeBuffer, req.user._id);
+      console.log('✅ .mind file generated successfully from composite image:', mindTargetResult.url);
+    } catch (mindError) {
+      console.error('❌ .mind generation failed:', mindError);
+      console.log('⚠️ Continuing without .mind file - AR will use composite image as fallback');
+    }
+    
+    // Update user record with composite design and .mind file
+    const updateData = {
+      'uploadedFiles.compositeDesign': compositeResult
+    };
+    
+    if (mindTargetResult) {
+      updateData['uploadedFiles.mindTarget'] = mindTargetResult;
+    }
+    
+    try {
+      await User.findByIdAndUpdate(
+        req.user._id,
+        updateData,
+        { new: true }
+      );
+      console.log('✅ User record updated with composite design and .mind file');
+    } catch (updateError) {
+      console.error('❌ Failed to update user record:', updateError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to update user record'
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Composite image and .mind file generated successfully',
+      data: {
+        compositeDesign: compositeResult,
+        mindTarget: mindTargetResult,
+        designUrl: req.user.uploadedFiles.design.url,
+        qrPosition: qrPosition,
+        arReady: !!mindTargetResult
+      }
+    });
+    
+  } catch (error) {
+    console.error('Composite generation error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+/**
  * POST /api/upload/design
  * Upload design image file
  * Stores image in S3 and updates user record
@@ -395,12 +612,29 @@ router.post('/design', authenticateToken, upload.single('design'), async (req, r
       throw new Error(`Cloudinary upload failed: ${uploadError.message}`);
     }
     
+    // Get the current user with full data
+    const user = await User.findById(req.user._id);
+    
+    // Determine where to store the design (in project or at root level)
+    let currentProject = null;
+    let projectIndex = -1;
+    
+    if (user.currentProject) {
+      projectIndex = user.projects.findIndex(p => p.id === user.currentProject);
+      if (projectIndex !== -1) {
+        currentProject = user.projects[projectIndex];
+        console.log(`📁 Storing design in project: ${currentProject.name} (${currentProject.id})`);
+      }
+    }
+    
     // Store old design data for history
-    const oldDesign = req.user.uploadedFiles.design;
-    const isUpdate = !!oldDesign.url;
+    const oldDesign = currentProject 
+      ? currentProject.uploadedFiles?.design 
+      : req.user.uploadedFiles?.design;
+    const isUpdate = !!oldDesign?.url;
     
     // Delete old design file if exists
-    if (oldDesign.url) {
+    if (oldDesign?.url) {
       try {
         // Extract public_id from Cloudinary URL
         const urlParts = oldDesign.url.split('/');
@@ -413,51 +647,159 @@ router.post('/design', authenticateToken, upload.single('design'), async (req, r
       }
     }
     
-    // Generate .mind file for AR target detection
-    let mindTargetResult = null;
+    // Generate composite image (design + QR code) for AR tracking
+    let compositeResult = null;
     try {
-      console.log('🧠 Generating .mind file for AR target...');
-      console.log('Mind target generation parameters:', {
-        bufferSize: req.file.buffer.length,
-        userId: req.user._id
-      });
+      console.log('🎨 Generating composite image (design + QR code)...');
       
-      mindTargetResult = await generateMindTarget(req.file.buffer, req.user._id);
-      console.log('✅ .mind file generated successfully:', mindTargetResult.url);
-    } catch (mindError) {
-      console.error('❌ .mind generation failed:', mindError);
-      console.error('Mind generation error details:', {
-        message: mindError.message,
-        stack: mindError.stack,
-        bufferSize: req.file.buffer.length
+      // Get QR position from user data or use default
+      let qrPosition = req.user.qrPosition;
+      
+      // Handle Mongoose document and null values
+      if (!qrPosition || qrPosition === null || qrPosition === undefined || (typeof qrPosition === 'object' && Object.keys(qrPosition).length === 0)) {
+        qrPosition = {
+          x: 50,
+          y: 50,
+          width: 200,
+          height: 200
+        };
+        console.log('📋 Using default QR position:', qrPosition);
+      } else {
+        // Convert Mongoose document to plain object if needed
+        if (qrPosition.toObject) {
+          qrPosition = qrPosition.toObject();
+        }
+        console.log('📋 Using user QR position:', qrPosition);
+      }
+      
+      console.log('📋 QR position data:', qrPosition);
+      
+      compositeResult = await generateCompositeImage(uploadResult.url, req.user._id, qrPosition);
+      console.log('✅ Composite image generated successfully:', compositeResult.url);
+    } catch (compositeError) {
+      console.error('❌ Composite image generation failed:', compositeError);
+      console.error('Composite generation error details:', {
+        message: compositeError.message,
+        stack: compositeError.stack,
+        designUrl: uploadResult.url
       });
-      // Continue without .mind file - AR will fallback to using the design image
-      console.log('⚠️ Continuing without .mind file - AR will use design image as fallback');
+      // Continue without composite image - AR will use original design
+      console.log('⚠️ Continuing without composite image - AR will use original design as fallback');
     }
     
-    // Prepare update data
-    const updateData = {
-      'uploadedFiles.design': {
-        filename: uploadResult.key,
-        originalName: req.file.originalname,
-        url: uploadResult.url,
-        size: uploadResult.size,
-        uploadedAt: new Date(),
-        dimensions: imageDimensions
+    // Generate .mind file for AR target detection
+    let mindTargetResult = null;
+    
+    // Only generate .mind file if we have a composite image
+    if (compositeResult) {
+      try {
+        console.log('🧠 Generating .mind file from composite image for AR target...');
+        console.log('Mind target generation parameters:', {
+          compositeUrl: compositeResult.url,
+          userId: req.user._id
+        });
+        
+        // Download composite image buffer for .mind generation
+        const https = require('https');
+        const http = require('http');
+        const url = require('url');
+        
+        const parsedUrl = new URL(compositeResult.url);
+        const client = parsedUrl.protocol === 'https:' ? https : http;
+        
+        const compositeBuffer = await new Promise((resolve, reject) => {
+          const request = client.get(compositeResult.url, (response) => {
+            if (response.statusCode !== 200) {
+              return reject(new Error(`Failed to download composite image: ${response.statusCode}`));
+            }
+            const chunks = [];
+            response.on('data', chunk => chunks.push(chunk));
+            response.on('end', () => resolve(Buffer.concat(chunks)));
+            response.on('error', reject);
+          });
+          request.on('error', reject);
+          request.setTimeout(60000, () => {
+            request.destroy();
+            reject(new Error('Composite image download timeout'));
+          });
+        });
+        
+        console.log('📥 Downloaded composite image buffer:', compositeBuffer.length, 'bytes');
+        
+        // Generate .mind file from composite image buffer
+        mindTargetResult = await generateMindTarget(compositeBuffer, req.user._id);
+        console.log('✅ .mind file generated successfully from composite image:', mindTargetResult.url);
+      } catch (mindError) {
+        console.error('❌ .mind generation failed:', mindError);
+        console.error('Mind generation error details:', {
+          message: mindError.message,
+          stack: mindError.stack,
+          compositeUrl: compositeResult.url
+        });
+        // Continue without .mind file - AR will fallback to using the composite image
+        console.log('⚠️ Continuing without .mind file - AR will use composite image as fallback');
       }
+    } else {
+      console.log('⚠️ No composite image available - skipping .mind file generation');
+      console.log('💡 .mind file should be generated from composite image (design + QR code)');
+    }
+    
+    // Prepare design data
+    const designData = {
+      filename: uploadResult.key,
+      originalName: req.file.originalname,
+      url: uploadResult.url,
+      size: uploadResult.size,
+      uploadedAt: new Date(),
+      dimensions: imageDimensions
     };
     
-    // Add .mind target data if generation was successful
-    if (mindTargetResult) {
-      updateData['uploadedFiles.mindTarget'] = mindTargetResult;
-      console.log('✅ Including .mind target in user update');
+    // Prepare update data based on whether we're updating a project or root level
+    let updateData = {};
+    
+    if (currentProject) {
+      // Store in project
+      updateData[`projects.${projectIndex}.uploadedFiles.design`] = designData;
+      
+      // Add composite image data if generated successfully
+      if (compositeResult) {
+        updateData[`projects.${projectIndex}.uploadedFiles.compositeDesign`] = compositeResult;
+        console.log('✅ Including composite design in project:', compositeResult.url);
+      }
+      
+      // Add .mind target data if generation was successful
+      if (mindTargetResult) {
+        updateData[`projects.${projectIndex}.uploadedFiles.mindTarget`] = mindTargetResult;
+        console.log('✅ Including .mind target in project');
+      }
+      
+      console.log(`📁 Updating project ${currentProject.id} with design data`);
+    } else {
+      // Store at root level (backward compatibility)
+      updateData['uploadedFiles.design'] = designData;
+      
+      // Add composite image data if generated successfully
+      if (compositeResult) {
+        updateData['uploadedFiles.compositeDesign'] = compositeResult;
+        console.log('✅ Including composite design in root level:', compositeResult.url);
+      }
+      
+      // Add .mind target data if generation was successful
+      if (mindTargetResult) {
+        updateData['uploadedFiles.mindTarget'] = mindTargetResult;
+        console.log('✅ Including .mind target in root level');
+      }
+      
+      console.log('📁 Updating root-level uploadedFiles (no current project)');
     }
     
     // Update user record with design and optional .mind target
     console.log('Updating user record with design data...');
     console.log('Update data:', {
-      hasDesign: !!updateData['uploadedFiles.design'],
-      hasMindTarget: !!updateData['uploadedFiles.mindTarget'],
+      projectId: currentProject?.id || 'root-level',
+      hasDesign: true,
+      hasCompositeDesign: !!compositeResult,
+      hasMindTarget: !!mindTargetResult,
       userId: req.user._id
     });
     
@@ -495,12 +837,25 @@ router.post('/design', authenticateToken, upload.single('design'), async (req, r
       await logDesignUpload(req.user._id, uploadResult, historyOptions);
     }
     
+    // Get the updated design data from the correct location
+    let responseDesign, responseMindTarget;
+    if (currentProject) {
+      const updatedProject = updatedUser.projects.find(p => p.id === currentProject.id);
+      responseDesign = updatedProject?.uploadedFiles?.design;
+      responseMindTarget = updatedProject?.uploadedFiles?.mindTarget || null;
+    } else {
+      responseDesign = updatedUser.uploadedFiles.design;
+      responseMindTarget = updatedUser.uploadedFiles.mindTarget || null;
+    }
+    
     res.status(200).json({
       status: 'success',
       message: 'Design uploaded successfully',
       data: {
-        design: updatedUser.uploadedFiles.design,
-        mindTarget: updatedUser.uploadedFiles.mindTarget || null,
+        design: responseDesign,
+        mindTarget: responseMindTarget,
+        composite: compositeResult,
+        projectId: currentProject?.id || null,
         user: updatedUser.getPublicProfile(),
         arReady: !!mindTargetResult // Indicates if AR target is ready
       }
@@ -572,11 +927,30 @@ router.post('/video', authenticateToken, upload.single('video'), async (req, res
     
     const uploadResult = await uploadToCloudinary(req.file, req.user._id, 'video');
     
+    // Get the current user with full data
+    const user = await User.findById(req.user._id);
+    
+    // Determine where to store the video (in project or at root level)
+    let currentProject = null;
+    let projectIndex = -1;
+    
+    if (user.currentProject) {
+      projectIndex = user.projects.findIndex(p => p.id === user.currentProject);
+      if (projectIndex !== -1) {
+        currentProject = user.projects[projectIndex];
+        console.log(`📁 Storing video in project: ${currentProject.name} (${currentProject.id})`);
+      }
+    }
+    
     // Delete old video file if exists
-    if (req.user.uploadedFiles.video.url) {
+    const oldVideo = currentProject 
+      ? currentProject.uploadedFiles?.video 
+      : req.user.uploadedFiles?.video;
+      
+    if (oldVideo?.url) {
       try {
         // Extract public_id from Cloudinary URL
-        const urlParts = req.user.uploadedFiles.video.url.split('/');
+        const urlParts = oldVideo.url.split('/');
         const publicId = urlParts[urlParts.length - 1].split('.')[0]; // Remove file extension
         await deleteFromCloudinary(publicId);
         console.log('✅ Old video file deleted from Cloudinary');
@@ -586,25 +960,46 @@ router.post('/video', authenticateToken, upload.single('video'), async (req, res
       }
     }
     
+    // Prepare video data
+    const videoData = {
+      filename: uploadResult.key,
+      originalName: req.file.originalname,
+      url: uploadResult.url,
+      size: uploadResult.size,
+      duration: 0, // Would be calculated during compression
+      uploadedAt: new Date(),
+      compressed: false // Set to true after compression
+    };
+    
+    // Prepare update data based on whether we're updating a project or root level
+    let updateData = {};
+    
+    if (currentProject) {
+      // Store in project
+      updateData[`projects.${projectIndex}.uploadedFiles.video`] = videoData;
+      console.log(`📁 Updating project ${currentProject.id} with video data`);
+    } else {
+      // Store at root level (backward compatibility)
+      updateData['uploadedFiles.video'] = videoData;
+      console.log('📁 Updating root-level uploadedFiles (no current project)');
+    }
+    
     // Update user record
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
-      {
-        'uploadedFiles.video': {
-          filename: uploadResult.key,
-          originalName: req.file.originalname,
-          url: uploadResult.url,
-          size: uploadResult.size,
-          duration: 0, // Would be calculated during compression
-          uploadedAt: new Date(),
-          compressed: false // Set to true after compression
-        }
-      },
+      updateData,
       { new: true }
     ).select('-password');
 
-    // Get current project information
-    const currentProject = updatedUser.projects?.find(p => p.id === updatedUser.currentProject);
+    // Get the updated video data from the correct location
+    let responseVideo;
+    if (currentProject) {
+      const updatedProject = updatedUser.projects.find(p => p.id === currentProject.id);
+      responseVideo = updatedProject?.uploadedFiles?.video;
+    } else {
+      responseVideo = updatedUser.uploadedFiles.video;
+    }
+    
     const projectData = currentProject ? {
       id: currentProject.id,
       name: currentProject.name,
@@ -627,7 +1022,8 @@ router.post('/video', authenticateToken, upload.single('video'), async (req, res
       status: 'success',
       message: 'Video uploaded successfully',
       data: {
-        video: updatedUser.uploadedFiles.video,
+        video: responseVideo,
+        projectId: currentProject?.id || null,
         user: updatedUser.getPublicProfile()
       }
     });
@@ -844,66 +1240,237 @@ router.post('/qr-position', authenticateToken, [
       height: parseFloat(height)
     };
     
-    // Check if user has uploaded a design
-    if (!req.user.uploadedFiles.design.url) {
+    // Check if user has uploaded a design (check project first, then root level)
+    const user = await User.findById(req.user._id);
+    let hasDesign = false;
+    
+    if (user.currentProject && user.projects) {
+      const currentProject = user.projects.find(p => p.id === user.currentProject);
+      hasDesign = !!currentProject?.uploadedFiles?.design?.url;
+    }
+    
+    // Fallback to root-level check
+    if (!hasDesign) {
+      hasDesign = !!user.uploadedFiles?.design?.url;
+    }
+    
+    if (!hasDesign) {
+      console.log('❌ No design found - checked project and root level');
       return res.status(400).json({
         status: 'error',
         message: 'Please upload a design first'
       });
     }
     
+    console.log('✅ Design found - proceeding with QR position save');
+    
     // Store old QR position for history
     const oldQrPosition = req.user.qrPosition;
     
-    // Generate composite design on server side
+    // Generate composite design on server side (optional - don't block QR position save)
     let compositeDesignData = null;
+    let mindTargetData = null;
+    
     try {
       console.log('Generating server-side composite design...');
       
       // Generate QR data (user's scan URL for AR experience)
-      const qrData = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/scan/${req.user._id}`;
+      // Format: /ar/user/{userId}/project/{projectId}
+      const currentProjectId = user.currentProject || 'default';
+      const qrData = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/#/ar/user/${req.user._id}/project/${currentProjectId}`;
       
-      // Generate final composite design with QR code
-      const finalDesignPath = await generateFinalDesign(
-        req.user.uploadedFiles.design.url,
+      // Get design URL from project or root level
+      let designUrl;
+      if (user.currentProject && user.projects) {
+        const currentProject = user.projects.find(p => p.id === user.currentProject);
+        designUrl = currentProject?.uploadedFiles?.design?.url;
+      }
+      
+      // Fallback to root-level design
+      if (!designUrl) {
+        designUrl = user.uploadedFiles?.design?.url;
+      }
+      
+      console.log('🎨 Using design URL for composite:', designUrl);
+      
+      // Set a timeout for composite generation to avoid blocking QR position save
+      const compositePromise = generateFinalDesign(
+        designUrl,
         qrData,
         qrPositionData,
         req.user._id.toString()
       );
       
-      // Upload the composite image to S3
-      const compositeImageBuffer = fs.readFileSync(finalDesignPath);
-      const compositeImageKey = `users/${req.user._id}/designs/composite-${Date.now()}.png`;
+      // Race between composite generation and timeout
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Composite generation timeout')), 30000)
+      );
       
-      // Upload to S3
-      const uploadResult = await uploadToS3Buffer(
+      const finalDesignPath = await Promise.race([compositePromise, timeoutPromise]);
+      
+      // Upload the composite image to Cloudinary
+      const compositeImageBuffer = fs.readFileSync(finalDesignPath);
+      const compositeFilename = `composite-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.png`;
+      
+      // Upload to Cloudinary
+      const uploadResult = await uploadToCloudinaryBuffer(
         compositeImageBuffer,
-        compositeImageKey,
+        req.user._id,
+        'composite-image',
+        compositeFilename,
         'image/png'
       );
       
       compositeDesignData = {
-        filename: uploadResult.key,
+        filename: uploadResult.public_id,
         originalName: `composite-design-${Date.now()}.png`,
         url: uploadResult.url,
         size: compositeImageBuffer.length,
-        uploadedAt: new Date()
+        uploadedAt: new Date(),
+        generated: true
       };
       
-      // Clean up temporary file
-      cleanupTempFile(finalDesignPath);
+      console.log('✅ Server-side composite design generated successfully:', uploadResult.url);
       
-      console.log('Server-side composite design generated successfully:', uploadResult.url);
+      // Generate .mind file from the composite image
+      try {
+        console.log('🎯 Generating .mind file from composite image...');
+        console.log('📋 Composite image buffer size:', compositeImageBuffer.length);
+        
+        // Use the composite image buffer to generate .mind file
+        const mindFilename = `target-${Date.now()}.mind`;
+        const mindOutputPath = path.join(__dirname, '../temp', mindFilename);
+        
+        // Write composite image to temp location for mind file generation
+        const tempImagePath = path.join(__dirname, '../temp', `temp-composite-${Date.now()}.png`);
+        console.log('📁 Writing composite to temp path:', tempImagePath);
+        fs.writeFileSync(tempImagePath, compositeImageBuffer);
+        console.log('✅ Composite image written to temp file');
+        
+        // Generate .mind file using mindar-image-cli
+        const { execSync } = require('child_process');
+        const mindCommand = `npx -y mind-ar-js-cli@latest compile -i "${tempImagePath}" -o "${mindOutputPath}"`;
+        
+        console.log('🔧 Running MindAR CLI command:', mindCommand);
+        console.log('📁 Expected output path:', mindOutputPath);
+        
+        try {
+          const output = execSync(mindCommand, { stdio: 'pipe', encoding: 'utf-8' });
+          console.log('✅ MindAR CLI command completed');
+          console.log('📄 CLI output:', output);
+        } catch (execError) {
+          console.error('❌ MindAR CLI command failed:', execError.message);
+          console.error('📄 CLI stderr:', execError.stderr?.toString());
+          console.error('📄 CLI stdout:', execError.stdout?.toString());
+          throw execError;
+        }
+        
+        // Read the generated .mind file
+        console.log('🔍 Checking if .mind file exists:', mindOutputPath);
+        if (fs.existsSync(mindOutputPath)) {
+          const mindBuffer = fs.readFileSync(mindOutputPath);
+          console.log(`✅ .mind file generated successfully: ${mindBuffer.length} bytes`);
+          
+          // Upload .mind file to Cloudinary in targets folder
+          console.log('☁️ Uploading .mind file to Cloudinary...');
+          const mindUploadResult = await uploadToCloudinaryBuffer(
+            mindBuffer,
+            req.user._id,
+            'targets',
+            mindFilename,
+            'application/octet-stream'
+          );
+          
+          mindTargetData = {
+            filename: mindUploadResult.public_id,
+            url: mindUploadResult.url,
+            size: mindBuffer.length,
+            uploadedAt: new Date(),
+            generated: true
+          };
+          
+          console.log('✅ .mind file uploaded to Cloudinary:', mindUploadResult.url);
+          console.log('📊 mindTargetData:', JSON.stringify(mindTargetData, null, 2));
+          console.log('📊 mindTargetData is null?', mindTargetData === null);
+          console.log('📊 mindTargetData.url exists?', !!mindTargetData?.url);
+          
+          // Clean up temp files
+          cleanupTempFile(tempImagePath);
+          cleanupTempFile(mindOutputPath);
+          console.log('🧹 Temp files cleaned up');
+        } else {
+          console.error('❌ .mind file was not generated at path:', mindOutputPath);
+          console.error('📁 Directory contents:', fs.readdirSync(path.join(__dirname, '../temp')));
+        }
+        
+      } catch (mindError) {
+        console.error('❌ Failed to generate .mind file:', mindError);
+        console.error('❌ Error stack:', mindError.stack);
+        console.error('❌ Error details:', {
+          message: mindError.message,
+          code: mindError.code,
+          cmd: mindError.cmd
+        });
+        console.log('⚠️ Continuing without .mind file - it can be generated later');
+      }
+      
+      // Clean up temporary composite file
+      cleanupTempFile(finalDesignPath);
       
     } catch (compositeError) {
       console.error('Failed to generate server-side composite:', compositeError);
+      console.log('⚠️ Continuing without composite design - QR position will still be saved');
       // Continue without composite design if generation fails
     }
 
-    // Update QR position and composite design
-    const updateData = { qrPosition: qrPositionData };
-    if (compositeDesignData) {
-      updateData['uploadedFiles.compositeDesign'] = compositeDesignData;
+    // Get current project information
+    const fullUser = await User.findById(req.user._id);
+    let targetProject = null;
+    let targetProjectIndex = -1;
+    
+    if (fullUser.currentProject) {
+      targetProjectIndex = fullUser.projects.findIndex(p => p.id === fullUser.currentProject);
+      if (targetProjectIndex !== -1) {
+        targetProject = fullUser.projects[targetProjectIndex];
+        console.log(`📁 Storing QR position in project: ${targetProject.name} (${targetProject.id})`);
+      }
+    }
+    
+    // Update QR position, composite design, and mind target
+    let updateData = {};
+    
+    console.log('=== PREPARING DATABASE UPDATE ===');
+    console.log('📊 compositeDesignData:', compositeDesignData ? `${compositeDesignData.url}` : 'null');
+    console.log('📊 mindTargetData:', mindTargetData ? `${mindTargetData.url}` : 'null');
+    console.log('📊 targetProject:', targetProject ? `${targetProject.name} (${targetProject.id})` : 'null');
+    console.log('📊 targetProjectIndex:', targetProjectIndex);
+    
+    if (targetProject) {
+      // Store in project
+      updateData[`projects.${targetProjectIndex}.qrPosition`] = qrPositionData;
+      if (compositeDesignData) {
+        updateData[`projects.${targetProjectIndex}.uploadedFiles.compositeDesign`] = compositeDesignData;
+        console.log(`✅ Will store compositeDesign in project: ${compositeDesignData.url}`);
+      } else {
+        console.log('⚠️ compositeDesignData is null - not storing');
+      }
+      if (mindTargetData) {
+        updateData[`projects.${targetProjectIndex}.uploadedFiles.mindTarget`] = mindTargetData;
+        console.log(`✅ Will store mindTarget in project: ${mindTargetData.url}`);
+      } else {
+        console.log('⚠️ mindTargetData is null - not storing');
+      }
+      console.log(`📁 Updating project ${targetProject.id} with QR position and generated files`);
+    } else {
+      // Store at root level (backward compatibility)
+      updateData = { qrPosition: qrPositionData };
+      if (compositeDesignData) {
+        updateData['uploadedFiles.compositeDesign'] = compositeDesignData;
+      }
+      if (mindTargetData) {
+        updateData['uploadedFiles.mindTarget'] = mindTargetData;
+      }
+      console.log('📁 Updating root-level QR position (no current project)');
     }
     
     const updatedUser = await User.findByIdAndUpdate(
@@ -923,11 +1490,31 @@ router.post('/qr-position', authenticateToken, [
       }
     );
     
+    // Get the updated project data if available
+    let responseQrPosition = qrPositionData;
+    let responseCompositeDesign = compositeDesignData;
+    let responseMindTarget = mindTargetData;
+    
+    // If we stored in project, get the data from the updated project
+    if (targetProject && updatedUser.projects) {
+      const updatedProject = updatedUser.projects.find(p => p.id === fullUser.currentProject);
+      if (updatedProject) {
+        responseQrPosition = updatedProject.qrPosition || qrPositionData;
+        responseCompositeDesign = updatedProject.uploadedFiles?.compositeDesign || compositeDesignData;
+        responseMindTarget = updatedProject.uploadedFiles?.mindTarget || mindTargetData;
+        console.log('📤 Returning project-level data in response');
+        console.log('📤 compositeDesign URL:', responseCompositeDesign?.url);
+        console.log('📤 mindTarget URL:', responseMindTarget?.url);
+      }
+    }
+    
     res.status(200).json({
       status: 'success',
       message: 'QR position updated successfully',
       data: {
-        qrPosition: updatedUser.qrPosition,
+        qrPosition: responseQrPosition,
+        compositeDesign: responseCompositeDesign,
+        mindTarget: responseMindTarget,
         user: updatedUser.getPublicProfile()
       }
     });
@@ -1030,19 +1617,21 @@ router.post('/save-composite-design', authenticateToken, [
     console.log('S3 Bucket:', process.env.AWS_S3_BUCKET);
     
     // Upload composite image to S3
-    const uploadResult = await uploadToS3Buffer(
+    const uploadResult = await uploadToCloudinaryBuffer(
       imageBuffer,
-      compositeImageKey,
+      req.user._id,
+      'composite-image',
+      `composite-${timestamp}.png`,
       'image/png'
     );
     
-    console.log('S3 Upload result:', uploadResult);
+    console.log('Cloudinary Upload result:', uploadResult);
     
     // Delete old composite design if exists
     if (req.user.uploadedFiles.compositeDesign?.url) {
       try {
-        const oldKey = req.user.uploadedFiles.compositeDesign.url.split('/').slice(-2).join('/');
-        await deleteFromS3(oldKey);
+        await deleteFromCloudinary(req.user.uploadedFiles.compositeDesign.filename);
+        console.log('Old composite design deleted from Cloudinary');
       } catch (error) {
         console.error('Failed to delete old composite design:', error);
         // Continue with update even if old file deletion fails
@@ -1130,13 +1719,13 @@ router.post('/save-mind-target', authenticateToken, [
     // Upload to S3
     const timestamp = Date.now();
     const key = `users/${req.user._id}/designs/targets-${timestamp}.mind`;
-    const uploadResult = await uploadToS3Buffer(buffer, key, 'application/octet-stream');
+    const uploadResult = await uploadToCloudinaryBuffer(buffer, req.user._id, 'targets', `target-${timestamp}.mind`, 'application/octet-stream');
 
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
       {
         'uploadedFiles.mindTarget': {
-          filename: uploadResult.key,
+          filename: uploadResult.public_id,
           url: uploadResult.url,
           size: buffer.length,
           uploadedAt: new Date()
@@ -1325,10 +1914,29 @@ router.get('/debug-final-design', authenticateToken, async (req, res) => {
 router.get('/download-final-design', authenticateToken, async (req, res) => {
   try {
     console.log('🎯 Starting final design download for user:', req.user._id);
-    const user = req.user;
+    const user = await User.findById(req.user._id);
+    
+    // Get data from current project or root level
+    let designUrl, qrPosition;
+    
+    if (user.currentProject && user.projects) {
+      const currentProject = user.projects.find(p => p.id === user.currentProject);
+      if (currentProject) {
+        designUrl = currentProject.uploadedFiles?.design?.url;
+        qrPosition = currentProject.qrPosition;
+        console.log(`📁 Using data from project: ${currentProject.name} (${currentProject.id})`);
+      }
+    }
+    
+    // Fallback to root level
+    if (!designUrl) {
+      designUrl = user.uploadedFiles?.design?.url;
+      qrPosition = user.qrPosition;
+      console.log('📁 Using root-level data (backward compatibility)');
+    }
     
     // Check if user has uploaded design and set QR position
-    if (!user.uploadedFiles.design.url) {
+    if (!designUrl) {
       console.error('❌ No design uploaded for user:', user._id);
       return res.status(400).json({
         status: 'error',
@@ -1336,7 +1944,7 @@ router.get('/download-final-design', authenticateToken, async (req, res) => {
       });
     }
     
-    if (!user.qrPosition || (user.qrPosition.x === undefined && user.qrPosition.y === undefined)) {
+    if (!qrPosition || (qrPosition.x === undefined && qrPosition.y === undefined)) {
       console.error('❌ No QR position set for user:', user._id);
       return res.status(400).json({
         status: 'error',
@@ -1344,33 +1952,29 @@ router.get('/download-final-design', authenticateToken, async (req, res) => {
       });
     }
     
+    console.log('🎨 Generating final design with:', { designUrl, qrPosition });
+    
     console.log('✅ Validation passed for user:', user._id);
     
     // Get current project information
     const currentProject = user.projects?.find(p => p.id === user.currentProject);
+    const currentProjectId = user.currentProject || 'default';
     
     // Generate project-specific QR data for AR experience (using hash routing)
-    let qrData;
-    if (currentProject) {
-      // Use project-specific URL for better AR tracking with hash routing
-      qrData = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/#/scan/project/${currentProject.id}`;
-    } else {
-      // Fallback to user-based URL for backward compatibility with hash routing
-      qrData = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/#/scan/${user._id}`;
-    }
+    const qrData = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/#/ar/user/${user._id}/project/${currentProjectId}`;
     
     // Generate final design with QR code
     console.log('🎨 Calling generateFinalDesign with:', {
-      designUrl: user.uploadedFiles.design.url,
+      designUrl,
       qrData: qrData.substring(0, 50) + '...',
-      qrPosition: user.qrPosition,
+      qrPosition,
       userId: user._id.toString()
     });
     
     const finalDesignPath = await generateFinalDesign(
-      user.uploadedFiles.design.url,
+      designUrl,
       qrData,
-      user.qrPosition,
+      qrPosition,
       user._id.toString()
     );
     
@@ -1442,31 +2046,52 @@ router.get('/download-final-design', authenticateToken, async (req, res) => {
  */
 router.get('/preview-final-design', authenticateToken, async (req, res) => {
   try {
-    const user = req.user;
+    const user = await User.findById(req.user._id);
+    
+    // Get data from current project or root level
+    let designUrl, qrPosition;
+    
+    if (user.currentProject && user.projects) {
+      const currentProject = user.projects.find(p => p.id === user.currentProject);
+      if (currentProject) {
+        designUrl = currentProject.uploadedFiles?.design?.url;
+        qrPosition = currentProject.qrPosition;
+      }
+    }
+    
+    // Fallback to root level
+    if (!designUrl) {
+      designUrl = user.uploadedFiles?.design?.url;
+      qrPosition = user.qrPosition;
+    }
     
     // Check if user has uploaded design and set QR position
-    if (!user.uploadedFiles.design.url) {
+    if (!designUrl) {
       return res.status(400).json({
         status: 'error',
         message: 'Please upload a design first'
       });
     }
     
-    if (!user.qrPosition || (user.qrPosition.x === undefined && user.qrPosition.y === undefined)) {
+    if (!qrPosition || (qrPosition.x === undefined && qrPosition.y === undefined)) {
       return res.status(400).json({
         status: 'error',
         message: 'Please set QR code position first'
       });
     }
     
+    console.log('🎨 Generating preview with:', { designUrl, qrPosition });
+    
     // Generate QR data (user's scan URL for AR experience)
-    const qrData = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/scan/${user._id}`;
+    // Format: /ar/user/{userId}/project/{projectId}
+    const currentProjectId = user.currentProject || 'default';
+    const qrData = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/#/ar/user/${user._id}/project/${currentProjectId}`;
     
     // Generate final design with QR code
     const finalDesignPath = await generateFinalDesign(
-      user.uploadedFiles.design.url,
+      designUrl,
       qrData,
-      user.qrPosition,
+      qrPosition,
       user._id.toString()
     );
     
@@ -1517,6 +2142,74 @@ router.get('/preview-final-design', authenticateToken, async (req, res) => {
 });
 
 /**
+ * POST /api/upload/migrate-mind-to-project
+ * Migrate root-level .mind file to current project
+ * Temporary endpoint to fix existing data
+ */
+router.post('/migrate-mind-to-project', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    
+    if (!user.currentProject) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'No current project set'
+      });
+    }
+    
+    const projectIndex = user.projects.findIndex(p => p.id === user.currentProject);
+    if (projectIndex === -1) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Current project not found'
+      });
+    }
+    
+    // Check if root-level mindTarget exists
+    if (!user.uploadedFiles?.mindTarget?.url) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'No .mind file found at root level to migrate'
+      });
+    }
+    
+    console.log('📦 Migrating .mind file from root to project:', user.currentProject);
+    console.log('📁 .mind URL:', user.uploadedFiles.mindTarget.url);
+    
+    // Copy mindTarget to project
+    const updateData = {
+      [`projects.${projectIndex}.uploadedFiles.mindTarget`]: user.uploadedFiles.mindTarget
+    };
+    
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      updateData,
+      { new: true }
+    ).select('-password');
+    
+    console.log('✅ .mind file migrated to project successfully');
+    
+    res.status(200).json({
+      status: 'success',
+      message: '.mind file migrated to project successfully',
+      data: {
+        projectId: user.currentProject,
+        mindTarget: user.uploadedFiles.mindTarget,
+        user: updatedUser.getPublicProfile()
+      }
+    });
+    
+  } catch (error) {
+    console.error('Migration error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to migrate .mind file',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+/**
  * DELETE /api/upload/project/:projectId
  * Delete a project and all its associated files
  * Removes project from database and files from S3
@@ -1560,7 +2253,21 @@ router.delete('/project/:projectId', authenticateToken, async (req, res) => {
           const uploadIndex = urlParts.findIndex(part => part === 'upload');
           if (uploadIndex !== -1 && uploadIndex + 2 < urlParts.length) {
             // Extract everything after 'upload/v1234567890/'
-            return urlParts.slice(uploadIndex + 2).join('/').split('.')[0]; // Remove file extension
+            let publicId = urlParts.slice(uploadIndex + 2).join('/');
+            
+            // Remove file extension(s) - handle cases like 'file.png.png' or 'file.mind'
+            // Split by '.' and keep all parts except the last one
+            const parts = publicId.split('.');
+            if (parts.length > 1) {
+              // Remove last extension
+              publicId = parts.slice(0, -1).join('.');
+              // If it still ends with an extension, remove it again (for cases like .png.png)
+              if (publicId.endsWith('.png') || publicId.endsWith('.jpg') || publicId.endsWith('.jpeg')) {
+                publicId = publicId.split('.').slice(0, -1).join('.');
+              }
+            }
+            
+            return publicId;
           }
         }
         
@@ -1571,58 +2278,111 @@ router.delete('/project/:projectId', authenticateToken, async (req, res) => {
       }
     };
     
-    // Check for design file
-    if (user.uploadedFiles.design?.url) {
-      const designPublicId = extractCloudinaryPublicId(user.uploadedFiles.design.url);
+    // Check for project-specific files (priority)
+    console.log(`🗑️ Collecting files to delete from project: ${project.name} (${project.id})`);
+    
+    // Check for design file in project
+    if (project.uploadedFiles?.design?.url) {
+      const designPublicId = extractCloudinaryPublicId(project.uploadedFiles.design.url);
       if (designPublicId) {
-        filesToDelete.push(designPublicId);
-        console.log('Design file to delete:', designPublicId);
+        filesToDelete.push({ publicId: designPublicId, type: 'image', name: 'design' });
+        console.log('📄 Design file to delete:', designPublicId);
       }
     }
     
-    // Check for video file
-    if (user.uploadedFiles.video?.url) {
-      const videoPublicId = extractCloudinaryPublicId(user.uploadedFiles.video.url);
+    // Check for video file in project
+    if (project.uploadedFiles?.video?.url) {
+      const videoPublicId = extractCloudinaryPublicId(project.uploadedFiles.video.url);
       if (videoPublicId) {
-        filesToDelete.push(videoPublicId);
-        console.log('Video file to delete:', videoPublicId);
+        filesToDelete.push({ publicId: videoPublicId, type: 'video', name: 'video' });
+        console.log('🎥 Video file to delete:', videoPublicId);
       }
     }
     
-    // Check for composite design file
-    if (user.uploadedFiles.compositeDesign?.url) {
-      const compositePublicId = extractCloudinaryPublicId(user.uploadedFiles.compositeDesign.url);
+    // Check for composite design file in project
+    if (project.uploadedFiles?.compositeDesign?.url) {
+      const compositePublicId = extractCloudinaryPublicId(project.uploadedFiles.compositeDesign.url);
       if (compositePublicId) {
-        filesToDelete.push(compositePublicId);
-        console.log('Composite design file to delete:', compositePublicId);
+        filesToDelete.push({ publicId: compositePublicId, type: 'image', name: 'composite' });
+        console.log('🖼️ Composite design file to delete:', compositePublicId);
       }
     }
     
-    // Check for mind target file
-    if (user.uploadedFiles.mindTarget?.url) {
-      const mindPublicId = extractCloudinaryPublicId(user.uploadedFiles.mindTarget.url);
+    // Check for mind target file in project (.mind files are type 'raw')
+    if (project.uploadedFiles?.mindTarget?.url) {
+      const mindPublicId = extractCloudinaryPublicId(project.uploadedFiles.mindTarget.url);
       if (mindPublicId) {
-        filesToDelete.push(mindPublicId);
-        console.log('Mind target file to delete:', mindPublicId);
+        filesToDelete.push({ publicId: mindPublicId, type: 'raw', name: 'mind-target' });
+        console.log('🎯 Mind target file to delete:', mindPublicId);
+      }
+    }
+    
+    // Fallback: Check root-level files if project files not found (backward compatibility)
+    if (filesToDelete.length === 0) {
+      console.log('⚠️ No files found in project, checking root-level files...');
+      
+      if (user.uploadedFiles?.design?.url) {
+        const designPublicId = extractCloudinaryPublicId(user.uploadedFiles.design.url);
+        if (designPublicId) {
+          filesToDelete.push({ publicId: designPublicId, type: 'image', name: 'design' });
+          console.log('📄 Design file to delete (root):', designPublicId);
+        }
+      }
+      
+      if (user.uploadedFiles?.video?.url) {
+        const videoPublicId = extractCloudinaryPublicId(user.uploadedFiles.video.url);
+        if (videoPublicId) {
+          filesToDelete.push({ publicId: videoPublicId, type: 'video', name: 'video' });
+          console.log('🎥 Video file to delete (root):', videoPublicId);
+        }
+      }
+      
+      if (user.uploadedFiles?.compositeDesign?.url) {
+        const compositePublicId = extractCloudinaryPublicId(user.uploadedFiles.compositeDesign.url);
+        if (compositePublicId) {
+          filesToDelete.push({ publicId: compositePublicId, type: 'image', name: 'composite' });
+          console.log('🖼️ Composite design file to delete (root):', compositePublicId);
+        }
+      }
+      
+      if (user.uploadedFiles?.mindTarget?.url) {
+        const mindPublicId = extractCloudinaryPublicId(user.uploadedFiles.mindTarget.url);
+        if (mindPublicId) {
+          filesToDelete.push({ publicId: mindPublicId, type: 'raw', name: 'mind-target' });
+          console.log('🎯 Mind target file to delete (root):', mindPublicId);
+        }
       }
     }
     
     // Delete files from Cloudinary
-    console.log(`Attempting to delete ${filesToDelete.length} files from Cloudinary:`, filesToDelete);
+    console.log(`🗑️ Attempting to delete ${filesToDelete.length} files from Cloudinary`);
     const cloudinaryDeletionResults = {
       successful: [],
       failed: []
     };
     
-    for (const publicId of filesToDelete) {
+    for (const fileInfo of filesToDelete) {
+      const { publicId, type, name } = fileInfo;
       try {
-        console.log(`Deleting file from Cloudinary: ${publicId}`);
-        const deleteResult = await deleteFromCloudinary(publicId);
-        console.log(`Successfully deleted file from Cloudinary: ${publicId}`, deleteResult);
-        cloudinaryDeletionResults.successful.push(publicId);
+        console.log(`🗑️ Deleting ${name} (${type}): ${publicId}`);
+        
+        // Use Cloudinary's destroy method with correct resource_type
+        const cloudinary = require('cloudinary').v2;
+        const deleteResult = await cloudinary.uploader.destroy(publicId, {
+          resource_type: type, // 'image', 'video', or 'raw'
+          invalidate: true
+        });
+        
+        if (deleteResult.result === 'ok' || deleteResult.result === 'not found') {
+          console.log(`✅ Successfully deleted ${name} from Cloudinary:`, deleteResult);
+          cloudinaryDeletionResults.successful.push({ publicId, name, type });
+        } else {
+          console.warn(`⚠️ Unexpected result when deleting ${name}:`, deleteResult);
+          cloudinaryDeletionResults.failed.push({ publicId, name, type, error: `Unexpected result: ${deleteResult.result}` });
+        }
       } catch (error) {
-        console.error(`Failed to delete file from Cloudinary: ${publicId}`, error);
-        cloudinaryDeletionResults.failed.push({ publicId, error: error.message });
+        console.error(`❌ Failed to delete ${name} from Cloudinary:`, error.message);
+        cloudinaryDeletionResults.failed.push({ publicId, name, type, error: error.message });
         // Continue with deletion even if Cloudinary deletion fails
       }
     }
@@ -1787,9 +2547,11 @@ router.post('/create-ar-experience', authenticateToken, async (req, res) => {
         if (mindTargetBuffer) {
           // Upload .mind file to S3
           const mindTargetKey = `users/${user._id}/targets/mind-${Date.now()}.mind`;
-          const uploadResult = await uploadToS3Buffer(
+          const uploadResult = await uploadToCloudinaryBuffer(
             mindTargetBuffer,
-            mindTargetKey,
+            user._id,
+            'targets',
+            `mind-${Date.now()}.mind`,
             'application/octet-stream'
           );
           

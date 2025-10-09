@@ -32,6 +32,7 @@ export const useARLogic = ({
   const cameraRef = useRef(null);
   const anchorRef = useRef(null);
   const videoMeshRef = useRef(null);
+  const blobURLRef = useRef(null); // Store blob URL for cleanup
 
   // Throttled state updates
   const throttledSetTargetDetected = useCallback(
@@ -159,6 +160,15 @@ export const useARLogic = ({
     }
     
     addDebugMessage(`✅ Container ready: ${containerRef.current.offsetWidth}x${containerRef.current.offsetHeight}`, 'success');
+    
+    // Ensure container has minimum dimensions
+    if (containerRef.current.offsetWidth < 100 || containerRef.current.offsetHeight < 100) {
+      addDebugMessage('⚠️ Container too small, forcing minimum dimensions', 'warning');
+      containerRef.current.style.width = '100%';
+      containerRef.current.style.height = '100%';
+      containerRef.current.style.minWidth = '320px';
+      containerRef.current.style.minHeight = '240px';
+    }
 
     try {
       addDebugMessage('🚀 Initializing MindAR...', 'info');
@@ -167,21 +177,39 @@ export const useARLogic = ({
       let targetType = 'image file';
       let mindBuffer = null;
       
-      // Check if we have a composite design (design + QR code) - this is what we should use for AR tracking
-      if (projectData.compositeDesignUrl) {
-        targetUrl = projectData.compositeDesignUrl;
-        addDebugMessage('🎯 Using composite design (design + QR code) for AR tracking', 'info');
-      } else if (projectData.mindTargetUrl) {
+      // Priority order: .mind file (best) > composite image > original design
+      if (projectData.mindTargetUrl) {
         targetUrl = projectData.mindTargetUrl;
         targetType = '.mind file';
-        addDebugMessage('🎯 Using .mind file for AR tracking', 'info');
+        addDebugMessage('🎯 Using .mind file for AR tracking (best performance)', 'info');
+      } else if (projectData.compositeDesignUrl) {
+        targetUrl = projectData.compositeDesignUrl;
+        addDebugMessage('🎯 Using composite design (design + QR code) for AR tracking', 'info');
+        addDebugMessage('⚠️ No .mind file available - using composite image (slower)', 'warning');
       } else if (projectData.designUrl) {
-        addDebugMessage('⚠️ Using original design image - QR code may not be embedded', 'warning');
-        addDebugMessage('💡 Consider using composite design for better AR tracking', 'info');
+        addDebugMessage('❌ No composite design available - AR tracking will fail', 'error');
+        addDebugMessage('⚠️ Using original design image - QR code is not embedded', 'warning');
+        addDebugMessage('💡 Composite design (design + QR code) is required for AR tracking', 'info');
+        addDebugMessage('🔧 Please generate a composite design with QR code embedded', 'info');
+        
+        // Check if we need composite generation
+        if (projectData.needsCompositeGeneration) {
+          addDebugMessage('🔄 Composite design generation is needed', 'info');
+        }
       }
       
       if (!targetUrl) {
         throw new Error('No target image available');
+      }
+      
+      // Check if we have proper AR tracking setup
+      if (!projectData.mindTargetUrl && !projectData.compositeDesignUrl) {
+        addDebugMessage('❌ AR tracking will likely fail - no .mind file or composite design', 'error');
+        addDebugMessage('💡 Users need to scan the composite image (design + QR code)', 'info');
+        addDebugMessage('🔧 Please generate composite design and .mind file (Step 2: Save QR Position)', 'info');
+      } else if (!projectData.mindTargetUrl) {
+        addDebugMessage('⚠️ .mind file not available - using composite image (may be slower)', 'warning');
+        addDebugMessage('💡 .mind files are generated automatically when you save QR position (Step 2)', 'info');
       }
 
       addDebugMessage(`🎯 Using target: ${targetType}`, 'info');
@@ -224,14 +252,23 @@ export const useARLogic = ({
         resolution: { 
           width: Math.min(containerRef.current.offsetWidth, 480),
           height: Math.min(containerRef.current.offsetHeight, 360) 
-        }
+        },
+        // Ensure canvas is visible and properly positioned
+        uiScanning: false, // Disable default UI scanning overlay
+        uiLoading: false,  // Disable default UI loading overlay
+        uiError: false     // Disable default UI error overlay
       };
 
       // Add specific configuration based on target type
       if (targetType === '.mind file' && mindBuffer) {
-        // For .mind files, we can use the buffer directly
-        mindarConfig.imageTargetSrc = mindBuffer;
-        addDebugMessage('🔧 Using .mind buffer for MindAR', 'info');
+        // ✅ Create a Blob URL from the binary buffer
+        // MindAR expects a URL, not raw binary data
+        const blob = new Blob([mindBuffer], { type: 'application/octet-stream' });
+        const blobURL = URL.createObjectURL(blob);
+        blobURLRef.current = blobURL; // Store for cleanup
+        mindarConfig.imageTargetSrc = blobURL;
+        addDebugMessage('🔧 Created Blob URL for .mind file', 'info');
+        addDebugMessage(`📍 Blob URL: ${blobURL.substring(0, 50)}...`, 'info');
       } else {
         // For image files, we need to ensure MindAR processes them correctly
         // The issue might be that MindAR is trying to process the image as a .mind file
@@ -419,6 +456,133 @@ export const useARLogic = ({
       await mindar.start();
       addDebugMessage('✅ MindAR started successfully', 'success');
       
+      // Give MindAR a moment to create the canvas
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Force check for canvas multiple times
+      let attempts = 0;
+      const maxAttempts = 5;
+      let canvas = null;
+      
+      while (attempts < maxAttempts && !canvas) {
+        canvas = containerRef.current?.querySelector('canvas');
+        if (!canvas) {
+          addDebugMessage(`🔍 Canvas check attempt ${attempts + 1}/${maxAttempts} - not found yet`, 'info');
+          await new Promise(resolve => setTimeout(resolve, 500));
+          attempts++;
+        }
+      }
+      
+      // Debug: Check what MindAR created
+      addDebugMessage('🔍 Checking MindAR elements...', 'info');
+      
+      const allElements = containerRef.current?.children || [];
+      addDebugMessage(`📊 Total children in container: ${allElements.length}`, 'info');
+      
+      // List all child elements
+      Array.from(allElements).forEach((element, index) => {
+        addDebugMessage(`📍 Child ${index}: ${element.tagName} (${element.className})`, 'info');
+      });
+      
+      // Check for canvas (reuse the canvas variable from above)
+      if (canvas) {
+        addDebugMessage(`✅ Canvas found: ${canvas.width}x${canvas.height}`, 'success');
+        addDebugMessage(`📍 Canvas position: ${canvas.style.position}`, 'info');
+        addDebugMessage(`📍 Canvas z-index: ${canvas.style.zIndex}`, 'info');
+        
+        // Ensure canvas is visible
+        canvas.style.position = 'absolute';
+        canvas.style.top = '0';
+        canvas.style.left = '0';
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+        canvas.style.zIndex = '10'; // Higher z-index to ensure it's visible
+        canvas.style.backgroundColor = 'transparent';
+        
+        // Also ensure the video element is visible
+        const video = containerRef.current?.querySelector('video');
+        if (video) {
+          video.style.position = 'absolute';
+          video.style.top = '0';
+          video.style.left = '0';
+          video.style.width = '100%';
+          video.style.height = '100%';
+          video.style.zIndex = '5'; // Behind canvas but above background
+          video.style.objectFit = 'cover';
+          addDebugMessage('🔧 Video element styling applied', 'info');
+        }
+        
+        addDebugMessage('🔧 Canvas styling applied', 'info');
+      } else {
+        addDebugMessage('❌ No canvas found in container!', 'error');
+        
+        // Try to find video element
+        const video = containerRef.current?.querySelector('video');
+        if (video) {
+          addDebugMessage(`✅ Video element found: ${video.videoWidth}x${video.videoHeight}`, 'success');
+          // Style video element
+          video.style.position = 'absolute';
+          video.style.top = '0';
+          video.style.left = '0';
+          video.style.width = '100%';
+          video.style.height = '100%';
+          video.style.zIndex = '1';
+          video.style.objectFit = 'cover';
+        } else {
+          addDebugMessage('❌ No video element found either!', 'error');
+          
+          // Check if MindAR created any other elements
+          const mindarElements = containerRef.current?.querySelectorAll('[class*="mindar"], [id*="mindar"]');
+          if (mindarElements && mindarElements.length > 0) {
+            addDebugMessage(`🔍 Found ${mindarElements.length} MindAR elements`, 'info');
+            mindarElements.forEach((el, i) => {
+              addDebugMessage(`📍 MindAR element ${i}: ${el.tagName} (${el.className || el.id})`, 'info');
+            });
+          } else {
+            addDebugMessage('⚠️ MindAR may not have created any visual elements', 'warning');
+            addDebugMessage('🔧 This could indicate a MindAR configuration issue', 'info');
+            
+            // Try to manually access the camera stream
+            try {
+              addDebugMessage('🔧 Attempting to access camera stream directly...', 'info');
+              const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                  facingMode: 'environment',
+                  width: { ideal: 1280 },
+                  height: { ideal: 720 }
+                } 
+              });
+              
+              // Create a video element manually
+              const video = document.createElement('video');
+              video.srcObject = stream;
+              video.autoplay = true;
+              video.muted = true;
+              video.playsInline = true;
+              video.style.position = 'absolute';
+              video.style.top = '0';
+              video.style.left = '0';
+              video.style.width = '100%';
+              video.style.height = '100%';
+              video.style.zIndex = '1';
+              video.style.objectFit = 'cover';
+              
+              containerRef.current.appendChild(video);
+              addDebugMessage('✅ Manual video element created and added', 'success');
+              
+            } catch (streamError) {
+              addDebugMessage(`❌ Failed to create manual video: ${streamError.message}`, 'error');
+            }
+          }
+        }
+      }
+      
+      // Check container dimensions
+      const containerRect = containerRef.current?.getBoundingClientRect();
+      if (containerRect) {
+        addDebugMessage(`📍 Container dimensions: ${containerRect.width}x${containerRect.height}`, 'info');
+      }
+      
       setCameraActive(true);
       setArReady(true);
       setIsInitialized(true);
@@ -579,9 +743,12 @@ export const useARLogic = ({
         rendererRef.current = null;
       }
       
-      // Clean up any blob URLs that might have been created
-      // Note: This is a best-effort cleanup as we don't track blob URLs
-      // The browser will clean them up when the page unloads
+      // Clean up blob URL if it exists
+      if (blobURLRef.current) {
+        URL.revokeObjectURL(blobURLRef.current);
+        addDebugMessage('🗑️ Blob URL revoked', 'info');
+        blobURLRef.current = null;
+      }
       
       // Clear other refs
       sceneRef.current = null;

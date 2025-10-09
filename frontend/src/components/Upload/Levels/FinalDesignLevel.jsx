@@ -59,10 +59,21 @@ const FinalDesignLevel = ({ onComplete, levelData, onStartNewJourney, forceStart
     }
   };
 
-  // Check if all prerequisites are met
-  const hasDesign = user?.uploadedFiles?.design?.url;
-  const hasQRPosition = user?.qrPosition;
-  const hasSocialLinks = user?.socialLinks && Object.values(user.socialLinks).some(link => link);
+  // Check if all prerequisites are met - use levelData instead of user (for project-based storage)
+  const hasDesign = levelData?.design?.url || user?.uploadedFiles?.design?.url;
+  const hasQRPosition = levelData?.qrPosition || user?.qrPosition;
+  const hasSocialLinks = levelData?.socialLinks 
+    ? Object.values(levelData.socialLinks).some(link => link) 
+    : (user?.socialLinks && Object.values(user.socialLinks).some(link => link));
+  
+  console.log('🎯 FinalDesignLevel - Prerequisites check:', {
+    hasDesign: !!hasDesign,
+    hasQRPosition: !!hasQRPosition,
+    hasSocialLinks: !!hasSocialLinks,
+    levelData,
+    designUrl: levelData?.design?.url,
+    qrPosition: levelData?.qrPosition
+  });
 
   if (isCompleted) {
     return (

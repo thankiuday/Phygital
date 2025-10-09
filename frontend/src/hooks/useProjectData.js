@@ -20,9 +20,20 @@ export const useProjectData = (projectId, userId, setIsLoading, setProjectData, 
         throw new Error('VITE_API_URL environment variable not defined');
       }
       
-      const endpoint = projectId 
-        ? `/qr/project-data/${projectId}` 
-        : `/qr/user-data/${userId}`;
+      // Determine endpoint based on available parameters
+      let endpoint;
+      if (userId && projectId) {
+        // New format: /ar/user/{userId}/project/{projectId}
+        endpoint = `/qr/user/${userId}/project/${projectId}`;
+      } else if (projectId) {
+        // Legacy format: just project ID
+        endpoint = `/qr/project-data/${projectId}`;
+      } else if (userId) {
+        // Legacy format: just user ID
+        endpoint = `/qr/user-data/${userId}`;
+      } else {
+        throw new Error('Either userId and projectId, or userId alone, or projectId alone must be provided');
+      }
       
       const fullUrl = `${apiUrl}${endpoint}`;
       console.log('🌐 Fetching from URL:', fullUrl);

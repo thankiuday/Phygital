@@ -18,7 +18,7 @@ const analyticsSchema = new mongoose.Schema({
   eventType: {
     type: String,
     required: true,
-    enum: ['scan', 'videoView', 'linkClick', 'pageView', 'videoComplete']
+    enum: ['scan', 'videoView', 'linkClick', 'pageView', 'videoComplete', 'arExperienceStart']
   },
   
   // Event details
@@ -140,6 +140,7 @@ analyticsSchema.statics.trackEvent = async function(userId, eventType, eventData
     if (eventType === 'scan') fieldToUpdate = 'analytics.totalScans';
     else if (eventType === 'videoView') fieldToUpdate = 'analytics.videoViews';
     else if (eventType === 'linkClick') fieldToUpdate = 'analytics.linkClicks';
+    else if (eventType === 'arExperienceStart') fieldToUpdate = 'analytics.arExperienceStarts';
     
     await User.findByIdAndUpdate(userId, {
       $inc: { [fieldToUpdate]: 1 }

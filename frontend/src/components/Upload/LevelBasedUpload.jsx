@@ -308,23 +308,51 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
 
   // Initialize level data from existing user data
   useEffect(() => {
+    // Get data from current project or fallback to root level (backward compatibility)
+    const getProjectOrRootData = () => {
+      if (currentProject && user?.projects) {
+        const project = user.projects.find(p => p.id === currentProject.id);
+        if (project) {
+          return {
+            design: project.uploadedFiles?.design || null,
+            qrPosition: project.qrPosition || null,
+            video: project.uploadedFiles?.video || null,
+            socialLinks: user.socialLinks || {}, // Social links remain at user level
+            source: 'project'
+          };
+        }
+      }
+      // Fallback to root-level data
+      return {
+        design: user?.uploadedFiles?.design || null,
+        qrPosition: user?.qrPosition || null,
+        video: user?.uploadedFiles?.video || null,
+        socialLinks: user?.socialLinks || {},
+        source: 'root'
+      };
+    };
+    
+    const projectData = getProjectOrRootData();
+    
     console.log('LevelBasedUpload initialization:', { 
       hasUser: !!user, 
-      forceStartFromLevel1, 
+      forceStartFromLevel1,
+      currentProject: currentProject?.id,
+      dataSource: projectData.source,
       userData: user ? {
-        hasDesign: !!user.uploadedFiles?.design?.url,
-        hasQRPosition: !!user.qrPosition,
-        hasVideo: !!user.uploadedFiles?.video?.url,
-        hasSocialLinks: !!(user.socialLinks && Object.values(user.socialLinks).some(link => link && link.trim() !== ''))
+        hasDesign: !!projectData.design?.url,
+        hasQRPosition: !!projectData.qrPosition,
+        hasVideo: !!projectData.video?.url,
+        hasSocialLinks: !!(projectData.socialLinks && Object.values(projectData.socialLinks).some(link => link && link.trim() !== ''))
       } : null
     });
     
     if (user && !forceStartFromLevel1) {
       const existingData = {
-        design: user.uploadedFiles?.design || null,
-        qrPosition: user.qrPosition || null,
-        video: user.uploadedFiles?.video || null,
-        socialLinks: user.socialLinks || {},
+        design: projectData.design,
+        qrPosition: projectData.qrPosition,
+        video: projectData.video,
+        socialLinks: projectData.socialLinks,
         finalDesign: null // This will be set when final design is generated
       };
       
@@ -362,18 +390,14 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
       setCompletedLevels(completedLevelsArray);
     } else {
       // Force start from level 1 or no user data
-      console.log('Force starting from level 1 - ignoring existing user data');
+      // Note: Don't reset levelData here - it gets updated as user completes levels
+      // We only reset the starting level and completed levels
+      console.log('Force starting from level 1 - starting fresh but preserving level data');
       setCurrentLevel(1);
       setCompletedLevels([]); // Reset completed levels for fresh start
-      setLevelData({
-        design: null,
-        qrPosition: null,
-        video: null,
-        socialLinks: {},
-        finalDesign: null
-      });
+      // Don't reset levelData - it will be populated as user completes each level
     }
-  }, [user, forceStartFromLevel1]);
+  }, [user, forceStartFromLevel1, currentProject]);
 
   // Update completed levels when data changes
   useEffect(() => {
@@ -443,6 +467,11 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
           />
         );
       case 'QRPosition':
+        console.log('🔧 Rendering QRPosition level with:');
+        console.log('  - levelData.design:', levelData.design);
+        console.log('  - levelData.design?.url:', levelData.design?.url);
+        console.log('  - hasDesign:', !!levelData.design);
+        console.log('  - Full levelData:', JSON.stringify(levelData, null, 2));
         return (
           <QRPositionLevel 
             onComplete={(qrPosition) => {

@@ -1,9 +1,31 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import fs from 'fs'
+import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: 'serve-qr-scan-html',
+      configureServer(server) {
+        // Serve qr-scan.html directly without Vite processing
+        // This prevents Vite from trying to resolve ES module imports in the HTML
+        server.middlewares.use((req, res, next) => {
+          if (req.url && (req.url === '/qr-scan.html' || req.url.startsWith('/qr-scan.html?'))) {
+            const htmlPath = path.resolve(server.config.root, 'public', 'qr-scan.html');
+            const html = fs.readFileSync(htmlPath, 'utf-8');
+            res.setHeader('Content-Type', 'text/html');
+            res.statusCode = 200;
+            res.end(html);
+            return;
+          }
+          next();
+        });
+      }
+    }
+  ],
   server: {
     port: 5173,
     host: true,
@@ -53,6 +75,7 @@ export default defineConfig({
     'process.env': process.env
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom']
+    include: ['react', 'react-dom', 'react-router-dom'],
+    exclude: ['mindar-image-three', 'GLTFLoader', 'RoomEnvironment']
   }
 })

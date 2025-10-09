@@ -51,6 +51,9 @@ function App() {
           <Route path="scan/:userId" element={<QRScanPage />} />
           <Route path="scan/project/:projectId" element={<QRScanPage />} />
           <Route path="scan/:id" element={<ScanPage />} />
+          {/* New URL structure: /ar/user/{userId}/project/{projectId} */}
+          <Route path="ar/user/:userId/project/:projectId" element={<ARExperiencePage />} />
+          {/* Legacy routes for backward compatibility */}
           <Route path="ar/:userId" element={<ARExperiencePage />} />
           <Route path="ar/project/:projectId" element={<ARExperiencePage />} />
         </Route>

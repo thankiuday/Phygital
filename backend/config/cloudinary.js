@@ -64,6 +64,7 @@ const uploadToCloudinary = async (file, userId, type) => {
       format: fileExtension,
       quality: 'auto',
       fetch_format: 'auto',
+      timeout: 120000, // 2 minutes timeout for large files
       transformation: type === 'video' ? [
         { quality: 'auto' },
         { fetch_format: 'auto' }
@@ -148,17 +149,33 @@ const uploadToCloudinaryBuffer = async (buffer, userId, type, filename, contentT
     
     console.log('Uploading buffer to Cloudinary with folder:', folderPath);
     console.log('File name:', finalFilename);
+    console.log('Content-Type:', contentType);
+    console.log('Type:', type);
 
     // Upload options
+    // Determine resource type based on content type or folder
+    let resourceType = 'image'; // default
+    if (type === 'video') {
+      resourceType = 'video';
+    } else if (type === 'targets' || contentType === 'application/octet-stream' || finalFilename.endsWith('.mind')) {
+      resourceType = 'raw'; // For .mind files and other binary files
+    }
+    
     const uploadOptions = {
       folder: folderPath,
       public_id: finalFilename,
-      resource_type: type === 'video' ? 'video' : 'image',
-      quality: 'auto',
-      fetch_format: 'auto'
+      resource_type: resourceType,
+      timeout: 120000 // 2 minutes timeout for large files
     };
+    
+    // Only add quality and fetch_format for images and videos, not raw files
+    if (resourceType !== 'raw') {
+      uploadOptions.quality = 'auto';
+      uploadOptions.fetch_format = 'auto';
+    }
 
     console.log('Upload options:', uploadOptions);
+    console.log('📦 Resource type:', resourceType, '(for .mind files, this should be "raw")');
 
     // Upload to Cloudinary
     const result = await cloudinary.uploader.upload(

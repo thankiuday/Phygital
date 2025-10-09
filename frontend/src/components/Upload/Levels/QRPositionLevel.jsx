@@ -19,7 +19,17 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
   const [captureCompositeFunction, setCaptureCompositeFunction] = useState(null);
   const [qrImageUrl, setQrImageUrl] = useState('');
 
+  console.log('🎨 QRPositionLevel - Props received:');
+  console.log('  - designUrl (prop):', designUrl);
+  console.log('  - currentPosition:', currentPosition);
+  console.log('  - forceStartFromLevel1:', forceStartFromLevel1);
+  console.log('  - user?.uploadedFiles?.design?.url:', user?.uploadedFiles?.design?.url);
+
   const designImageUrl = designUrl || user?.uploadedFiles?.design?.url;
+  
+  console.log('🎨 QRPositionLevel - Final Design Image URL:', designImageUrl);
+  console.log('🎨 QRPositionLevel - designImageUrl is null?', designImageUrl === null);
+  console.log('🎨 QRPositionLevel - designImageUrl is undefined?', designImageUrl === undefined);
 
   // Fetch user's QR image for live preview and composite drawing
   useEffect(() => {
@@ -433,9 +443,19 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
 
       // Client-side fallback: generate .mind and upload if server did not
       try {
-        const mindTargetUrlFromServer = response.data?.data?.user?.uploadedFiles?.mindTarget?.url;
+        // Check if server already generated .mind file (new response structure)
+        const mindTargetUrlFromServer = response.data?.data?.mindTarget?.url || 
+                                        response.data?.data?.user?.uploadedFiles?.mindTarget?.url;
+        
+        console.log('[Level QR] Server-side .mind URL:', mindTargetUrlFromServer);
+        
         if (!mindTargetUrlFromServer) {
-          const compositeUrl = response.data?.data?.user?.uploadedFiles?.compositeDesign?.url;
+          // Check for composite URL (new response structure first, then fallback)
+          const compositeUrl = response.data?.data?.compositeDesign?.url || 
+                              response.data?.data?.user?.uploadedFiles?.compositeDesign?.url;
+          
+          console.log('[Level QR] Composite URL for .mind generation:', compositeUrl);
+          
           if (compositeUrl) {
             console.log('[Level QR] Generating .mind on client from composite...');
             const mindarModule = await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image.prod.js');
@@ -502,8 +522,12 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         // Optionally redirect to login
         // window.location.href = '/login';
       } else if (error.response?.status === 400) {
-        console.error('Validation error:', error.response?.data);
-        toast.error(error.response?.data?.message || 'Invalid QR position data');
+        console.error('❌ Validation error (400):', error.response?.data);
+        console.error('  - Message:', error.response?.data?.message);
+        console.error('  - Errors:', error.response?.data?.errors);
+        console.error('  - Full response:', JSON.stringify(error.response?.data, null, 2));
+        const errorMsg = error.response?.data?.message || 'Invalid QR position data';
+        toast.error(`Validation Error: ${errorMsg}`);
       } else {
         const errorMessage = error.response?.data?.message || 'Failed to save QR position';
         toast.error(errorMessage);
