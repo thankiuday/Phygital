@@ -160,3 +160,4 @@ All QR codes now point to the new URL structure:
 - **Old QR codes** will continue to work with legacy routes
 
 
+

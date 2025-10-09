@@ -214,3 +214,34 @@ export const throttle = (func, delay) => {
     }
   };
 };
+
+// Detect if the device is mobile
+export const isMobileDevice = () => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
+
+// Get appropriate camera constraints based on device type
+export const getCameraConstraints = (exact = false) => {
+  const isMobile = isMobileDevice();
+  
+  if (isMobile) {
+    // Mobile: Use back camera (environment facing)
+    return {
+      facingMode: exact ? { exact: 'environment' } : { ideal: 'environment' },
+      width: { ideal: 1280, max: 1920 },
+      height: { ideal: 720, max: 1080 }
+    };
+  } else {
+    // Desktop: Use front camera (user facing)
+    return {
+      facingMode: 'user',
+      width: { ideal: 1280 },
+      height: { ideal: 720 }
+    };
+  }
+};
+
+// Get facing mode for MindAR configuration
+export const getMindARFacingMode = () => {
+  return isMobileDevice() ? 'environment' : 'user';
+};

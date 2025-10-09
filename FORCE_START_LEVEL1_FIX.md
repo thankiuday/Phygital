@@ -133,3 +133,4 @@ Level 2 completed: false (forceStartFromLevel1: true) (data: { design: { url: ".
 The `forceStartFromLevel1` flag now correctly controls the starting point of the journey, without destroying the data that users create as they progress through the levels.
 
 
+

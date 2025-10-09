@@ -4,7 +4,17 @@
  */
 
 import { useRef, useCallback, useEffect } from 'react';
-import { validateImageForMindAR, processImageForAR, fetchMindFile, base64ToUint8Array, isValidMindBuffer, throttle } from '../utils/arUtils';
+import { 
+  validateImageForMindAR, 
+  processImageForAR, 
+  fetchMindFile, 
+  base64ToUint8Array, 
+  isValidMindBuffer, 
+  throttle,
+  isMobileDevice,
+  getCameraConstraints,
+  getMindARFacingMode
+} from '../utils/arUtils';
 
 export const useARLogic = ({
   librariesLoaded,
@@ -248,16 +258,18 @@ export const useARLogic = ({
         filterBeta: 0.002,
         warmupTolerance: 20,
         missTolerance: 20,
-        facingMode: 'environment',
+        facingMode: getMindARFacingMode(), // Back camera on mobile, front on desktop
         resolution: { 
-          width: Math.min(containerRef.current.offsetWidth, 480),
-          height: Math.min(containerRef.current.offsetHeight, 360) 
+          width: Math.min(containerRef.current.offsetWidth, 640),
+          height: Math.min(containerRef.current.offsetHeight, 480) 
         },
         // Ensure canvas is visible and properly positioned
         uiScanning: false, // Disable default UI scanning overlay
         uiLoading: false,  // Disable default UI loading overlay
         uiError: false     // Disable default UI error overlay
       };
+      
+      addDebugMessage(`🔧 MindAR facing mode: ${mindarConfig.facingMode} (mobile: ${isMobileDevice()})`, 'info');
 
       // Add specific configuration based on target type
       if (targetType === '.mind file' && mindBuffer) {
@@ -437,20 +449,53 @@ export const useARLogic = ({
       // Request camera permission explicitly before starting MindAR
       try {
         addDebugMessage('📷 Requesting camera permission...', 'info');
+        
+        // Detect device type and get appropriate camera constraints
+        const isMobile = isMobileDevice();
+        addDebugMessage(`📱 Device type: ${isMobile ? 'Mobile' : 'Desktop'}`, 'info');
+        
+        // Get camera constraints - use exact for initial request
+        const videoConstraints = getCameraConstraints(true);
+        addDebugMessage(`🎥 Camera constraints: ${JSON.stringify(videoConstraints)}`, 'info');
+        
         const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { 
-            facingMode: 'environment',
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          } 
+          video: videoConstraints,
+          audio: false
         });
+        
+        addDebugMessage('✅ Camera permission granted', 'success');
+        addDebugMessage(`📹 Camera stream: ${stream.getVideoTracks().length} video track(s)`, 'info');
+        
+        // Log camera settings
+        const videoTrack = stream.getVideoTracks()[0];
+        const settings = videoTrack.getSettings();
+        addDebugMessage(`📷 Camera settings: ${settings.width}x${settings.height}, facing: ${settings.facingMode || 'unknown'}`, 'info');
         
         // Stop the test stream as MindAR will handle the camera
         stream.getTracks().forEach(track => track.stop());
-        addDebugMessage('✅ Camera permission granted', 'success');
+        addDebugMessage('✅ Test stream stopped, MindAR will now initialize camera', 'success');
       } catch (permissionError) {
         addDebugMessage(`❌ Camera permission denied: ${permissionError.message}`, 'error');
-        throw new Error(`Camera access denied: ${permissionError.message}`);
+        
+        // If exact back camera fails on mobile, try with ideal constraint
+        if (permissionError.name === 'OverconstrainedError') {
+          addDebugMessage('🔄 Retrying with relaxed constraints...', 'warning');
+          try {
+            // Use ideal constraints instead of exact
+            const relaxedConstraints = getCameraConstraints(false);
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+              video: relaxedConstraints,
+              audio: false
+            });
+            stream.getTracks().forEach(track => track.stop());
+            addDebugMessage('✅ Camera permission granted with relaxed constraints', 'success');
+          } catch (retryError) {
+            addDebugMessage(`❌ Retry failed: ${retryError.message}`, 'error');
+            throw new Error(`Camera access denied: ${retryError.message}`);
+          }
+        } else {
+          throw new Error(`Camera access denied: ${permissionError.message}`);
+        }
       }
       
       await mindar.start();
@@ -499,7 +544,7 @@ export const useARLogic = ({
         canvas.style.zIndex = '10'; // Higher z-index to ensure it's visible
         canvas.style.backgroundColor = 'transparent';
         
-        // Also ensure the video element is visible
+        // Also ensure the video element is visible and properly configured for mobile
         const video = containerRef.current?.querySelector('video');
         if (video) {
           video.style.position = 'absolute';
@@ -509,7 +554,20 @@ export const useARLogic = ({
           video.style.height = '100%';
           video.style.zIndex = '5'; // Behind canvas but above background
           video.style.objectFit = 'cover';
-          addDebugMessage('🔧 Video element styling applied', 'info');
+          
+          // Add mobile-specific attributes if not already set
+          if (!video.hasAttribute('playsinline')) {
+            video.setAttribute('playsinline', '');
+            video.setAttribute('webkit-playsinline', '');
+          }
+          if (!video.hasAttribute('muted')) {
+            video.setAttribute('muted', '');
+            video.muted = true;
+          }
+          video.setAttribute('autoplay', '');
+          video.autoplay = true;
+          
+          addDebugMessage('🔧 Video element styling and mobile attributes applied', 'info');
         }
         
         addDebugMessage('🔧 Canvas styling applied', 'info');
@@ -520,7 +578,7 @@ export const useARLogic = ({
         const video = containerRef.current?.querySelector('video');
         if (video) {
           addDebugMessage(`✅ Video element found: ${video.videoWidth}x${video.videoHeight}`, 'success');
-          // Style video element
+          // Style video element with mobile support
           video.style.position = 'absolute';
           video.style.top = '0';
           video.style.left = '0';
@@ -528,6 +586,16 @@ export const useARLogic = ({
           video.style.height = '100%';
           video.style.zIndex = '1';
           video.style.objectFit = 'cover';
+          
+          // Add mobile-specific attributes
+          video.setAttribute('playsinline', '');
+          video.setAttribute('webkit-playsinline', '');
+          video.setAttribute('muted', '');
+          video.setAttribute('autoplay', '');
+          video.muted = true;
+          video.autoplay = true;
+          
+          addDebugMessage('🔧 Video element mobile attributes applied', 'info');
         } else {
           addDebugMessage('❌ No video element found either!', 'error');
           
@@ -545,12 +613,13 @@ export const useARLogic = ({
             // Try to manually access the camera stream
             try {
               addDebugMessage('🔧 Attempting to access camera stream directly...', 'info');
+              
+              // Get appropriate camera constraints for this device
+              const videoConstraints = getCameraConstraints(false);
+              
               const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { 
-                  facingMode: 'environment',
-                  width: { ideal: 1280 },
-                  height: { ideal: 720 }
-                } 
+                video: videoConstraints,
+                audio: false
               });
               
               // Create a video element manually
@@ -559,6 +628,9 @@ export const useARLogic = ({
               video.autoplay = true;
               video.muted = true;
               video.playsInline = true;
+              video.setAttribute('playsinline', ''); // iOS requirement
+              video.setAttribute('webkit-playsinline', ''); // Older iOS
+              video.setAttribute('muted', ''); // Mobile autoplay requirement
               video.style.position = 'absolute';
               video.style.top = '0';
               video.style.left = '0';
@@ -566,6 +638,14 @@ export const useARLogic = ({
               video.style.height = '100%';
               video.style.zIndex = '1';
               video.style.objectFit = 'cover';
+              video.style.transform = 'scaleX(-1)'; // Mirror for front camera if needed
+              
+              // Ensure video plays on mobile
+              video.addEventListener('loadedmetadata', () => {
+                video.play().catch(err => {
+                  addDebugMessage(`⚠️ Video autoplay failed: ${err.message}`, 'warning');
+                });
+              });
               
               containerRef.current.appendChild(video);
               addDebugMessage('✅ Manual video element created and added', 'success');

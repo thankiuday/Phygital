@@ -155,3 +155,4 @@ The AR Experience now correctly prioritizes the .mind file for AR tracking, whic
 **Check your backend console logs** when saving QR position to see if .mind generation is working or failing!
 
 
+

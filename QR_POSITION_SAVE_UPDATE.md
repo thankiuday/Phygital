@@ -275,3 +275,4 @@ The QR position save endpoint now automatically generates and stores both:
 This provides a seamless experience where users only need to set the QR position once, and the system handles all the AR-related file generation automatically! 🎉
 
 
+

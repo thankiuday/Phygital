@@ -308,3 +308,4 @@ The platform has been completely migrated to support project-based storage while
 **Next immediate step:** Check backend console logs when saving QR position to verify .mind file generation is working.
 
 
+
