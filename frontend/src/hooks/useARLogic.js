@@ -104,6 +104,19 @@ export const useARLogic = ({
         
         video.load(); // Start loading
       });
+      
+      // ✅ CRITICAL: Pre-load video but DON'T play yet
+      // We'll start playback when target is detected
+      // On mobile, we need to "prime" the video by attempting to play then pause
+      try {
+        await video.play();
+        video.pause();
+        video.currentTime = 0;
+        addDebugMessage('✅ Video primed and ready (will play on target detection)', 'success');
+      } catch (playError) {
+        addDebugMessage(`⚠️ Video priming failed: ${playError.message}`, 'warning');
+        addDebugMessage('💡 Video may require user interaction to play', 'info');
+      }
 
       // Create texture with MINIMAL configuration to avoid Three.js version conflicts
       const texture = new window.THREE.VideoTexture(video);
@@ -557,16 +570,8 @@ export const useARLogic = ({
           }
           
           if (isTargetVisible) {
-            // Target is detected - show video and play
-            
-            // Only log when state CHANGES (not every frame)
-            if (!wasTargetVisible) {
-              wasTargetVisible = true;
-              const timestamp = new Date().toLocaleTimeString();
-              console.log(`🎯 [${timestamp}] TARGET DETECTED (via anchor.visible)`);
-              addDebugMessage('🎯 Target detected!', 'success');
-              setTargetDetected(true);
-            }
+            // ✅ Target is detected - show video mesh AND play video
+            // This matches the working code pattern exactly
             
             // Show video mesh
             if (videoMeshRef.current && !videoMeshRef.current.visible) {
@@ -578,34 +583,34 @@ export const useARLogic = ({
                 position: videoMeshRef.current.position,
                 scale: videoMeshRef.current.scale,
                 hasTexture: !!videoMeshRef.current.material?.map,
-                videoPlaying: videoRef.current && !videoRef.current.paused
+                videoPlaying: videoRef.current && !videoRef.current.paused,
+                videoCurrentTime: videoRef.current ? videoRef.current.currentTime : 0
               });
-              addDebugMessage('👁️ Video overlay visible on target', 'success');
             }
             
-            // Play video
+            // Play video if paused (matching working code)
             if (videoRef.current && videoRef.current.paused) {
               const timestamp = new Date().toLocaleTimeString();
-              console.log(`▶️ [${timestamp}] Auto-playing video`);
+              console.log(`▶️ [${timestamp}] Starting video playback`);
               
               videoRef.current.play().catch(e => {
                 console.log(`⚠️ [${timestamp}] Auto-play failed:`, e.message);
-                addDebugMessage('💡 Tap the play button to start video', 'info');
+                addDebugMessage('💡 Tap the screen to allow video playback', 'info');
               });
             }
             
-          } else {
-            // Target is lost - hide video and pause
-            
             // Only log when state CHANGES (not every frame)
-            if (wasTargetVisible) {
-              wasTargetVisible = false;
+            if (!wasTargetVisible) {
+              wasTargetVisible = true;
               const timestamp = new Date().toLocaleTimeString();
-              console.log(`🔍 [${timestamp}] TARGET LOST (via anchor.visible)`);
-              addDebugMessage('🔍 Target lost', 'warning');
-              setTargetDetected(false);
-              setVideoPlaying(false);
+              console.log(`🎯 [${timestamp}] TARGET DETECTED`);
+              addDebugMessage('🎯 Target detected!', 'success');
+              setTargetDetected(true);
             }
+            
+          } else {
+            // ✅ Target is lost - hide video mesh AND pause video
+            // This matches the working code pattern exactly
             
             // Hide video mesh
             if (videoMeshRef.current && videoMeshRef.current.visible) {
@@ -614,11 +619,21 @@ export const useARLogic = ({
               console.log(`👁️ [${timestamp}] Video mesh hidden`);
             }
             
-            // Pause video
+            // Pause video (matching working code)
             if (videoRef.current && !videoRef.current.paused) {
-              const timestamp = new Date().toLocaleTimeString();
-              console.log(`⏸️ [${timestamp}] Pausing video`);
               videoRef.current.pause();
+              const timestamp = new Date().toLocaleTimeString();
+              console.log(`⏸️ [${timestamp}] Video paused`);
+            }
+            
+            // Only log when state CHANGES (not every frame)
+            if (wasTargetVisible) {
+              wasTargetVisible = false;
+              const timestamp = new Date().toLocaleTimeString();
+              console.log(`🔍 [${timestamp}] TARGET LOST`);
+              addDebugMessage('🔍 Target lost', 'warning');
+              setTargetDetected(false);
+              setVideoPlaying(false);
             }
           }
           
