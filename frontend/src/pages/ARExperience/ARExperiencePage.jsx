@@ -176,20 +176,20 @@ const ARExperiencePage = () => {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
-      {/* AR Container */}
+    <div className="relative w-full h-screen overflow-hidden bg-black">
+      {/* AR Container - Full screen with proper mobile viewport handling */}
       <div 
         ref={containerRef}
         className="absolute inset-0 w-full h-full"
         style={{ 
           width: '100%', 
-          height: '100%',
+          height: '100vh',
           touchAction: 'none',
           minWidth: '320px',
-          minHeight: '240px',
-          backgroundColor: '#000', // Black background
+          minHeight: '100vh',
+          backgroundColor: '#000',
           overflow: 'hidden',
-          position: 'absolute',
+          position: 'fixed',
           top: 0,
           left: 0,
           right: 0,
@@ -198,36 +198,44 @@ const ARExperiencePage = () => {
         }}
       />
 
-      {/* Top UI Bar */}
-      <div className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-black/50 to-transparent p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate(-1)}
-              className="p-2 bg-black/30 hover:bg-black/50 rounded-full text-white backdrop-blur-sm"
-            >
-              <X size={20} />
-            </button>
-            <div className="text-white">
-              <h1 className="font-semibold">AR Experience</h1>
-              <p className="text-sm text-gray-300">
-                {projectData?.name || 'Phygital AR'}
-              </p>
+      {/* Top UI Bar - Compact and professional */}
+      <div className="fixed top-0 left-0 right-0 z-40 bg-gradient-to-b from-black/80 via-black/40 to-transparent">
+        <div className="safe-top px-3 py-3 sm:px-4 sm:py-4">
+          <div className="flex items-center justify-between">
+            {/* Left: Back button and project info */}
+            <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+              <button
+                onClick={() => navigate(-1)}
+                className="p-2 sm:p-2.5 bg-black/40 hover:bg-black/60 active:bg-black/70 rounded-full text-white backdrop-blur-md border border-white/10 transition-all duration-200 flex-shrink-0 shadow-lg"
+                aria-label="Go back"
+              >
+                <X size={18} className="sm:hidden" />
+                <X size={20} className="hidden sm:block" />
+              </button>
+              <div className="text-white min-w-0 flex-1">
+                <h1 className="font-semibold text-sm sm:text-base truncate">AR Experience</h1>
+                <p className="text-xs sm:text-sm text-gray-300 truncate">
+                  {projectData?.projectName || projectData?.name || 'Phygital AR'}
+                </p>
+              </div>
             </div>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowDebug(true)}
-              className="p-2 bg-black/30 hover:bg-black/50 rounded-full text-white backdrop-blur-sm"
-            >
-              <Settings size={20} />
-            </button>
+            
+            {/* Right: Settings button with debug panel */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={() => setShowDebug(true)}
+                className="p-2 sm:p-2.5 bg-black/40 hover:bg-black/60 active:bg-black/70 rounded-full text-white backdrop-blur-md border border-white/10 transition-all duration-200 shadow-lg"
+                aria-label="Settings and Debug"
+              >
+                <Settings size={18} className="sm:hidden" />
+                <Settings size={20} className="hidden sm:block" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* AR Controls */}
+      {/* AR Controls - Mobile optimized */}
       <ARControls
         isScanning={isScanning}
         arReady={arReady}
@@ -242,7 +250,7 @@ const ARExperiencePage = () => {
         onToggleMute={toggleMute}
       />
 
-      {/* Debug Panel */}
+      {/* Debug Panel - Accessed via Settings */}
       <DebugPanel
         showDebug={showDebug}
         setShowDebug={setShowDebug}
