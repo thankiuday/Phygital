@@ -43,7 +43,7 @@ const ARControls = ({
     <>
       {/* Status Indicator - Modern and compact for mobile */}
       <div className="fixed top-16 sm:top-20 left-0 right-0 z-30 px-3 sm:px-4">
-        <div className="flex items-center justify-center">
+        <div className="flex flex-col items-center gap-2">
           <div className={`px-3 py-2 sm:px-4 sm:py-2.5 rounded-full text-xs sm:text-sm font-medium backdrop-blur-md shadow-lg transition-all duration-300 ${
             targetDetected 
               ? 'bg-green-500/30 text-green-100 border-2 border-green-400/50 shadow-green-500/20' 
@@ -60,6 +60,20 @@ const ARControls = ({
               </span>
             </div>
           </div>
+          
+          {/* Additional tracking info */}
+          {isScanning && !targetDetected && (
+            <div className="px-3 py-1.5 rounded-full text-xs backdrop-blur-md bg-yellow-500/20 text-yellow-100 border border-yellow-400/30">
+              <span>Point camera at the printed design</span>
+            </div>
+          )}
+          
+          {/* Video playing indicator */}
+          {targetDetected && videoPlaying && (
+            <div className="px-3 py-1.5 rounded-full text-xs backdrop-blur-md bg-purple-500/20 text-purple-100 border border-purple-400/30">
+              <span>▶️ Video Playing</span>
+            </div>
+          )}
         </div>
       </div>
 
