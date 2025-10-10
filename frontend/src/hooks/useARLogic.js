@@ -103,7 +103,7 @@ export const useARLogic = ({
       const videoMesh = new window.THREE.Mesh(geometry, material);
       videoMesh.position.set(0, 0, 0);  // Same position as target
       videoMesh.rotation.x = 0;
-      videoMesh.scale.set(1, 1, 1);  // Default scale
+      videoMesh.scale.set(1.5, 1.5, 1.5);  // Scale up to be more visible (was 1, 1, 1)
       
       videoMeshRef.current = videoMesh;
       anchor.group.add(videoMesh);
@@ -521,18 +521,43 @@ export const useARLogic = ({
         // ✅ CRITICAL: Custom animation frame loop for video control
         // We use requestAnimationFrame instead of renderer.setAnimationLoop
         // to avoid conflicts with MindAR's internal rendering
+        
+        // Track previous state to avoid logging every frame
+        let wasTargetVisible = false;
+        
         const animateVideoControl = () => {
-          if (anchorRef.current && anchorRef.current.visible) {
+          const isTargetVisible = anchorRef.current && anchorRef.current.visible;
+          
+          if (isTargetVisible) {
             // Target is detected - show video and play
+            
+            // Only log when state CHANGES (not every frame)
+            if (!wasTargetVisible) {
+              wasTargetVisible = true;
+              const timestamp = new Date().toLocaleTimeString();
+              console.log(`🎯 [${timestamp}] TARGET DETECTED (via anchor.visible)`);
+              addDebugMessage('🎯 Target detected!', 'success');
+              setTargetDetected(true);
+            }
+            
+            // Show video mesh
             if (videoMeshRef.current && !videoMeshRef.current.visible) {
               videoMeshRef.current.visible = true;
               const timestamp = new Date().toLocaleTimeString();
               console.log(`👁️ [${timestamp}] Video mesh shown`);
+              console.log(`📊 [${timestamp}] Video mesh info:`, {
+                visible: videoMeshRef.current.visible,
+                position: videoMeshRef.current.position,
+                scale: videoMeshRef.current.scale,
+                hasTexture: !!videoMeshRef.current.material?.map
+              });
+              addDebugMessage('👁️ Video overlay visible on target', 'success');
             }
             
+            // Play video
             if (videoRef.current && videoRef.current.paused) {
               const timestamp = new Date().toLocaleTimeString();
-              console.log(`▶️ [${timestamp}] Target visible - auto-playing video`);
+              console.log(`▶️ [${timestamp}] Auto-playing video`);
               
               videoRef.current.play().catch(e => {
                 console.log(`⚠️ [${timestamp}] Auto-play failed:`, e.message);
@@ -540,35 +565,31 @@ export const useARLogic = ({
               });
             }
             
-            // Update state
-            if (!targetDetected) {
-              const timestamp = new Date().toLocaleTimeString();
-              console.log(`🎯 [${timestamp}] TARGET DETECTED (via anchor.visible)`);
-              addDebugMessage('🎯 Target detected!', 'success');
-              setTargetDetected(true);
-            }
-            
           } else {
             // Target is lost - hide video and pause
+            
+            // Only log when state CHANGES (not every frame)
+            if (wasTargetVisible) {
+              wasTargetVisible = false;
+              const timestamp = new Date().toLocaleTimeString();
+              console.log(`🔍 [${timestamp}] TARGET LOST (via anchor.visible)`);
+              addDebugMessage('🔍 Target lost', 'warning');
+              setTargetDetected(false);
+              setVideoPlaying(false);
+            }
+            
+            // Hide video mesh
             if (videoMeshRef.current && videoMeshRef.current.visible) {
               videoMeshRef.current.visible = false;
               const timestamp = new Date().toLocaleTimeString();
               console.log(`👁️ [${timestamp}] Video mesh hidden`);
             }
             
+            // Pause video
             if (videoRef.current && !videoRef.current.paused) {
               const timestamp = new Date().toLocaleTimeString();
-              console.log(`⏸️ [${timestamp}] Target lost - pausing video`);
+              console.log(`⏸️ [${timestamp}] Pausing video`);
               videoRef.current.pause();
-            }
-            
-            // Update state
-            if (targetDetected) {
-              const timestamp = new Date().toLocaleTimeString();
-              console.log(`🔍 [${timestamp}] TARGET LOST (via anchor.visible)`);
-              addDebugMessage('🔍 Target lost', 'warning');
-              setTargetDetected(false);
-              setVideoPlaying(false);
             }
           }
           
