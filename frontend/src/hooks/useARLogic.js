@@ -596,25 +596,27 @@ export const useARLogic = ({
         addDebugMessage('✅ MindAR started successfully', 'success');
         
         // Log MindAR tracking status
-        console.log('🔍 MindAR tracking info:', {
-          maxTrack: mindar.maxTrack,
-          anchors: mindar.anchors?.length || 0,
-          hasOnTargetFound: typeof mindar.onTargetFound === 'function',
-          hasOnTargetLost: typeof mindar.onTargetLost === 'function'
-        });
-        
-        // Add periodic tracking status check
-        const trackingCheckInterval = setInterval(() => {
-          if (anchorRef.current && anchorRef.current.onTargetFound) {
-            // Target is being tracked
-            console.log('📊 Tracking active, anchor exists');
-          }
-        }, 5000);
-        
-        // Store interval for cleanup
-        if (!window.arTrackingInterval) {
-          window.arTrackingInterval = trackingCheckInterval;
+      console.log('🔍 MindAR tracking info:', {
+        maxTrack: mindar.maxTrack,
+        anchors: mindar.anchors?.length || 0,
+        hasOnTargetFound: typeof mindar.onTargetFound === 'function',
+        hasOnTargetLost: typeof mindar.onTargetLost === 'function'
+      });
+      
+      addDebugMessage('🎯 MindAR is now tracking. Point camera at the COMPOSITE IMAGE (with QR code)', 'info');
+      addDebugMessage('💡 TIP: Use the image downloaded from Step 5 (Final Design)', 'info');
+      
+      // Add a test to simulate target detection (for debugging)
+      window.testTargetDetection = () => {
+        console.log('🧪 Testing target detection manually...');
+        if (mindar && mindar.onTargetFound) {
+          mindar.onTargetFound();
+          console.log('✅ Manually triggered onTargetFound');
         }
+      };
+      
+      console.log('🧪 Debug: Run window.testTargetDetection() to test video overlay');
+      addDebugMessage('🧪 Test command available: window.testTargetDetection()', 'info');
         
       } catch (startError) {
         // Check if it's the buffer/mind file error

@@ -63,8 +63,8 @@ const ARControls = ({
           
           {/* Additional tracking info */}
           {isScanning && !targetDetected && (
-            <div className="px-3 py-1.5 rounded-full text-xs backdrop-blur-md bg-yellow-500/20 text-yellow-100 border border-yellow-400/30">
-              <span>Point camera at the printed design</span>
+            <div className="px-3 py-1.5 rounded-full text-xs backdrop-blur-md bg-yellow-500/20 text-yellow-100 border border-yellow-400/30 animate-pulse">
+              <span>📸 Point camera at the COMPOSITE IMAGE (with QR code)</span>
             </div>
           )}
           
@@ -110,6 +110,25 @@ const ARControls = ({
                 {videoMuted ? <VolumeX size={20} className="sm:w-6 sm:h-6" /> : <Volume2 size={20} className="sm:w-6 sm:h-6" />}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Scanning Instructions - Helpful tips when scanning */}
+      {isScanning && !targetDetected && (
+        <div className="fixed bottom-32 sm:bottom-36 left-0 right-0 z-30 px-3 sm:px-4">
+          <div className="max-w-md mx-auto bg-black/70 backdrop-blur-lg rounded-2xl p-3 sm:p-4 border border-yellow-400/30 shadow-2xl">
+            <h4 className="text-yellow-100 font-bold text-xs sm:text-sm mb-2 flex items-center gap-2">
+              <span className="text-yellow-400 text-base">💡</span>
+              Scanning Tips
+            </h4>
+            <ul className="text-yellow-50 text-xs space-y-1">
+              <li>• Scan the <strong>composite image</strong> (design + QR code)</li>
+              <li>• Use the image from <strong>Step 5: Final Design</strong></li>
+              <li>• Keep camera <strong>30-50cm away</strong></li>
+              <li>• Ensure <strong>good lighting</strong>, no glare</li>
+              <li>• Hold camera <strong>steady</strong> and perpendicular</li>
+            </ul>
           </div>
         </div>
       )}
