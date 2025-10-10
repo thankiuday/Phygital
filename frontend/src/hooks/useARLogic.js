@@ -68,13 +68,22 @@ export const useARLogic = ({
       video.loop = true;
       video.playsInline = true;
       video.crossOrigin = 'anonymous';
-      video.preload = 'metadata';
+      video.preload = 'auto'; // Changed from 'metadata' to 'auto' for faster loading
       video.controls = false;
+      video.autoplay = false; // Don't autoplay - wait for target detection
       
+      // Mobile-specific attributes for iOS and Android
       video.setAttribute('webkit-playsinline', 'true');
       video.setAttribute('playsinline', 'true');
+      video.setAttribute('muted', 'true');
+      video.setAttribute('x-webkit-airplay', 'allow');
+      
+      // Additional mobile optimization
+      video.style.objectFit = 'contain'; // Ensure video fits within the mesh
       
       videoRef.current = video;
+      
+      addDebugMessage('📱 Video element created with mobile optimizations', 'info');
 
       const texture = new window.THREE.VideoTexture(video);
       texture.minFilter = window.THREE.LinearFilter;
@@ -435,15 +444,34 @@ export const useARLogic = ({
         await setupVideo(anchor);
       }
 
-      mindar.onTargetFound = () => {
+      mindar.onTargetFound = async () => {
         addDebugMessage('🎯 Target detected!', 'success');
         setTargetDetected(true);
+        
+        // Auto-play video when target is detected (especially important for mobile)
+        if (videoRef.current && videoRef.current.paused) {
+          addDebugMessage('🎬 Auto-playing video on target detection...', 'info');
+          try {
+            // Ensure video is muted for autoplay on mobile
+            videoRef.current.muted = true;
+            await videoRef.current.play();
+            addDebugMessage('✅ Video auto-play successful', 'success');
+          } catch (playError) {
+            addDebugMessage(`⚠️ Video auto-play failed: ${playError.message}`, 'warning');
+            addDebugMessage('💡 Tap the play button to start the video', 'info');
+          }
+        }
       };
 
       mindar.onTargetLost = () => {
         addDebugMessage('🔍 Target lost', 'warning');
         setTargetDetected(false);
-        setVideoPlaying(false);
+        
+        // Pause video when target is lost
+        if (videoRef.current && !videoRef.current.paused) {
+          videoRef.current.pause();
+          setVideoPlaying(false);
+        }
       };
 
       // Start MindAR
