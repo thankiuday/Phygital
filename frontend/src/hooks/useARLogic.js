@@ -84,6 +84,26 @@ export const useARLogic = ({
       videoRef.current = video;
       
       addDebugMessage('📱 Video element created with mobile optimizations', 'info');
+      
+      // Wait for video to be ready before creating texture
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Video loading timeout'));
+        }, 10000);
+        
+        video.addEventListener('loadedmetadata', () => {
+          clearTimeout(timeout);
+          addDebugMessage('✅ Video metadata loaded', 'info');
+          addDebugMessage(`📹 Video dimensions: ${video.videoWidth}x${video.videoHeight}`, 'info');
+          resolve();
+        }, { once: true });
+        
+        video.addEventListener('canplay', () => {
+          addDebugMessage('✅ Video ready to play', 'info');
+        }, { once: true });
+        
+        video.load(); // Start loading
+      });
 
       // Create texture with MINIMAL configuration to avoid Three.js version conflicts
       const texture = new window.THREE.VideoTexture(video);
@@ -101,7 +121,7 @@ export const useARLogic = ({
       const material = new window.THREE.MeshBasicMaterial({ map: texture });
 
       const videoMesh = new window.THREE.Mesh(geometry, material);
-      videoMesh.position.set(0, 0, 0);  // Same position as target
+      videoMesh.position.set(0, 0, 0.1);  // Slightly in front of target (positive Z)
       videoMesh.rotation.x = 0;
       videoMesh.scale.set(1.5, 1.5, 1.5);  // Scale up to be more visible (was 1, 1, 1)
       
@@ -528,6 +548,14 @@ export const useARLogic = ({
         const animateVideoControl = () => {
           const isTargetVisible = anchorRef.current && anchorRef.current.visible;
           
+          // ✅ CRITICAL: Update video texture every frame when video is playing
+          // This ensures the video texture reflects the current video frame
+          if (videoMeshRef.current && videoRef.current && !videoRef.current.paused) {
+            if (videoMeshRef.current.material && videoMeshRef.current.material.map) {
+              videoMeshRef.current.material.map.needsUpdate = true;
+            }
+          }
+          
           if (isTargetVisible) {
             // Target is detected - show video and play
             
@@ -549,7 +577,8 @@ export const useARLogic = ({
                 visible: videoMeshRef.current.visible,
                 position: videoMeshRef.current.position,
                 scale: videoMeshRef.current.scale,
-                hasTexture: !!videoMeshRef.current.material?.map
+                hasTexture: !!videoMeshRef.current.material?.map,
+                videoPlaying: videoRef.current && !videoRef.current.paused
               });
               addDebugMessage('👁️ Video overlay visible on target', 'success');
             }
