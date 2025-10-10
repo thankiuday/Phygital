@@ -88,18 +88,25 @@ export const useARLogic = ({
       const texture = new window.THREE.VideoTexture(video);
       texture.minFilter = window.THREE.LinearFilter;
       texture.magFilter = window.THREE.LinearFilter;
-      texture.colorSpace = window.THREE.SRGBColorSpace;  // Match working code
-      texture.format = window.THREE.RGBAFormat;  // Ensure RGBA format with alpha channel
+      
+      // Set colorSpace carefully - check if the property exists
+      if (window.THREE.SRGBColorSpace !== undefined) {
+        texture.colorSpace = window.THREE.SRGBColorSpace;
+      } else if (texture.encoding !== undefined) {
+        // Fallback for older Three.js versions
+        texture.encoding = window.THREE.sRGBEncoding;
+      }
 
       const aspectRatio = projectData.designDimensions 
         ? projectData.designDimensions.width / projectData.designDimensions.height 
         : 1;
       
       const geometry = new window.THREE.PlaneGeometry(aspectRatio, 1);
+      
+      // Create material with minimal properties to avoid compatibility issues
       const material = new window.THREE.MeshBasicMaterial({ 
-        map: texture,
-        alphaTest: 0.01  // Key property from working code
-        // Note: Removed toneMapped to avoid Three.js version compatibility issues
+        map: texture
+        // Removed all optional properties that might cause compatibility issues
       });
 
       const videoMesh = new window.THREE.Mesh(geometry, material);
