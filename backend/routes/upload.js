@@ -784,10 +784,10 @@ router.post('/design', authenticateToken, upload.single('design'), async (req, r
         console.log('✅ Including composite design in root level:', compositeResult.url);
       }
       
-      // Add .mind target data if generation was successful
+      // ❌ DO NOT save .mind file at root level - project level only
       if (mindTargetResult) {
-        updateData['uploadedFiles.mindTarget'] = mindTargetResult;
-        console.log('✅ Including .mind target in root level');
+        console.log('⚠️ .mind file generated but no current project - cannot save at root level');
+        console.log('💡 User needs to create/select a project to save .mind files');
       }
       
       console.log('📁 Updating root-level uploadedFiles (no current project)');
@@ -845,7 +845,8 @@ router.post('/design', authenticateToken, upload.single('design'), async (req, r
       responseMindTarget = updatedProject?.uploadedFiles?.mindTarget || null;
     } else {
       responseDesign = updatedUser.uploadedFiles.design;
-      responseMindTarget = updatedUser.uploadedFiles.mindTarget || null;
+      // ❌ DO NOT return .mind file from root level - project level only
+      responseMindTarget = null;
     }
     
     res.status(200).json({
@@ -1467,8 +1468,10 @@ router.post('/qr-position', authenticateToken, [
       if (compositeDesignData) {
         updateData['uploadedFiles.compositeDesign'] = compositeDesignData;
       }
+      // ❌ DO NOT save .mind file at root level - project level only
       if (mindTargetData) {
-        updateData['uploadedFiles.mindTarget'] = mindTargetData;
+        console.log('⚠️ .mind file generated but no current project - cannot save');
+        console.log('💡 User needs to create/select a project to save .mind files');
       }
       console.log('📁 Updating root-level QR position (no current project)');
     }
@@ -1757,20 +1760,29 @@ router.post('/save-mind-target', authenticateToken, [
     let updateData = {};
     
     if (targetProject) {
-      // Store in project
+      // Store in project - ONLY place where .mind files should be saved
       updateData[`projects.${targetProjectIndex}.uploadedFiles.mindTarget`] = mindTargetData;
       console.log(`✅ Updating project ${targetProject.id} with .mind file`);
     } else {
-      // Store at root level (backward compatibility)
-      updateData['uploadedFiles.mindTarget'] = mindTargetData;
-      console.log('✅ Updating root-level .mind file (no current project)');
+      // ❌ REJECT: .mind files must be saved at project level only
+      console.error('❌ Cannot save .mind file - no current project');
+      return res.status(400).json({ 
+        status: 'error', 
+        message: 'Cannot save .mind file without a current project. Please create or select a project first.' 
+      });
     }
 
+    console.log('=== EXECUTING DATABASE UPDATE ===');
+    console.log('📊 Update data:', JSON.stringify(updateData, null, 2));
+    
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
       updateData,
       { new: true }
     ).select('-password');
+    
+    console.log('=== DATABASE UPDATE COMPLETED ===');
+    console.log('✅ User updated successfully');
 
     // Get the updated mind target from the correct location
     let responseMindTarget = mindTargetData;
@@ -1780,7 +1792,21 @@ router.post('/save-mind-target', authenticateToken, [
         responseMindTarget = updatedProject.uploadedFiles?.mindTarget || mindTargetData;
         console.log('📤 Returning project-level .mind target');
         console.log('📤 .mind target URL:', responseMindTarget?.url);
+        
+        // Verify the data was actually saved
+        console.log('=== VERIFICATION ===');
+        console.log('📊 Project ID:', updatedProject.id);
+        console.log('📊 Project name:', updatedProject.name);
+        console.log('📊 mindTarget saved?', !!updatedProject.uploadedFiles?.mindTarget);
+        console.log('📊 mindTarget URL:', updatedProject.uploadedFiles?.mindTarget?.url || 'MISSING');
+        console.log('📊 mindTarget size:', updatedProject.uploadedFiles?.mindTarget?.size || 'MISSING');
+        console.log('📊 Full mindTarget object:', JSON.stringify(updatedProject.uploadedFiles?.mindTarget, null, 2));
+      } else {
+        console.warn('⚠️ Could not find updated project after save!');
       }
+    } else {
+      console.log('📤 Returning root-level .mind target');
+      console.log('📊 Root mindTarget URL:', updatedUser.uploadedFiles?.mindTarget?.url || 'MISSING');
     }
 
     return res.status(200).json({
@@ -1859,10 +1885,11 @@ router.post('/fix-mind-target-url', authenticateToken, async (req, res) => {
         });
       }
     } else {
-      // Update root level
-      updateData['uploadedFiles.mindTarget'] = mindTargetData;
-      targetLocation = 'root level';
-      console.log('✅ Updating root level');
+      // ❌ REJECT: .mind files must be saved at project level only
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot save .mind file without a current project. Please create or select a project first.'
+      });
     }
     
     const updatedUser = await User.findByIdAndUpdate(
