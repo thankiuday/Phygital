@@ -89,7 +89,6 @@ export const useARLogic = ({
       texture.minFilter = window.THREE.LinearFilter;
       texture.magFilter = window.THREE.LinearFilter;
       texture.colorSpace = window.THREE.SRGBColorSpace;  // Match working code
-      texture.toneMapped = false;  // Match working code
       texture.format = window.THREE.RGBAFormat;  // Ensure RGBA format with alpha channel
 
       const aspectRatio = projectData.designDimensions 
@@ -99,8 +98,8 @@ export const useARLogic = ({
       const geometry = new window.THREE.PlaneGeometry(aspectRatio, 1);
       const material = new window.THREE.MeshBasicMaterial({ 
         map: texture,
-        alphaTest: 0.01,  // Key property from working code
-        toneMapped: false // Disable tone mapping for video
+        alphaTest: 0.01  // Key property from working code
+        // Note: Removed toneMapped to avoid Three.js version compatibility issues
       });
 
       const videoMesh = new window.THREE.Mesh(geometry, material);
