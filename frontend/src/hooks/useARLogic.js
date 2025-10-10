@@ -640,14 +640,18 @@ export const useARLogic = ({
           // No need to call requestAnimationFrame - renderer.setAnimationLoop handles this
         };
         
-        // ✅ CRITICAL: Use MindAR's renderer.setAnimationLoop instead of requestAnimationFrame
-        // This ensures our video control is part of MindAR's render cycle
-        renderer.setAnimationLoop(() => {
+        // ✅ CRITICAL: Let MindAR handle rendering - we just control video mesh visibility
+        // MindAR's start() already sets up its own animation loop
+        // We run our video control in parallel using requestAnimationFrame
+        const videoControlLoop = () => {
           animateVideoControl();
-          renderer.render(scene, camera);
-        });
+          if (mindarRef.current) {
+            requestAnimationFrame(videoControlLoop);
+          }
+        };
+        requestAnimationFrame(videoControlLoop);
         
-        addDebugMessage('🔄 Video control loop started (using MindAR renderer loop)', 'success');
+        addDebugMessage('🔄 Video control loop started (parallel to MindAR rendering)', 'success');
         
         // Log MindAR tracking status
         console.log('🔍 MindAR tracking info:', {
