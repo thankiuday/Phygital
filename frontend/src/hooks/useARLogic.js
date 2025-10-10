@@ -449,10 +449,7 @@ export const useARLogic = ({
       // Configure anchor for better visibility
       anchor.group.visible = true;
       
-      // Add ambient light to ensure video is visible
-      const ambientLight = new window.THREE.AmbientLight(0xffffff, 1.0);
-      scene.add(ambientLight);
-      addDebugMessage('💡 Ambient light added to scene', 'info');
+      // DO NOT add ambient light - causes material.onBuild error with MindAR's Three.js
 
       if (projectData.videoUrl) {
         await setupVideo(anchor);
@@ -517,16 +514,20 @@ export const useARLogic = ({
       }
       
       try {
+        // Start MindAR - it has its own internal render loop
         await mindar.start();
         addDebugMessage('✅ MindAR started successfully', 'success');
         
-        // ✅ CRITICAL: Set up animation loop (from working code)
-        // This continuously checks anchor.visible and controls video playback
-        renderer.setAnimationLoop(() => {
+        // ✅ CRITICAL: Custom animation frame loop for video control
+        // We use requestAnimationFrame instead of renderer.setAnimationLoop
+        // to avoid conflicts with MindAR's internal rendering
+        const animateVideoControl = () => {
           if (anchorRef.current && anchorRef.current.visible) {
             // Target is detected - show video and play
-            if (videoMeshRef.current) {
+            if (videoMeshRef.current && !videoMeshRef.current.visible) {
               videoMeshRef.current.visible = true;
+              const timestamp = new Date().toLocaleTimeString();
+              console.log(`👁️ [${timestamp}] Video mesh shown`);
             }
             
             if (videoRef.current && videoRef.current.paused) {
@@ -551,6 +552,8 @@ export const useARLogic = ({
             // Target is lost - hide video and pause
             if (videoMeshRef.current && videoMeshRef.current.visible) {
               videoMeshRef.current.visible = false;
+              const timestamp = new Date().toLocaleTimeString();
+              console.log(`👁️ [${timestamp}] Video mesh hidden`);
             }
             
             if (videoRef.current && !videoRef.current.paused) {
@@ -569,11 +572,16 @@ export const useARLogic = ({
             }
           }
           
-          // Render the scene
-          renderer.render(scene, camera);
-        });
+          // Continue the animation loop
+          if (mindarRef.current) {
+            requestAnimationFrame(animateVideoControl);
+          }
+        };
         
-        addDebugMessage('🔄 Animation loop started (continuous anchor.visible checking)', 'success');
+        // Start our custom video control loop
+        requestAnimationFrame(animateVideoControl);
+        
+        addDebugMessage('🔄 Video control loop started (continuous anchor.visible checking)', 'success');
         
         // Log MindAR tracking status
         console.log('🔍 MindAR tracking info:', {
