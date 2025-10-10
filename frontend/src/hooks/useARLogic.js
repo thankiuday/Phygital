@@ -134,9 +134,9 @@ export const useARLogic = ({
       const material = new window.THREE.MeshBasicMaterial({ map: texture });
 
       const videoMesh = new window.THREE.Mesh(geometry, material);
-      videoMesh.position.set(0, 0, 0.1);  // Slightly in front of target (positive Z)
+      videoMesh.position.set(0, 0, 0);  // Same position as target (matching working code)
       videoMesh.rotation.x = 0;
-      videoMesh.scale.set(1.5, 1.5, 1.5);  // Scale up to be more visible (was 1, 1, 1)
+      videoMesh.scale.set(3.25, 3.25, 3.25);  // Scale to match working code (was 1.5)
       
       videoMeshRef.current = videoMesh;
       anchor.group.add(videoMesh);
@@ -637,16 +637,17 @@ export const useARLogic = ({
             }
           }
           
-          // Continue the animation loop
-          if (mindarRef.current) {
-            requestAnimationFrame(animateVideoControl);
-          }
+          // No need to call requestAnimationFrame - renderer.setAnimationLoop handles this
         };
         
-        // Start our custom video control loop
-        requestAnimationFrame(animateVideoControl);
+        // ✅ CRITICAL: Use MindAR's renderer.setAnimationLoop instead of requestAnimationFrame
+        // This ensures our video control is part of MindAR's render cycle
+        renderer.setAnimationLoop(() => {
+          animateVideoControl();
+          renderer.render(scene, camera);
+        });
         
-        addDebugMessage('🔄 Video control loop started (continuous anchor.visible checking)', 'success');
+        addDebugMessage('🔄 Video control loop started (using MindAR renderer loop)', 'success');
         
         // Log MindAR tracking status
         console.log('🔍 MindAR tracking info:', {
