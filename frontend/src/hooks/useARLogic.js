@@ -547,9 +547,15 @@ export const useARLogic = ({
       }
       
       try {
-        // Start MindAR - it has its own internal render loop
+        // ✅ CRITICAL: Start MindAR WITHOUT its auto-render loop
+        // We'll set up our own loop that includes video control
         await mindar.start();
         addDebugMessage('✅ MindAR started successfully', 'success');
+        
+        // ✅ Stop MindAR's default animation loop (if it started one)
+        // We'll create our own that includes both rendering and video control
+        renderer.setAnimationLoop(null);
+        addDebugMessage('🛑 Stopped MindAR default loop', 'info');
         
         // ✅ CRITICAL: Custom animation frame loop for video control
         // We use requestAnimationFrame instead of renderer.setAnimationLoop
@@ -640,18 +646,16 @@ export const useARLogic = ({
           // No need to call requestAnimationFrame - renderer.setAnimationLoop handles this
         };
         
-        // ✅ CRITICAL: Let MindAR handle rendering - we just control video mesh visibility
-        // MindAR's start() already sets up its own animation loop
-        // We run our video control in parallel using requestAnimationFrame
-        const videoControlLoop = () => {
+        // ✅ CRITICAL: Set up our own render loop that includes BOTH rendering AND video control
+        // This is exactly how the working code does it
+        renderer.setAnimationLoop(() => {
+          // Update video control (show/hide mesh, play/pause video)
           animateVideoControl();
-          if (mindarRef.current) {
-            requestAnimationFrame(videoControlLoop);
-          }
-        };
-        requestAnimationFrame(videoControlLoop);
+          // Render the scene (this actually draws everything to the screen)
+          renderer.render(scene, camera);
+        });
         
-        addDebugMessage('🔄 Video control loop started (parallel to MindAR rendering)', 'success');
+        addDebugMessage('🔄 Combined render + video control loop started', 'success');
         
         // Log MindAR tracking status
         console.log('🔍 MindAR tracking info:', {
