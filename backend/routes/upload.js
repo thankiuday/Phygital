@@ -1716,29 +1716,79 @@ router.post('/save-mind-target', authenticateToken, [
       return res.status(400).json({ status: 'error', message: 'Invalid mind target data' });
     }
 
-    // Upload to S3
+    console.log('💾 Saving .mind target file...');
+    console.log('📊 Buffer size:', buffer.length, 'bytes');
+
+    // Upload to Cloudinary
     const timestamp = Date.now();
-    const key = `users/${req.user._id}/designs/targets-${timestamp}.mind`;
-    const uploadResult = await uploadToCloudinaryBuffer(buffer, req.user._id, 'targets', `target-${timestamp}.mind`, 'application/octet-stream');
+    const uploadResult = await uploadToCloudinaryBuffer(
+      buffer, 
+      req.user._id, 
+      'targets', 
+      `target-${timestamp}.mind`, 
+      'application/octet-stream'
+    );
+    
+    console.log('☁️ .mind file uploaded to Cloudinary:', uploadResult.url);
+
+    // Prepare .mind target data
+    const mindTargetData = {
+      filename: uploadResult.public_id,
+      url: uploadResult.url,
+      size: buffer.length,
+      uploadedAt: new Date(),
+      generated: true
+    };
+
+    // Get current project information
+    const user = await User.findById(req.user._id);
+    let targetProject = null;
+    let targetProjectIndex = -1;
+    
+    if (user.currentProject) {
+      targetProjectIndex = user.projects.findIndex(p => p.id === user.currentProject);
+      if (targetProjectIndex !== -1) {
+        targetProject = user.projects[targetProjectIndex];
+        console.log(`📁 Storing .mind file in project: ${targetProject.name} (${targetProject.id})`);
+      }
+    }
+
+    // Update .mind target (project level or root level)
+    let updateData = {};
+    
+    if (targetProject) {
+      // Store in project
+      updateData[`projects.${targetProjectIndex}.uploadedFiles.mindTarget`] = mindTargetData;
+      console.log(`✅ Updating project ${targetProject.id} with .mind file`);
+    } else {
+      // Store at root level (backward compatibility)
+      updateData['uploadedFiles.mindTarget'] = mindTargetData;
+      console.log('✅ Updating root-level .mind file (no current project)');
+    }
 
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
-      {
-        'uploadedFiles.mindTarget': {
-          filename: uploadResult.public_id,
-          url: uploadResult.url,
-          size: buffer.length,
-          uploadedAt: new Date()
-        }
-      },
+      updateData,
       { new: true }
     ).select('-password');
+
+    // Get the updated mind target from the correct location
+    let responseMindTarget = mindTargetData;
+    if (targetProject && updatedUser.projects) {
+      const updatedProject = updatedUser.projects.find(p => p.id === user.currentProject);
+      if (updatedProject) {
+        responseMindTarget = updatedProject.uploadedFiles?.mindTarget || mindTargetData;
+        console.log('📤 Returning project-level .mind target');
+        console.log('📤 .mind target URL:', responseMindTarget?.url);
+      }
+    }
 
     return res.status(200).json({
       status: 'success',
       message: '.mind target saved',
       data: {
-        mindTarget: updatedUser.uploadedFiles.mindTarget,
+        mindTarget: responseMindTarget,
+        projectId: targetProject?.id || null,
         user: updatedUser.getPublicProfile()
       }
     });
