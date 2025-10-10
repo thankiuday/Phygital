@@ -88,6 +88,9 @@ export const useARLogic = ({
       const texture = new window.THREE.VideoTexture(video);
       texture.minFilter = window.THREE.LinearFilter;
       texture.magFilter = window.THREE.LinearFilter;
+      texture.colorSpace = window.THREE.SRGBColorSpace;  // Match working code
+      texture.toneMapped = false;  // Match working code
+      texture.format = window.THREE.RGBAFormat;  // Ensure RGBA format with alpha channel
 
       const aspectRatio = projectData.designDimensions 
         ? projectData.designDimensions.width / projectData.designDimensions.height 
@@ -96,26 +99,22 @@ export const useARLogic = ({
       const geometry = new window.THREE.PlaneGeometry(aspectRatio, 1);
       const material = new window.THREE.MeshBasicMaterial({ 
         map: texture,
-        transparent: false,  // Changed to false for better visibility
-        opacity: 1.0,        // Full opacity for clear video
-        side: window.THREE.DoubleSide,  // Visible from both sides
-        depthTest: false,    // Ensures video renders on top
-        depthWrite: false    // Prevents depth buffer issues
+        alphaTest: 0.01,  // Key property from working code
+        toneMapped: false // Disable tone mapping for video
       });
 
       const videoMesh = new window.THREE.Mesh(geometry, material);
-      videoMesh.position.set(0, 0, 0.01);  // Slightly above the target (0.01 units in Z-axis)
+      videoMesh.position.set(0, 0, 0);  // Same position as target
       videoMesh.rotation.x = 0;
-      videoMesh.renderOrder = 999;  // Highest render order to appear on top
+      videoMesh.scale.set(1, 1, 1);  // Default scale
       
       videoMeshRef.current = videoMesh;
       anchor.group.add(videoMesh);
       
-      // Ensure the anchor and mesh are properly configured
-      anchor.group.visible = true;
-      videoMesh.visible = false;  // Hidden initially, shown when target detected
+      // Initially hidden - will be shown in animation loop when anchor.visible
+      videoMesh.visible = false;
       
-      addDebugMessage('🎬 Video mesh added to anchor with highest render priority', 'info');
+      addDebugMessage('🎬 Video mesh added to anchor (matching working code)', 'info');
 
       // Video event listeners
       video.addEventListener('loadedmetadata', () => {
@@ -462,79 +461,8 @@ export const useARLogic = ({
         await setupVideo(anchor);
       }
 
-      mindar.onTargetFound = async () => {
-        const timestamp = new Date().toLocaleTimeString();
-        console.log(`🎯 [${timestamp}] TARGET FOUND!`);
-        addDebugMessage('🎯 Target detected!', 'success');
-        setTargetDetected(true);
-        
-        // Show video mesh on target detection
-        if (videoMeshRef.current) {
-          videoMeshRef.current.visible = true;
-          console.log(`👁️ [${timestamp}] Video mesh made visible`);
-          addDebugMessage('👁️ Video overlay shown on target', 'success');
-        }
-        
-        // Auto-play video when target is detected (especially important for mobile)
-        if (videoRef.current) {
-          console.log(`📹 [${timestamp}] Video state before play: paused=${videoRef.current.paused}, currentTime=${videoRef.current.currentTime}, readyState=${videoRef.current.readyState}`);
-          
-          if (videoRef.current.paused) {
-            addDebugMessage('🎬 Auto-playing video on target detection...', 'info');
-            console.log(`🎬 [${timestamp}] Attempting to play video...`);
-            
-            try {
-              // Ensure video is muted for autoplay on mobile
-              videoRef.current.muted = true;
-              
-              const playPromise = videoRef.current.play();
-              
-              if (playPromise !== undefined) {
-                await playPromise;
-                console.log(`✅ [${timestamp}] Video play() promise resolved`);
-                addDebugMessage('✅ Video auto-play successful', 'success');
-                
-                // Log video playback info
-                console.log(`▶️ [${timestamp}] Video playing on AR target at position Z=0.01`);
-              }
-            } catch (playError) {
-              console.error(`❌ [${timestamp}] Video play failed:`, playError);
-              addDebugMessage(`⚠️ Video auto-play failed: ${playError.message}`, 'warning');
-              addDebugMessage('💡 Tap the play button to start the video', 'info');
-            }
-          } else {
-            console.log(`✅ [${timestamp}] Video is already playing`);
-            addDebugMessage('✅ Video already playing', 'success');
-          }
-          
-          console.log(`📹 [${timestamp}] Video state after play: paused=${videoRef.current.paused}, currentTime=${videoRef.current.currentTime}`);
-        } else {
-          console.error(`❌ [${timestamp}] videoRef.current is null!`);
-          addDebugMessage('❌ Video element not found', 'error');
-        }
-      };
-
-      mindar.onTargetLost = () => {
-        const timestamp = new Date().toLocaleTimeString();
-        console.log(`🔍 [${timestamp}] TARGET LOST`);
-        addDebugMessage('🔍 Target lost', 'warning');
-        setTargetDetected(false);
-        
-        // Hide video mesh when target is lost
-        if (videoMeshRef.current) {
-          videoMeshRef.current.visible = false;
-          console.log(`👁️ [${timestamp}] Video mesh hidden`);
-          addDebugMessage('👁️ Video overlay hidden', 'info');
-        }
-        
-        // Pause video when target is lost
-        if (videoRef.current && !videoRef.current.paused) {
-          console.log(`⏸️ [${timestamp}] Pausing video on target lost`);
-          videoRef.current.pause();
-          setVideoPlaying(false);
-          addDebugMessage('⏸️ Video paused', 'info');
-        }
-      };
+      // Note: Using animation loop instead of onTargetFound/onTargetLost callbacks
+      // The animation loop continuously checks anchor.visible (more reliable than callbacks)
 
       // Start MindAR
       addDebugMessage('🚀 Starting MindAR...', 'info');
@@ -595,13 +523,68 @@ export const useARLogic = ({
         await mindar.start();
         addDebugMessage('✅ MindAR started successfully', 'success');
         
+        // ✅ CRITICAL: Set up animation loop (from working code)
+        // This continuously checks anchor.visible and controls video playback
+        renderer.setAnimationLoop(() => {
+          if (anchorRef.current && anchorRef.current.visible) {
+            // Target is detected - show video and play
+            if (videoMeshRef.current) {
+              videoMeshRef.current.visible = true;
+            }
+            
+            if (videoRef.current && videoRef.current.paused) {
+              const timestamp = new Date().toLocaleTimeString();
+              console.log(`▶️ [${timestamp}] Target visible - auto-playing video`);
+              
+              videoRef.current.play().catch(e => {
+                console.log(`⚠️ [${timestamp}] Auto-play failed:`, e.message);
+                addDebugMessage('💡 Tap the play button to start video', 'info');
+              });
+            }
+            
+            // Update state
+            if (!targetDetected) {
+              const timestamp = new Date().toLocaleTimeString();
+              console.log(`🎯 [${timestamp}] TARGET DETECTED (via anchor.visible)`);
+              addDebugMessage('🎯 Target detected!', 'success');
+              setTargetDetected(true);
+            }
+            
+          } else {
+            // Target is lost - hide video and pause
+            if (videoMeshRef.current && videoMeshRef.current.visible) {
+              videoMeshRef.current.visible = false;
+            }
+            
+            if (videoRef.current && !videoRef.current.paused) {
+              const timestamp = new Date().toLocaleTimeString();
+              console.log(`⏸️ [${timestamp}] Target lost - pausing video`);
+              videoRef.current.pause();
+            }
+            
+            // Update state
+            if (targetDetected) {
+              const timestamp = new Date().toLocaleTimeString();
+              console.log(`🔍 [${timestamp}] TARGET LOST (via anchor.visible)`);
+              addDebugMessage('🔍 Target lost', 'warning');
+              setTargetDetected(false);
+              setVideoPlaying(false);
+            }
+          }
+          
+          // Render the scene
+          renderer.render(scene, camera);
+        });
+        
+        addDebugMessage('🔄 Animation loop started (continuous anchor.visible checking)', 'success');
+        
         // Log MindAR tracking status
-      console.log('🔍 MindAR tracking info:', {
-        maxTrack: mindar.maxTrack,
-        anchors: mindar.anchors?.length || 0,
-        hasOnTargetFound: typeof mindar.onTargetFound === 'function',
-        hasOnTargetLost: typeof mindar.onTargetLost === 'function'
-      });
+        console.log('🔍 MindAR tracking info:', {
+          maxTrack: mindar.maxTrack,
+          anchors: mindar.anchors?.length || 0,
+          hasOnTargetFound: typeof mindar.onTargetFound === 'function',
+          hasOnTargetLost: typeof mindar.onTargetLost === 'function'
+        });
       
       addDebugMessage('🎯 MindAR is now tracking. Point camera at the COMPOSITE IMAGE (with QR code)', 'info');
       addDebugMessage('💡 TIP: Use the image downloaded from Step 5 (Final Design)', 'info');
@@ -609,9 +592,9 @@ export const useARLogic = ({
       // Add a test to simulate target detection (for debugging)
       window.testTargetDetection = () => {
         console.log('🧪 Testing target detection manually...');
-        if (mindar && mindar.onTargetFound) {
-          mindar.onTargetFound();
-          console.log('✅ Manually triggered onTargetFound');
+        if (anchorRef.current) {
+          anchorRef.current.visible = true;
+          console.log('✅ Manually set anchor.visible = true');
         }
       };
       
