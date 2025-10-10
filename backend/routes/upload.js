@@ -1749,6 +1749,111 @@ router.post('/save-mind-target', authenticateToken, [
 });
 
 /**
+ * POST /api/upload/fix-mind-target-url
+ * Manually update project with existing .mind file URL from Cloudinary
+ * Use this when .mind file exists in Cloudinary but database wasn't updated
+ * Body: { projectId (optional), mindFileUrl (required) }
+ */
+router.post('/fix-mind-target-url', authenticateToken, async (req, res) => {
+  try {
+    const { projectId, mindFileUrl } = req.body;
+    
+    if (!mindFileUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mind file URL is required'
+      });
+    }
+    
+    console.log('🔧 Fixing .mind target URL for project:', projectId || 'current/root level');
+    console.log('🔗 .mind file URL:', mindFileUrl);
+    
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    // Prepare .mind target data
+    const mindTargetData = {
+      filename: mindFileUrl.split('/').pop(),
+      url: mindFileUrl,
+      size: 0,
+      uploadedAt: new Date(),
+      generated: true
+    };
+    
+    let updateData = {};
+    let targetLocation = '';
+    
+    // Check if we have a current project and it matches the projectId (if provided)
+    if (user.currentProject) {
+      const projectIndex = user.projects.findIndex(p => {
+        if (projectId) {
+          return p.id === projectId;
+        }
+        return p.id === user.currentProject;
+      });
+      
+      if (projectIndex !== -1) {
+        // Update project
+        updateData[`projects.${projectIndex}.uploadedFiles.mindTarget`] = mindTargetData;
+        targetLocation = `project at index ${projectIndex} (${user.projects[projectIndex].name})`;
+        console.log(`✅ Updating ${targetLocation}`);
+      } else {
+        return res.status(404).json({
+          success: false,
+          message: 'Project not found'
+        });
+      }
+    } else {
+      // Update root level
+      updateData['uploadedFiles.mindTarget'] = mindTargetData;
+      targetLocation = 'root level';
+      console.log('✅ Updating root level');
+    }
+    
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      updateData,
+      { new: true }
+    );
+    
+    console.log('✅ .mind target URL updated successfully');
+    
+    // Get the updated mind target
+    let updatedMindTarget;
+    if (user.currentProject) {
+      const updatedProject = updatedUser.projects.find(p => 
+        projectId ? p.id === projectId : p.id === user.currentProject
+      );
+      updatedMindTarget = updatedProject?.uploadedFiles?.mindTarget;
+    } else {
+      updatedMindTarget = updatedUser.uploadedFiles?.mindTarget;
+    }
+    
+    res.json({
+      success: true,
+      message: `.mind target URL fixed successfully at ${targetLocation}`,
+      data: {
+        mindTarget: updatedMindTarget,
+        location: targetLocation
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Fix mind target URL error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fix mind target URL',
+      error: error.message
+    });
+  }
+});
+
+/**
  * POST /api/upload/social-links
  * Update social media links
  * Stores user's social media profiles

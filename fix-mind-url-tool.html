@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fix .mind File URL Tool</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .help-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .result {
+            margin-top: 20px;
+            padding: 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .result.success {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #c3e6cb;
+            display: block;
+        }
+        
+        .result.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #f5c6cb;
+            display: block;
+        }
+        
+        .result.loading {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 2px solid #bee5eb;
+            display: block;
+        }
+        
+        .code {
+            background: #f5f5f5;
+            padding: 12px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            margin-top: 10px;
+            overflow-x: auto;
+        }
+        
+        .steps {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        .steps h3 {
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+        
+        .steps ol {
+            margin-left: 20px;
+        }
+        
+        .steps li {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Fix .mind File URL</h1>
+        <p class="subtitle">Update your database with the existing .mind file URL from Cloudinary</p>
+        
+        <form id="fixForm">
+            <div class="form-group">
+                <label for="token">🔑 Auth Token</label>
+                <input 
+                    type="text" 
+                    id="token" 
+                    placeholder="Your auth token from localStorage" 
+                    required
+                >
+                <div class="help-text">F12 → Application → Local Storage → token</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="projectId">📦 Project ID (Optional)</label>
+                <input 
+                    type="text" 
+                    id="projectId" 
+                    placeholder="1760029177404" 
+                    value="1760029177404"
+                >
+                <div class="help-text">Leave empty to update root level, or enter your project ID</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="mindFileUrl">🎯 .mind File URL from Cloudinary</label>
+                <input 
+                    type="url" 
+                    id="mindFileUrl" 
+                    placeholder="https://res.cloudinary.com/.../target-xxx.mind" 
+                    required
+                >
+                <div class="help-text">Full URL from Cloudinary (must end with .mind)</div>
+            </div>
+            
+            <button type="submit">🚀 Fix Database</button>
+        </form>
+        
+        <div id="result" class="result"></div>
+        
+        <div class="steps">
+            <h3>📋 How to Get Your .mind File URL:</h3>
+            <ol>
+                <li>Go to <strong>Cloudinary Dashboard</strong></li>
+                <li>Navigate to <strong>Media Library</strong></li>
+                <li>Find: <code>phygital-zone/users/68c7d41c925256c5878cc65e/targets/</code></li>
+                <li>Click on your <code>.mind</code> file</li>
+                <li>Copy the <strong>"Secure URL"</strong></li>
+                <li>Paste it above and click "Fix Database"</li>
+            </ol>
+        </div>
+    </div>
+    
+    <script>
+        const API_URL = 'https://phygital-backend-wcgs.onrender.com/api/upload/fix-mind-target-url';
+        
+        // Try to auto-fill token from localStorage if we're on the same domain
+        window.addEventListener('DOMContentLoaded', () => {
+            try {
+                const savedToken = localStorage.getItem('token');
+                if (savedToken) {
+                    document.getElementById('token').value = savedToken;
+                    console.log('✅ Auto-filled token from localStorage');
+                }
+            } catch (e) {
+                console.log('ℹ️ Could not auto-fill token (different domain)');
+            }
+        });
+        
+        document.getElementById('fixForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const resultDiv = document.getElementById('result');
+            const submitBtn = e.target.querySelector('button');
+            
+            const token = document.getElementById('token').value.trim();
+            const projectId = document.getElementById('projectId').value.trim();
+            const mindFileUrl = document.getElementById('mindFileUrl').value.trim();
+            
+            // Validate inputs
+            if (!token) {
+                showResult('error', '❌ Please enter your auth token');
+                return;
+            }
+            
+            if (!mindFileUrl) {
+                showResult('error', '❌ Please enter the .mind file URL');
+                return;
+            }
+            
+            if (!mindFileUrl.endsWith('.mind')) {
+                showResult('error', '❌ URL must end with .mind - check your Cloudinary URL');
+                return;
+            }
+            
+            // Show loading state
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ Updating...';
+            showResult('loading', '⏳ Updating database...');
+            
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        projectId: projectId || undefined,
+                        mindFileUrl: mindFileUrl
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.message || 'Failed to update database');
+                }
+                
+                // Success!
+                showResult('success', `
+                    <strong>✅ Success!</strong><br>
+                    ${data.message}<br>
+                    <div class="code">
+                        <strong>Updated Location:</strong> ${data.data.location}<br>
+                        <strong>Mind File URL:</strong> ${data.data.mindTarget.url}
+                    </div>
+                    <br>
+                    <strong>Next steps:</strong>
+                    <ol style="margin-left: 20px; margin-top: 10px;">
+                        <li>Refresh your AR Experience page</li>
+                        <li>Check debug panel - should show "Using .mind file"</li>
+                        <li>Camera should work with AR tracking!</li>
+                    </ol>
+                `);
+                
+                console.log('✅ Full response:', data);
+                
+            } catch (error) {
+                console.error('❌ Error:', error);
+                showResult('error', `
+                    <strong>❌ Error:</strong><br>
+                    ${error.message}<br>
+                    <br>
+                    <strong>Common issues:</strong>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li>Invalid or expired auth token</li>
+                        <li>Wrong project ID</li>
+                        <li>Invalid .mind file URL</li>
+                    </ul>
+                    <br>
+                    Check browser console for more details.
+                `);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '🚀 Fix Database';
+            }
+        });
+        
+        function showResult(type, message) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = `result ${type}`;
+            resultDiv.innerHTML = message;
+            resultDiv.style.display = 'block';
+            
+            // Scroll to result
+            resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    </script>
+</body>
+</html>
+
+

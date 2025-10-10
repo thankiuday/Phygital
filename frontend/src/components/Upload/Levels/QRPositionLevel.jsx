@@ -441,59 +441,97 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         updateUser({ qrPosition });
       }
 
-      // Client-side fallback: generate .mind and upload if server did not
+      // ===== CRITICAL: Verify .mind file generation before advancing =====
+      let mindTargetUrl = null;
+      
       try {
         // Check if server already generated .mind file (new response structure)
-        const mindTargetUrlFromServer = response.data?.data?.mindTarget?.url || 
-                                        response.data?.data?.user?.uploadedFiles?.mindTarget?.url;
+        mindTargetUrl = response.data?.data?.mindTarget?.url || 
+                        response.data?.data?.user?.uploadedFiles?.mindTarget?.url;
         
-        console.log('[Level QR] Server-side .mind URL:', mindTargetUrlFromServer);
+        console.log('[Level QR] Server-side .mind URL:', mindTargetUrl);
         
-        if (!mindTargetUrlFromServer) {
+        if (!mindTargetUrl) {
+          // Server didn't generate .mind file - try client-side generation
+          toast.loading('🧠 Generating AR tracking file...', { id: 'mind-gen' });
+          
           // Check for composite URL (new response structure first, then fallback)
           const compositeUrl = response.data?.data?.compositeDesign?.url || 
                               response.data?.data?.user?.uploadedFiles?.compositeDesign?.url;
           
           console.log('[Level QR] Composite URL for .mind generation:', compositeUrl);
           
-          if (compositeUrl) {
-            console.log('[Level QR] Generating .mind on client from composite...');
-            const mindarModule = await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image.prod.js');
-            const { Compiler } = mindarModule;
-            const img = await new Promise((resolve, reject) => {
-              const i = new Image();
-              i.crossOrigin = 'anonymous';
-              i.onload = () => resolve(i);
-              i.onerror = reject;
-              i.src = compositeUrl;
-            });
-            const compiler = new Compiler();
-            await compiler.compileImageTargets([img], () => {});
-            const buf = await compiler.exportData();
-            // Convert ArrayBuffer -> data URL (base64) safely via Blob + FileReader
-            const blob = new Blob([buf], { type: 'application/octet-stream' });
-            const dataUrl = await new Promise((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(reader.result);
-              reader.onerror = (e) => reject(e);
-              reader.readAsDataURL(blob);
-            });
-            const saveRes = await uploadAPI.saveMindTarget(dataUrl);
-            console.log('[Level QR] .mind generated and saved via /upload/save-mind-target', saveRes.data);
-          } else {
-            console.warn('[Level QR] No composite URL available for client-side .mind generation');
+          if (!compositeUrl) {
+            throw new Error('No composite image available for .mind generation. Please try uploading your design again.');
           }
+          
+          console.log('[Level QR] Generating .mind on client from composite...');
+          const mindarModule = await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image.prod.js');
+          const { Compiler } = mindarModule;
+          
+          const img = await new Promise((resolve, reject) => {
+            const i = new Image();
+            i.crossOrigin = 'anonymous';
+            i.onload = () => resolve(i);
+            i.onerror = reject;
+            i.src = compositeUrl;
+            setTimeout(() => reject(new Error('Image load timeout')), 30000);
+          });
+          
+          const compiler = new Compiler();
+          await compiler.compileImageTargets([img], (progress) => {
+            console.log(`[Level QR] .mind compilation progress: ${(progress * 100).toFixed(0)}%`);
+          });
+          
+          const buf = await compiler.exportData();
+          
+          // Convert ArrayBuffer -> data URL (base64) safely via Blob + FileReader
+          const blob = new Blob([buf], { type: 'application/octet-stream' });
+          const dataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = (e) => reject(e);
+            reader.readAsDataURL(blob);
+          });
+          
+          const saveRes = await uploadAPI.saveMindTarget(dataUrl);
+          mindTargetUrl = saveRes.data?.data?.mindTarget?.url;
+          
+          console.log('[Level QR] .mind generated and saved via /upload/save-mind-target', saveRes.data);
+          toast.success('✅ AR tracking file generated!', { id: 'mind-gen' });
         }
       } catch (clientMindErr) {
-        console.warn('[Level QR] Client-side .mind generation failed:', clientMindErr?.message || clientMindErr);
+        console.error('[Level QR] .mind generation failed:', clientMindErr);
+        toast.error('❌ Failed to generate AR tracking file', { id: 'mind-gen' });
+        
+        // Show user-friendly error with action
+        const errorMessage = clientMindErr?.message || 'Unknown error';
+        toast.error(
+          `Cannot proceed to Level 3: ${errorMessage}\n\nPlease try saving QR position again or contact support.`,
+          { duration: 8000 }
+        );
+        
+        setIsSaving(false);
+        return; // DON'T advance to Level 3 without .mind file
       }
       
-      toast.success('📍 QR position saved!');
+      // ===== Final verification before advancing =====
+      if (!mindTargetUrl) {
+        console.error('[Level QR] .mind file URL not available after generation attempts');
+        toast.error('⚠️ AR tracking file was not generated. Cannot proceed to Level 3.');
+        toast.error('Please try clicking "Save QR Position" again.', { duration: 6000 });
+        setIsSaving(false);
+        return; // DON'T advance without .mind file
+      }
       
-      // Complete the level - ensure we pass the correct data structure
+      console.log('[Level QR] ✅ .mind file verified:', mindTargetUrl);
+      toast.success('📍 QR position saved with AR tracking!');
+      
+      // ===== ONLY NOW can we advance to Level 3 =====
       console.log('Calling onComplete with qrPosition:', qrPosition);
+      console.log('Mind file URL confirmed:', mindTargetUrl);
       onComplete(qrPosition);
-      console.log('onComplete called successfully');
+      console.log('onComplete called successfully - advancing to Level 3');
       
       // Add a small delay to ensure the level completion is processed
       setTimeout(() => {
