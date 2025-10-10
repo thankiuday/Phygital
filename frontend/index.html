@@ -42,15 +42,23 @@
     
     <!-- MindAR Loader -->
     <script type="module">
-      import * as THREE from "three";
-      window.THREE = THREE;
-      console.log("✅ Three.js loaded");
-
+      // ✅ CRITICAL: Don't import Three.js separately - let MindAR provide it
+      // MindAR has its own bundled Three.js that we must use to avoid version conflicts
+      
       async function loadMindAR() {
         try {
           // Attempt ESM import
           const module = await import("https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js");
           window.MindARThree = module.MindARThree ? { MindARThree: module.MindARThree } : { MindARThree: module.default.MindARThree };
+          
+          // ✅ Expose MindAR's bundled Three.js
+          if (module.THREE) {
+            window.THREE = module.THREE;
+            console.log("✅ Three.js loaded from MindAR bundle");
+          } else {
+            console.warn("⚠️ MindAR didn't expose THREE, using global");
+          }
+          
           console.log("✅ MindAR loaded via ESM import");
           
           // Debug MindAR structure

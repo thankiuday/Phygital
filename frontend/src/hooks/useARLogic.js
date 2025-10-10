@@ -118,11 +118,12 @@ export const useARLogic = ({
         addDebugMessage('💡 Video may require user interaction to play', 'info');
       }
 
-      // Create texture with MINIMAL configuration to avoid Three.js version conflicts
+      // ✅ CRITICAL: Create texture and material using ONLY basic properties
+      // The working code uses exactly this pattern - no extra properties
       const texture = new window.THREE.VideoTexture(video);
       texture.minFilter = window.THREE.LinearFilter;
       texture.magFilter = window.THREE.LinearFilter;
-      // DO NOT set colorSpace, encoding, or any other properties - causes version conflicts
+      texture.format = window.THREE.RGBAFormat;
 
       const aspectRatio = projectData.designDimensions 
         ? projectData.designDimensions.width / projectData.designDimensions.height 
@@ -130,8 +131,11 @@ export const useARLogic = ({
       
       const geometry = new window.THREE.PlaneGeometry(aspectRatio, 1);
       
-      // Create material with ABSOLUTE MINIMAL properties
-      const material = new window.THREE.MeshBasicMaterial({ map: texture });
+      // ✅ Create material matching working code - with alphaTest like they use
+      const material = new window.THREE.MeshBasicMaterial({ 
+        map: texture,
+        alphaTest: 0.01
+      });
 
       const videoMesh = new window.THREE.Mesh(geometry, material);
       videoMesh.position.set(0, 0, 0);  // Same position as target (matching working code)
