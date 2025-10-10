@@ -85,17 +85,11 @@ export const useARLogic = ({
       
       addDebugMessage('📱 Video element created with mobile optimizations', 'info');
 
+      // Create texture with MINIMAL configuration to avoid Three.js version conflicts
       const texture = new window.THREE.VideoTexture(video);
       texture.minFilter = window.THREE.LinearFilter;
       texture.magFilter = window.THREE.LinearFilter;
-      
-      // Set colorSpace carefully - check if the property exists
-      if (window.THREE.SRGBColorSpace !== undefined) {
-        texture.colorSpace = window.THREE.SRGBColorSpace;
-      } else if (texture.encoding !== undefined) {
-        // Fallback for older Three.js versions
-        texture.encoding = window.THREE.sRGBEncoding;
-      }
+      // DO NOT set colorSpace, encoding, or any other properties - causes version conflicts
 
       const aspectRatio = projectData.designDimensions 
         ? projectData.designDimensions.width / projectData.designDimensions.height 
@@ -103,11 +97,8 @@ export const useARLogic = ({
       
       const geometry = new window.THREE.PlaneGeometry(aspectRatio, 1);
       
-      // Create material with minimal properties to avoid compatibility issues
-      const material = new window.THREE.MeshBasicMaterial({ 
-        map: texture
-        // Removed all optional properties that might cause compatibility issues
-      });
+      // Create material with ABSOLUTE MINIMAL properties
+      const material = new window.THREE.MeshBasicMaterial({ map: texture });
 
       const videoMesh = new window.THREE.Mesh(geometry, material);
       videoMesh.position.set(0, 0, 0);  // Same position as target
