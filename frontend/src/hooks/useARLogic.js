@@ -119,12 +119,26 @@ export const useARLogic = ({
         addDebugMessage('💡 Video may require user interaction to play', 'info');
       }
 
-      // ✅ CRITICAL: Create texture and material using ONLY basic properties
-      // The working code uses exactly this pattern - no extra properties
+      // ✅ CRITICAL: Create HIGH QUALITY texture and material
       const texture = new window.THREE.VideoTexture(video);
+      
+      // High-quality texture settings for crisp video display
       texture.minFilter = window.THREE.LinearFilter;
       texture.magFilter = window.THREE.LinearFilter;
       texture.format = window.THREE.RGBAFormat;
+      texture.generateMipmaps = false; // Disable mipmaps for videos (better performance and quality)
+      texture.needsUpdate = true;
+      
+      // Enable anisotropic filtering for better quality at angles (if supported)
+      const renderer = rendererRef.current;
+      if (renderer) {
+        const maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
+        texture.anisotropy = Math.min(16, maxAnisotropy); // Use max quality but cap at 16
+        addDebugMessage(`🎨 Video anisotropic filtering: ${texture.anisotropy}x`, 'info');
+      }
+      
+      // Set correct color space for proper color reproduction
+      texture.colorSpace = window.THREE.SRGBColorSpace || window.THREE.sRGBEncoding;
 
       const aspectRatio = projectData.designDimensions 
         ? projectData.designDimensions.width / projectData.designDimensions.height 
@@ -470,6 +484,14 @@ export const useARLogic = ({
       }
       renderer.outputColorSpace = window.THREE.SRGBColorSpace;
       
+      // HIGH QUALITY renderer settings for crisp video display
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Use device pixel ratio but cap at 2x for performance
+      renderer.sortObjects = true; // Enable object sorting for better transparency handling
+      
+      // Log renderer quality settings
+      addDebugMessage(`🎨 Renderer pixel ratio: ${renderer.getPixelRatio()}x`, 'info');
+      addDebugMessage(`🎨 Device pixel ratio: ${window.devicePixelRatio}x`, 'info');
+      
       // Ensure we're using the same THREE instance as MindAR
       if (window.THREE && window.THREE.WebGLRenderer) {
         addDebugMessage('✅ Using shared THREE.js instance', 'success');
@@ -656,6 +678,15 @@ export const useARLogic = ({
         renderer.setAnimationLoop(() => {
           // Update video control (show/hide mesh, play/pause video)
           animateVideoControl();
+          
+          // ✅ HIGH QUALITY: Update video texture every frame for smooth playback
+          if (videoMeshRef.current && videoRef.current && !videoRef.current.paused) {
+            const material = videoMeshRef.current.material;
+            if (material && material.map) {
+              material.map.needsUpdate = true; // Critical for smooth video frames
+            }
+          }
+          
           // Render the scene (this actually draws everything to the screen)
           renderer.render(scene, camera);
         });
