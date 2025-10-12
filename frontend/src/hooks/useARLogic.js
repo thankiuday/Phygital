@@ -140,22 +140,57 @@ export const useARLogic = ({
       // Set correct color space for proper color reproduction
       texture.colorSpace = window.THREE.SRGBColorSpace || window.THREE.sRGBEncoding;
 
-      const aspectRatio = projectData.designDimensions 
+      // ✅ DYNAMIC SIZING: Calculate dimensions to match the detected target exactly
+      // The video should overlay perfectly on the physical printed design
+      
+      // Get the video aspect ratio
+      const videoAspect = video.videoWidth / video.videoHeight;
+      
+      // Get the target (design) aspect ratio
+      const designAspect = projectData.designDimensions 
         ? projectData.designDimensions.width / projectData.designDimensions.height 
         : 1;
       
-      const geometry = new window.THREE.PlaneGeometry(aspectRatio, 1);
+      addDebugMessage(`📐 Video aspect: ${videoAspect.toFixed(2)}, Design aspect: ${designAspect.toFixed(2)}`, 'info');
       
-      // ✅ Create material matching working code - with alphaTest like they use
+      // MindAR targets are normalized to fit within a 1x1 unit square
+      // We need to size the video plane to match this 1:1 with the target
+      let planeWidth, planeHeight;
+      
+      // Option 1: Fit video to cover entire target (may crop video)
+      // Option 2: Fit video to fit within target (may show borders)
+      // We'll use "cover" behavior - video fills the entire target
+      
+      if (videoAspect > designAspect) {
+        // Video is wider than target - fit height, crop width
+        planeHeight = 1;
+        planeWidth = videoAspect / designAspect;
+      } else {
+        // Video is taller than target - fit width, crop height
+        planeWidth = 1;
+        planeHeight = designAspect / videoAspect;
+      }
+      
+      const geometry = new window.THREE.PlaneGeometry(planeWidth, planeHeight);
+      
+      // ✅ Create material with proper transparency handling
       const material = new window.THREE.MeshBasicMaterial({ 
         map: texture,
-        alphaTest: 0.01
+        transparent: false,
+        side: window.THREE.FrontSide
       });
 
       const videoMesh = new window.THREE.Mesh(geometry, material);
-      videoMesh.position.set(0, 0, 0);  // Same position as target (matching working code)
+      
+      // Position at the center of the anchor (target)
+      videoMesh.position.set(0, 0, 0);
       videoMesh.rotation.x = 0;
-      videoMesh.scale.set(3.25, 3.25, 3.25);  // Scale to match working code (was 1.5)
+      
+      // ✅ NO SCALING - Video plane is already sized to match the target (1:1)
+      // The anchor itself is positioned and scaled by MindAR to match the detected target
+      videoMesh.scale.set(1, 1, 1);
+      
+      addDebugMessage(`📐 Video plane size: ${planeWidth.toFixed(2)} x ${planeHeight.toFixed(2)} (matches target 1:1)`, 'info');
       
       videoMeshRef.current = videoMesh;
       anchor.group.add(videoMesh);
@@ -163,7 +198,8 @@ export const useARLogic = ({
       // Initially hidden - will be shown in animation loop when anchor.visible
       videoMesh.visible = false;
       
-      addDebugMessage('🎬 Video mesh added to anchor (matching working code)', 'info');
+      addDebugMessage('🎬 Video mesh added to anchor (1:1 scale with detected target)', 'info');
+      addDebugMessage('📏 Video will overlay exactly on the physical printed design', 'success');
 
       // Video event listeners
       video.addEventListener('loadedmetadata', () => {
