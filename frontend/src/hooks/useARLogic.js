@@ -2,6 +2,7 @@
  * AR Logic Hook
  * Handles all AR initialization and management logic
  */
+// projcet is ready yeaheeeee
 
 import { useRef, useCallback, useEffect } from 'react';
 import { 
