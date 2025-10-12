@@ -4,9 +4,9 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>Phygital - Bridge Physical to Digital - v3</title>
-    <!-- Deployment: 2024-09-27-Force-Update-5 -->
-    <script>console.log('Deployment test - new build loaded - v5 - Syntax Fixed');</script>
+    <title>Phygital - Bridge Physical to Digital - v6</title>
+    <!-- Deployment: 2024-09-27-Force-Update-6-THREE-Fix -->
+    <script>console.log('Deployment test - new build loaded - v6 - THREE.js Loading Fixed');</script>
     <meta name="description" content="Transform your physical designs into interactive digital experiences with QR codes and videos." />
     
     <!-- PWA Meta Tags -->
@@ -42,22 +42,31 @@
     
     <!-- MindAR Loader -->
     <script type="module">
-      // ✅ CRITICAL: Don't import Three.js separately - let MindAR provide it
-      // MindAR has its own bundled Three.js that we must use to avoid version conflicts
+      // Load Three.js first, then MindAR
+      async function loadLibraries() {
+        try {
+          // Step 1: Load Three.js explicitly
+          console.log("🔄 Loading Three.js...");
+          const THREE = await import("https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js");
+          window.THREE = THREE;
+          console.log("✅ Three.js loaded and exposed globally", window.THREE);
+          
+          // Step 2: Load MindAR after Three.js is ready
+          console.log("🔄 Loading MindAR...");
+          await loadMindAR();
+          
+        } catch (e) {
+          console.error("❌ Failed to load AR libraries:", e);
+          // Try fallback UMD approach
+          loadUMDFallback();
+        }
+      }
       
       async function loadMindAR() {
         try {
           // Attempt ESM import
           const module = await import("https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js");
           window.MindARThree = module.MindARThree ? { MindARThree: module.MindARThree } : { MindARThree: module.default.MindARThree };
-          
-          // ✅ Expose MindAR's bundled Three.js
-          if (module.THREE) {
-            window.THREE = module.THREE;
-            console.log("✅ Three.js loaded from MindAR bundle");
-          } else {
-            console.warn("⚠️ MindAR didn't expose THREE, using global");
-          }
           
           console.log("✅ MindAR loaded via ESM import");
           
@@ -70,7 +79,21 @@
           });
           
         } catch (e) {
-          console.warn("⚠️ ESM import failed, loading UMD fallback...");
+          console.warn("⚠️ ESM import failed, trying UMD fallback...");
+          throw e;
+        }
+      }
+      
+      function loadUMDFallback() {
+        console.warn("⚠️ Loading UMD fallback versions...");
+        
+        // Load Three.js UMD
+        const threeScript = document.createElement('script');
+        threeScript.src = "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js";
+        threeScript.onload = () => {
+          console.log("✅ Three.js loaded via UMD");
+          
+          // Then load MindAR UMD
           const script = document.createElement('script');
           script.src = "https://unpkg.com/mind-ar@1.2.5/dist/mindar-image-three.prod.js";
           script.onload = () => {
@@ -85,26 +108,30 @@
             createMindARStub();
           };
           document.head.appendChild(script);
-        }
+        };
+        threeScript.onerror = () => {
+          console.error("❌ Three.js failed to load");
+        };
+        document.head.appendChild(threeScript);
       }
 
       function createMindARStub() {
-              window.MindARThree = {
-                MindARThree: function(config) {
+        window.MindARThree = {
+          MindARThree: function(config) {
             console.log("🧪 MindAR stub initialized", config);
-              return {
+            return {
               start: async () => console.log("Stub start"),
               stop: async () => console.log("Stub stop"),
               addAnchor: () => ({ group: { add: () => {} } }),
               renderer: { domElement: document.createElement("canvas") },
-              scene: new THREE.Scene(),
-              camera: new THREE.PerspectiveCamera()
-              };
-            }
-          };
+              scene: new window.THREE.Scene(),
+              camera: new window.THREE.PerspectiveCamera()
+            };
+          }
+        };
       }
 
-      loadMindAR();
+      loadLibraries();
     </script>
   </head>
   <body>
