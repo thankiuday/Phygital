@@ -32,7 +32,8 @@ export const useARLogic = ({
   setIsInitialized,
   setIsScanning,
   addDebugMessage,
-  resetARState
+  resetARState,
+  trackAnalytics  // Add analytics tracking
 }) => {
   // Refs
   const containerRef = useRef(null);
@@ -44,6 +45,7 @@ export const useARLogic = ({
   const anchorRef = useRef(null);
   const videoMeshRef = useRef(null);
   const blobURLRef = useRef(null); // Store blob URL for cleanup
+  const videoViewTrackedRef = useRef(false); // Track if video view has been counted
 
   // Throttled state updates
   const throttledSetTargetDetected = useCallback(
@@ -662,7 +664,21 @@ export const useARLogic = ({
               const timestamp = new Date().toLocaleTimeString();
               console.log(`▶️ [${timestamp}] Starting video playback`);
               
-              videoRef.current.play().catch(e => {
+              videoRef.current.play().then(() => {
+                // Track video view when it successfully starts playing (only once)
+                if (trackAnalytics && !videoViewTrackedRef.current) {
+                  console.log('📊 Tracking video view in AR');
+                  trackAnalytics('videoView', {
+                    source: 'ar_experience',
+                    userAgent: navigator.userAgent
+                  }).then(() => {
+                    console.log('✅ Video view tracked in AR');
+                    videoViewTrackedRef.current = true;
+                  }).catch(err => {
+                    console.warn('⚠️ Video view tracking failed:', err);
+                  });
+                }
+              }).catch(e => {
                 console.log(`⚠️ [${timestamp}] Auto-play failed:`, e.message);
                 addDebugMessage('💡 Tap the screen to allow video playback', 'info');
               });

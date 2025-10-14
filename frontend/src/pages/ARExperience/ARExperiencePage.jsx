@@ -92,7 +92,8 @@ const ARExperiencePage = () => {
     setIsInitialized,
     setIsScanning,
     addDebugMessage,
-    resetARState
+    resetARState,
+    trackAnalytics  // Pass analytics tracking to AR logic
   });
 
   const {

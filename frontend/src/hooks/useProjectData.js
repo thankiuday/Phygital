@@ -65,6 +65,26 @@ export const useProjectData = (projectId, userId, setIsLoading, setProjectData, 
       console.log('✅ Project data set:', projectData);
       addDebugMessage('✅ Project data loaded successfully', 'success');
       
+      // Track QR scan first (when user accesses AR experience, they scanned the code)
+      // Use time-based deduplication similar to UserPage
+      const sessionMinute = Math.floor(Date.now() / 60000);
+      const scanSessionKey = `scan_${userId}_${projectId}_${sessionMinute}`;
+      const alreadyTrackedScan = sessionStorage.getItem(scanSessionKey);
+      
+      if (!alreadyTrackedScan && projectId) {
+        try {
+          console.log('📊 Tracking QR scan from AR Experience');
+          await trackAnalytics('scan', {
+            source: 'ar_experience',
+            userAgent: navigator.userAgent
+          });
+          sessionStorage.setItem(scanSessionKey, 'true');
+          addDebugMessage('✅ QR scan tracked', 'success');
+        } catch (analyticsError) {
+          console.warn('Scan tracking failed:', analyticsError);
+        }
+      }
+      
       // Track AR experience start with error handling
       try {
         await trackAnalytics('ar-experience-start', {

@@ -33,7 +33,6 @@ const UserPage = () => {
   const [videoProgress, setVideoProgress] = useState(0)
   const [videoViewTracked, setVideoViewTracked] = useState(false) // Track if we've already counted this video view
   const videoRef = useRef(null)
-  const scanTrackedRef = useRef(false) // Use ref to persist across renders and prevent duplicate scan tracking
 
   useEffect(() => {
     if (username) {
@@ -42,24 +41,48 @@ const UserPage = () => {
   }, [username])
 
   useEffect(() => {
-    // Track page view and QR scan with projectId (only once per session)
-    if (userData?._id && !scanTrackedRef.current) {
-      // Track page view
-      analyticsAPI.trackPageView(userData._id, projectId)
+    // Track page view and QR scan with projectId
+    if (userData?._id) {
+      // Create a unique session key based on userId, projectId, and timestamp (rounded to nearest minute)
+      // This allows one scan per minute per user/project combination
+      const sessionMinute = Math.floor(Date.now() / 60000); // Round to minute
+      const sessionKey = `scan_${userData._id}_${projectId || 'no-project'}_${sessionMinute}`;
       
-      // Track QR scan (when user lands on this page from scanning a QR code)
-      // This happens when they scan the QR code
-      console.log('📊 Tracking QR scan from UserPage:', { userId: userData._id, projectId });
-      analyticsAPI.trackScan(userData._id, {
-        scanType: projectId ? 'project' : 'user',
-        platform: navigator.userAgent,
-        source: 'user_page'
-      }, projectId).then(() => {
-        console.log('✅ QR scan tracked successfully');
-        scanTrackedRef.current = true; // Mark as tracked to prevent duplicates on re-renders
-      }).catch((error) => {
-        console.error('❌ Failed to track QR scan:', error);
-      });
+      // Check if we've already tracked this scan in this minute
+      const alreadyTracked = sessionStorage.getItem(sessionKey);
+      
+      if (!alreadyTracked) {
+        // Track page view
+        analyticsAPI.trackPageView(userData._id, projectId);
+        
+        // Track QR scan
+        console.log('📊 Tracking QR scan from UserPage:', { 
+          userId: userData._id, 
+          projectId,
+          sessionKey 
+        });
+        
+        analyticsAPI.trackScan(userData._id, {
+          scanType: projectId ? 'project' : 'user',
+          platform: navigator.userAgent,
+          source: 'user_page',
+          timestamp: new Date().toISOString()
+        }, projectId).then(() => {
+          console.log('✅ QR scan tracked successfully');
+          // Mark this scan as tracked for this minute
+          sessionStorage.setItem(sessionKey, 'true');
+          // Clean up old session keys (keep only last 10)
+          const allKeys = Object.keys(sessionStorage);
+          const scanKeys = allKeys.filter(k => k.startsWith('scan_'));
+          if (scanKeys.length > 10) {
+            scanKeys.slice(0, scanKeys.length - 10).forEach(k => sessionStorage.removeItem(k));
+          }
+        }).catch((error) => {
+          console.error('❌ Failed to track QR scan:', error);
+        });
+      } else {
+        console.log('ℹ️ Scan already tracked in this minute, skipping duplicate');
+      }
     }
   }, [userData, projectId])
 
