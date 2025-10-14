@@ -408,9 +408,11 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
   const saveQRPosition = async () => {
     try {
       // Show loader immediately when button is clicked
+      console.log('🔄 Starting save process - showing loader NOW');
       setIsSaving(true);
       setIsGeneratingMind(true);
       setMindGenerationMessage('Saving QR position...');
+      console.log('✅ Loader state set:', { isSaving: true, isGeneratingMind: true });
       
       console.log('=== QR Position Save Debug ===');
       console.log('Saving QR position:', qrPosition);
@@ -554,25 +556,31 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       }
       
       console.log('[Level QR] ✅ .mind file verified:', mindTargetUrl);
-      setMindGenerationMessage('AR tracking file ready! Advancing to Level 3...');
-      toast.success('📍 QR position saved with AR tracking!');
       
-      // ===== ONLY NOW can we advance to Level 3 =====
-      console.log('Calling onComplete with qrPosition:', qrPosition);
-      console.log('Mind file URL confirmed:', mindTargetUrl);
+      // Show final success message on the loader
+      setMindGenerationMessage('✅ AR tracking file successfully generated!');
       
-      // Show success message for 1 second before advancing
+      // Wait 1.5 seconds to show the success message on loader
       setTimeout(() => {
+        // Hide loader
+        setIsGeneratingMind(false);
+        
+        // Show toast notification
+        toast.success('📍 QR position saved with AR tracking!');
+        
+        // ===== ONLY NOW can we advance to Level 3 =====
+        console.log('Calling onComplete with qrPosition:', qrPosition);
+        console.log('Mind file URL confirmed:', mindTargetUrl);
+        
+        // Advance to next level immediately after hiding loader
         onComplete(qrPosition);
         console.log('onComplete called successfully - advancing to Level 3');
         
-        // Keep loader showing during level transition
-        // It will be hidden by LevelBasedUpload's transition loader
+        // Hide the isSaving state after level transition starts
         setTimeout(() => {
           setIsSaving(false);
-          setIsGeneratingMind(false);
-        }, 500);
-      }, 1000);
+        }, 300);
+      }, 1500); // Keep loader visible for 1.5 seconds to show success message
       
     } catch (error) {
       console.error('=== QR Position Save Error ===');
@@ -612,6 +620,9 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     }
   };
 
+  // Render loader at top level (before any returns)
+  const loaderElement = <MindFileGenerationLoader isLoading={isGeneratingMind} message={mindGenerationMessage} />;
+
   // If position already exists and we're not forcing a fresh start, show completion and auto-advance
   if (!forceStartFromLevel1 && (currentPosition || user?.qrPosition)) {
     const position = currentPosition || user.qrPosition;
@@ -626,90 +637,95 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     }, [user?.qrPosition?.x, user?.qrPosition?.y, currentPosition, onComplete]); // Include onComplete in dependencies
     
     return (
-      <div className="text-center py-8">
-        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-neon-green/20 mb-6 shadow-glow-green">
-          <CheckCircle className="w-10 h-10 text-neon-green" />
-        </div>
-        
-        <h3 className="text-2xl font-bold text-neon-green mb-4">
-          🎉 Level 2 Complete!
-        </h3>
-        
-        <div className="bg-green-900/20 border border-neon-green/30 rounded-lg p-6 mb-6">
-          <div className="flex items-center justify-center mb-4">
-            <QrCode className="w-8 h-8 text-neon-green mr-3" />
-            <span className="font-semibold text-neon-green">QR Position Set</span>
+      <>
+        {loaderElement}
+        <div className="text-center py-8">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-neon-green/20 mb-6 shadow-glow-green">
+            <CheckCircle className="w-10 h-10 text-neon-green" />
           </div>
-          <p className="text-slate-200">
-            X: {position.x}px, Y: {position.y}px
-          </p>
-          <p className="text-sm text-slate-300">
-            Size: {position.width} × {position.height}px
-          </p>
-        </div>
         
-        {designImageUrl && (
-          <div className="max-w-md mx-auto relative">
-            <img
-              src={designImageUrl}
-              alt="Design with QR position"
-              className="w-full h-auto rounded-lg shadow-dark-large"
-            />
-            <div
-              className="absolute border-2 border-neon-green bg-neon-green bg-opacity-20"
-              style={{
-                left: `${position.x}px`,
-                top: `${position.y}px`,
-                width: `${position.width}px`,
-                height: `${position.height}px`
-              }}
-            >
-              <div className="absolute -top-6 left-0 text-xs bg-neon-green text-slate-900 px-2 py-1 rounded">
-                QR Code Area
+          <h3 className="text-2xl font-bold text-neon-green mb-4">
+            🎉 Level 2 Complete!
+          </h3>
+          
+          <div className="bg-green-900/20 border border-neon-green/30 rounded-lg p-6 mb-6">
+            <div className="flex items-center justify-center mb-4">
+              <QrCode className="w-8 h-8 text-neon-green mr-3" />
+              <span className="font-semibold text-neon-green">QR Position Set</span>
+            </div>
+            <p className="text-slate-200">
+              X: {position.x}px, Y: {position.y}px
+            </p>
+            <p className="text-sm text-slate-300">
+              Size: {position.width} × {position.height}px
+            </p>
+          </div>
+          
+          {designImageUrl && (
+            <div className="max-w-md mx-auto relative">
+              <img
+                src={designImageUrl}
+                alt="Design with QR position"
+                className="w-full h-auto rounded-lg shadow-dark-large"
+              />
+              <div
+                className="absolute border-2 border-neon-green bg-neon-green bg-opacity-20"
+                style={{
+                  left: `${position.x}px`,
+                  top: `${position.y}px`,
+                  width: `${position.width}px`,
+                  height: `${position.height}px`
+                }}
+              >
+                <div className="absolute -top-6 left-0 text-xs bg-neon-green text-slate-900 px-2 py-1 rounded">
+                  QR Code Area
+                </div>
               </div>
             </div>
+          )}
+          
+          <p className="text-slate-300 mt-6">
+            ✨ Perfect! Your QR code position is set for the next level.
+          </p>
+          
+          <div className="mt-6">
+            <button
+              onClick={() => onComplete(position)}
+              className="btn-primary px-6 py-3"
+            >
+              Continue to Next Level →
+            </button>
           </div>
-        )}
-        
-        <p className="text-slate-300 mt-6">
-          ✨ Perfect! Your QR code position is set for the next level.
-        </p>
-        
-        <div className="mt-6">
-          <button
-            onClick={() => onComplete(position)}
-            className="btn-primary px-6 py-3"
-          >
-            Continue to Next Level →
-          </button>
         </div>
-      </div>
+      </>
     );
   }
 
   if (!designImageUrl) {
     return (
-      <div className="text-center py-12">
-        <AlertCircle className="mx-auto h-16 w-16 text-slate-400 mb-4" />
-        <h3 className="text-xl font-semibold text-slate-100 mb-2">
-          Design Required
-        </h3>
-        <p className="text-slate-300">
-          Please complete Level 1 (Upload Design) first to set QR code position.
-        </p>
-      </div>
+      <>
+        {loaderElement}
+        <div className="text-center py-12">
+          <AlertCircle className="mx-auto h-16 w-16 text-slate-400 mb-4" />
+          <h3 className="text-xl font-semibold text-slate-100 mb-2">
+            Design Required
+          </h3>
+          <p className="text-slate-300">
+            Please complete Level 1 (Upload Design) first to set QR code position.
+          </p>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Mind File Generation Loader */}
-      <MindFileGenerationLoader isLoading={isGeneratingMind} message={mindGenerationMessage} />
-      
-      <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-neon-blue/20 mb-4 shadow-glow-blue">
-          <QrCode className="w-8 h-8 text-neon-blue" />
-        </div>
+    <>
+      {loaderElement}
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-neon-blue/20 mb-4 shadow-glow-blue">
+            <QrCode className="w-8 h-8 text-neon-blue" />
+          </div>
         <h3 className="text-xl font-semibold text-slate-100 mb-2">
           Position Your QR Code
         </h3>
@@ -950,7 +966,8 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 

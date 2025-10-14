@@ -8,10 +8,20 @@ import React from 'react';
 import { QrCode, Cpu, Zap } from 'lucide-react';
 
 const MindFileGenerationLoader = ({ isLoading, message = 'Generating AR tracking file...' }) => {
-  if (!isLoading) return null;
+  // Debug logging
+  React.useEffect(() => {
+    console.log('🔍 MindFileGenerationLoader state:', { isLoading, message });
+  }, [isLoading, message]);
+
+  if (!isLoading) {
+    console.log('❌ MindFileGenerationLoader: isLoading is false, not rendering');
+    return null;
+  }
+
+  console.log('✅ MindFileGenerationLoader: Rendering loader with message:', message);
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center backdrop-blur-sm">
+    <div className="fixed inset-0 z-[99999] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center backdrop-blur-sm">
       {/* Animated background */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute w-96 h-96 -top-48 -left-48 bg-neon-purple/10 rounded-full blur-3xl animate-pulse"></div>
