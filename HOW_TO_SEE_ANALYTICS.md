@@ -67,9 +67,9 @@ Your **greenHell** project currently has:
 ```json
 {
   "totalScans": 1,
-  "videoViews": 0,
+  "videoViews": 1,
   "linkClicks": 0,
-  "arExperienceStarts": 2
+  "arExperienceStarts": 4
 }
 ```
 

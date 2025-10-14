@@ -31,7 +31,9 @@ const UserPage = () => {
   const [isVideoPlaying, setIsVideoPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(true)
   const [videoProgress, setVideoProgress] = useState(0)
+  const [videoViewTracked, setVideoViewTracked] = useState(false) // Track if we've already counted this video view
   const videoRef = useRef(null)
+  const scanTrackedRef = useRef(false) // Use ref to persist across renders and prevent duplicate scan tracking
 
   useEffect(() => {
     if (username) {
@@ -40,8 +42,8 @@ const UserPage = () => {
   }, [username])
 
   useEffect(() => {
-    // Track page view and QR scan with projectId
-    if (userData?._id) {
+    // Track page view and QR scan with projectId (only once per session)
+    if (userData?._id && !scanTrackedRef.current) {
       // Track page view
       analyticsAPI.trackPageView(userData._id, projectId)
       
@@ -54,6 +56,7 @@ const UserPage = () => {
         source: 'user_page'
       }, projectId).then(() => {
         console.log('✅ QR scan tracked successfully');
+        scanTrackedRef.current = true; // Mark as tracked to prevent duplicates on re-renders
       }).catch((error) => {
         console.error('❌ Failed to track QR scan:', error);
       });
@@ -89,9 +92,18 @@ const UserPage = () => {
       const progress = (videoRef.current.currentTime / videoRef.current.duration) * 100
       setVideoProgress(progress)
       
-      // Track video view progress with projectId
-      if (userData?._id && progress > 0) {
+      // Track video view only once when video starts playing (at ~1% progress)
+      // This prevents tracking hundreds of events on every timeupdate
+      if (userData?._id && progress > 1 && !videoViewTracked) {
+        console.log('📊 Tracking video view:', { userId: userData._id, projectId, progress });
         analyticsAPI.trackVideoView(userData._id, progress, videoRef.current.duration, projectId)
+          .then(() => {
+            console.log('✅ Video view tracked successfully');
+            setVideoViewTracked(true); // Mark as tracked
+          })
+          .catch((error) => {
+            console.error('❌ Failed to track video view:', error);
+          });
       }
     }
   }
@@ -99,6 +111,7 @@ const UserPage = () => {
   const handleVideoEnd = () => {
     setIsVideoPlaying(false)
     setVideoProgress(0)
+    setVideoViewTracked(false) // Reset so replay counts as a new view
   }
 
   const handleSocialLinkClick = (platform, url) => {
