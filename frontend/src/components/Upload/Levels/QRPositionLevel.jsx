@@ -407,7 +407,11 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
   // Save QR position
   const saveQRPosition = async () => {
     try {
+      // Show loader immediately when button is clicked
       setIsSaving(true);
+      setIsGeneratingMind(true);
+      setMindGenerationMessage('Saving QR position...');
+      
       console.log('=== QR Position Save Debug ===');
       console.log('Saving QR position:', qrPosition);
       console.log('User token available:', !!localStorage.getItem('token'));
@@ -418,6 +422,8 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       if (!user || !localStorage.getItem('token')) {
         console.error('User not authenticated');
         toast.error('Please login to save QR position');
+        setIsSaving(false);
+        setIsGeneratingMind(false);
         return;
       }
       
@@ -425,15 +431,21 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       if (!qrPosition || typeof qrPosition.x !== 'number' || typeof qrPosition.y !== 'number') {
         console.error('Invalid QR position data:', qrPosition);
         toast.error('Invalid QR position data');
+        setIsSaving(false);
+        setIsGeneratingMind(false);
         return;
       }
       
       console.log('QR position data validation passed:', qrPosition);
       
+      setMindGenerationMessage('Uploading QR position to server...');
+      
       // Always use server-side composite generation to ensure real QR is baked in
       console.log('Using server-side composite generation (setQRPosition)');
       const response = await uploadAPI.setQRPosition(qrPosition);
       console.log('Server-side composite generation response:', response);
+      
+      setMindGenerationMessage('Verifying AR tracking file...');
       
       // Update user context with the response data
       if (response.data?.data?.user) {
@@ -542,18 +554,25 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       }
       
       console.log('[Level QR] ✅ .mind file verified:', mindTargetUrl);
+      setMindGenerationMessage('AR tracking file ready! Advancing to Level 3...');
       toast.success('📍 QR position saved with AR tracking!');
       
       // ===== ONLY NOW can we advance to Level 3 =====
       console.log('Calling onComplete with qrPosition:', qrPosition);
       console.log('Mind file URL confirmed:', mindTargetUrl);
-      onComplete(qrPosition);
-      console.log('onComplete called successfully - advancing to Level 3');
       
-      // Add a small delay to ensure the level completion is processed
+      // Show success message for 1 second before advancing
       setTimeout(() => {
-        console.log('QR position save completed, should advance to next level');
-      }, 500);
+        onComplete(qrPosition);
+        console.log('onComplete called successfully - advancing to Level 3');
+        
+        // Keep loader showing during level transition
+        // It will be hidden by LevelBasedUpload's transition loader
+        setTimeout(() => {
+          setIsSaving(false);
+          setIsGeneratingMind(false);
+        }, 500);
+      }, 1000);
       
     } catch (error) {
       console.error('=== QR Position Save Error ===');
@@ -589,6 +608,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       }
     } finally {
       setIsSaving(false);
+      setIsGeneratingMind(false);
     }
   };
 
