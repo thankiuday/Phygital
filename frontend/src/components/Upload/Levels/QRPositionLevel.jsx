@@ -560,27 +560,26 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       // Show final success message on the loader
       setMindGenerationMessage('✅ AR tracking file successfully generated!');
       
-      // Wait 1.5 seconds to show the success message on loader
+      // Wait 2 seconds to show the success message on loader
       setTimeout(() => {
-        // Hide loader
-        setIsGeneratingMind(false);
-        
-        // Show toast notification
+        // Show toast notification FIRST (while loader is still visible)
         toast.success('📍 QR position saved with AR tracking!');
         
-        // ===== ONLY NOW can we advance to Level 3 =====
-        console.log('Calling onComplete with qrPosition:', qrPosition);
-        console.log('Mind file URL confirmed:', mindTargetUrl);
-        
-        // Advance to next level immediately after hiding loader
-        onComplete(qrPosition);
-        console.log('onComplete called successfully - advancing to Level 3');
-        
-        // Hide the isSaving state after level transition starts
+        // Wait another 1 second for user to see the toast, then hide loader
         setTimeout(() => {
+          // Hide loader
+          setIsGeneratingMind(false);
           setIsSaving(false);
-        }, 300);
-      }, 1500); // Keep loader visible for 1.5 seconds to show success message
+          
+          // ===== ONLY NOW can we advance to Level 3 =====
+          console.log('Calling onComplete with qrPosition:', qrPosition);
+          console.log('Mind file URL confirmed:', mindTargetUrl);
+          
+          // Advance to next level
+          onComplete(qrPosition);
+          console.log('onComplete called successfully - advancing to Level 3');
+        }, 1000); // Wait 1 second after toast appears
+      }, 2000); // Keep loader visible for 2 seconds to show success message
       
     } catch (error) {
       console.error('=== QR Position Save Error ===');
