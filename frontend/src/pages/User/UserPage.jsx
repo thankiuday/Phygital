@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { userAPI, analyticsAPI } from '../../utils/api'
 import { 
   Play, 
@@ -24,6 +24,8 @@ import toast from 'react-hot-toast'
 
 const UserPage = () => {
   const { username } = useParams()
+  const [searchParams] = useSearchParams()
+  const projectId = searchParams.get('project') // Get projectId from URL query params
   const [userData, setUserData] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isVideoPlaying, setIsVideoPlaying] = useState(false)
@@ -38,11 +40,11 @@ const UserPage = () => {
   }, [username])
 
   useEffect(() => {
-    // Track page view
+    // Track page view with projectId
     if (userData?._id) {
-      analyticsAPI.trackPageView(userData._id)
+      analyticsAPI.trackPageView(userData._id, projectId)
     }
-  }, [userData])
+  }, [userData, projectId])
 
   const fetchUserData = async () => {
     try {
@@ -73,9 +75,9 @@ const UserPage = () => {
       const progress = (videoRef.current.currentTime / videoRef.current.duration) * 100
       setVideoProgress(progress)
       
-      // Track video view progress
+      // Track video view progress with projectId
       if (userData?._id && progress > 0) {
-        analyticsAPI.trackVideoView(userData._id, progress, videoRef.current.duration)
+        analyticsAPI.trackVideoView(userData._id, progress, videoRef.current.duration, projectId)
       }
     }
   }
@@ -87,7 +89,7 @@ const UserPage = () => {
 
   const handleSocialLinkClick = (platform, url) => {
     if (userData?._id) {
-      analyticsAPI.trackLinkClick(userData._id, platform, url)
+      analyticsAPI.trackLinkClick(userData._id, platform, url, projectId)
     }
     window.open(url, '_blank')
   }

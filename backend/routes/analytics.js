@@ -19,6 +19,7 @@ const router = express.Router();
  */
 router.post('/scan', [
   body('userId').isMongoId().withMessage('Valid user ID is required'),
+  body('projectId').optional().isString().withMessage('Project ID must be a string'),
   body('scanData').optional().isObject().withMessage('Scan data must be an object')
 ], async (req, res) => {
   try {
@@ -32,7 +33,7 @@ router.post('/scan', [
       });
     }
     
-    const { userId, scanData = {} } = req.body;
+    const { userId, projectId, scanData = {} } = req.body;
     
     // Validate if userId is a valid ObjectId format (24 hex characters)
     const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
@@ -55,7 +56,7 @@ router.post('/scan', [
     // Update user analytics
     await user.updateAnalytics('scan');
     
-    // Track detailed analytics
+    // Track detailed analytics with projectId
     await Analytics.trackEvent(userId, 'scan', {
       scanLocation: scanData.location || {},
       userAgent: req.headers['user-agent'],
@@ -66,7 +67,7 @@ router.post('/scan', [
         browser: scanData.browser || 'unknown',
         os: scanData.os || 'unknown'
       }
-    });
+    }, projectId);
     
     res.status(200).json({
       status: 'success',
@@ -93,6 +94,7 @@ router.post('/scan', [
  */
 router.post('/video-view', [
   body('userId').isMongoId().withMessage('Valid user ID is required'),
+  body('projectId').optional().isString().withMessage('Project ID must be a string'),
   body('videoProgress').optional().isNumeric().withMessage('Video progress must be a number'),
   body('videoDuration').optional().isNumeric().withMessage('Video duration must be a number')
 ], async (req, res) => {
@@ -107,7 +109,7 @@ router.post('/video-view', [
       });
     }
     
-    const { userId, videoProgress = 0, videoDuration = 0 } = req.body;
+    const { userId, projectId, videoProgress = 0, videoDuration = 0 } = req.body;
     
     // Validate if userId is a valid ObjectId format (24 hex characters)
     const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
@@ -130,14 +132,14 @@ router.post('/video-view', [
     // Update user analytics
     await user.updateAnalytics('videoView');
     
-    // Track detailed analytics
+    // Track detailed analytics with projectId
     await Analytics.trackEvent(userId, 'videoView', {
       videoProgress: parseFloat(videoProgress),
       videoDuration: parseFloat(videoDuration),
       userAgent: req.headers['user-agent'],
       ipAddress: req.ip || req.connection.remoteAddress,
       referrer: req.headers.referer
-    });
+    }, projectId);
     
     res.status(200).json({
       status: 'success',
@@ -164,6 +166,7 @@ router.post('/video-view', [
  */
 router.post('/link-click', [
   body('userId').isString().withMessage('Valid user ID is required'),
+  body('projectId').optional().isString().withMessage('Project ID must be a string'),
   body('linkType').isString().withMessage('Link type is required'),
   body('linkUrl').isURL().withMessage('Valid link URL is required')
 ], async (req, res) => {
@@ -178,7 +181,7 @@ router.post('/link-click', [
       });
     }
     
-    const { userId, linkType, linkUrl } = req.body;
+    const { userId, projectId, linkType, linkUrl } = req.body;
     
     // Validate if userId is a valid ObjectId format (24 hex characters)
     const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
@@ -201,14 +204,14 @@ router.post('/link-click', [
     // Update user analytics
     await user.updateAnalytics('linkClick');
     
-    // Track detailed analytics
+    // Track detailed analytics with projectId
     await Analytics.trackEvent(userId, 'linkClick', {
       linkType,
       linkUrl,
       userAgent: req.headers['user-agent'],
       ipAddress: req.ip || req.connection.remoteAddress,
       referrer: req.headers.referer
-    });
+    }, projectId);
     
     res.status(200).json({
       status: 'success',
@@ -441,9 +444,8 @@ router.post('/ar-experience-start', [
     // Update user analytics
     await user.updateAnalytics('arExperienceStart');
     
-    // Track detailed analytics
+    // Track detailed analytics with projectId
     await Analytics.trackEvent(userId, 'arExperienceStart', {
-      projectId,
       loadTime: parseFloat(loadTime),
       hasDesign: Boolean(hasDesign),
       hasVideo: Boolean(hasVideo),
@@ -451,7 +453,7 @@ router.post('/ar-experience-start', [
       ipAddress: req.ip || req.connection.remoteAddress,
       referrer: req.headers.referer,
       timestamp: new Date(timestamp)
-    });
+    }, projectId);
     
     res.status(200).json({
       status: 'success',
@@ -477,7 +479,8 @@ router.post('/ar-experience-start', [
  * Logs when users visit the personalized page
  */
 router.post('/page-view', [
-  body('userId').isMongoId().withMessage('Valid user ID is required')
+  body('userId').isMongoId().withMessage('Valid user ID is required'),
+  body('projectId').optional().isString().withMessage('Project ID must be a string')
 ], async (req, res) => {
   try {
     // Check for validation errors
@@ -490,7 +493,7 @@ router.post('/page-view', [
       });
     }
     
-    const { userId } = req.body;
+    const { userId, projectId } = req.body;
     
     // Validate if userId is a valid ObjectId format (24 hex characters)
     const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
@@ -510,12 +513,12 @@ router.post('/page-view', [
       });
     }
     
-    // Track page view
+    // Track page view with projectId
     await Analytics.trackEvent(userId, 'pageView', {
       userAgent: req.headers['user-agent'],
       ipAddress: req.ip || req.connection.remoteAddress,
       referrer: req.headers.referer
-    });
+    }, projectId);
     
     res.status(200).json({
       status: 'success',

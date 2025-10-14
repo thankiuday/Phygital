@@ -223,29 +223,72 @@ export const AuthProvider = ({ children }) => {
     dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR })
   }
 
-  // Check if user has completed setup
+  // Check if user has completed setup (has at least one complete project)
   const isSetupComplete = () => {
     if (!state.user) return false
     
+    // Check if user has any completed projects
+    if (state.user.projects && state.user.projects.length > 0) {
+      return state.user.projects.some(project => isProjectComplete(project))
+    }
+    
+    // If no projects, check if they have all components for a potential project
     return !!(
       state.user.uploadedFiles?.design?.url &&
-      state.user.uploadedFiles?.video?.url
+      state.user.uploadedFiles?.video?.url &&
+      (state.user.qrPosition?.x !== 0 || state.user.qrPosition?.y !== 0) &&
+      Object.values(state.user.socialLinks || {}).some(link => link)
     )
   }
 
-  // Get setup progress
+  // Helper function to check if a project is complete based on actual DB schema
+  const isProjectComplete = (project) => {
+    // Based on actual DB schema from user's data
+    const hasDesign = project.uploadedFiles?.design?.url
+    const hasVideo = project.uploadedFiles?.video?.url
+    const hasQR = project.uploadedFiles?.mindTarget?.generated || (project.qrPosition?.x !== 0 || project.qrPosition?.y !== 0)
+    const hasSocial = Object.values(state.user?.socialLinks || {}).some(link => link) // Social links are global
+    
+    return !!(hasDesign && hasVideo && hasQR && hasSocial)
+  }
+
+  // Get setup progress based on current project state
   const getSetupProgress = () => {
     if (!state.user) return 0
     
+    // If user has completed projects, show 100%
+    if (isSetupComplete()) {
+      return 100
+    }
+    
+    // Check current project progress (global uploads + settings)
     let completedSteps = 0
     const totalSteps = 4
     
+    // Step 1: Design uploaded
     if (state.user.uploadedFiles?.design?.url) completedSteps++
+    
+    // Step 2: Video uploaded  
     if (state.user.uploadedFiles?.video?.url) completedSteps++
-    if (state.user.qrPosition?.x !== 0 || state.user.qrPosition?.y !== 0) completedSteps++
+    
+    // Step 3: QR position set (or .mind file generated)
+    if ((state.user.qrPosition?.x !== 0 || state.user.qrPosition?.y !== 0)) completedSteps++
+    
+    // Step 4: Social links added
     if (Object.values(state.user.socialLinks || {}).some(link => link)) completedSteps++
     
     return Math.round((completedSteps / totalSteps) * 100)
+  }
+
+  // Get user's project statistics
+  const getProjectStats = () => {
+    if (!state.user?.projects) return { total: 0, complete: 0, incomplete: 0 }
+    
+    const total = state.user.projects.length
+    const complete = state.user.projects.filter(isProjectComplete).length
+    const incomplete = total - complete
+    
+    return { total, complete, incomplete }
   }
 
   const value = {
@@ -257,7 +300,9 @@ export const AuthProvider = ({ children }) => {
     clearError,
     loadUser,
     isSetupComplete,
-    getSetupProgress
+    getSetupProgress,
+    getProjectStats,
+    isProjectComplete
   }
 
   return (

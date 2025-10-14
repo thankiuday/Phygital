@@ -224,16 +224,20 @@ export const qrAPI = {
 }
 
 export const analyticsAPI = {
-  // Analytics tracking
-  trackScan: (userId, scanData) => api.post('/analytics/scan', { userId, scanData }),
-  trackVideoView: (userId, videoProgress, videoDuration) => 
-    api.post('/analytics/video-view', { userId, videoProgress, videoDuration }),
-  trackLinkClick: (userId, linkType, linkUrl) => 
-    api.post('/analytics/link-click', { userId, linkType, linkUrl }),
-  trackPageView: (userId) => api.post('/analytics/page-view', { userId }),
+  // Analytics tracking (now with project support)
+  trackScan: (userId, scanData, projectId = null) => 
+    api.post('/analytics/scan', { userId, scanData, projectId }),
+  trackVideoView: (userId, videoProgress, videoDuration, projectId = null) => 
+    api.post('/analytics/video-view', { userId, videoProgress, videoDuration, projectId }),
+  trackLinkClick: (userId, linkType, linkUrl, projectId = null) => 
+    api.post('/analytics/link-click', { userId, linkType, linkUrl, projectId }),
+  trackPageView: (userId, projectId = null) => 
+    api.post('/analytics/page-view', { userId, projectId }),
   getAnalytics: (userId, days = 30) => api.get(`/analytics/${userId}?days=${days}`),
   getDashboardAnalytics: (userId, period = '30d') => 
     api.get(`/analytics/dashboard/${userId}?period=${period}`),
+  getProjectAnalytics: (userId, projectId, days = 30) => 
+    api.get(`/analytics/project/${projectId}?userId=${userId}&days=${days}`),
 }
 
 export const userAPI = {
