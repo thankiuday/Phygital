@@ -28,12 +28,12 @@ const RegisterPage = () => {
 
   const password = watch('password')
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated (when page loads)
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/dashboard', { replace: true })
     }
-  }, [isAuthenticated, navigate])
+  }, []) // Only run on mount, not when isAuthenticated changes
 
   const onSubmit = async (data) => {
     try {

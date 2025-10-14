@@ -4,7 +4,7 @@
  * Handles responsive design and navigation state
  */
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { 
@@ -25,18 +25,28 @@ const Layout = () => {
   const { isAuthenticated, user, logout } = useAuth()
   const location = useLocation()
 
+  // Scroll to top on route change
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [location.pathname])
+
   const navigation = [
-    { name: 'Home', href: '/', icon: Home, public: true },
-    { name: 'Dashboard', href: '/dashboard', icon: BarChart3, public: false },
-    { name: 'Upload', href: '/upload', icon: Upload, public: false },
-    { name: 'Projects', href: '/projects', icon: FolderKanban, public: false },
-    { name: 'Analytics', href: '/analytics', icon: BarChart3, public: false },
-    { name: 'Profile', href: '/profile', icon: User, public: false },
+    { name: 'Home', href: '/', icon: Home, public: true, authOnly: false },
+    { name: 'Dashboard', href: '/dashboard', icon: BarChart3, public: false, authOnly: true },
+    { name: 'Upload', href: '/upload', icon: Upload, public: false, authOnly: true },
+    { name: 'Projects', href: '/projects', icon: FolderKanban, public: false, authOnly: true },
+    { name: 'Analytics', href: '/analytics', icon: BarChart3, public: false, authOnly: true },
+    { name: 'Profile', href: '/profile', icon: User, public: false, authOnly: true },
   ]
 
-  const filteredNavigation = navigation.filter(item => 
-    isAuthenticated ? true : item.public
-  )
+  const filteredNavigation = navigation.filter(item => {
+    // If authenticated, show only authenticated-only items (hide public items like Home)
+    if (isAuthenticated) {
+      return item.authOnly
+    }
+    // If not authenticated, show only public items
+    return item.public
+  })
 
   const isActive = (path) => location.pathname === path
 

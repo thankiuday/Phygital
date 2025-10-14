@@ -2577,14 +2577,16 @@ router.delete('/project/:projectId', authenticateToken, async (req, res) => {
       user.currentProject = null;
     }
     
-    // Clear uploaded files if this was the only project
+    // Clear uploaded files and QR position if this was the only project
+    // Keep social links as they are global and reusable across projects
     if (user.projects.length === 0) {
       user.uploadedFiles = {
         design: { url: null },
-        video: { url: null }
+        video: { url: null },
+        mindTarget: { generated: false }
       };
       user.qrPosition = null;
-      user.socialLinks = {};
+      // Don't clear social links - they persist across projects
     }
     
     await user.save();

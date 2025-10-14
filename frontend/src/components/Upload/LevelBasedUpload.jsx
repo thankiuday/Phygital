@@ -22,6 +22,11 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
   });
   const [isAnimating, setIsAnimating] = useState(false);
 
+  // Scroll to top smoothly whenever level changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentLevel]);
+
   const levels = [
     {
       id: 1,

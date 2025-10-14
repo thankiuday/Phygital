@@ -25,13 +25,13 @@ const LoginPage = () => {
     setError
   } = useForm()
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated (when page loads)
   useEffect(() => {
     if (isAuthenticated) {
       const from = location.state?.from?.pathname || '/dashboard'
       navigate(from, { replace: true })
     }
-  }, [isAuthenticated, navigate, location])
+  }, []) // Only run on mount, not when isAuthenticated changes (to avoid conflict with login function)
 
   const onSubmit = async (data) => {
     try {

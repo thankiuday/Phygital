@@ -256,26 +256,40 @@ export const AuthProvider = ({ children }) => {
   const getSetupProgress = () => {
     if (!state.user) return 0
     
+    // If user has NO projects at all, always return 0% regardless of global settings
+    // This ensures a clean slate when all projects are deleted
+    if (!state.user.projects || state.user.projects.length === 0) {
+      return 0
+    }
+    
     // If user has completed projects, show 100%
     if (isSetupComplete()) {
       return 100
     }
     
-    // Check current project progress (global uploads + settings)
+    // Get the latest project (most recently created)
+    const latestProject = state.user.projects[state.user.projects.length - 1]
+    
+    // Calculate progress based on the latest project ONLY
+    // Don't count global settings if the project itself doesn't have files
     let completedSteps = 0
     const totalSteps = 4
     
-    // Step 1: Design uploaded
-    if (state.user.uploadedFiles?.design?.url) completedSteps++
+    // Step 1: Design uploaded (project-specific)
+    if (latestProject.uploadedFiles?.design?.url) completedSteps++
     
-    // Step 2: Video uploaded  
-    if (state.user.uploadedFiles?.video?.url) completedSteps++
+    // Step 2: Video uploaded (project-specific)
+    if (latestProject.uploadedFiles?.video?.url) completedSteps++
     
-    // Step 3: QR position set (or .mind file generated)
-    if ((state.user.qrPosition?.x !== 0 || state.user.qrPosition?.y !== 0)) completedSteps++
+    // Step 3: QR position set or .mind file generated (project-specific)
+    if (latestProject.uploadedFiles?.mindTarget?.generated || (latestProject.qrPosition?.x !== 0 || latestProject.qrPosition?.y !== 0)) completedSteps++
     
-    // Step 4: Social links added
-    if (Object.values(state.user.socialLinks || {}).some(link => link)) completedSteps++
+    // Step 4: Social links added (global, but only count if project has other files)
+    // Only count social links if the project has at least design or video
+    const projectHasFiles = latestProject.uploadedFiles?.design?.url || latestProject.uploadedFiles?.video?.url
+    if (projectHasFiles && Object.values(state.user.socialLinks || {}).some(link => link)) {
+      completedSteps++
+    }
     
     return Math.round((completedSteps / totalSteps) * 100)
   }
