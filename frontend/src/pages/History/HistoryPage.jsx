@@ -73,7 +73,7 @@ const HistoryPage = () => {
     loadHistory()
   }, [])
 
-  // Extract unique projects from history
+  // Extract unique projects from history and get actual project data from user
   const getUniqueProjects = () => {
     const projectMap = new Map()
     
@@ -83,12 +83,16 @@ const HistoryPage = () => {
         const projectName = activity.data.project.name
         
         if (!projectMap.has(projectId)) {
+          // Find the actual project from user data to get video status
+          const userProject = user?.projects?.find(p => p.id === projectId)
+          
           projectMap.set(projectId, {
             id: projectId,
             name: projectName,
             description: activity.data.project.description,
             createdAt: activity.createdAt,
-            hasVideo: false, // We'll check this separately
+            hasVideo: !!(userProject?.uploadedFiles?.video?.url), // Check project-specific video
+            videoUrl: userProject?.uploadedFiles?.video?.url,
             lastActivity: activity.createdAt
           })
         } else {
@@ -327,9 +331,11 @@ const HistoryPage = () => {
                             <Calendar className="w-4 h-4 mr-1" />
                             <span>{formatDate(project.createdAt)}</span>
                           </div>
-                          <div className="flex items-center text-sm text-slate-400">
+                          <div className="flex items-center text-sm">
                             <Video className="w-4 h-4 mr-1" />
-                            <span>{user?.uploadedFiles?.video?.url ? 'Video uploaded' : 'No video'}</span>
+                            <span className={project.hasVideo ? 'text-neon-green' : 'text-slate-400'}>
+                              {project.hasVideo ? 'Video uploaded' : 'No video'}
+                            </span>
                           </div>
                         </div>
                       </div>
