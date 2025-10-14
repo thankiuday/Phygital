@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronRight, ChevronLeft, Upload, QrCode, Video, Share2, Download, Sparkles } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import PageTransitionLoader from '../UI/PageTransitionLoader';
 import GameLevelProgress from './GameLevelProgress';
 import DesignUploadLevel from './Levels/DesignUploadLevel';
 import QRPositionLevel from './Levels/QRPositionLevel';
@@ -21,10 +22,22 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
     finalDesign: null
   });
   const [isAnimating, setIsAnimating] = useState(false);
+  const [isLevelTransitioning, setIsLevelTransitioning] = useState(false);
 
-  // Scroll to top smoothly whenever level changes
+  // Scroll to top smoothly whenever level changes with loader
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Show loader
+    setIsLevelTransitioning(true);
+    
+    // Scroll to top immediately
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    
+    // Hide loader after transition
+    const timer = setTimeout(() => {
+      setIsLevelTransitioning(false);
+    }, 500); // 500ms for level transitions
+    
+    return () => clearTimeout(timer);
   }, [currentLevel]);
 
   const levels = [
@@ -539,6 +552,9 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6">
+      {/* Level Transition Loader */}
+      <PageTransitionLoader isLoading={isLevelTransitioning} />
+      
       {/* Game Progress */}
       <GameLevelProgress 
         currentLevel={currentLevel}

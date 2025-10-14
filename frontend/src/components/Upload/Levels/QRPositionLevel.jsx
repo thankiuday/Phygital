@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { uploadAPI, qrAPI } from '../../../utils/api';
 import { QrCode, CheckCircle, AlertCircle, MapPin } from 'lucide-react';
+import MindFileGenerationLoader from '../../UI/MindFileGenerationLoader';
 import toast from 'react-hot-toast';
 
 const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFromLevel1 = false }) => {
@@ -13,6 +14,8 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     height: currentPosition?.height || user?.qrPosition?.height || 100
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [isGeneratingMind, setIsGeneratingMind] = useState(false);
+  const [mindGenerationMessage, setMindGenerationMessage] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
@@ -453,6 +456,9 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         
         if (!mindTargetUrl) {
           // Server didn't generate .mind file - try client-side generation
+          // Show specialized loader for .mind generation
+          setIsGeneratingMind(true);
+          setMindGenerationMessage('Generating AR tracking file...');
           toast.loading('🧠 Generating AR tracking file...', { id: 'mind-gen' });
           
           // Check for composite URL (new response structure first, then fallback)
@@ -462,13 +468,16 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           console.log('[Level QR] Composite URL for .mind generation:', compositeUrl);
           
           if (!compositeUrl) {
+            setIsGeneratingMind(false);
             throw new Error('No composite image available for .mind generation. Please try uploading your design again.');
           }
           
+          setMindGenerationMessage('Loading AR compiler...');
           console.log('[Level QR] Generating .mind on client from composite...');
           const mindarModule = await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image.prod.js');
           const { Compiler } = mindarModule;
           
+          setMindGenerationMessage('Loading design image...');
           const img = await new Promise((resolve, reject) => {
             const i = new Image();
             i.crossOrigin = 'anonymous';
@@ -478,13 +487,18 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
             setTimeout(() => reject(new Error('Image load timeout')), 30000);
           });
           
+          setMindGenerationMessage('Processing AR tracking data...');
           const compiler = new Compiler();
           await compiler.compileImageTargets([img], (progress) => {
-            console.log(`[Level QR] .mind compilation progress: ${(progress * 100).toFixed(0)}%`);
+            const percentage = (progress * 100).toFixed(0);
+            console.log(`[Level QR] .mind compilation progress: ${percentage}%`);
+            setMindGenerationMessage(`Compiling AR data: ${percentage}%`);
           });
           
+          setMindGenerationMessage('Exporting AR data...');
           const buf = await compiler.exportData();
           
+          setMindGenerationMessage('Converting to file format...');
           // Convert ArrayBuffer -> data URL (base64) safely via Blob + FileReader
           const blob = new Blob([buf], { type: 'application/octet-stream' });
           const dataUrl = await new Promise((resolve, reject) => {
@@ -494,14 +508,17 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
             reader.readAsDataURL(blob);
           });
           
+          setMindGenerationMessage('Uploading AR tracking file...');
           const saveRes = await uploadAPI.saveMindTarget(dataUrl);
           mindTargetUrl = saveRes.data?.data?.mindTarget?.url;
           
           console.log('[Level QR] .mind generated and saved via /upload/save-mind-target', saveRes.data);
           toast.success('✅ AR tracking file generated!', { id: 'mind-gen' });
+          setIsGeneratingMind(false);
         }
       } catch (clientMindErr) {
         console.error('[Level QR] .mind generation failed:', clientMindErr);
+        setIsGeneratingMind(false);
         toast.error('❌ Failed to generate AR tracking file', { id: 'mind-gen' });
         
         // Show user-friendly error with action
@@ -666,6 +683,9 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
 
   return (
     <div className="max-w-4xl mx-auto">
+      {/* Mind File Generation Loader */}
+      <MindFileGenerationLoader isLoading={isGeneratingMind} message={mindGenerationMessage} />
+      
       <div className="text-center mb-8">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-neon-blue/20 mb-4 shadow-glow-blue">
           <QrCode className="w-8 h-8 text-neon-blue" />
