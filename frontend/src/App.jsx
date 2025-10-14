@@ -24,6 +24,7 @@ import AnalyticsPage from './pages/Analytics/AnalyticsPage'
 import ProfilePage from './pages/Profile/ProfilePage'
 import UserPage from './pages/User/UserPage'
 import HistoryPage from './pages/History/HistoryPage'
+import ProjectsPage from './pages/Projects/ProjectsPage' // New combined page
 import ScanPage from './pages/ScanPage'
 import NotFoundPage from './pages/NotFoundPage'
 
@@ -88,6 +89,11 @@ function App() {
           <Route path="history" element={
             <ProtectedRoute>
               <HistoryPage />
+            </ProtectedRoute>
+          } />
+          <Route path="projects" element={
+            <ProtectedRoute>
+              <ProjectsPage />
             </ProtectedRoute>
           } />
         </Route>

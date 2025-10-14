@@ -307,6 +307,17 @@ router.get('/user/:userId/project/:projectId', async (req, res) => {
       }
     }
     
+    // Check if project is enabled
+    if (project.isEnabled === false) {
+      console.log(`🚫 Project ${projectId} is disabled by owner`);
+      return res.status(403).json({
+        status: 'error',
+        message: 'This project has been disabled by its owner',
+        projectName: project.name,
+        isDisabled: true
+      });
+    }
+    
     // Check if project has completed setup
     const hasDesign = !!project.uploadedFiles?.design?.url;
     const hasVideo = !!project.uploadedFiles?.video?.url;

@@ -20,6 +20,7 @@ import {
   Globe
 } from 'lucide-react'
 import LoadingSpinner from '../../components/UI/LoadingSpinner'
+import ProjectDisabledScreen from '../../components/AR/ProjectDisabledScreen'
 import toast from 'react-hot-toast'
 
 const UserPage = () => {
@@ -32,6 +33,8 @@ const UserPage = () => {
   const [isMuted, setIsMuted] = useState(true)
   const [videoProgress, setVideoProgress] = useState(0)
   const [videoViewTracked, setVideoViewTracked] = useState(false) // Track if we've already counted this video view
+  const [isProjectDisabled, setIsProjectDisabled] = useState(false)
+  const [disabledProjectName, setDisabledProjectName] = useState('')
   const videoRef = useRef(null)
 
   useEffect(() => {
@@ -90,7 +93,21 @@ const UserPage = () => {
     try {
       setIsLoading(true)
       const response = await userAPI.getUser(username)
-      setUserData(response.data.data.user)
+      const user = response.data.data.user
+      
+      // If projectId is provided, check if that project is disabled
+      if (projectId && user.projects) {
+        const project = user.projects.find(p => p.id === projectId)
+        if (project && project.isEnabled === false) {
+          console.log('🚫 Project is disabled:', project.name)
+          setIsProjectDisabled(true)
+          setDisabledProjectName(project.name)
+          setIsLoading(false)
+          return
+        }
+      }
+      
+      setUserData(user)
     } catch (error) {
       console.error('Failed to fetch user data:', error)
       toast.error('User not found')
@@ -167,6 +184,11 @@ const UserPage = () => {
         <LoadingSpinner size="lg" />
       </div>
     )
+  }
+
+  // Show disabled screen if project is disabled
+  if (isProjectDisabled) {
+    return <ProjectDisabledScreen projectName={disabledProjectName} />
   }
 
   if (!userData) {

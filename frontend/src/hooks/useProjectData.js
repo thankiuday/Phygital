@@ -5,7 +5,7 @@
 
 import { useCallback } from 'react';
 
-export const useProjectData = (projectId, userId, setIsLoading, setProjectData, setError, addDebugMessage, trackAnalytics) => {
+export const useProjectData = (projectId, userId, setIsLoading, setProjectData, setError, addDebugMessage, trackAnalytics, setIsProjectDisabled = null, setDisabledProjectName = null) => {
   const fetchProjectData = useCallback(async () => {
     const startTime = performance.now();
     
@@ -43,6 +43,17 @@ export const useProjectData = (projectId, userId, setIsLoading, setProjectData, 
       console.log('🌐 Response status:', response.status, response.statusText);
       
       if (!response.ok) {
+        // Check if project is disabled (403 status)
+        if (response.status === 403) {
+          const errorData = await response.json();
+          if (errorData.isDisabled) {
+            console.log('🚫 Project is disabled:', errorData.projectName);
+            if (setIsProjectDisabled) setIsProjectDisabled(true);
+            if (setDisabledProjectName) setDisabledProjectName(errorData.projectName);
+            addDebugMessage('🚫 This project has been disabled by its owner', 'error');
+            return; // Exit early, don't throw error
+          }
+        }
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       

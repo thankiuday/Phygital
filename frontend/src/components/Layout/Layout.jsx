@@ -17,7 +17,7 @@ import {
   User, 
   LogOut,
   Settings,
-  Clock
+  FolderKanban
 } from 'lucide-react'
 
 const Layout = () => {
@@ -29,9 +29,8 @@ const Layout = () => {
     { name: 'Home', href: '/', icon: Home, public: true },
     { name: 'Dashboard', href: '/dashboard', icon: BarChart3, public: false },
     { name: 'Upload', href: '/upload', icon: Upload, public: false },
-    { name: 'QR Code', href: '/qrcode', icon: QrCode, public: false },
+    { name: 'Projects', href: '/projects', icon: FolderKanban, public: false },
     { name: 'Analytics', href: '/analytics', icon: BarChart3, public: false },
-    { name: 'History', href: '/history', icon: Clock, public: false },
     { name: 'Profile', href: '/profile', icon: User, public: false },
   ]
 

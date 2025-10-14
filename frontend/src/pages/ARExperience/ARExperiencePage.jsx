@@ -22,6 +22,7 @@ import DebugPanel from '../../components/AR/DebugPanel';
 import LoadingScreen from '../../components/AR/LoadingScreen';
 import ErrorScreen from '../../components/AR/ErrorScreen';
 import ARControls from '../../components/AR/ARControls';
+import ProjectDisabledScreen from '../../components/AR/ProjectDisabledScreen';
 
 const ARExperiencePage = () => {
   const { userId, projectId } = useParams();
@@ -59,6 +60,10 @@ const ARExperiencePage = () => {
     resetARState
   } = arState;
 
+  // Check if project is disabled
+  const [isProjectDisabled, setIsProjectDisabled] = React.useState(false);
+  const [disabledProjectName, setDisabledProjectName] = React.useState('');
+
   // Debug utilities
   const { addDebugMessage } = useDebug(setDebugMessages);
 
@@ -73,7 +78,9 @@ const ARExperiencePage = () => {
     setProjectData, 
     setError, 
     addDebugMessage, 
-    trackAnalytics
+    trackAnalytics,
+    setIsProjectDisabled,
+    setDisabledProjectName
   );
 
   // AR logic
@@ -138,6 +145,11 @@ const ARExperiencePage = () => {
       }, 1500);
     }
   }, [librariesLoaded, projectData, isInitialized, addDebugMessage]);
+
+  // Show disabled screen if project is disabled
+  if (isProjectDisabled) {
+    return <ProjectDisabledScreen projectName={disabledProjectName} />;
+  }
 
   // Loading screen
   if (isLoading) {

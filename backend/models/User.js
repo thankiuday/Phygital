@@ -106,6 +106,7 @@ const userSchema = new mongoose.Schema({
     name: { type: String, required: true, trim: true },
     description: { type: String, trim: true },
     status: { type: String, enum: ['active', 'completed', 'archived'], default: 'active' },
+    isEnabled: { type: Boolean, default: true }, // Toggle to enable/disable AR scanning for this project
     
     // Project-specific files
     uploadedFiles: {

@@ -2806,4 +2806,66 @@ router.post('/create-ar-experience', authenticateToken, async (req, res) => {
   }
 });
 
+/**
+ * PATCH /api/upload/project/:projectId/toggle-status
+ * Toggle project enabled/disabled status
+ * Allows users to enable or disable AR scanning for a project
+ */
+router.patch('/project/:projectId/toggle-status', authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = req.user.id;
+    const { isEnabled } = req.body;
+    
+    // Validate isEnabled parameter
+    if (typeof isEnabled !== 'boolean') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'isEnabled must be a boolean value'
+      });
+    }
+    
+    // Find user and project
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'User not found'
+      });
+    }
+    
+    const projectIndex = user.projects.findIndex(p => p.id === projectId);
+    if (projectIndex === -1) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Project not found'
+      });
+    }
+    
+    // Update project status
+    user.projects[projectIndex].isEnabled = isEnabled;
+    await user.save();
+    
+    console.log(`✅ Project ${projectId} ${isEnabled ? 'enabled' : 'disabled'} for user ${userId}`);
+    
+    res.status(200).json({
+      status: 'success',
+      message: `Project ${isEnabled ? 'enabled' : 'disabled'} successfully`,
+      data: {
+        projectId,
+        isEnabled,
+        project: user.projects[projectIndex]
+      }
+    });
+    
+  } catch (error) {
+    console.error('Toggle project status error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to toggle project status',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 module.exports = router;

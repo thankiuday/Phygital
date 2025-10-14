@@ -171,6 +171,7 @@ export const uploadAPI = {
   updateProjectVideo: (projectId, formData) => uploadApi.put(`/upload/project/${projectId}/video`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
+  toggleProjectStatus: (projectId, isEnabled) => api.patch(`/upload/project/${projectId}/toggle-status`, { isEnabled }),
   setQRPosition: (position) => api.post('/upload/qr-position', position),
   saveCompositeDesign: (compositeImage, qrPosition) => api.post('/upload/save-composite-design', {
     compositeImage,

@@ -100,7 +100,7 @@ const DashboardPage = () => {
       description: 'Create and position your QR code',
       completed: stepCompletion.qr,
       icon: QrCode,
-      link: '/qrcode'
+      link: '/projects'
     },
     {
       id: 'social',
@@ -121,10 +121,10 @@ const DashboardPage = () => {
       color: 'bg-neon-blue'
     },
     {
-      title: 'View QR Code',
-      description: 'Download your QR code',
+      title: 'Manage Projects',
+      description: 'View QR codes, update videos, manage projects',
       icon: QrCode,
-      link: '/qrcode',
+      link: '/projects',
       color: 'bg-neon-green'
     },
     {
@@ -250,10 +250,10 @@ const DashboardPage = () => {
         <div className="mt-3">
           {isComplete ? (
             <Link
-              to="/qrcode"
+              to="/projects"
               className="inline-flex items-center text-xs text-neon-green hover:text-neon-cyan transition-colors duration-200"
             >
-              View QR Code
+              Manage Project
               <ArrowRight className="ml-1 h-3 w-3" />
             </Link>
           ) : (
@@ -573,10 +573,10 @@ const DashboardPage = () => {
                   Created {new Date(project.createdAt).toLocaleDateString()}
                 </p>
                 <Link
-                  to="/qrcode"
+                  to="/projects"
                   className="text-sm text-neon-blue hover:text-neon-cyan transition-colors duration-200"
                 >
-                  View QR Code →
+                  Manage Project →
                 </Link>
               </div>
             ))}
@@ -585,7 +585,7 @@ const DashboardPage = () => {
           {user.projects.length > 3 && (
             <div className="mt-4 text-center">
               <Link
-                to="/history"
+                to="/projects"
                 className="text-sm text-slate-400 hover:text-neon-blue transition-colors duration-200"
               >
                 View all {user.projects.length} projects →
