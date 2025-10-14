@@ -7,6 +7,7 @@
 import React, { useState, useEffect } from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import PageTransitionLoader from '../UI/PageTransitionLoader'
 import { 
   Menu, 
   X, 
@@ -22,12 +23,24 @@ import {
 
 const Layout = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isPageTransitioning, setIsPageTransitioning] = useState(false)
   const { isAuthenticated, user, logout } = useAuth()
   const location = useLocation()
 
-  // Scroll to top on route change
+  // Handle page transition with loader
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    // Show loader
+    setIsPageTransitioning(true)
+    
+    // Scroll to top immediately
+    window.scrollTo({ top: 0, behavior: 'instant' })
+    
+    // Hide loader after a brief delay to show the transition
+    const timer = setTimeout(() => {
+      setIsPageTransitioning(false)
+    }, 400) // 400ms loader display
+    
+    return () => clearTimeout(timer)
   }, [location.pathname])
 
   const navigation = [
@@ -57,6 +70,9 @@ const Layout = () => {
 
   return (
     <div className="min-h-screen bg-dark-mesh">
+      {/* Page Transition Loader */}
+      <PageTransitionLoader isLoading={isPageTransitioning} />
+      
       {/* Navigation */}
       <nav className="bg-slate-900/95 backdrop-blur-sm shadow-dark-large border-b border-slate-700/50 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
