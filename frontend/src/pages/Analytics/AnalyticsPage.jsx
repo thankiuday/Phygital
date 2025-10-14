@@ -34,12 +34,17 @@ const AnalyticsPage = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('30d')
   const [showAllProjects, setShowAllProjects] = useState(false)
 
-  // Initial load
+  // Initial load - refresh user data to get latest analytics
   useEffect(() => {
     if (user?._id) {
-      fetchAnalytics()
+      loadUser().then(() => {
+        fetchAnalytics()
+      }).catch((error) => {
+        console.error('Failed to load user:', error);
+        fetchAnalytics(); // Still try to fetch analytics even if user reload fails
+      });
     }
-  }, [user?._id, selectedPeriod])
+  }, [selectedPeriod]) // Only re-run when period changes, not when user object changes (to avoid infinite loop)
 
   const fetchAnalytics = async () => {
     try {

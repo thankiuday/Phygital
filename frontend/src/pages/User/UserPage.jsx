@@ -40,9 +40,23 @@ const UserPage = () => {
   }, [username])
 
   useEffect(() => {
-    // Track page view with projectId
+    // Track page view and QR scan with projectId
     if (userData?._id) {
+      // Track page view
       analyticsAPI.trackPageView(userData._id, projectId)
+      
+      // Track QR scan (when user lands on this page from scanning a QR code)
+      // This happens when they scan the QR code
+      console.log('📊 Tracking QR scan from UserPage:', { userId: userData._id, projectId });
+      analyticsAPI.trackScan(userData._id, {
+        scanType: projectId ? 'project' : 'user',
+        platform: navigator.userAgent,
+        source: 'user_page'
+      }, projectId).then(() => {
+        console.log('✅ QR scan tracked successfully');
+      }).catch((error) => {
+        console.error('❌ Failed to track QR scan:', error);
+      });
     }
   }, [userData, projectId])
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { analyticsAPI } from '../../utils/api';
 import BackButton from '../../components/UI/BackButton';
 
 const QRScanPage = () => {
@@ -13,6 +14,26 @@ const QRScanPage = () => {
   const [scanningStatus, setScanningStatus] = useState('idle'); // 'idle', 'checking', 'ready', 'error'
   const [autoRedirectCountdown, setAutoRedirectCountdown] = useState(5);
   const [showManualOption, setShowManualOption] = useState(false);
+
+  // Track QR scan on page load
+  useEffect(() => {
+    if (userId) {
+      trackQRScan();
+    }
+  }, [userId, projectId]);
+
+  const trackQRScan = async () => {
+    try {
+      console.log('📊 Tracking QR scan:', { userId, projectId });
+      await analyticsAPI.trackScan(userId, {
+        scanType: projectId ? 'project' : 'user',
+        platform: navigator.userAgent
+      }, projectId);
+      console.log('✅ QR scan tracked successfully');
+    } catch (error) {
+      console.error('❌ Failed to track QR scan:', error);
+    }
+  };
 
   useEffect(() => {
     fetchProjectData();
