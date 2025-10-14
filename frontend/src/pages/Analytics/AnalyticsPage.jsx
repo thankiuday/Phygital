@@ -34,31 +34,18 @@ const AnalyticsPage = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('30d')
   const [showAllProjects, setShowAllProjects] = useState(false)
 
-  // Initial load - refresh user data to get latest analytics
+  // Initial load
   useEffect(() => {
     if (user?._id) {
-      loadUser().then(() => {
-        fetchAnalytics()
-      }).catch((error) => {
-        console.error('Failed to load user:', error);
-        fetchAnalytics(); // Still try to fetch analytics even if user reload fails
-      });
+      fetchAnalytics()
     }
-  }, [selectedPeriod]) // Only re-run when period changes, not when user object changes (to avoid infinite loop)
+  }, [user?._id, selectedPeriod])
 
   const fetchAnalytics = async () => {
     try {
       setIsLoading(true)
       const response = await analyticsAPI.getDashboardAnalytics(user._id, selectedPeriod)
       setAnalytics(response.data.data)
-      
-      // Debug logging to see what analytics data we're getting
-      console.log('Overall Analytics Debug:', {
-        userId: user._id,
-        selectedPeriod,
-        analyticsData: response.data.data,
-        userProjects: user.projects
-      })
     } catch (error) {
       console.error('Failed to fetch analytics:', error)
     } finally {
@@ -146,20 +133,6 @@ const AnalyticsPage = () => {
       linkClicks: 0,
       arExperienceStarts: 0
     }
-    
-    // Debug logging to see what analytics data we have
-    console.log('🔍 Project Analytics Debug:', {
-      projectName: project.name,
-      projectId: project.id,
-      rawProjectAnalytics: project.analytics,
-      displayValues: {
-        totalScans: projectAnalytics.totalScans,
-        videoViews: projectAnalytics.videoViews,
-        linkClicks: projectAnalytics.linkClicks,
-        arExperienceStarts: projectAnalytics.arExperienceStarts
-      },
-      fullProject: project
-    })
     
     return (
       <div className={`p-6 rounded-lg border-2 transition-all duration-200 ${
