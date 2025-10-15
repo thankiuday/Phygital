@@ -480,9 +480,11 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         } else {
           // Server didn't generate .mind file - try client-side generation
           // Show specialized loader for .mind generation
+          console.log('🔍 Setting isGeneratingMind to TRUE for .mind generation');
           setIsGeneratingMind(true);
           setMindGenerationMessage('Generating AR tracking file...');
           toast.loading('🧠 Generating AR tracking file...', { id: 'mind-gen' });
+          console.log('🔍 Loader should now be visible with message: Generating AR tracking file...');
           
           // Mark that we're in the success flow as soon as we start .mind generation
           // This ensures the loader stays visible until Level 3 is ready
@@ -495,6 +497,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           console.log('[Level QR] Composite URL for .mind generation:', compositeUrl);
           
           if (!compositeUrl) {
+            console.log('🔍 Setting isGeneratingMind to FALSE - no composite URL available');
             setIsGeneratingMind(false);
             throw new Error('No composite image available for .mind generation. Please try uploading your design again.');
           }
@@ -587,6 +590,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           
           // Keep loader visible for timeout errors to give user time to read the message
           setTimeout(() => {
+            console.log('🔍 Setting isGeneratingMind to FALSE - timeout error (5 second delay)');
             setIsGeneratingMind(false);
             setIsSaving(false);
           }, 5000); // Give user more time to see the timeout message
@@ -604,6 +608,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           
           // Hide loader after showing error message
           setTimeout(() => {
+            console.log('🔍 Setting isGeneratingMind to FALSE - other error (3 second delay)');
             setIsGeneratingMind(false);
             setIsSaving(false);
           }, 3000); // Give user time to see the error message
@@ -764,11 +769,14 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     } finally {
       // Only hide loader if we're not in the success flow
       // The success flow uses a timeout to hide the loader after Level 3 loads
+      console.log('🔍 Finally block - successFlow:', successFlow);
       if (!successFlow) {
+        console.log('🔍 Setting isGeneratingMind to FALSE - finally block (not success flow)');
         setIsSaving(false);
         setIsGeneratingMind(false);
       } else {
         // In success flow, only hide the saving state, keep the mind generation loader visible
+        console.log('🔍 Success flow - keeping mind generation loader visible');
         setIsSaving(false);
         console.log('Success flow: Mind generation loader will be hidden by timeout after Level 3 loads');
       }

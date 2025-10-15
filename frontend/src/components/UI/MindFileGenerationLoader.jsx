@@ -11,6 +11,11 @@ const MindFileGenerationLoader = ({ isLoading, message = 'Generating AR tracking
   // Debug logging
   React.useEffect(() => {
     console.log('🔍 MindFileGenerationLoader state:', { isLoading, message });
+    if (!isLoading) {
+      console.log('🔍 MindFileGenerationLoader: isLoading changed to FALSE - loader will be hidden');
+    } else {
+      console.log('🔍 MindFileGenerationLoader: isLoading changed to TRUE - loader will be shown');
+    }
   }, [isLoading, message]);
 
   if (!isLoading) {
