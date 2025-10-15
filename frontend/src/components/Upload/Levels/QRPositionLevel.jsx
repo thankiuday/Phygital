@@ -580,12 +580,11 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           onComplete(qrPosition);
           console.log('onComplete called successfully - advancing to Level 3');
           
-          // Hide loader AFTER advancing to Level 3
-          // This ensures the loader stays visible until the redirect happens
+          // Hide loader after a longer delay to ensure Level 3 has time to load
           setTimeout(() => {
             setIsGeneratingMind(false);
-            setIsSaving(false);
-          }, 500); // Small delay to ensure Level 3 has started loading
+            console.log('Loader hidden after Level 3 should have loaded');
+          }, 3000); // 3 second delay to ensure Level 3 is ready
         }, 1000); // Wait 1 second after toast appears
       }, 2000); // Keep loader visible for 2 seconds to show success message
       
@@ -623,10 +622,14 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       }
     } finally {
       // Only hide loader if we're not in the success flow
-      // The success flow handles hiding the loader after advancing to Level 3
+      // The success flow uses a timeout to hide the loader after Level 3 loads
       if (!successFlow) {
         setIsSaving(false);
         setIsGeneratingMind(false);
+      } else {
+        // In success flow, only hide the saving state, keep the mind generation loader visible
+        setIsSaving(false);
+        console.log('Success flow: Mind generation loader will be hidden by timeout after Level 3 loads');
       }
     }
   };
