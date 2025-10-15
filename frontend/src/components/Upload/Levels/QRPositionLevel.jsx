@@ -558,22 +558,45 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           toString: clientMindErr?.toString()
         });
         
-        // Don't hide loader immediately - show error message first
-        setMindGenerationMessage('❌ AR tracking file generation failed');
+        // Check if it's a timeout error
+        const isTimeoutError = clientMindErr?.message?.includes('timeout') || 
+                             clientMindErr?.code === 'ECONNABORTED' ||
+                             clientMindErr?.name === 'AxiosError';
         
-        // Show user-friendly error with action
-        const errorMessage = clientMindErr?.message || clientMindErr?.toString() || 'Unknown error';
-        toast.error('❌ Failed to generate AR tracking file', { id: 'mind-gen' });
-        toast.error(
-          `Cannot proceed to Level 3: ${errorMessage}\n\nPlease try saving QR position again or contact support.`,
-          { duration: 8000 }
-        );
-        
-        // Hide loader after showing error message
-        setTimeout(() => {
-          setIsGeneratingMind(false);
-          setIsSaving(false);
-        }, 3000); // Give user time to see the error message
+        if (isTimeoutError) {
+          // Don't hide loader immediately - show timeout message first
+          setMindGenerationMessage('⏱️ Upload taking longer than expected...');
+          
+          // Show user-friendly timeout message
+          toast.error('⏱️ Upload is taking longer than expected', { id: 'mind-gen' });
+          toast.error(
+            'The AR tracking file is large and taking time to upload. Please wait a bit longer or try again.\n\nIf this continues, please contact support.',
+            { duration: 10000 }
+          );
+          
+          // Keep loader visible for timeout errors to give user time to read the message
+          setTimeout(() => {
+            setIsGeneratingMind(false);
+            setIsSaving(false);
+          }, 5000); // Give user more time to see the timeout message
+        } else {
+          // Don't hide loader immediately - show error message first
+          setMindGenerationMessage('❌ AR tracking file generation failed');
+          
+          // Show user-friendly error with action
+          const errorMessage = clientMindErr?.message || clientMindErr?.toString() || 'Unknown error';
+          toast.error('❌ Failed to generate AR tracking file', { id: 'mind-gen' });
+          toast.error(
+            `Cannot proceed to Level 3: ${errorMessage}\n\nPlease try saving QR position again or contact support.`,
+            { duration: 8000 }
+          );
+          
+          // Hide loader after showing error message
+          setTimeout(() => {
+            setIsGeneratingMind(false);
+            setIsSaving(false);
+          }, 3000); // Give user time to see the error message
+        }
         
         return; // DON'T advance to Level 3 without .mind file
       }

@@ -183,7 +183,7 @@ export const uploadAPI = {
   getUploadStatus: () => api.get('/upload/status'),
   downloadFinalDesign: () => api.get('/upload/download-final-design', { responseType: 'blob' }),
   previewFinalDesign: () => api.get('/upload/preview-final-design'),
-  saveMindTarget: (mindTargetBase64) => api.post('/upload/save-mind-target', { mindTargetBase64 }),
+  saveMindTarget: (mindTargetBase64) => uploadApi.post('/upload/save-mind-target', { mindTargetBase64 }),
   createARExperience: () => api.post('/upload/create-ar-experience'),
 }
 
