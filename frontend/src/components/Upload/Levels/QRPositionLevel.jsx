@@ -627,6 +627,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
                 console.log(`Checking heading: "${heading.textContent}"`);
                 if (heading.textContent && heading.textContent.trim() === 'Level 3: Upload Video') {
                   console.log('✅ Level 3: Upload Video heading found, hiding loader');
+                  console.log('🔍 Hiding loader - isGeneratingMind was:', isGeneratingMind);
                   setIsGeneratingMind(false);
                   loaderHidden = true;
                   return true;
@@ -669,6 +670,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
                 clearInterval(interval);
                 if (attempts >= maxAttempts && !loaderHidden) {
                   console.log('Level 3 not detected after 12 seconds, hiding loader anyway');
+                  console.log('🔍 Level 3 timeout hiding loader - isGeneratingMind was:', isGeneratingMind);
                   setIsGeneratingMind(false);
                   loaderHidden = true;
                 }
@@ -683,8 +685,11 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           setTimeout(() => {
             if (!loaderHidden) {
               console.log('Fallback: Hiding loader after 15 seconds');
+              console.log('🔍 Fallback hiding loader - isGeneratingMind was:', isGeneratingMind);
               setIsGeneratingMind(false);
               loaderHidden = true;
+            } else {
+              console.log('Fallback timeout reached but loader already hidden');
             }
           }, 15000);
         }, 1000); // Wait 1 second after toast appears
