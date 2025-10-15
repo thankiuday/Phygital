@@ -446,7 +446,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       const response = await uploadAPI.setQRPosition(qrPosition);
       console.log('Server-side composite generation response:', response);
       
-      setMindGenerationMessage('Verifying AR tracking file...');
+      onLoadingStart('Verifying AR tracking file...');
       
       // Update user context with the response data
       if (response.data?.data?.user) {
