@@ -486,6 +486,9 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           toast.loading('🧠 Generating AR tracking file...', { id: 'mind-gen' });
           console.log('🔍 Loader should now be visible with message: Generating AR tracking file...');
           
+          // Add a small delay to ensure state updates are processed
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
           // Mark that we're in the success flow as soon as we start .mind generation
           // This ensures the loader stays visible until Level 3 is ready
           successFlow = true;
