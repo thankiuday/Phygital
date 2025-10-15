@@ -497,22 +497,35 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           const img = await new Promise((resolve, reject) => {
             const i = new Image();
             i.crossOrigin = 'anonymous';
-            i.onload = () => resolve(i);
-            i.onerror = reject;
+            i.onload = () => {
+              console.log('[Level QR] Composite image loaded successfully');
+              resolve(i);
+            };
+            i.onerror = (error) => {
+              console.error('[Level QR] Image load error:', error);
+              reject(new Error(`Failed to load composite image: ${error}`));
+            };
             i.src = compositeUrl;
-            setTimeout(() => reject(new Error('Image load timeout')), 30000);
+            setTimeout(() => {
+              console.error('[Level QR] Image load timeout after 30 seconds');
+              reject(new Error('Image load timeout after 30 seconds'));
+            }, 30000);
           });
           
           setMindGenerationMessage('Processing AR tracking data...');
           const compiler = new Compiler();
+          console.log('[Level QR] Starting image compilation...');
           await compiler.compileImageTargets([img], (progress) => {
             const percentage = (progress * 100).toFixed(0);
             console.log(`[Level QR] .mind compilation progress: ${percentage}%`);
             setMindGenerationMessage(`Compiling AR data: ${percentage}%`);
           });
+          console.log('[Level QR] Image compilation completed successfully');
           
           setMindGenerationMessage('Exporting AR data...');
+          console.log('[Level QR] Exporting compiled data...');
           const buf = await compiler.exportData();
+          console.log('[Level QR] Data export completed successfully');
           
           setMindGenerationMessage('Converting to file format...');
           // Convert ArrayBuffer -> data URL (base64) safely via Blob + FileReader
@@ -534,17 +547,30 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         }
       } catch (clientMindErr) {
         console.error('[Level QR] .mind generation failed:', clientMindErr);
-        setIsGeneratingMind(false);
-        toast.error('❌ Failed to generate AR tracking file', { id: 'mind-gen' });
+        console.error('[Level QR] Error details:', {
+          message: clientMindErr?.message,
+          name: clientMindErr?.name,
+          stack: clientMindErr?.stack,
+          toString: clientMindErr?.toString()
+        });
+        
+        // Don't hide loader immediately - show error message first
+        setMindGenerationMessage('❌ AR tracking file generation failed');
         
         // Show user-friendly error with action
-        const errorMessage = clientMindErr?.message || 'Unknown error';
+        const errorMessage = clientMindErr?.message || clientMindErr?.toString() || 'Unknown error';
+        toast.error('❌ Failed to generate AR tracking file', { id: 'mind-gen' });
         toast.error(
           `Cannot proceed to Level 3: ${errorMessage}\n\nPlease try saving QR position again or contact support.`,
           { duration: 8000 }
         );
         
-        setIsSaving(false);
+        // Hide loader after showing error message
+        setTimeout(() => {
+          setIsGeneratingMind(false);
+          setIsSaving(false);
+        }, 3000); // Give user time to see the error message
+        
         return; // DON'T advance to Level 3 without .mind file
       }
       
@@ -580,11 +606,63 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           onComplete(qrPosition);
           console.log('onComplete called successfully - advancing to Level 3');
           
-          // Hide loader after a longer delay to ensure Level 3 has time to load
+          // Hide loader after Level 3 is confirmed to be ready
+          // Use a more robust approach - check if Level 3 is actually rendered
+          let loaderHidden = false; // Prevent multiple hiding attempts
+          
+          const hideLoaderWhenLevel3Ready = () => {
+            // Check if we're on Level 3 and it's rendered
+            const checkLevel3Ready = () => {
+              if (loaderHidden) return true; // Already hidden
+              
+              // Look for Level 3 heading text
+              const headings = document.querySelectorAll('h2');
+              console.log(`Checking for Level 3 - found ${headings.length} h2 elements`);
+              
+              for (let heading of headings) {
+                console.log(`Checking heading: "${heading.textContent}"`);
+                if (heading.textContent && heading.textContent.includes('Level 3')) {
+                  console.log('✅ Level 3 heading found, hiding loader');
+                  setIsGeneratingMind(false);
+                  loaderHidden = true;
+                  return true;
+                }
+              }
+              console.log('❌ Level 3 heading not found yet');
+              return false;
+            };
+            
+            // Try immediately
+            if (checkLevel3Ready()) return;
+            
+            // If not ready, check every 500ms for up to 10 seconds
+            let attempts = 0;
+            const maxAttempts = 20; // 10 seconds total
+            
+            const interval = setInterval(() => {
+              attempts++;
+              if (checkLevel3Ready() || attempts >= maxAttempts) {
+                clearInterval(interval);
+                if (attempts >= maxAttempts && !loaderHidden) {
+                  console.log('Level 3 not detected after 10 seconds, hiding loader anyway');
+                  setIsGeneratingMind(false);
+                  loaderHidden = true;
+                }
+              }
+            }, 500);
+          };
+          
+          // Start checking for Level 3 readiness
+          hideLoaderWhenLevel3Ready();
+          
+          // Fallback: Hide loader after 8 seconds regardless (safety net)
           setTimeout(() => {
-            setIsGeneratingMind(false);
-            console.log('Loader hidden after Level 3 should have loaded');
-          }, 3000); // 3 second delay to ensure Level 3 is ready
+            if (!loaderHidden) {
+              console.log('Fallback: Hiding loader after 8 seconds');
+              setIsGeneratingMind(false);
+              loaderHidden = true;
+            }
+          }, 8000);
         }, 1000); // Wait 1 second after toast appears
       }, 2000); // Keep loader visible for 2 seconds to show success message
       
