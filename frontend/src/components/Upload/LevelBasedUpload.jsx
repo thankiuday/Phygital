@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronRight, ChevronLeft, Upload, QrCode, Video, Share2, Download, Sparkles } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import PageTransitionLoader from '../UI/PageTransitionLoader';
+import MindFileGenerationLoader from '../UI/MindFileGenerationLoader';
 import GameLevelProgress from './GameLevelProgress';
 import DesignUploadLevel from './Levels/DesignUploadLevel';
 import QRPositionLevel from './Levels/QRPositionLevel';
@@ -23,6 +24,23 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
   });
   const [isAnimating, setIsAnimating] = useState(false);
   const [isLevelTransitioning, setIsLevelTransitioning] = useState(false);
+  
+  // Loader state for AR tracking file generation
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
+  
+  // Loader control functions
+  const handleLoadingStart = (message) => {
+    console.log('🔍 Parent: Starting loader with message:', message);
+    setLoadingMessage(message);
+    setIsLoading(true);
+  };
+
+  const handleLoadingEnd = () => {
+    console.log('🔍 Parent: Ending loader');
+    setIsLoading(false);
+    setLoadingMessage('');
+  };
 
   // Scroll to top smoothly whenever level changes with loader
   useEffect(() => {
@@ -501,6 +519,8 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
             currentPosition={levelData.qrPosition}
             designUrl={levelData.design?.url}
             forceStartFromLevel1={forceStartFromLevel1}
+            onLoadingStart={handleLoadingStart}
+            onLoadingEnd={handleLoadingEnd}
           />
         );
       case 'VideoUpload':
@@ -554,6 +574,9 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
     <div className="max-w-4xl mx-auto p-4 md:p-6">
       {/* Level Transition Loader */}
       <PageTransitionLoader isLoading={isLevelTransitioning} />
+      
+      {/* AR Tracking File Generation Loader */}
+      <MindFileGenerationLoader isLoading={isLoading} message={loadingMessage} />
       
       {/* Game Progress */}
       <GameLevelProgress 

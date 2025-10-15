@@ -5,7 +5,7 @@ import { QrCode, CheckCircle, AlertCircle, MapPin } from 'lucide-react';
 import MindFileGenerationLoader from '../../UI/MindFileGenerationLoader';
 import toast from 'react-hot-toast';
 
-const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFromLevel1 = false }) => {
+const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFromLevel1 = false, onLoadingStart, onLoadingEnd }) => {
   const { user, updateUser } = useAuth();
   const [qrPosition, setQrPosition] = useState({
     x: currentPosition?.x || user?.qrPosition?.x || 100,
@@ -14,8 +14,6 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     height: currentPosition?.height || user?.qrPosition?.height || 100
   });
   const [isSaving, setIsSaving] = useState(false);
-  const [isGeneratingMind, setIsGeneratingMind] = useState(false);
-  const [mindGenerationMessage, setMindGenerationMessage] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
@@ -410,11 +408,10 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     
     try {
       // Show loader immediately when button is clicked
-      console.log('🔄 Starting save process - showing loader NOW');
+      console.log('🔄 Starting save process - signaling parent to show loader');
       setIsSaving(true);
-      setIsGeneratingMind(true);
-      setMindGenerationMessage('Saving QR position...');
-      console.log('✅ Loader state set:', { isSaving: true, isGeneratingMind: true });
+      onLoadingStart('Saving QR position...');
+      console.log('✅ Loader state set:', { isSaving: true });
       
       console.log('=== QR Position Save Debug ===');
       console.log('Saving QR position:', qrPosition);
@@ -427,7 +424,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         console.error('User not authenticated');
         toast.error('Please login to save QR position');
         setIsSaving(false);
-        setIsGeneratingMind(false);
+        onLoadingEnd();
         return;
       }
       
@@ -436,13 +433,13 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         console.error('Invalid QR position data:', qrPosition);
         toast.error('Invalid QR position data');
         setIsSaving(false);
-        setIsGeneratingMind(false);
+        onLoadingEnd();
         return;
       }
       
       console.log('QR position data validation passed:', qrPosition);
       
-      setMindGenerationMessage('Uploading QR position to server...');
+      onLoadingStart('Uploading QR position to server...');
       
       // Always use server-side composite generation to ensure real QR is baked in
       console.log('Using server-side composite generation (setQRPosition)');
@@ -473,16 +470,15 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         if (mindTargetUrl) {
           // Server already generated .mind file - we can proceed directly
           console.log('[Level QR] ✅ Server already has .mind file, proceeding to Level 3');
-          setMindGenerationMessage('✅ AR tracking file ready!');
+          onLoadingStart('✅ AR tracking file ready!');
           
           // Mark that we're in the success flow since we have the .mind file
           successFlow = true;
         } else {
           // Server didn't generate .mind file - try client-side generation
           // Show specialized loader for .mind generation
-          console.log('🔍 Setting isGeneratingMind to TRUE for .mind generation');
-          setIsGeneratingMind(true);
-          setMindGenerationMessage('Generating AR tracking file...');
+          console.log('🔍 Signaling parent to show loader for .mind generation');
+          onLoadingStart('Generating AR tracking file...');
           toast.loading('🧠 Generating AR tracking file...', { id: 'mind-gen' });
           console.log('🔍 Loader should now be visible with message: Generating AR tracking file...');
           
@@ -500,17 +496,17 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           console.log('[Level QR] Composite URL for .mind generation:', compositeUrl);
           
           if (!compositeUrl) {
-            console.log('🔍 Setting isGeneratingMind to FALSE - no composite URL available');
-            setIsGeneratingMind(false);
+            console.log('🔍 No composite URL available - ending loader');
+            onLoadingEnd();
             throw new Error('No composite image available for .mind generation. Please try uploading your design again.');
           }
           
-          setMindGenerationMessage('Loading AR compiler...');
+          onLoadingStart('Loading AR compiler...');
           console.log('[Level QR] Generating .mind on client from composite...');
           const mindarModule = await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image.prod.js');
           const { Compiler } = mindarModule;
           
-          setMindGenerationMessage('Loading design image...');
+          onLoadingStart('Loading design image...');
           const img = await new Promise((resolve, reject) => {
             const i = new Image();
             i.crossOrigin = 'anonymous';
@@ -533,22 +529,22 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
             }, 30000);
           });
           
-          setMindGenerationMessage('Processing AR tracking data...');
+          onLoadingStart('Processing AR tracking data...');
           const compiler = new Compiler();
           console.log('[Level QR] Starting image compilation...');
           await compiler.compileImageTargets([img], (progress) => {
             const percentage = (progress * 100).toFixed(0);
             console.log(`[Level QR] .mind compilation progress: ${percentage}%`);
-            setMindGenerationMessage(`Compiling AR data: ${percentage}%`);
+            onLoadingStart(`Compiling AR data: ${percentage}%`);
           });
           console.log('[Level QR] Image compilation completed successfully');
           
-          setMindGenerationMessage('Exporting AR data...');
+          onLoadingStart('Exporting AR data...');
           console.log('[Level QR] Exporting compiled data...');
           const buf = await compiler.exportData();
           console.log('[Level QR] Data export completed successfully');
           
-          setMindGenerationMessage('Converting to file format...');
+          onLoadingStart('Converting to file format...');
           // Convert ArrayBuffer -> data URL (base64) safely via Blob + FileReader
           const blob = new Blob([buf], { type: 'application/octet-stream' });
           const dataUrl = await new Promise((resolve, reject) => {
@@ -558,7 +554,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
             reader.readAsDataURL(blob);
           });
           
-          setMindGenerationMessage('Uploading AR tracking file...');
+          onLoadingStart('Uploading AR tracking file...');
           const saveRes = await uploadAPI.saveMindTarget(dataUrl);
           mindTargetUrl = saveRes.data?.data?.mindTarget?.url;
           
@@ -582,7 +578,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         
         if (isTimeoutError) {
           // Don't hide loader immediately - show timeout message first
-          setMindGenerationMessage('⏱️ Upload taking longer than expected...');
+          onLoadingStart('⏱️ Upload taking longer than expected...');
           
           // Show user-friendly timeout message
           toast.error('⏱️ Upload is taking longer than expected', { id: 'mind-gen' });
@@ -593,13 +589,13 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           
           // Keep loader visible for timeout errors to give user time to read the message
           setTimeout(() => {
-            console.log('🔍 Setting isGeneratingMind to FALSE - timeout error (5 second delay)');
-            setIsGeneratingMind(false);
+            console.log('🔍 Ending loader - timeout error (5 second delay)');
+            onLoadingEnd();
             setIsSaving(false);
           }, 5000); // Give user more time to see the timeout message
         } else {
           // Don't hide loader immediately - show error message first
-          setMindGenerationMessage('❌ AR tracking file generation failed');
+          onLoadingStart('❌ AR tracking file generation failed');
           
           // Show user-friendly error with action
           const errorMessage = clientMindErr?.message || clientMindErr?.toString() || 'Unknown error';
@@ -611,8 +607,8 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           
           // Hide loader after showing error message
           setTimeout(() => {
-            console.log('🔍 Setting isGeneratingMind to FALSE - other error (3 second delay)');
-            setIsGeneratingMind(false);
+            console.log('🔍 Ending loader - other error (3 second delay)');
+            onLoadingEnd();
             setIsSaving(false);
           }, 3000); // Give user time to see the error message
         }
@@ -626,6 +622,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         toast.error('⚠️ AR tracking file was not generated. Cannot proceed to Level 3.');
         toast.error('Please try clicking "Save QR Position" again.', { duration: 6000 });
         setIsSaving(false);
+        onLoadingEnd();
         return; // DON'T advance without .mind file
       }
       
@@ -635,7 +632,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       successFlow = true;
       
       // Show final success message on the loader
-      setMindGenerationMessage('✅ AR tracking file successfully generated!');
+      onLoadingStart('✅ AR tracking file successfully generated!');
       
       // Wait 2 seconds to show the success message on loader
       setTimeout(() => {
@@ -669,8 +666,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
                 console.log(`Checking heading: "${heading.textContent}"`);
                 if (heading.textContent && heading.textContent.trim() === 'Level 3: Upload Video') {
                   console.log('✅ Level 3: Upload Video heading found, hiding loader');
-                  console.log('🔍 Hiding loader - isGeneratingMind was:', isGeneratingMind);
-                  setIsGeneratingMind(false);
+                  onLoadingEnd();
                   loaderHidden = true;
                   return true;
                 }
@@ -680,7 +676,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
               for (let heading of h2Headings) {
                 if (heading.textContent && heading.textContent.includes('Level 3:')) {
                   console.log('✅ Level 3 heading found (fallback), hiding loader');
-                  setIsGeneratingMind(false);
+                  onLoadingEnd();
                   loaderHidden = true;
                   return true;
                 }
@@ -690,7 +686,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
               const videoUploadElements = document.querySelectorAll('input[type="file"][accept*="video"], [class*="video"], [class*="Video"]');
               if (videoUploadElements.length > 0) {
                 console.log('✅ Video upload elements found, hiding loader');
-                setIsGeneratingMind(false);
+                onLoadingEnd();
                 loaderHidden = true;
                 return true;
               }
@@ -712,8 +708,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
                 clearInterval(interval);
                 if (attempts >= maxAttempts && !loaderHidden) {
                   console.log('Level 3 not detected after 12 seconds, hiding loader anyway');
-                  console.log('🔍 Level 3 timeout hiding loader - isGeneratingMind was:', isGeneratingMind);
-                  setIsGeneratingMind(false);
+                  onLoadingEnd();
                   loaderHidden = true;
                 }
               }
@@ -727,8 +722,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           setTimeout(() => {
             if (!loaderHidden) {
               console.log('Fallback: Hiding loader after 15 seconds');
-              console.log('🔍 Fallback hiding loader - isGeneratingMind was:', isGeneratingMind);
-              setIsGeneratingMind(false);
+              onLoadingEnd();
               loaderHidden = true;
             } else {
               console.log('Fallback timeout reached but loader already hidden');
@@ -774,9 +768,9 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       // The success flow uses a timeout to hide the loader after Level 3 loads
       console.log('🔍 Finally block - successFlow:', successFlow);
       if (!successFlow) {
-        console.log('🔍 Setting isGeneratingMind to FALSE - finally block (not success flow)');
+        console.log('🔍 Finally block - not success flow, ending loader');
         setIsSaving(false);
-        setIsGeneratingMind(false);
+        onLoadingEnd();
       } else {
         // In success flow, only hide the saving state, keep the mind generation loader visible
         console.log('🔍 Success flow - keeping mind generation loader visible');
@@ -786,8 +780,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     }
   };
 
-  // Render loader at top level (before any returns)
-  const loaderElement = <MindFileGenerationLoader isLoading={isGeneratingMind} message={mindGenerationMessage} />;
+  // Loader is now handled by the parent component (LevelBasedUpload)
 
   // If position already exists and we're not forcing a fresh start, show completion and auto-advance
   if (!forceStartFromLevel1 && (currentPosition || user?.qrPosition)) {
@@ -803,9 +796,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     }, [user?.qrPosition?.x, user?.qrPosition?.y, currentPosition, onComplete]); // Include onComplete in dependencies
     
     return (
-      <>
-        {loaderElement}
-        <div className="text-center py-8">
+      <div className="text-center py-8">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-neon-green/20 mb-6 shadow-glow-green">
             <CheckCircle className="w-10 h-10 text-neon-green" />
           </div>
@@ -863,15 +854,12 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
             </button>
           </div>
         </div>
-      </>
     );
   }
 
   if (!designImageUrl) {
     return (
-      <>
-        {loaderElement}
-        <div className="text-center py-12">
+      <div className="text-center py-12">
           <AlertCircle className="mx-auto h-16 w-16 text-slate-400 mb-4" />
           <h3 className="text-xl font-semibold text-slate-100 mb-2">
             Design Required
@@ -880,14 +868,11 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
             Please complete Level 1 (Upload Design) first to set QR code position.
           </p>
         </div>
-      </>
     );
   }
 
   return (
-    <>
-      {loaderElement}
-      <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-neon-blue/20 mb-4 shadow-glow-blue">
             <QrCode className="w-8 h-8 text-neon-blue" />
@@ -1132,8 +1117,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           </div>
         </div>
       </div>
-      </div>
-    </>
+    </div>
   );
 };
 
