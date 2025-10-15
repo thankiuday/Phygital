@@ -470,12 +470,23 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         
         console.log('[Level QR] Server-side .mind URL:', mindTargetUrl);
         
-        if (!mindTargetUrl) {
+        if (mindTargetUrl) {
+          // Server already generated .mind file - we can proceed directly
+          console.log('[Level QR] ✅ Server already has .mind file, proceeding to Level 3');
+          setMindGenerationMessage('✅ AR tracking file ready!');
+          
+          // Mark that we're in the success flow since we have the .mind file
+          successFlow = true;
+        } else {
           // Server didn't generate .mind file - try client-side generation
           // Show specialized loader for .mind generation
           setIsGeneratingMind(true);
           setMindGenerationMessage('Generating AR tracking file...');
           toast.loading('🧠 Generating AR tracking file...', { id: 'mind-gen' });
+          
+          // Mark that we're in the success flow as soon as we start .mind generation
+          // This ensures the loader stays visible until Level 3 is ready
+          successFlow = true;
           
           // Check for composite URL (new response structure first, then fallback)
           const compositeUrl = response.data?.data?.compositeDesign?.url || 
@@ -599,7 +610,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         }
         
         return; // DON'T advance to Level 3 without .mind file
-      }
+        }
       
       // ===== Final verification before advancing =====
       if (!mindTargetUrl) {
