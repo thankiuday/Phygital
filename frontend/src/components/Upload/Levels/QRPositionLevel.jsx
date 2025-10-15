@@ -497,16 +497,20 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           const img = await new Promise((resolve, reject) => {
             const i = new Image();
             i.crossOrigin = 'anonymous';
+            let timeoutId;
+            
             i.onload = () => {
               console.log('[Level QR] Composite image loaded successfully');
+              clearTimeout(timeoutId); // Clear the timeout since image loaded successfully
               resolve(i);
             };
             i.onerror = (error) => {
               console.error('[Level QR] Image load error:', error);
+              clearTimeout(timeoutId); // Clear the timeout on error
               reject(new Error(`Failed to load composite image: ${error}`));
             };
             i.src = compositeUrl;
-            setTimeout(() => {
+            timeoutId = setTimeout(() => {
               console.error('[Level QR] Image load timeout after 30 seconds');
               reject(new Error('Image load timeout after 30 seconds'));
             }, 30000);
@@ -615,36 +619,56 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
             const checkLevel3Ready = () => {
               if (loaderHidden) return true; // Already hidden
               
-              // Look for Level 3 heading text
-              const headings = document.querySelectorAll('h2');
-              console.log(`Checking for Level 3 - found ${headings.length} h2 elements`);
+              // Look specifically for the Level 3 heading: "Level 3: Upload Video"
+              const h2Headings = document.querySelectorAll('h2');
+              console.log(`Checking for Level 3 - found ${h2Headings.length} h2 elements`);
               
-              for (let heading of headings) {
+              for (let heading of h2Headings) {
                 console.log(`Checking heading: "${heading.textContent}"`);
-                if (heading.textContent && heading.textContent.includes('Level 3')) {
-                  console.log('✅ Level 3 heading found, hiding loader');
+                if (heading.textContent && heading.textContent.trim() === 'Level 3: Upload Video') {
+                  console.log('✅ Level 3: Upload Video heading found, hiding loader');
                   setIsGeneratingMind(false);
                   loaderHidden = true;
                   return true;
                 }
               }
-              console.log('❌ Level 3 heading not found yet');
+              
+              // Fallback: Check for any Level 3 heading
+              for (let heading of h2Headings) {
+                if (heading.textContent && heading.textContent.includes('Level 3:')) {
+                  console.log('✅ Level 3 heading found (fallback), hiding loader');
+                  setIsGeneratingMind(false);
+                  loaderHidden = true;
+                  return true;
+                }
+              }
+              
+              // Additional check: Look for VideoUploadLevel specific elements
+              const videoUploadElements = document.querySelectorAll('input[type="file"][accept*="video"], [class*="video"], [class*="Video"]');
+              if (videoUploadElements.length > 0) {
+                console.log('✅ Video upload elements found, hiding loader');
+                setIsGeneratingMind(false);
+                loaderHidden = true;
+                return true;
+              }
+              
+              console.log('❌ Level 3: Upload Video heading not found yet');
               return false;
             };
             
             // Try immediately
             if (checkLevel3Ready()) return;
             
-            // If not ready, check every 500ms for up to 10 seconds
+            // If not ready, check every 500ms for up to 12 seconds
             let attempts = 0;
-            const maxAttempts = 20; // 10 seconds total
+            const maxAttempts = 24; // 12 seconds total
             
             const interval = setInterval(() => {
               attempts++;
               if (checkLevel3Ready() || attempts >= maxAttempts) {
                 clearInterval(interval);
                 if (attempts >= maxAttempts && !loaderHidden) {
-                  console.log('Level 3 not detected after 10 seconds, hiding loader anyway');
+                  console.log('Level 3 not detected after 12 seconds, hiding loader anyway');
                   setIsGeneratingMind(false);
                   loaderHidden = true;
                 }
@@ -655,14 +679,14 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           // Start checking for Level 3 readiness
           hideLoaderWhenLevel3Ready();
           
-          // Fallback: Hide loader after 8 seconds regardless (safety net)
+          // Fallback: Hide loader after 15 seconds regardless (safety net)
           setTimeout(() => {
             if (!loaderHidden) {
-              console.log('Fallback: Hiding loader after 8 seconds');
+              console.log('Fallback: Hiding loader after 15 seconds');
               setIsGeneratingMind(false);
               loaderHidden = true;
             }
-          }, 8000);
+          }, 15000);
         }, 1000); // Wait 1 second after toast appears
       }, 2000); // Keep loader visible for 2 seconds to show success message
       
