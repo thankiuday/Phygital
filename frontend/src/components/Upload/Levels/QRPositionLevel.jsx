@@ -406,6 +406,8 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
 
   // Save QR position
   const saveQRPosition = async () => {
+    let successFlow = false; // Track if we're in the success flow
+    
     try {
       // Show loader immediately when button is clicked
       console.log('🔄 Starting save process - showing loader NOW');
@@ -528,7 +530,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           
           console.log('[Level QR] .mind generated and saved via /upload/save-mind-target', saveRes.data);
           toast.success('✅ AR tracking file generated!', { id: 'mind-gen' });
-          setIsGeneratingMind(false);
+          // Don't hide loader here - let the success flow handle it
         }
       } catch (clientMindErr) {
         console.error('[Level QR] .mind generation failed:', clientMindErr);
@@ -557,6 +559,9 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       
       console.log('[Level QR] ✅ .mind file verified:', mindTargetUrl);
       
+      // Mark that we're in the success flow
+      successFlow = true;
+      
       // Show final success message on the loader
       setMindGenerationMessage('✅ AR tracking file successfully generated!');
       
@@ -565,19 +570,22 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         // Show toast notification FIRST (while loader is still visible)
         toast.success('📍 QR position saved with AR tracking!');
         
-        // Wait another 1 second for user to see the toast, then hide loader
+        // Wait another 1 second for user to see the toast, then advance to Level 3
         setTimeout(() => {
-          // Hide loader
-          setIsGeneratingMind(false);
-          setIsSaving(false);
-          
-          // ===== ONLY NOW can we advance to Level 3 =====
+          // ===== Advance to Level 3 FIRST (while loader is still visible) =====
           console.log('Calling onComplete with qrPosition:', qrPosition);
           console.log('Mind file URL confirmed:', mindTargetUrl);
           
           // Advance to next level
           onComplete(qrPosition);
           console.log('onComplete called successfully - advancing to Level 3');
+          
+          // Hide loader AFTER advancing to Level 3
+          // This ensures the loader stays visible until the redirect happens
+          setTimeout(() => {
+            setIsGeneratingMind(false);
+            setIsSaving(false);
+          }, 500); // Small delay to ensure Level 3 has started loading
         }, 1000); // Wait 1 second after toast appears
       }, 2000); // Keep loader visible for 2 seconds to show success message
       
@@ -614,8 +622,12 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         toast.error(errorMessage);
       }
     } finally {
-      setIsSaving(false);
-      setIsGeneratingMind(false);
+      // Only hide loader if we're not in the success flow
+      // The success flow handles hiding the loader after advancing to Level 3
+      if (!successFlow) {
+        setIsSaving(false);
+        setIsGeneratingMind(false);
+      }
     }
   };
 
