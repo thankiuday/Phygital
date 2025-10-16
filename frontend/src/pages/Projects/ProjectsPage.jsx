@@ -38,6 +38,7 @@ const ProjectsPage = () => {
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState('list') // 'list' or 'grid'
+  const [sortBy, setSortBy] = useState('newest') // 'newest', 'oldest', 'name', 'scans'
   
   // Video update modal state
   const [showVideoUpdateModal, setShowVideoUpdateModal] = useState(false)
@@ -58,6 +59,24 @@ const ProjectsPage = () => {
   
   // Toggle status state
   const [togglingStatus, setTogglingStatus] = useState({}) // Map of projectId -> boolean
+
+  // Sort projects based on selected criteria
+  const getSortedProjects = () => {
+    const sorted = [...projects]
+
+    switch (sortBy) {
+      case 'newest':
+        return sorted.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      case 'oldest':
+        return sorted.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+      case 'name':
+        return sorted.sort((a, b) => a.name.localeCompare(b.name))
+      case 'scans':
+        return sorted.sort((a, b) => (b.analytics?.totalScans || 0) - (a.analytics?.totalScans || 0))
+      default:
+        return sorted
+    }
+  }
 
   // Load projects
   const loadProjects = async () => {
@@ -442,9 +461,26 @@ const ProjectsPage = () => {
             </p>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-            {/* View Mode Toggle */}
+            {/* Sort Dropdown */}
             {projects.length > 0 && (
-              <div className="flex bg-slate-700/50 rounded-lg p-1">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-slate-300">Sort by:</label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="input px-3 py-2 text-sm bg-slate-700/50 border-slate-600 text-slate-100"
+                >
+                  <option value="newest">Newest First</option>
+                  <option value="oldest">Oldest First</option>
+                  <option value="name">Name (A-Z)</option>
+                  <option value="scans">Most Scans</option>
+                </select>
+              </div>
+            )}
+
+            {/* View Mode Toggle - Hidden on mobile */}
+            {projects.length > 0 && (
+              <div className="hidden sm:flex bg-slate-700/50 rounded-lg p-1">
                 <button
                   onClick={() => setViewMode('list')}
                   className={`px-3 py-2 rounded-md transition-colors flex items-center ${
@@ -500,11 +536,11 @@ const ProjectsPage = () => {
           </button>
         </div>
       ) : (
-        <div className={viewMode === 'grid' 
-          ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' 
+        <div className={viewMode === 'grid'
+          ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
           : 'space-y-4'
         }>
-          {projects.map((project) => (
+          {getSortedProjects().map((project) => (
             <ProjectCard
               key={project.id}
               project={project}

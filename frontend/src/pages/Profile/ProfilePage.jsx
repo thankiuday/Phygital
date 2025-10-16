@@ -398,14 +398,6 @@ const ProfilePage = () => {
                 </span>
               </div>
 
-              <div className="py-3">
-                <p className="text-sm font-medium text-slate-300 mb-2">Personalized URL</p>
-                <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-600">
-                  <p className="text-sm text-slate-100 font-mono break-all">
-                    phygital-{user?.username}.vercel.app
-                  </p>
-                </div>
-              </div>
             </div>
           </div>
 
