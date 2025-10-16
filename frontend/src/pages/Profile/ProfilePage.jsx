@@ -117,8 +117,8 @@ const ProfilePage = () => {
           <div className="card-elevated">
             <div className="card-header">
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-8 h-8 bg-neon-blue/20 rounded-lg flex items-center justify-center">
-                  <User className="w-4 h-4 text-neon-blue" />
+                <div className="w-8 h-8 bg-neon-blue/30 rounded-lg flex items-center justify-center">
+                  <User className="w-5 h-5 text-neon-blue" />
                 </div>
                 <h2 className="text-xl sm:text-2xl font-semibold text-slate-100">
                   Basic Information
@@ -136,7 +136,7 @@ const ProfilePage = () => {
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <User className="h-5 w-5 text-slate-400" />
+                    <User className="h-5 w-5 text-slate-200" />
                   </div>
                   <input
                     {...registerProfile('username', {
@@ -173,7 +173,7 @@ const ProfilePage = () => {
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Mail className="h-5 w-5 text-slate-400" />
+                    <Mail className="h-5 w-5 text-slate-200" />
                   </div>
                   <input
                     {...registerProfile('email', {
@@ -206,7 +206,7 @@ const ProfilePage = () => {
                     <LoadingSpinner size="sm" />
                   ) : (
                     <>
-                      <Save className="h-5 w-5" />
+                      <Save className="h-5 w-5 text-white" />
                       Save Changes
                     </>
                   )}
@@ -219,8 +219,8 @@ const ProfilePage = () => {
           <div className="card-elevated">
             <div className="card-header">
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-8 h-8 bg-neon-purple/20 rounded-lg flex items-center justify-center">
-                  <Lock className="w-4 h-4 text-neon-purple" />
+                <div className="w-8 h-8 bg-neon-purple/30 rounded-lg flex items-center justify-center">
+                  <Lock className="w-5 h-5 text-neon-purple" />
                 </div>
                 <h2 className="text-xl sm:text-2xl font-semibold text-slate-100">
                   Change Password
@@ -238,7 +238,7 @@ const ProfilePage = () => {
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-slate-400" />
+                    <Lock className="h-5 w-5 text-slate-200" />
                   </div>
                   <input
                     {...registerPassword('currentPassword', {
@@ -254,9 +254,9 @@ const ProfilePage = () => {
                     onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                   >
                     {showCurrentPassword ? (
-                      <EyeOff className="h-5 w-5 text-slate-400" />
+                      <EyeOff className="h-5 w-5 text-slate-200" />
                     ) : (
-                      <Eye className="h-5 w-5 text-slate-400" />
+                      <Eye className="h-5 w-5 text-slate-200" />
                     )}
                   </button>
                 </div>
@@ -274,7 +274,7 @@ const ProfilePage = () => {
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-slate-400" />
+                    <Lock className="h-5 w-5 text-slate-200" />
                   </div>
                   <input
                     {...registerPassword('newPassword', {
@@ -298,9 +298,9 @@ const ProfilePage = () => {
                     onClick={() => setShowNewPassword(!showNewPassword)}
                   >
                     {showNewPassword ? (
-                      <EyeOff className="h-5 w-5 text-slate-400" />
+                      <EyeOff className="h-5 w-5 text-slate-200" />
                     ) : (
-                      <Eye className="h-5 w-5 text-slate-400" />
+                      <Eye className="h-5 w-5 text-slate-200" />
                     )}
                   </button>
                 </div>
@@ -318,7 +318,7 @@ const ProfilePage = () => {
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-slate-400" />
+                    <Lock className="h-5 w-5 text-slate-200" />
                   </div>
                   <input
                     {...registerPassword('confirmPassword', {
@@ -335,9 +335,9 @@ const ProfilePage = () => {
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   >
                     {showConfirmPassword ? (
-                      <EyeOff className="h-5 w-5 text-slate-400" />
+                      <EyeOff className="h-5 w-5 text-slate-200" />
                     ) : (
-                      <Eye className="h-5 w-5 text-slate-400" />
+                      <Eye className="h-5 w-5 text-slate-200" />
                     )}
                   </button>
                 </div>
@@ -359,7 +359,7 @@ const ProfilePage = () => {
                     <LoadingSpinner size="sm" />
                   ) : (
                     <>
-                      <Lock className="h-5 w-5" />
+                      <Lock className="h-5 w-5 text-white" />
                       Change Password
                     </>
                   )}
@@ -374,8 +374,8 @@ const ProfilePage = () => {
           <div className="card-elevated">
             <div className="card-header">
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-8 h-8 bg-slate-700/50 rounded-lg flex items-center justify-center">
-                  <User className="w-4 h-4 text-slate-300" />
+                <div className="w-8 h-8 bg-slate-600/70 rounded-lg flex items-center justify-center">
+                  <User className="w-5 h-5 text-slate-100" />
                 </div>
                 <h2 className="text-lg sm:text-xl font-semibold text-slate-100">
                   Account Information
@@ -412,8 +412,8 @@ const ProfilePage = () => {
           <div className="card-elevated">
             <div className="card-header">
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-8 h-8 bg-neon-cyan/20 rounded-lg flex items-center justify-center">
-                  <BarChart3 className="w-4 h-4 text-neon-cyan" />
+                <div className="w-8 h-8 bg-neon-cyan/30 rounded-lg flex items-center justify-center">
+                  <BarChart3 className="w-5 h-5 text-neon-cyan" />
                 </div>
                 <h2 className="text-lg sm:text-xl font-semibold text-slate-100">
                   Quick Stats
@@ -448,8 +448,8 @@ const ProfilePage = () => {
           <div className="card-elevated border-neon-red/30">
             <div className="card-header">
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-8 h-8 bg-neon-red/20 rounded-lg flex items-center justify-center">
-                  <AlertCircle className="w-4 h-4 text-neon-red" />
+                <div className="w-8 h-8 bg-neon-red/30 rounded-lg flex items-center justify-center">
+                  <AlertCircle className="w-5 h-5 text-neon-red" />
                 </div>
                 <h2 className="text-lg sm:text-xl font-semibold text-neon-red">
                   Danger Zone
