@@ -136,7 +136,7 @@ const ProfilePage = () => {
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <User className="h-5 w-5 text-slate-200" />
+                    <User className="h-5 w-5 text-neon-blue" />
                   </div>
                   <input
                     {...registerProfile('username', {
@@ -161,7 +161,7 @@ const ProfilePage = () => {
                 </div>
                 {profileErrors.username && (
                   <p className="text-sm text-neon-red flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" />
+                    <AlertCircle className="w-4 h-4 text-neon-red" />
                     {profileErrors.username.message}
                   </p>
                 )}
@@ -173,7 +173,7 @@ const ProfilePage = () => {
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Mail className="h-5 w-5 text-slate-200" />
+                    <Mail className="h-5 w-5 text-neon-cyan" />
                   </div>
                   <input
                     {...registerProfile('email', {
@@ -190,7 +190,7 @@ const ProfilePage = () => {
                 </div>
                 {profileErrors.email && (
                   <p className="text-sm text-neon-red flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" />
+                    <AlertCircle className="w-4 h-4 text-neon-red" />
                     {profileErrors.email.message}
                   </p>
                 )}
@@ -238,7 +238,7 @@ const ProfilePage = () => {
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-slate-200" />
+                    <Lock className="h-5 w-5 text-neon-purple" />
                   </div>
                   <input
                     {...registerPassword('currentPassword', {
@@ -254,15 +254,15 @@ const ProfilePage = () => {
                     onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                   >
                     {showCurrentPassword ? (
-                      <EyeOff className="h-5 w-5 text-slate-200" />
+                      <EyeOff className="h-5 w-5 text-neon-cyan" />
                     ) : (
-                      <Eye className="h-5 w-5 text-slate-200" />
+                      <Eye className="h-5 w-5 text-neon-cyan" />
                     )}
                   </button>
                 </div>
                 {passwordErrors.currentPassword && (
                   <p className="text-sm text-neon-red flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" />
+                    <AlertCircle className="w-4 h-4 text-neon-red" />
                     {passwordErrors.currentPassword.message}
                   </p>
                 )}
@@ -274,7 +274,7 @@ const ProfilePage = () => {
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-slate-200" />
+                    <Lock className="h-5 w-5 text-neon-purple" />
                   </div>
                   <input
                     {...registerPassword('newPassword', {
@@ -298,15 +298,15 @@ const ProfilePage = () => {
                     onClick={() => setShowNewPassword(!showNewPassword)}
                   >
                     {showNewPassword ? (
-                      <EyeOff className="h-5 w-5 text-slate-200" />
+                      <EyeOff className="h-5 w-5 text-neon-cyan" />
                     ) : (
-                      <Eye className="h-5 w-5 text-slate-200" />
+                      <Eye className="h-5 w-5 text-neon-cyan" />
                     )}
                   </button>
                 </div>
                 {passwordErrors.newPassword && (
                   <p className="text-sm text-neon-red flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" />
+                    <AlertCircle className="w-4 h-4 text-neon-red" />
                     {passwordErrors.newPassword.message}
                   </p>
                 )}
@@ -318,7 +318,7 @@ const ProfilePage = () => {
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-slate-200" />
+                    <Lock className="h-5 w-5 text-neon-purple" />
                   </div>
                   <input
                     {...registerPassword('confirmPassword', {
@@ -335,15 +335,15 @@ const ProfilePage = () => {
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   >
                     {showConfirmPassword ? (
-                      <EyeOff className="h-5 w-5 text-slate-200" />
+                      <EyeOff className="h-5 w-5 text-neon-cyan" />
                     ) : (
-                      <Eye className="h-5 w-5 text-slate-200" />
+                      <Eye className="h-5 w-5 text-neon-cyan" />
                     )}
                   </button>
                 </div>
                 {passwordErrors.confirmPassword && (
                   <p className="text-sm text-neon-red flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" />
+                    <AlertCircle className="w-4 h-4 text-neon-red" />
                     {passwordErrors.confirmPassword.message}
                   </p>
                 )}
