@@ -769,7 +769,7 @@
   }
   
   .input {
-    @apply text-base px-4 py-3 rounded-lg; /* Prevents zoom on iOS */
+    @apply text-base px-4 py-3 rounded-lg bg-slate-800/80 backdrop-blur-sm; /* Prevents zoom on iOS */
   }
   
   /* Mobile-specific spacing */
@@ -896,7 +896,7 @@
   }
   
   .input {
-    @apply min-h-[48px] text-base;
+    @apply min-h-[48px] text-base bg-slate-800/80 backdrop-blur-sm;
   }
 }
 
@@ -988,7 +988,7 @@
   
   /* Mobile input improvements */
   .input {
-    @apply min-h-[48px] text-base px-4 py-3;
+    @apply min-h-[48px] text-base px-4 py-3 bg-slate-800/80 backdrop-blur-sm;
   }
   
   /* Mobile input with icons - ensure proper spacing */
