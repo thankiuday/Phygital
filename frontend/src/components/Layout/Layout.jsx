@@ -27,19 +27,31 @@ const Layout = () => {
   const { isAuthenticated, user, logout } = useAuth()
   const location = useLocation()
 
-  // Handle page transition with loader
+  // Handle page transition with minimum 1-second loader
   useEffect(() => {
-    // Show loader
-    setIsPageTransitioning(true)
-    
     // Scroll to top immediately
     window.scrollTo({ top: 0, behavior: 'instant' })
-    
-    // Hide loader after a brief delay to show the transition
+
+    // Show loader immediately
+    setIsPageTransitioning(true)
+
+    // Set minimum 1-second display time
+    const minLoaderTime = 1000 // 1 second minimum
+    const startTime = Date.now()
+
+    // Hide loader after minimum time has passed
     const timer = setTimeout(() => {
-      setIsPageTransitioning(false)
-    }, 400) // 400ms loader display
-    
+      const elapsed = Date.now() - startTime
+      if (elapsed >= minLoaderTime) {
+        setIsPageTransitioning(false)
+      } else {
+        // If less than 1 second has passed, wait for the remaining time
+        setTimeout(() => {
+          setIsPageTransitioning(false)
+        }, minLoaderTime - elapsed)
+      }
+    }, minLoaderTime)
+
     return () => clearTimeout(timer)
   }, [location.pathname])
 
