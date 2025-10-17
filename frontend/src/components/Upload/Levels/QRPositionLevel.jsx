@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { uploadAPI, qrAPI } from '../../../utils/api';
-import { QrCode, CheckCircle, AlertCircle, MapPin } from 'lucide-react';
+import { QrCode, CheckCircle, AlertCircle, MapPin, MousePointer } from 'lucide-react';
 import MindFileGenerationLoader from '../../UI/MindFileGenerationLoader';
 import toast from 'react-hot-toast';
 
@@ -15,7 +15,9 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
   });
   const [isSaving, setIsSaving] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [resizeHandle, setResizeHandle] = useState(null); // 'nw', 'ne', 'sw', 'se', 'n', 's', 'e', 'w'
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
   const [captureCompositeFunction, setCaptureCompositeFunction] = useState(null);
   const [qrImageUrl, setQrImageUrl] = useState('');
@@ -293,36 +295,119 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
   // Add global mouse listeners to handle mouse events outside the image
   React.useEffect(() => {
     const handleGlobalMouseUp = () => {
-      if (isDragging) {
-        console.log('Global mouse up - stopping drag');
+      if (isDragging || isResizing) {
+        console.log('Global mouse up - stopping drag/resize');
         setIsDragging(false);
+        setIsResizing(false);
+        setResizeHandle(null);
       }
     };
 
     const handleGlobalMouseMove = (e) => {
-      if (isDragging) {
+      if (isDragging || isResizing) {
         // Find the image element to get its bounding rect
         const imageElement = document.querySelector('img[alt="Design preview"]');
         if (imageElement && imageDimensions.width > 0 && imageDimensions.height > 0) {
           // Convert mouse position to image coordinates
           const imageCoords = screenToImageCoords(e.clientX, e.clientY, imageElement);
-          
-          // Calculate new position with constraints
-          const newX = Math.max(0, Math.min(imageCoords.x - dragStart.x, imageDimensions.width - qrPosition.width));
-          const newY = Math.max(0, Math.min(imageCoords.y - dragStart.y, imageDimensions.height - qrPosition.height));
-          
-          console.log('Global mouse move - new position:', { x: newX, y: newY });
-          
-          setQrPosition(prev => ({
-            ...prev,
-            x: newX,
-            y: newY
-          }));
+
+          if (isResizing && resizeHandle && dragStart.initialWidth !== undefined) {
+            // Handle resizing (global)
+            const deltaX = imageCoords.x - dragStart.x;
+            const deltaY = imageCoords.y - dragStart.y;
+
+            let newX = dragStart.initialX;
+            let newY = dragStart.initialY;
+            let newWidth = dragStart.initialWidth;
+            let newHeight = dragStart.initialHeight;
+
+            // Calculate new dimensions based on resize handle
+            switch (resizeHandle) {
+              case 'nw': // Top-left
+                newX = dragStart.initialX + deltaX;
+                newY = dragStart.initialY + deltaY;
+                newWidth = dragStart.initialWidth - deltaX;
+                newHeight = dragStart.initialHeight - deltaY;
+                break;
+              case 'ne': // Top-right
+                newY = dragStart.initialY + deltaY;
+                newWidth = dragStart.initialWidth + deltaX;
+                newHeight = dragStart.initialHeight - deltaY;
+                break;
+              case 'sw': // Bottom-left
+                newX = dragStart.initialX + deltaX;
+                newWidth = dragStart.initialWidth - deltaX;
+                newHeight = dragStart.initialHeight + deltaY;
+                break;
+              case 'se': // Bottom-right
+                newWidth = dragStart.initialWidth + deltaX;
+                newHeight = dragStart.initialHeight + deltaY;
+                break;
+              case 'n': // Top
+                newY = dragStart.initialY + deltaY;
+                newHeight = dragStart.initialHeight - deltaY;
+                break;
+              case 's': // Bottom
+                newHeight = dragStart.initialHeight + deltaY;
+                break;
+              case 'w': // Left
+                newX = dragStart.initialX + deltaX;
+                newWidth = dragStart.initialWidth - deltaX;
+                break;
+              case 'e': // Right
+                newWidth = dragStart.initialWidth + deltaX;
+                break;
+            }
+
+            // Constrain dimensions and position
+            newWidth = Math.max(50, Math.min(newWidth, imageDimensions.width - newX));
+            newHeight = Math.max(50, Math.min(newHeight, imageDimensions.height - newY));
+            newX = Math.max(0, Math.min(newX, imageDimensions.width - newWidth));
+            newY = Math.max(0, Math.min(newY, imageDimensions.height - newHeight));
+
+            setQrPosition({
+              x: newX,
+              y: newY,
+              width: newWidth,
+              height: newHeight
+            });
+          } else if (isDragging) {
+            // Handle dragging (global)
+            const offsetX = dragStart.offsetX || (dragStart.x - qrPosition.x);
+            const offsetY = dragStart.offsetY || (dragStart.y - qrPosition.y);
+
+            const newX = Math.max(0, Math.min(imageCoords.x - offsetX, imageDimensions.width - qrPosition.width));
+            const newY = Math.max(0, Math.min(imageCoords.y - offsetY, imageDimensions.height - qrPosition.height));
+
+            setQrPosition(prev => ({
+              ...prev,
+              x: newX,
+              y: newY
+            }));
+          }
+        } else {
+          // Fallback case for global mouse move when image dimensions are not available
+          if (isDragging && dragStart.fallback) {
+            const rect = document.querySelector('img[alt="Design preview"]')?.getBoundingClientRect();
+            if (rect) {
+              const deltaX = e.clientX - dragStart.x;
+              const deltaY = e.clientY - dragStart.y;
+
+              const newX = Math.max(0, Math.min(qrPosition.x + deltaX, rect.width - qrPosition.width));
+              const newY = Math.max(0, Math.min(qrPosition.y + deltaY, rect.height - qrPosition.height));
+
+              setQrPosition(prev => ({
+                ...prev,
+                x: newX,
+                y: newY
+              }));
+            }
+          }
         }
       }
     };
 
-    if (isDragging) {
+    if (isDragging || isResizing) {
       document.addEventListener('mouseup', handleGlobalMouseUp);
       document.addEventListener('mouseleave', handleGlobalMouseUp);
       document.addEventListener('mousemove', handleGlobalMouseMove);
@@ -333,73 +418,221 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       document.removeEventListener('mouseleave', handleGlobalMouseUp);
       document.removeEventListener('mousemove', handleGlobalMouseMove);
     };
-  }, [isDragging, dragStart, qrPosition.width, qrPosition.height, imageDimensions]);
+  }, [isDragging, isResizing, dragStart, resizeHandle, qrPosition.width, qrPosition.height, imageDimensions]);
 
-  // Handle mouse down on QR area
+  // Get resize handle at mouse position
+  const getResizeHandle = (mouseX, mouseY, rect) => {
+    const handleSize = 8; // Size of resize handles
+    const x = mouseX - rect.left;
+    const y = mouseY - rect.top;
+
+    // Corner handles
+    if (x <= handleSize && y <= handleSize) return 'nw'; // Top-left
+    if (x >= rect.width - handleSize && y <= handleSize) return 'ne'; // Top-right
+    if (x <= handleSize && y >= rect.height - handleSize) return 'sw'; // Bottom-left
+    if (x >= rect.width - handleSize && y >= rect.height - handleSize) return 'se'; // Bottom-right
+
+    // Edge handles
+    if (y <= handleSize && x > handleSize && x < rect.width - handleSize) return 'n'; // Top
+    if (y >= rect.height - handleSize && x > handleSize && x < rect.width - handleSize) return 's'; // Bottom
+    if (x <= handleSize && y > handleSize && y < rect.height - handleSize) return 'w'; // Left
+    if (x >= rect.width - handleSize && y > handleSize && y < rect.height - handleSize) return 'e'; // Right
+
+    return null; // Not on a resize handle
+  };
+
+  // Handle mouse down on QR area or resize handles
   const handleMouseDown = (e) => {
     e.preventDefault();
     console.log('Mouse down on QR area');
-    setIsDragging(true);
-    
+
     // Find the image element
     const imageElement = document.querySelector('img[alt="Design preview"]');
-    
+
     if (imageElement && imageDimensions.width > 0 && imageDimensions.height > 0) {
       // Convert mouse position to image coordinates
       const imageCoords = screenToImageCoords(e.clientX, e.clientY, imageElement);
-      
-      setDragStart({
-        x: imageCoords.x - qrPosition.x,
-        y: imageCoords.y - qrPosition.y
-      });
-      
-      console.log('Mouse down - drag start calculated:', {
-        mouse: { x: e.clientX, y: e.clientY },
-        image: imageCoords,
-        qrPosition,
-        dragStart: { x: imageCoords.x - qrPosition.x, y: imageCoords.y - qrPosition.y }
-      });
+
+      // Check if clicking on resize handle
+      // For resize handle detection, we need to check relative to the image element
+      const imageRect = imageElement.getBoundingClientRect();
+      const qrRect = {
+        left: imageRect.left + (qrPosition.x / imageDimensions.width) * imageRect.width,
+        top: imageRect.top + (qrPosition.y / imageDimensions.height) * imageRect.height,
+        width: (qrPosition.width / imageDimensions.width) * imageRect.width,
+        height: (qrPosition.height / imageDimensions.height) * imageRect.height
+      };
+
+      const handle = getResizeHandle(e.clientX, e.clientY, qrRect);
+
+      if (handle) {
+        console.log('Resize handle clicked:', handle);
+        setIsResizing(true);
+        setResizeHandle(handle);
+        setDragStart({
+          x: imageCoords.x,
+          y: imageCoords.y,
+          initialWidth: qrPosition.width,
+          initialHeight: qrPosition.height,
+          initialX: qrPosition.x,
+          initialY: qrPosition.y
+        });
+      } else {
+        console.log('QR area clicked for dragging');
+        setIsDragging(true);
+        setDragStart({
+          x: imageCoords.x - qrPosition.x,
+          y: imageCoords.y - qrPosition.y,
+          offsetX: imageCoords.x - qrPosition.x,
+          offsetY: imageCoords.y - qrPosition.y
+        });
+      }
     } else {
       // Fallback to original behavior if image dimensions not available
       const rect = e.currentTarget.getBoundingClientRect();
-      setDragStart({
-        x: e.clientX - rect.left - qrPosition.x,
-        y: e.clientY - rect.top - qrPosition.y
-      });
+      const handle = getResizeHandle(e.clientX, e.clientY, rect);
+
+      if (handle) {
+        setIsResizing(true);
+        setResizeHandle(handle);
+        setDragStart({
+          x: e.clientX,
+          y: e.clientY,
+          initialWidth: qrPosition.width,
+          initialHeight: qrPosition.height,
+          initialX: qrPosition.x,
+          initialY: qrPosition.y
+        });
+      } else {
+        console.log('Using fallback drag calculation');
+        setIsDragging(true);
+        setDragStart({
+          x: e.clientX - rect.left - qrPosition.x,
+          y: e.clientY - rect.top - qrPosition.y,
+          fallback: true
+        });
+      }
     }
   };
 
   // Handle mouse move
   const handleMouseMove = (e) => {
-    if (!isDragging) return;
-    
+    if (!isDragging && !isResizing) return;
+
     e.preventDefault();
-    
+
     // Find the image element
     const imageElement = document.querySelector('img[alt="Design preview"]');
-    
+
     if (imageElement && imageDimensions.width > 0 && imageDimensions.height > 0) {
       // Convert mouse position to image coordinates
       const imageCoords = screenToImageCoords(e.clientX, e.clientY, imageElement);
-      
-      // Calculate new position with constraints
-      const newX = Math.max(0, Math.min(imageCoords.x - dragStart.x, imageDimensions.width - qrPosition.width));
-      const newY = Math.max(0, Math.min(imageCoords.y - dragStart.y, imageDimensions.height - qrPosition.height));
-      
-      console.log('Mouse move - new position:', { x: newX, y: newY });
-      
-      setQrPosition(prev => ({
-        ...prev,
-        x: newX,
-        y: newY
-      }));
+
+      if (isResizing && resizeHandle) {
+        // Handle resizing
+        const deltaX = imageCoords.x - dragStart.x;
+        const deltaY = imageCoords.y - dragStart.y;
+
+        let newX = dragStart.initialX;
+        let newY = dragStart.initialY;
+        let newWidth = dragStart.initialWidth;
+        let newHeight = dragStart.initialHeight;
+
+        // Calculate new dimensions based on resize handle
+        switch (resizeHandle) {
+          case 'nw': // Top-left
+            newX = dragStart.initialX + deltaX;
+            newY = dragStart.initialY + deltaY;
+            newWidth = dragStart.initialWidth - deltaX;
+            newHeight = dragStart.initialHeight - deltaY;
+            break;
+          case 'ne': // Top-right
+            newY = dragStart.initialY + deltaY;
+            newWidth = dragStart.initialWidth + deltaX;
+            newHeight = dragStart.initialHeight - deltaY;
+            break;
+          case 'sw': // Bottom-left
+            newX = dragStart.initialX + deltaX;
+            newWidth = dragStart.initialWidth - deltaX;
+            newHeight = dragStart.initialHeight + deltaY;
+            break;
+          case 'se': // Bottom-right
+            newWidth = dragStart.initialWidth + deltaX;
+            newHeight = dragStart.initialHeight + deltaY;
+            break;
+          case 'n': // Top
+            newY = dragStart.initialY + deltaY;
+            newHeight = dragStart.initialHeight - deltaY;
+            break;
+          case 's': // Bottom
+            newHeight = dragStart.initialHeight + deltaY;
+            break;
+          case 'w': // Left
+            newX = dragStart.initialX + deltaX;
+            newWidth = dragStart.initialWidth - deltaX;
+            break;
+          case 'e': // Right
+            newWidth = dragStart.initialWidth + deltaX;
+            break;
+        }
+
+        // Constrain dimensions and position
+        newWidth = Math.max(50, Math.min(newWidth, imageDimensions.width - newX));
+        newHeight = Math.max(50, Math.min(newHeight, imageDimensions.height - newY));
+        newX = Math.max(0, Math.min(newX, imageDimensions.width - newWidth));
+        newY = Math.max(0, Math.min(newY, imageDimensions.height - newHeight));
+
+        console.log('Resize - new dimensions:', { x: newX, y: newY, width: newWidth, height: newHeight });
+
+        setQrPosition({
+          x: newX,
+          y: newY,
+          width: newWidth,
+          height: newHeight
+        });
+      } else if (isDragging) {
+        // Handle dragging
+        const offsetX = dragStart.offsetX || (dragStart.x - qrPosition.x);
+        const offsetY = dragStart.offsetY || (dragStart.y - qrPosition.y);
+
+        const newX = Math.max(0, Math.min(imageCoords.x - offsetX, imageDimensions.width - qrPosition.width));
+        const newY = Math.max(0, Math.min(imageCoords.y - offsetY, imageDimensions.height - qrPosition.height));
+
+        console.log('Mouse move - new position:', { x: newX, y: newY, offsetX, offsetY });
+
+        setQrPosition(prev => ({
+          ...prev,
+          x: newX,
+          y: newY
+        }));
+      }
+    } else {
+      // Fallback case when image dimensions are not available
+      if (isDragging && dragStart.fallback) {
+        const rect = document.querySelector('img[alt="Design preview"]')?.getBoundingClientRect();
+        if (rect) {
+          const deltaX = e.clientX - dragStart.x;
+          const deltaY = e.clientY - dragStart.y;
+
+          const newX = Math.max(0, Math.min(qrPosition.x + deltaX, rect.width - qrPosition.width));
+          const newY = Math.max(0, Math.min(qrPosition.y + deltaY, rect.height - qrPosition.height));
+
+          setQrPosition(prev => ({
+            ...prev,
+            x: newX,
+            y: newY
+          }));
+        }
+      }
     }
   };
 
   // Handle mouse up
   const handleMouseUp = () => {
-    console.log('Mouse up - stopping drag');
+    console.log('Mouse up - stopping drag/resize');
     setIsDragging(false);
+    setIsResizing(false);
+    setResizeHandle(null);
   };
 
   // Save QR position
@@ -902,7 +1135,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           />
           <div
             className={`absolute border-2 bg-neon-blue bg-opacity-20 cursor-move transition-all duration-200 touch-manipulation ${
-              isDragging ? 'border-neon-blue scale-105 shadow-glow-blue' : 'border-neon-blue'
+              isDragging || isResizing ? 'border-neon-blue scale-105 shadow-glow-blue' : 'border-neon-blue'
             }`}
             style={{
               left: imageDimensions.width > 0 ? `${(qrPosition.x / imageDimensions.width) * 100}%` : `${qrPosition.x}px`,
@@ -913,7 +1146,20 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
             onMouseDown={handleMouseDown}
             onTouchStart={handleMouseDown}
           >
-            <div className="absolute -top-5 sm:-top-6 left-0 text-xs bg-neon-blue text-slate-900 px-1 sm:px-2 py-1 rounded">
+            {/* Resize Handles */}
+            {/* Corner handles */}
+            <div className="absolute -top-1 -left-1 w-3 h-3 bg-neon-blue border border-white cursor-nw-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); setIsResizing(true); setResizeHandle('nw'); }}></div>
+            <div className="absolute -top-1 -right-1 w-3 h-3 bg-neon-blue border border-white cursor-ne-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); setIsResizing(true); setResizeHandle('ne'); }}></div>
+            <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-neon-blue border border-white cursor-sw-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); setIsResizing(true); setResizeHandle('sw'); }}></div>
+            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-neon-blue border border-white cursor-se-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); setIsResizing(true); setResizeHandle('se'); }}></div>
+
+            {/* Edge handles */}
+            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1 w-3 h-2 bg-neon-blue border border-white cursor-n-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); setIsResizing(true); setResizeHandle('n'); }}></div>
+            <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1 w-3 h-2 bg-neon-blue border border-white cursor-s-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); setIsResizing(true); setResizeHandle('s'); }}></div>
+            <div className="absolute left-0 top-1/2 transform -translate-x-1 -translate-y-1/2 w-2 h-3 bg-neon-blue border border-white cursor-w-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); setIsResizing(true); setResizeHandle('w'); }}></div>
+            <div className="absolute right-0 top-1/2 transform translate-x-1 -translate-y-1/2 w-2 h-3 bg-neon-blue border border-white cursor-e-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); setIsResizing(true); setResizeHandle('e'); }}></div>
+
+            <div className="absolute -top-6 left-0 text-xs bg-neon-blue text-slate-900 px-2 py-1 rounded whitespace-nowrap">
               QR Code Area
             </div>
             <div className="absolute inset-0 flex items-center justify-center">
@@ -923,107 +1169,37 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         </div>
       </div>
 
-      {/* Position Controls */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
-        <div>
-          <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">
-            X Position
-            {imageDimensions.width > 0 && (
-              <span className="text-xs text-slate-400 ml-1 sm:ml-2">
-                (max: {Math.max(0, imageDimensions.width - qrPosition.width)})
-              </span>
-            )}
-          </label>
-          <input
-            type="number"
-            value={qrPosition.x}
-            min="0"
-            max={imageDimensions.width > 0 ? Math.max(0, imageDimensions.width - qrPosition.width) : undefined}
-            onChange={(e) => {
-              const newX = parseInt(e.target.value) || 0;
-              console.log('X position changed to:', newX);
-              setQrPosition(prev => {
-                const newPosition = { ...prev, x: newX };
-                return constrainPositionToImage(newPosition);
-              });
-            }}
-            className="input w-full px-2 sm:px-3 py-2 text-sm touch-manipulation"
-          />
+      {/* Current Position Display */}
+      <div className="bg-slate-800/50 border border-slate-600/30 rounded-lg p-4 mb-6">
+        <h3 className="text-sm font-medium text-slate-200 mb-3 flex items-center">
+          <QrCode className="w-4 h-4 mr-2 text-neon-blue" />
+          QR Code Position & Size
+        </h3>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="bg-slate-700/30 rounded p-3">
+            <div className="text-xs text-slate-400 mb-1">X Position</div>
+            <div className="text-sm font-mono text-slate-100">{qrPosition.x}px</div>
+          </div>
+          <div className="bg-slate-700/30 rounded p-3">
+            <div className="text-xs text-slate-400 mb-1">Y Position</div>
+            <div className="text-sm font-mono text-slate-100">{qrPosition.y}px</div>
+          </div>
+          <div className="bg-slate-700/30 rounded p-3">
+            <div className="text-xs text-slate-400 mb-1">Width</div>
+            <div className="text-sm font-mono text-slate-100">{qrPosition.width}px</div>
+          </div>
+          <div className="bg-slate-700/30 rounded p-3">
+            <div className="text-xs text-slate-400 mb-1">Height</div>
+            <div className="text-sm font-mono text-slate-100">{qrPosition.height}px</div>
+          </div>
         </div>
-        <div>
-          <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">
-            Y Position
-            {imageDimensions.height > 0 && (
-              <span className="text-xs text-slate-400 ml-1 sm:ml-2">
-                (max: {Math.max(0, imageDimensions.height - qrPosition.height)})
-              </span>
-            )}
-          </label>
-          <input
-            type="number"
-            value={qrPosition.y}
-            min="0"
-            max={imageDimensions.height > 0 ? Math.max(0, imageDimensions.height - qrPosition.height) : undefined}
-            onChange={(e) => {
-              const newY = parseInt(e.target.value) || 0;
-              console.log('Y position changed to:', newY);
-              setQrPosition(prev => {
-                const newPosition = { ...prev, y: newY };
-                return constrainPositionToImage(newPosition);
-              });
-            }}
-            className="input w-full px-2 sm:px-3 py-2 text-sm touch-manipulation"
-          />
-        </div>
-        <div>
-          <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">
-            Width
-            {imageDimensions.width > 0 && (
-              <span className="text-xs text-slate-400 ml-1 sm:ml-2">
-                (max: {imageDimensions.width})
-              </span>
-            )}
-          </label>
-          <input
-            type="number"
-            value={qrPosition.width}
-            min="50"
-            max={imageDimensions.width > 0 ? imageDimensions.width : undefined}
-            onChange={(e) => {
-              const newWidth = parseInt(e.target.value) || 100;
-              console.log('Width changed to:', newWidth);
-              setQrPosition(prev => {
-                const newPosition = { ...prev, width: newWidth };
-                return constrainPositionToImage(newPosition);
-              });
-            }}
-            className="input w-full px-2 sm:px-3 py-2 text-sm touch-manipulation"
-          />
-        </div>
-        <div>
-          <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">
-            Height
-            {imageDimensions.height > 0 && (
-              <span className="text-xs text-slate-400 ml-1 sm:ml-2">
-                (max: {imageDimensions.height})
-              </span>
-            )}
-          </label>
-          <input
-            type="number"
-            value={qrPosition.height}
-            min="50"
-            max={imageDimensions.height > 0 ? imageDimensions.height : undefined}
-            onChange={(e) => {
-              const newHeight = parseInt(e.target.value) || 100;
-              console.log('Height changed to:', newHeight);
-              setQrPosition(prev => {
-                const newPosition = { ...prev, height: newHeight };
-                return constrainPositionToImage(newPosition);
-              });
-            }}
-            className="input w-full px-2 sm:px-3 py-2 text-sm touch-manipulation"
-          />
+
+        <div className="mt-4 p-3 bg-blue-900/20 border border-blue-600/30 rounded-lg">
+          <p className="text-sm text-blue-300 flex items-center">
+            <MousePointer className="w-4 h-4 mr-2" />
+            <strong>Instructions:</strong> Drag the QR code area to reposition it, or use the blue handles at the corners and edges to resize it.
+          </p>
         </div>
       </div>
 
