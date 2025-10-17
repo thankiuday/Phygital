@@ -315,8 +315,18 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           // Convert coordinates to image coordinates
           const imageCoords = screenToImageCoords(clientX, clientY, imageElement);
 
-          if (isResizing && resizeHandle && dragStart.initialWidth !== undefined) {
+          if (isResizing && dragStart.resizeHandle && dragStart.initialWidth !== undefined) {
             // Handle resizing (global)
+            // Set initial coordinates on first move if not set
+            if (!dragStart.x || !dragStart.y) {
+              setDragStart(prev => ({
+                ...prev,
+                x: imageCoords.x,
+                y: imageCoords.y
+              }));
+              return; // Skip this frame
+            }
+
             const deltaX = imageCoords.x - dragStart.x;
             const deltaY = imageCoords.y - dragStart.y;
 
@@ -430,28 +440,14 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     setIsResizing(true);
     setResizeHandle(handle);
 
-    // Find the image element
-    const imageElement = document.querySelector('img[alt="Design preview"]');
-
-    if (imageElement && imageDimensions.width > 0 && imageDimensions.height > 0) {
-      setDragStart({
-        x: 0, // Will be set in handlePointerMove
-        y: 0, // Will be set in handlePointerMove
-        initialWidth: qrPosition.width,
-        initialHeight: qrPosition.height,
-        initialX: qrPosition.x,
-        initialY: qrPosition.y
-      });
-    } else {
-      setDragStart({
-        x: 0,
-        y: 0,
-        initialWidth: qrPosition.width,
-        initialHeight: qrPosition.height,
-        initialX: qrPosition.x,
-        initialY: qrPosition.y
-      });
-    }
+    // Store initial values for resize calculations
+    setDragStart({
+      initialWidth: qrPosition.width,
+      initialHeight: qrPosition.height,
+      initialX: qrPosition.x,
+      initialY: qrPosition.y,
+      resizeHandle: handle
+    });
   };
 
   // Get resize handle at mouse position
@@ -570,8 +566,18 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       // Convert coordinates to image coordinates
       const imageCoords = screenToImageCoords(clientX, clientY, imageElement);
 
-      if (isResizing && resizeHandle) {
+      if (isResizing && dragStart.resizeHandle) {
         // Handle resizing
+        // Set initial coordinates on first move if not set
+        if (!dragStart.x || !dragStart.y) {
+          setDragStart(prev => ({
+            ...prev,
+            x: imageCoords.x,
+            y: imageCoords.y
+          }));
+          return; // Skip this frame
+        }
+
         const deltaX = imageCoords.x - dragStart.x;
         const deltaY = imageCoords.y - dragStart.y;
 
@@ -579,9 +585,10 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         let newY = dragStart.initialY;
         let newWidth = dragStart.initialWidth;
         let newHeight = dragStart.initialHeight;
+        const handle = dragStart.resizeHandle;
 
         // Calculate new dimensions based on resize handle
-        switch (resizeHandle) {
+        switch (handle) {
           case 'nw': // Top-left
             newX = dragStart.initialX + deltaX;
             newY = dragStart.initialY + deltaY;
@@ -624,7 +631,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         newX = Math.max(0, Math.min(newX, imageDimensions.width - newWidth));
         newY = Math.max(0, Math.min(newY, imageDimensions.height - newHeight));
 
-        console.log('Resize - new dimensions:', { x: newX, y: newY, width: newWidth, height: newHeight });
+        console.log('Resize - new dimensions:', { x: newX, y: newY, width: newWidth, height: newHeight, deltaX, deltaY });
 
         setQrPosition({
           x: newX,
@@ -1184,10 +1191,10 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
               isDragging || isResizing ? 'border-neon-blue scale-105 shadow-glow-blue' : 'border-neon-blue'
             }`}
             style={{
-              left: imageDimensions.width > 0 ? `${(qrPosition.x / imageDimensions.width) * 100}%` : `${qrPosition.x}px`,
-              top: imageDimensions.height > 0 ? `${(qrPosition.y / imageDimensions.height) * 100}%` : `${qrPosition.y}px`,
-              width: imageDimensions.width > 0 ? `${(qrPosition.width / imageDimensions.width) * 100}%` : `${qrPosition.width}px`,
-              height: imageDimensions.height > 0 ? `${(qrPosition.height / imageDimensions.height) * 100}%` : `${qrPosition.height}px`
+              left: imageDimensions.width > 0 ? `${Math.max(0, Math.min((qrPosition.x / imageDimensions.width) * 100, 100))}%` : `${qrPosition.x}px`,
+              top: imageDimensions.height > 0 ? `${Math.max(0, Math.min((qrPosition.y / imageDimensions.height) * 100, 100))}%` : `${qrPosition.y}px`,
+              width: imageDimensions.width > 0 ? `${Math.max(0, Math.min((qrPosition.width / imageDimensions.width) * 100, 100))}%` : `${qrPosition.width}px`,
+              height: imageDimensions.height > 0 ? `${Math.max(0, Math.min((qrPosition.height / imageDimensions.height) * 100, 100))}%` : `${qrPosition.height}px`
             }}
             onMouseDown={handlePointerDown}
             onTouchStart={handlePointerDown}
@@ -1225,19 +1232,19 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div className="bg-slate-700/30 rounded p-3">
             <div className="text-xs text-slate-400 mb-1">X Position</div>
-            <div className="text-sm font-mono text-slate-100">{qrPosition.x}px</div>
+            <div className="text-sm font-mono text-slate-100">{isNaN(qrPosition.x) ? '0' : Math.round(qrPosition.x)}px</div>
           </div>
           <div className="bg-slate-700/30 rounded p-3">
             <div className="text-xs text-slate-400 mb-1">Y Position</div>
-            <div className="text-sm font-mono text-slate-100">{qrPosition.y}px</div>
+            <div className="text-sm font-mono text-slate-100">{isNaN(qrPosition.y) ? '0' : Math.round(qrPosition.y)}px</div>
           </div>
           <div className="bg-slate-700/30 rounded p-3">
             <div className="text-xs text-slate-400 mb-1">Width</div>
-            <div className="text-sm font-mono text-slate-100">{qrPosition.width}px</div>
+            <div className="text-sm font-mono text-slate-100">{isNaN(qrPosition.width) ? '100' : Math.round(qrPosition.width)}px</div>
           </div>
           <div className="bg-slate-700/30 rounded p-3">
             <div className="text-xs text-slate-400 mb-1">Height</div>
-            <div className="text-sm font-mono text-slate-100">{qrPosition.height}px</div>
+            <div className="text-sm font-mono text-slate-100">{isNaN(qrPosition.height) ? '100' : Math.round(qrPosition.height)}px</div>
           </div>
         </div>
 
