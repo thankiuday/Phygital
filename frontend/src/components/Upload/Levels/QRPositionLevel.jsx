@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { uploadAPI, qrAPI } from '../../../utils/api';
 import { QrCode, CheckCircle, AlertCircle, MapPin, MousePointer } from 'lucide-react';
@@ -16,11 +16,13 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
   const [isSaving, setIsSaving] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [resizeHandle, setResizeHandle] = useState(null); // 'nw', 'ne', 'sw', 'se', 'n', 's', 'e', 'w'
+  const [resizeHandle, setResizeHandle] = useState(null);
+  const [dragStart, setDragStart] = useState(null);
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
   const [captureCompositeFunction, setCaptureCompositeFunction] = useState(null);
   const [qrImageUrl, setQrImageUrl] = useState('');
+  const imageRef = useRef(null);
+  const qrRef = useRef(null);
 
   console.log('🎨 QRPositionLevel - Props received:');
   console.log('  - designUrl (prop):', designUrl);
@@ -184,29 +186,16 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     setCaptureCompositeFunction(() => captureCompositeImage);
   }, [captureCompositeImage]);
   
-  // Handle image load to get dimensions
-  const handleImageLoad = (e) => {
+  // Improved handleImageLoad
+  const handleImageLoad = useCallback((e) => {
     const img = e.target;
-    const dimensions = {
+    setImageDimensions({
       width: img.naturalWidth,
       height: img.naturalHeight
-    };
-    setImageDimensions(dimensions);
-    console.log('Image loaded with dimensions:', dimensions);
-    console.log('Displayed image dimensions:', {
-      width: img.offsetWidth,
-      height: img.offsetHeight
     });
-    
-    // Adjust QR position if it's outside the image boundaries
-    setQrPosition(prev => {
-      const constrainedPosition = constrainPositionToImage(prev, dimensions);
-      if (constrainedPosition !== prev) {
-        console.log('QR position constrained to image boundaries:', constrainedPosition);
-      }
-      return constrainedPosition;
-    });
-  };
+    // Constrain initial position
+    setQrPosition(prev => constrainPositionToImage(prev));
+  }, []);
   
   // Function to constrain position to image boundaries
   const constrainPositionToImage = (position, imgDims = imageDimensions) => {
@@ -223,36 +212,22 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     };
   };
 
-  // Convert screen coordinates to image coordinates
-  const screenToImageCoords = (screenX, screenY, imageElement) => {
-    if (!imageElement || imageDimensions.width === 0 || imageDimensions.height === 0) {
-      return { x: screenX, y: screenY };
-    }
+  // Improved screenToImageCoords using ref
+  const screenToImageCoords = useCallback((clientX, clientY) => {
+    const img = imageRef.current;
+    if (!img || imageDimensions.width === 0) return { x: 0, y: 0 };
 
-    const rect = imageElement.getBoundingClientRect();
-    
-    // Calculate scale factors
+    const rect = img.getBoundingClientRect();
     const scaleX = imageDimensions.width / rect.width;
     const scaleY = imageDimensions.height / rect.height;
-    
-    // Convert to image coordinates
-    const imageX = (screenX - rect.left) * scaleX;
-    const imageY = (screenY - rect.top) * scaleY;
-    
-    console.log('Coordinate conversion:', {
-      screen: { x: screenX, y: screenY },
-      rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
-      scale: { x: scaleX, y: scaleY },
-      image: { x: imageX, y: imageY },
-      natural: imageDimensions,
-      percentage: {
-        x: (imageX / imageDimensions.width) * 100,
-        y: (imageY / imageDimensions.height) * 100
-      }
-    });
-    
-    return { x: imageX, y: imageY };
-  };
+    const imageX = (clientX - rect.left) * scaleX;
+    const imageY = (clientY - rect.top) * scaleY;
+
+    return {
+      x: Math.max(0, Math.min(imageX, imageDimensions.width)),
+      y: Math.max(0, Math.min(imageY, imageDimensions.height))
+    };
+  }, [imageDimensions]);
 
   // Convert image coordinates to percentage
   const imageToPercentage = (x, y) => {
@@ -459,7 +434,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
 
     // Find the image element to get current coordinates
     const imageElement = document.querySelector('img[alt="Design preview"]');
-
+    
     if (imageElement && imageDimensions.width > 0 && imageDimensions.height > 0) {
       // Store initial values for resize calculations with current coordinates
       setDragStart({
@@ -485,290 +460,204 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     }
   };
 
-  // Get resize handle at mouse position
-  const getResizeHandle = (mouseX, mouseY, rect) => {
-    const handleSize = 8; // Size of resize handles
-    const x = mouseX - rect.left;
-    const y = mouseY - rect.top;
+  // Detect resize handle (improved for touch: larger hit area)
+  const getResizeHandle = useCallback((clientX, clientY, qrScreenRect) => {
+    const handleSize = window.innerWidth < 768 ? 20 : 8; // Larger on mobile
+    const relX = clientX - qrScreenRect.left;
+    const relY = clientY - qrScreenRect.top;
 
-    // Corner handles
-    if (x <= handleSize && y <= handleSize) return 'nw'; // Top-left
-    if (x >= rect.width - handleSize && y <= handleSize) return 'ne'; // Top-right
-    if (x <= handleSize && y >= rect.height - handleSize) return 'sw'; // Bottom-left
-    if (x >= rect.width - handleSize && y >= rect.height - handleSize) return 'se'; // Bottom-right
+    // Corner checks
+    if (relX <= handleSize && relY <= handleSize) return 'nw';
+    if (relX >= qrScreenRect.width - handleSize && relY <= handleSize) return 'ne';
+    if (relX <= handleSize && relY >= qrScreenRect.height - handleSize) return 'sw';
+    if (relX >= qrScreenRect.width - handleSize && relY >= qrScreenRect.height - handleSize) return 'se';
 
-    // Edge handles
-    if (y <= handleSize && x > handleSize && x < rect.width - handleSize) return 'n'; // Top
-    if (y >= rect.height - handleSize && x > handleSize && x < rect.width - handleSize) return 's'; // Bottom
-    if (x <= handleSize && y > handleSize && y < rect.height - handleSize) return 'w'; // Left
-    if (x >= rect.width - handleSize && y > handleSize && y < rect.height - handleSize) return 'e'; // Right
+    // Edge checks (middle of edges)
+    const edgeThreshold = handleSize / 2;
+    if (relY <= handleSize && relX > handleSize && relX < qrScreenRect.width - handleSize) return 'n';
+    if (relY >= qrScreenRect.height - handleSize && relX > handleSize && relX < qrScreenRect.width - handleSize) return 's';
+    if (relX <= handleSize && relY > handleSize && relY < qrScreenRect.height - handleSize) return 'w';
+    if (relX >= qrScreenRect.width - handleSize && relY > handleSize && relY < qrScreenRect.height - handleSize) return 'e';
 
-    return null; // Not on a resize handle
-  };
+    return null;
+  }, []);
 
-  // Handle mouse/touch down on QR area or resize handles
-  const handlePointerDown = (e) => {
-    // Prevent all default behaviors that might cause navigation or scrolling
+  // Unified pointer down handler
+  const handlePointerDown = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
 
-    // For touch events, prevent any browser defaults
-    if (e.touches) {
-      // Prevent scrolling, zooming, and other touch behaviors
-      e.preventDefault();
+    const pointerId = e.pointerId;
+    const clientX = e.clientX;
+    const clientY = e.clientY;
 
-      // Also prevent the touch event from bubbling up to parent elements
-      if (e.target && e.target.parentElement) {
-        e.target.parentElement.style.pointerEvents = 'none';
-        setTimeout(() => {
-          if (e.target && e.target.parentElement) {
-            e.target.parentElement.style.pointerEvents = '';
-          }
-        }, 100);
-      }
-    }
-
-    // Prevent any default touch behaviors that might cause navigation
-    if (e.touches && e.touches.length > 1) {
-      return; // Ignore multi-touch gestures
-    }
-
-    console.log('Pointer down on QR area');
-
-    // Prevent page scrolling on mobile during drag operations
-    if (e.touches) {
+    // Prevent page scroll/jump on mobile
+    if (e.pointerType === 'touch') {
       document.body.style.overflow = 'hidden';
       document.body.style.position = 'fixed';
+      document.body.style.top = `-${window.scrollY}px`;
       document.body.style.width = '100%';
-      document.body.style.touchAction = 'none';
-
-      // Also disable scrolling on the html element
       document.documentElement.style.overflow = 'hidden';
-      document.documentElement.style.position = 'fixed';
     }
-    
-    // Find the image element
-    const imageElement = document.querySelector('img[alt="Design preview"]');
 
-    // Get coordinates (handle both mouse and touch events)
-    const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
-    const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
-    
-    if (imageElement && imageDimensions.width > 0 && imageDimensions.height > 0) {
-      // Convert coordinates to image coordinates
-      const imageCoords = screenToImageCoords(clientX, clientY, imageElement);
+    const img = imageRef.current;
+    if (!img) return;
 
-      // Check if clicking on resize handle
-      // For resize handle detection, we need to check relative to the image element
-      const imageRect = imageElement.getBoundingClientRect();
-      const qrRect = {
-        left: imageRect.left + (qrPosition.x / imageDimensions.width) * imageRect.width,
-        top: imageRect.top + (qrPosition.y / imageDimensions.height) * imageRect.height,
-        width: (qrPosition.width / imageDimensions.width) * imageRect.width,
-        height: (qrPosition.height / imageDimensions.height) * imageRect.height
-      };
+    const imgRect = img.getBoundingClientRect();
+    const qrScreenRect = {
+      left: imgRect.left + (qrPosition.x / imageDimensions.width) * imgRect.width,
+      top: imgRect.top + (qrPosition.y / imageDimensions.height) * imgRect.height,
+      width: (qrPosition.width / imageDimensions.width) * imgRect.width,
+      height: (qrPosition.height / imageDimensions.height) * imgRect.height
+    };
 
-      // For resize handle detection, use coordinates relative to the image element
-      const relativeX = clientX - imageRect.left;
-      const relativeY = clientY - imageRect.top;
+    const handle = getResizeHandle(clientX, clientY, qrScreenRect);
 
-      const handle = getResizeHandle(relativeX, relativeY, qrRect);
-
-      if (handle) {
-        console.log('Resize handle clicked:', handle);
-        setIsResizing(true);
-        setResizeHandle(handle);
+    if (handle) {
+      // Resize start
+      setIsResizing(true);
+      setResizeHandle(handle);
       setDragStart({
-          x: imageCoords.x,
-          y: imageCoords.y,
-          initialWidth: qrPosition.width,
-          initialHeight: qrPosition.height,
-          initialX: qrPosition.x,
-          initialY: qrPosition.y
-        });
-      } else {
-        console.log('QR area clicked for dragging');
-        setIsDragging(true);
-        setDragStart({
-          x: imageCoords.x,
-          y: imageCoords.y,
-          offsetX: imageCoords.x - qrPosition.x,
-          offsetY: imageCoords.y - qrPosition.y
-        });
-      }
-    } else {
-      // Fallback to original behavior if image dimensions not available
-      const rect = e.currentTarget.getBoundingClientRect();
-      const handle = getResizeHandle(clientX - rect.left, clientY - rect.top, rect);
-
-      if (handle) {
-        setIsResizing(true);
-        setResizeHandle(handle);
+        pointerId,
+        startX: clientX,
+        startY: clientY,
+        imageStartX: screenToImageCoords(clientX, clientY).x,
+        imageStartY: screenToImageCoords(clientX, clientY).y,
+        initialX: qrPosition.x,
+        initialY: qrPosition.y,
+        initialWidth: qrPosition.width,
+        initialHeight: qrPosition.height
+      });
+      qrRef.current?.setPointerCapture(pointerId);
+    } else if (
+      clientX >= qrScreenRect.left &&
+      clientX <= qrScreenRect.left + qrScreenRect.width &&
+      clientY >= qrScreenRect.top &&
+      clientY <= qrScreenRect.top + qrScreenRect.height
+    ) {
+      // Drag start
+      setIsDragging(true);
       setDragStart({
-          x: clientX,
-          y: clientY,
-          initialWidth: qrPosition.width,
-          initialHeight: qrPosition.height,
-          initialX: qrPosition.x,
-          initialY: qrPosition.y
-        });
-      } else {
-        console.log('Using fallback drag calculation');
-        setIsDragging(true);
-        setDragStart({
-          x: clientX,
-          y: clientY,
-          offsetX: clientX - rect.left - qrPosition.x,
-          offsetY: clientY - rect.top - qrPosition.y,
-          fallback: true
-        });
-      }
+        pointerId,
+        startX: clientX,
+        startY: clientY,
+        imageStartX: screenToImageCoords(clientX, clientY).x,
+        imageStartY: screenToImageCoords(clientX, clientY).y,
+        offsetX: screenToImageCoords(clientX, clientY).x - qrPosition.x,
+        offsetY: screenToImageCoords(clientX, clientY).y - qrPosition.y
+      });
+      qrRef.current?.setPointerCapture(pointerId);
     }
-  };
+  }, [qrPosition, imageDimensions, getResizeHandle, screenToImageCoords]);
 
-  // Handle mouse/touch move
-  const handlePointerMove = (e) => {
+  // Global pointer move handler
+  const handleGlobalPointerMove = useCallback((e) => {
     if (!isDragging && !isResizing) return;
-    
     e.preventDefault();
-    
-    // Find the image element
-    const imageElement = document.querySelector('img[alt="Design preview"]');
 
-    // Get coordinates (handle both mouse and touch events)
-    const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
-    const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
-    
-    if (imageElement && imageDimensions.width > 0 && imageDimensions.height > 0) {
-      // Convert coordinates to image coordinates
-      const imageCoords = screenToImageCoords(clientX, clientY, imageElement);
+    const drag = dragStart;
+    if (!drag || drag.pointerId !== e.pointerId) return;
 
-      if (isResizing && dragStart.resizeHandle) {
-        // Handle resizing
-        // Set initial coordinates on first move if not set
-        if (!dragStart.x || !dragStart.y) {
-          setDragStart(prev => ({
-            ...prev,
-            x: imageCoords.x,
-            y: imageCoords.y
-          }));
-          return; // Skip this frame
-        }
+    const clientX = e.clientX;
+    const clientY = e.clientY;
+    const imageCoords = screenToImageCoords(clientX, clientY);
 
-        const deltaX = imageCoords.x - dragStart.x;
-        const deltaY = imageCoords.y - dragStart.y;
+    if (isResizing) {
+      const deltaX = imageCoords.x - drag.imageStartX;
+      const deltaY = imageCoords.y - drag.imageStartY;
 
-        let newX = dragStart.initialX;
-        let newY = dragStart.initialY;
-        let newWidth = dragStart.initialWidth;
-        let newHeight = dragStart.initialHeight;
-        const handle = dragStart.resizeHandle;
+      let newX = drag.initialX;
+      let newY = drag.initialY;
+      let newWidth = drag.initialWidth;
+      let newHeight = drag.initialHeight;
 
-        // Calculate new dimensions based on resize handle
-        switch (handle) {
-          case 'nw': // Top-left
-            newX = dragStart.initialX + deltaX;
-            newY = dragStart.initialY + deltaY;
-            newWidth = dragStart.initialWidth - deltaX;
-            newHeight = dragStart.initialHeight - deltaY;
-            break;
-          case 'ne': // Top-right
-            newY = dragStart.initialY + deltaY;
-            newWidth = dragStart.initialWidth + deltaX;
-            newHeight = dragStart.initialHeight - deltaY;
-            break;
-          case 'sw': // Bottom-left
-            newX = dragStart.initialX + deltaX;
-            newWidth = dragStart.initialWidth - deltaX;
-            newHeight = dragStart.initialHeight + deltaY;
-            break;
-          case 'se': // Bottom-right
-            newWidth = dragStart.initialWidth + deltaX;
-            newHeight = dragStart.initialHeight + deltaY;
-            break;
-          case 'n': // Top
-            newY = dragStart.initialY + deltaY;
-            newHeight = dragStart.initialHeight - deltaY;
-            break;
-          case 's': // Bottom
-            newHeight = dragStart.initialHeight + deltaY;
-            break;
-          case 'w': // Left
-            newX = dragStart.initialX + deltaX;
-            newWidth = dragStart.initialWidth - deltaX;
-            break;
-          case 'e': // Right
-            newWidth = dragStart.initialWidth + deltaX;
-            break;
-        }
-
-        // Constrain dimensions and position
-        newWidth = Math.max(50, Math.min(newWidth, imageDimensions.width - newX));
-        newHeight = Math.max(50, Math.min(newHeight, imageDimensions.height - newY));
-        newX = Math.max(0, Math.min(newX, imageDimensions.width - newWidth));
-        newY = Math.max(0, Math.min(newY, imageDimensions.height - newHeight));
-
-        console.log('Resize - new dimensions:', { x: newX, y: newY, width: newWidth, height: newHeight, deltaX, deltaY });
-
-        setQrPosition({
-          x: newX,
-          y: newY,
-          width: newWidth,
-          height: newHeight
-        });
-      } else if (isDragging) {
-        // Handle dragging
-        const offsetX = dragStart.offsetX || (dragStart.x - qrPosition.x);
-        const offsetY = dragStart.offsetY || (dragStart.y - qrPosition.y);
-
-        const newX = Math.max(0, Math.min(imageCoords.x - offsetX, imageDimensions.width - qrPosition.width));
-        const newY = Math.max(0, Math.min(imageCoords.y - offsetY, imageDimensions.height - qrPosition.height));
-
-        console.log('Pointer move - new position:', { x: newX, y: newY, offsetX, offsetY });
-      
-      setQrPosition(prev => ({
-        ...prev,
-        x: newX,
-        y: newY
-      }));
+      // Resize logic based on handle (same as before)
+      switch (resizeHandle) {
+        case 'nw':
+          newX += deltaX;
+          newY += deltaY;
+          newWidth -= deltaX;
+          newHeight -= deltaY;
+          break;
+        case 'ne':
+          newY += deltaY;
+          newWidth += deltaX;
+          newHeight -= deltaY;
+          break;
+        case 'sw':
+          newX += deltaX;
+          newWidth -= deltaX;
+          newHeight += deltaY;
+          break;
+        case 'se':
+          newWidth += deltaX;
+          newHeight += deltaY;
+          break;
+        case 'n':
+          newY += deltaY;
+          newHeight -= deltaY;
+          break;
+        case 's':
+          newHeight += deltaY;
+          break;
+        case 'w':
+          newX += deltaX;
+          newWidth -= deltaX;
+          break;
+        case 'e':
+          newWidth += deltaX;
+          break;
+        default:
+          return;
       }
-    } else {
-      // Fallback case when image dimensions are not available
-      if (isDragging && dragStart.fallback) {
-        const rect = document.querySelector('img[alt="Design preview"]')?.getBoundingClientRect();
-        if (rect) {
-          const deltaX = clientX - dragStart.x;
-          const deltaY = clientY - dragStart.y;
 
-          const newX = Math.max(0, Math.min(qrPosition.x + deltaX, rect.width - qrPosition.width));
-          const newY = Math.max(0, Math.min(qrPosition.y + deltaY, rect.height - qrPosition.height));
+      // Constrain
+      newWidth = Math.max(50, Math.min(newWidth, imageDimensions.width - newX));
+      newHeight = Math.max(50, Math.min(newHeight, imageDimensions.height - newY));
+      newX = Math.max(0, Math.min(newX, imageDimensions.width - newWidth));
+      newY = Math.max(0, Math.min(newY, imageDimensions.height - newHeight));
 
-          setQrPosition(prev => ({
-            ...prev,
-            x: newX,
-            y: newY
-          }));
-        }
-      }
+      setQrPosition({ x: newX, y: newY, width: newWidth, height: newHeight });
+    } else if (isDragging) {
+      const newX = Math.max(0, Math.min(imageCoords.x - drag.offsetX, imageDimensions.width - qrPosition.width));
+      const newY = Math.max(0, Math.min(imageCoords.y - drag.offsetY, imageDimensions.height - qrPosition.height));
+      setQrPosition(prev => ({ ...prev, x: newX, y: newY }));
     }
-  };
+  }, [isDragging, isResizing, dragStart, resizeHandle, qrPosition.width, qrPosition.height, imageDimensions, screenToImageCoords]);
 
-  // Handle mouse up
-  const handleMouseUp = () => {
-    console.log('Mouse up - stopping drag/resize');
+  // Global pointer up handler
+  const handleGlobalPointerUp = useCallback((e) => {
+    if (e.pointerId !== dragStart?.pointerId) return;
 
-    // Restore scroll behavior and touch action for both body and html
-    document.body.style.overflow = '';
+    // Restore body scroll
+    const scrollY = document.body.style.top;
     document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.overflow = '';
     document.body.style.width = '';
-    document.body.style.touchAction = '';
     document.documentElement.style.overflow = '';
-    document.documentElement.style.position = '';
+    window.scrollTo(0, parseInt(scrollY || '0') * -1);
 
     setIsDragging(false);
     setIsResizing(false);
     setResizeHandle(null);
-  };
+    setDragStart(null);
+  }, [dragStart]);
+
+  // Add/remove global listeners
+  useEffect(() => {
+    if (isDragging || isResizing) {
+      document.addEventListener('pointermove', handleGlobalPointerMove);
+      document.addEventListener('pointerup', handleGlobalPointerUp);
+      document.addEventListener('pointercancel', handleGlobalPointerUp);
+    }
+
+    return () => {
+      document.removeEventListener('pointermove', handleGlobalPointerMove);
+      document.removeEventListener('pointerup', handleGlobalPointerUp);
+      document.removeEventListener('pointercancel', handleGlobalPointerUp);
+    };
+  }, [isDragging, isResizing, handleGlobalPointerMove, handleGlobalPointerUp]);
 
   // Save QR position
   const saveQRPosition = async () => {
