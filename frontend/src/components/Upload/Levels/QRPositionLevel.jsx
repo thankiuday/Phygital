@@ -308,8 +308,12 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         // Find the image element to get its bounding rect
         const imageElement = document.querySelector('img[alt="Design preview"]');
         if (imageElement && imageDimensions.width > 0 && imageDimensions.height > 0) {
-          // Convert mouse position to image coordinates
-          const imageCoords = screenToImageCoords(e.clientX, e.clientY, imageElement);
+          // Get coordinates (handle both mouse and touch events)
+          const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+          const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+
+          // Convert coordinates to image coordinates
+          const imageCoords = screenToImageCoords(clientX, clientY, imageElement);
 
           if (isResizing && resizeHandle && dragStart.initialWidth !== undefined) {
             // Handle resizing (global)
@@ -420,6 +424,36 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     };
   }, [isDragging, isResizing, dragStart, resizeHandle, qrPosition.width, qrPosition.height, imageDimensions]);
 
+  // Handle resize start for both mouse and touch
+  const handleResizeStart = (handle) => {
+    console.log('Resize handle clicked:', handle);
+    setIsResizing(true);
+    setResizeHandle(handle);
+
+    // Find the image element
+    const imageElement = document.querySelector('img[alt="Design preview"]');
+
+    if (imageElement && imageDimensions.width > 0 && imageDimensions.height > 0) {
+      setDragStart({
+        x: 0, // Will be set in handlePointerMove
+        y: 0, // Will be set in handlePointerMove
+        initialWidth: qrPosition.width,
+        initialHeight: qrPosition.height,
+        initialX: qrPosition.x,
+        initialY: qrPosition.y
+      });
+    } else {
+      setDragStart({
+        x: 0,
+        y: 0,
+        initialWidth: qrPosition.width,
+        initialHeight: qrPosition.height,
+        initialX: qrPosition.x,
+        initialY: qrPosition.y
+      });
+    }
+  };
+
   // Get resize handle at mouse position
   const getResizeHandle = (mouseX, mouseY, rect) => {
     const handleSize = 8; // Size of resize handles
@@ -441,17 +475,21 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     return null; // Not on a resize handle
   };
 
-  // Handle mouse down on QR area or resize handles
-  const handleMouseDown = (e) => {
+  // Handle mouse/touch down on QR area or resize handles
+  const handlePointerDown = (e) => {
     e.preventDefault();
-    console.log('Mouse down on QR area');
+    console.log('Pointer down on QR area');
 
     // Find the image element
     const imageElement = document.querySelector('img[alt="Design preview"]');
 
+    // Get coordinates (handle both mouse and touch events)
+    const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+    const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+
     if (imageElement && imageDimensions.width > 0 && imageDimensions.height > 0) {
-      // Convert mouse position to image coordinates
-      const imageCoords = screenToImageCoords(e.clientX, e.clientY, imageElement);
+      // Convert coordinates to image coordinates
+      const imageCoords = screenToImageCoords(clientX, clientY, imageElement);
 
       // Check if clicking on resize handle
       // For resize handle detection, we need to check relative to the image element
@@ -463,7 +501,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         height: (qrPosition.height / imageDimensions.height) * imageRect.height
       };
 
-      const handle = getResizeHandle(e.clientX, e.clientY, qrRect);
+      const handle = getResizeHandle(clientX, clientY, qrRect);
 
       if (handle) {
         console.log('Resize handle clicked:', handle);
@@ -490,14 +528,14 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     } else {
       // Fallback to original behavior if image dimensions not available
       const rect = e.currentTarget.getBoundingClientRect();
-      const handle = getResizeHandle(e.clientX, e.clientY, rect);
+      const handle = getResizeHandle(clientX, clientY, rect);
 
       if (handle) {
         setIsResizing(true);
         setResizeHandle(handle);
         setDragStart({
-          x: e.clientX,
-          y: e.clientY,
+          x: clientX,
+          y: clientY,
           initialWidth: qrPosition.width,
           initialHeight: qrPosition.height,
           initialX: qrPosition.x,
@@ -507,16 +545,16 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         console.log('Using fallback drag calculation');
         setIsDragging(true);
         setDragStart({
-          x: e.clientX - rect.left - qrPosition.x,
-          y: e.clientY - rect.top - qrPosition.y,
+          x: clientX - rect.left - qrPosition.x,
+          y: clientY - rect.top - qrPosition.y,
           fallback: true
         });
       }
     }
   };
 
-  // Handle mouse move
-  const handleMouseMove = (e) => {
+  // Handle mouse/touch move
+  const handlePointerMove = (e) => {
     if (!isDragging && !isResizing) return;
 
     e.preventDefault();
@@ -524,9 +562,13 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     // Find the image element
     const imageElement = document.querySelector('img[alt="Design preview"]');
 
+    // Get coordinates (handle both mouse and touch events)
+    const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+    const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+
     if (imageElement && imageDimensions.width > 0 && imageDimensions.height > 0) {
-      // Convert mouse position to image coordinates
-      const imageCoords = screenToImageCoords(e.clientX, e.clientY, imageElement);
+      // Convert coordinates to image coordinates
+      const imageCoords = screenToImageCoords(clientX, clientY, imageElement);
 
       if (isResizing && resizeHandle) {
         // Handle resizing
@@ -598,7 +640,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         const newX = Math.max(0, Math.min(imageCoords.x - offsetX, imageDimensions.width - qrPosition.width));
         const newY = Math.max(0, Math.min(imageCoords.y - offsetY, imageDimensions.height - qrPosition.height));
 
-        console.log('Mouse move - new position:', { x: newX, y: newY, offsetX, offsetY });
+        console.log('Pointer move - new position:', { x: newX, y: newY, offsetX, offsetY });
 
         setQrPosition(prev => ({
           ...prev,
@@ -611,8 +653,12 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       if (isDragging && dragStart.fallback) {
         const rect = document.querySelector('img[alt="Design preview"]')?.getBoundingClientRect();
         if (rect) {
-          const deltaX = e.clientX - dragStart.x;
-          const deltaY = e.clientY - dragStart.y;
+          // Get coordinates (handle both mouse and touch events)
+          const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+          const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+
+          const deltaX = clientX - dragStart.x;
+          const deltaY = clientY - dragStart.y;
 
           const newX = Math.max(0, Math.min(qrPosition.x + deltaX, rect.width - qrPosition.width));
           const newY = Math.max(0, Math.min(qrPosition.y + deltaY, rect.height - qrPosition.height));
@@ -1127,10 +1173,10 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
             className="max-w-full h-auto rounded-lg shadow-sm touch-manipulation"
             crossOrigin="anonymous"
             onLoad={handleImageLoad}
-            onMouseMove={handleMouseMove}
+            onMouseMove={handlePointerMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
-            onTouchMove={handleMouseMove}
+            onTouchMove={handlePointerMove}
             onTouchEnd={handleMouseUp}
           />
           <div
@@ -1143,21 +1189,21 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
               width: imageDimensions.width > 0 ? `${(qrPosition.width / imageDimensions.width) * 100}%` : `${qrPosition.width}px`,
               height: imageDimensions.height > 0 ? `${(qrPosition.height / imageDimensions.height) * 100}%` : `${qrPosition.height}px`
             }}
-            onMouseDown={handleMouseDown}
-            onTouchStart={handleMouseDown}
+            onMouseDown={handlePointerDown}
+            onTouchStart={handlePointerDown}
           >
             {/* Resize Handles */}
             {/* Corner handles */}
-            <div className="absolute -top-1 -left-1 w-3 h-3 bg-neon-blue border border-white cursor-nw-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); setIsResizing(true); setResizeHandle('nw'); }}></div>
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-neon-blue border border-white cursor-ne-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); setIsResizing(true); setResizeHandle('ne'); }}></div>
-            <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-neon-blue border border-white cursor-sw-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); setIsResizing(true); setResizeHandle('sw'); }}></div>
-            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-neon-blue border border-white cursor-se-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); setIsResizing(true); setResizeHandle('se'); }}></div>
+            <div className="absolute -top-1 -left-1 w-3 h-3 bg-neon-blue border border-white cursor-nw-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); handleResizeStart('nw'); }} onTouchStart={(e) => { e.stopPropagation(); handleResizeStart('nw'); }}></div>
+            <div className="absolute -top-1 -right-1 w-3 h-3 bg-neon-blue border border-white cursor-ne-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); handleResizeStart('ne'); }} onTouchStart={(e) => { e.stopPropagation(); handleResizeStart('ne'); }}></div>
+            <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-neon-blue border border-white cursor-sw-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); handleResizeStart('sw'); }} onTouchStart={(e) => { e.stopPropagation(); handleResizeStart('sw'); }}></div>
+            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-neon-blue border border-white cursor-se-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); handleResizeStart('se'); }} onTouchStart={(e) => { e.stopPropagation(); handleResizeStart('se'); }}></div>
 
             {/* Edge handles */}
-            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1 w-3 h-2 bg-neon-blue border border-white cursor-n-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); setIsResizing(true); setResizeHandle('n'); }}></div>
-            <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1 w-3 h-2 bg-neon-blue border border-white cursor-s-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); setIsResizing(true); setResizeHandle('s'); }}></div>
-            <div className="absolute left-0 top-1/2 transform -translate-x-1 -translate-y-1/2 w-2 h-3 bg-neon-blue border border-white cursor-w-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); setIsResizing(true); setResizeHandle('w'); }}></div>
-            <div className="absolute right-0 top-1/2 transform translate-x-1 -translate-y-1/2 w-2 h-3 bg-neon-blue border border-white cursor-e-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); setIsResizing(true); setResizeHandle('e'); }}></div>
+            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1 w-3 h-2 bg-neon-blue border border-white cursor-n-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); handleResizeStart('n'); }} onTouchStart={(e) => { e.stopPropagation(); handleResizeStart('n'); }}></div>
+            <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1 w-3 h-2 bg-neon-blue border border-white cursor-s-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); handleResizeStart('s'); }} onTouchStart={(e) => { e.stopPropagation(); handleResizeStart('s'); }}></div>
+            <div className="absolute left-0 top-1/2 transform -translate-x-1 -translate-y-1/2 w-2 h-3 bg-neon-blue border border-white cursor-w-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); handleResizeStart('w'); }} onTouchStart={(e) => { e.stopPropagation(); handleResizeStart('w'); }}></div>
+            <div className="absolute right-0 top-1/2 transform translate-x-1 -translate-y-1/2 w-2 h-3 bg-neon-blue border border-white cursor-e-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); handleResizeStart('e'); }} onTouchStart={(e) => { e.stopPropagation(); handleResizeStart('e'); }}></div>
 
             <div className="absolute -top-6 left-0 text-xs bg-neon-blue text-slate-900 px-2 py-1 rounded whitespace-nowrap">
               QR Code Area
