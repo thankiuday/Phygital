@@ -298,11 +298,13 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       if (isDragging || isResizing) {
         console.log('Global mouse up - stopping drag/resize');
 
-        // Restore scroll behavior and touch action
+        // Restore scroll behavior and touch action for both body and html
         document.body.style.overflow = '';
         document.body.style.position = '';
         document.body.style.width = '';
         document.body.style.touchAction = '';
+        document.documentElement.style.overflow = '';
+        document.documentElement.style.position = '';
 
         setIsDragging(false);
         setIsResizing(false);
@@ -506,12 +508,28 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
 
   // Handle mouse/touch down on QR area or resize handles
   const handlePointerDown = (e) => {
+    // Prevent all default behaviors that might cause navigation or scrolling
     e.preventDefault();
     e.stopPropagation();
 
+    // For touch events, prevent any browser defaults
+    if (e.touches) {
+      // Prevent scrolling, zooming, and other touch behaviors
+      e.preventDefault();
+
+      // Also prevent the touch event from bubbling up to parent elements
+      if (e.target && e.target.parentElement) {
+        e.target.parentElement.style.pointerEvents = 'none';
+        setTimeout(() => {
+          if (e.target && e.target.parentElement) {
+            e.target.parentElement.style.pointerEvents = '';
+          }
+        }, 100);
+      }
+    }
+
     // Prevent any default touch behaviors that might cause navigation
     if (e.touches && e.touches.length > 1) {
-      e.preventDefault();
       return; // Ignore multi-touch gestures
     }
 
@@ -523,6 +541,10 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       document.body.style.position = 'fixed';
       document.body.style.width = '100%';
       document.body.style.touchAction = 'none';
+
+      // Also disable scrolling on the html element
+      document.documentElement.style.overflow = 'hidden';
+      document.documentElement.style.position = 'fixed';
     }
     
     // Find the image element
@@ -735,11 +757,13 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
   const handleMouseUp = () => {
     console.log('Mouse up - stopping drag/resize');
 
-    // Restore scroll behavior and touch action
+    // Restore scroll behavior and touch action for both body and html
     document.body.style.overflow = '';
     document.body.style.position = '';
     document.body.style.width = '';
     document.body.style.touchAction = '';
+    document.documentElement.style.overflow = '';
+    document.documentElement.style.position = '';
 
     setIsDragging(false);
     setIsResizing(false);
@@ -1231,7 +1255,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
 
       {/* Interactive Design Preview */}
       <div className="bg-slate-800/50 border-2 border-slate-600/30 rounded-xl p-3 sm:p-6 mb-4 sm:mb-6">
-        <div className="relative inline-block">
+        <div className="relative inline-block" style={{ touchAction: 'none' }}>
           <img
             src={designImageUrl}
             alt="Design preview"
