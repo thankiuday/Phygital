@@ -484,30 +484,34 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
 
   // Unified pointer down handler
   const handlePointerDown = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const pointerId = e.pointerId;
-    const clientX = e.clientX;
-    const clientY = e.clientY;
-
-    // Prevent page scroll/jump on mobile
+    // IMMEDIATE scroll lock for touch events - before any other processing
     if (e.pointerType === 'touch') {
       const scrollY = window.scrollY;
       
-      // Lock scroll to prevent page jumping
+      // Lock scroll IMMEDIATELY to prevent any visual jump
       document.body.style.overflow = 'hidden';
       document.body.style.position = 'fixed';
       document.body.style.top = `-${scrollY}px`;
       document.body.style.width = '100%';
       document.body.style.touchAction = 'none';
+      document.body.style.transform = 'translateZ(0)'; // Force hardware acceleration
       
       document.documentElement.style.overflow = 'hidden';
       document.documentElement.style.touchAction = 'none';
       
       // Store scroll position for restoration
       document.body.dataset.scrollY = scrollY.toString();
+      
+      // Force immediate reflow to apply styles instantly
+      document.body.offsetHeight;
     }
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const pointerId = e.pointerId;
+    const clientX = e.clientX;
+    const clientY = e.clientY;
 
     const img = imageRef.current;
     if (!img) return;
@@ -740,6 +744,31 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       document.removeEventListener('contextmenu', preventUnwantedTouch);
     };
   }, [isDragging, isResizing]);
+
+  // Pre-emptive scroll lock for mobile to prevent any initial jump
+  useEffect(() => {
+    // Add a small delay to ensure the component is fully mounted
+    const timer = setTimeout(() => {
+      // Pre-lock scroll on mobile devices to prevent any initial jump
+      if (window.innerWidth <= 768) {
+        document.body.style.overflow = 'hidden';
+        document.body.style.position = 'relative';
+        document.body.style.touchAction = 'none';
+        document.documentElement.style.overflow = 'hidden';
+        document.documentElement.style.touchAction = 'none';
+      }
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+      // Restore scroll when component unmounts
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.touchAction = '';
+      document.documentElement.style.overflow = '';
+      document.documentElement.style.touchAction = '';
+    };
+  }, []);
 
   // Save QR position
   const saveQRPosition = async () => {
@@ -1231,7 +1260,15 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
 
       {/* Interactive Design Preview */}
       <div className="bg-slate-800/50 border-2 border-slate-600/30 rounded-xl p-3 sm:p-6 mb-4 sm:mb-6" style={{ overscrollBehavior: 'none' }}>
-        <div className="relative inline-block" style={{ touchAction: 'none', overscrollBehavior: 'none' }}>
+        <div 
+          className="relative inline-block" 
+          style={{ 
+            touchAction: 'none', 
+            overscrollBehavior: 'none',
+            transform: 'translateZ(0)', // Force hardware acceleration
+            willChange: 'transform' // Optimize for transforms
+          }}
+        >
           <img
             ref={imageRef}
             src={designImageUrl}
