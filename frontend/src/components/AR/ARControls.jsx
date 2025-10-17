@@ -60,7 +60,7 @@ const ARControls = ({
   return (
     <>
       {/* Status Indicator - Modern and compact for mobile */}
-      <div className="fixed top-16 sm:top-20 left-0 right-0 z-30 px-3 sm:px-4">
+      <div className="fixed top-20 sm:top-24 left-0 right-0 z-30 px-3 sm:px-4">
         <div className="flex flex-col items-center gap-2">
           <div className={`px-3 py-2 sm:px-4 sm:py-2.5 rounded-full text-xs sm:text-sm font-medium backdrop-blur-md shadow-lg transition-all duration-300 ${
             targetDetected 
@@ -97,33 +97,33 @@ const ARControls = ({
 
       {/* Video Controls and Social Links - Futuristic glass design */}
       {targetDetected && projectData?.videoUrl && (
-        <div className="fixed bottom-16 sm:bottom-20 left-0 right-0 z-30 px-3 sm:px-4">
+        <div className="fixed bottom-12 sm:bottom-16 left-0 right-0 z-30 px-3 sm:px-4">
           <div className="max-w-md mx-auto space-y-3">
             {/* Video Controls */}
-            <div className="relative bg-slate-900/80 backdrop-blur-xl rounded-2xl p-4 sm:p-5 border border-slate-600/40 shadow-2xl hover:shadow-neon-blue/20 transition-all duration-300">
+            <div className="relative bg-slate-900/80 backdrop-blur-xl rounded-2xl p-3 sm:p-4 border border-slate-600/40 shadow-2xl hover:shadow-neon-blue/20 transition-all duration-300">
               {/* Animated border glow */}
               <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-neon-blue/20 via-neon-purple/20 to-neon-pink/20 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
-              <div className="relative flex items-center justify-between gap-3 sm:gap-4">
+              <div className="relative flex items-center justify-between gap-2 sm:gap-3">
                 {/* Play/Pause Button - Enhanced */}
                 <button
                   onClick={safeToggleVideo}
-                  className="group relative p-3 sm:p-4 bg-gradient-to-br from-slate-800/80 to-slate-900/80 hover:from-neon-blue/20 hover:to-neon-purple/20 active:scale-95 rounded-xl text-white transition-all duration-300 shadow-lg hover:shadow-neon-blue/30 border border-slate-600/30 hover:border-neon-blue/50 flex-shrink-0"
+                  className="group relative p-2.5 sm:p-3 bg-gradient-to-br from-slate-800/80 to-slate-900/80 hover:from-neon-blue/20 hover:to-neon-purple/20 active:scale-95 rounded-lg text-white transition-all duration-300 shadow-lg hover:shadow-neon-blue/30 border border-slate-600/30 hover:border-neon-blue/50 flex-shrink-0"
                   aria-label={videoPlaying ? 'Pause video' : 'Play video'}
                 >
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-neon-blue/10 to-neon-purple/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  {videoPlaying ? <Pause size={20} className="sm:w-6 sm:h-6 relative z-10 group-hover:scale-110 transition-transform" /> : <Play size={20} className="sm:w-6 sm:h-6 relative z-10 group-hover:scale-110 transition-transform" />}
+                  <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-neon-blue/10 to-neon-purple/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  {videoPlaying ? <Pause size={18} className="sm:w-5 sm:h-5 relative z-10 group-hover:scale-110 transition-transform" /> : <Play size={18} className="sm:w-5 sm:h-5 relative z-10 group-hover:scale-110 transition-transform" />}
                 </button>
 
                 {/* Video Status - Enhanced */}
-                <div className="flex-1 text-center text-white min-w-0">
-                  <div className="flex items-center justify-center gap-2 mb-1">
-                    <div className={`w-2 h-2 rounded-full ${videoPlaying ? 'bg-neon-green animate-pulse' : 'bg-slate-500'}`} />
-                    <p className="text-sm sm:text-base font-semibold bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">
-                      {videoPlaying ? '▶️ Video Playing' : '⏸️ Paused'}
+                <div className="flex-1 text-center text-white min-w-0 px-2">
+                  <div className="flex items-center justify-center gap-1.5 mb-0.5">
+                    <div className={`w-1.5 h-1.5 rounded-full ${videoPlaying ? 'bg-neon-green animate-pulse' : 'bg-slate-500'}`} />
+                    <p className="text-xs sm:text-sm font-semibold bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent truncate">
+                      {videoPlaying ? '▶️ Playing' : '⏸️ Paused'}
                     </p>
                   </div>
-                  <p className="text-xs text-slate-400 mt-0.5 hidden sm:block">
+                  <p className="text-xs text-slate-400 hidden sm:block">
                     Tap to {videoPlaying ? 'pause' : 'play'}
                   </p>
                 </div>
@@ -131,35 +131,35 @@ const ARControls = ({
                 {/* Mute/Unmute Button - Enhanced */}
                 <button
                   onClick={safeToggleMute}
-                  className="group relative p-3 sm:p-4 bg-gradient-to-br from-slate-800/80 to-slate-900/80 hover:from-neon-cyan/20 hover:to-neon-green/20 active:scale-95 rounded-xl text-white transition-all duration-300 shadow-lg hover:shadow-neon-cyan/30 border border-slate-600/30 hover:border-neon-cyan/50 flex-shrink-0"
+                  className="group relative p-2.5 sm:p-3 bg-gradient-to-br from-slate-800/80 to-slate-900/80 hover:from-neon-cyan/20 hover:to-neon-green/20 active:scale-95 rounded-lg text-white transition-all duration-300 shadow-lg hover:shadow-neon-cyan/30 border border-slate-600/30 hover:border-neon-cyan/50 flex-shrink-0"
                   aria-label={videoMuted ? 'Unmute video' : 'Mute video'}
                 >
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-neon-cyan/10 to-neon-green/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  {videoMuted ? <VolumeX size={20} className="sm:w-6 sm:h-6 relative z-10 group-hover:scale-110 transition-transform" /> : <Volume2 size={20} className="sm:w-6 sm:h-6 relative z-10 group-hover:scale-110 transition-transform" />}
+                  <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-neon-cyan/10 to-neon-green/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  {videoMuted ? <VolumeX size={18} className="sm:w-5 sm:h-5 relative z-10 group-hover:scale-110 transition-transform" /> : <Volume2 size={18} className="sm:w-5 sm:h-5 relative z-10 group-hover:scale-110 transition-transform" />}
                 </button>
               </div>
             </div>
 
             {/* Social Media Links - Only show if user has social links */}
             {projectData?.socialLinks && Object.values(projectData.socialLinks).some(link => link && link.trim() !== '') && (
-              <div className="relative bg-slate-900/80 backdrop-blur-xl rounded-2xl p-4 sm:p-5 border border-slate-600/40 shadow-2xl hover:shadow-neon-purple/20 transition-all duration-300">
+              <div className="relative bg-slate-900/80 backdrop-blur-xl rounded-2xl p-3 sm:p-4 border border-slate-600/40 shadow-2xl hover:shadow-neon-purple/20 transition-all duration-300">
                 {/* Animated border glow */}
                 <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-neon-purple/20 via-neon-pink/20 to-neon-blue/20 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
                 <div className="relative">
-                  <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-white font-bold text-base sm:text-lg flex items-center gap-2">
-                      <ExternalLink size={18} className="sm:w-6 sm:h-6 text-neon-purple" />
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-white font-bold text-sm sm:text-base flex items-center gap-2">
+                      <ExternalLink size={16} className="sm:w-5 sm:h-5 text-neon-purple" />
                       <span className="bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">
                         Connect With Us
                       </span>
                     </h4>
-                    <span className="text-xs text-slate-400 bg-slate-800/60 px-3 py-1 rounded-full border border-slate-600/30">
-                      {Object.values(projectData.socialLinks).filter(link => link && link.trim() !== '').length} links
+                    <span className="text-xs text-slate-400 bg-slate-800/60 px-2 py-1 rounded-full border border-slate-600/30">
+                      {Object.values(projectData.socialLinks).filter(link => link && link.trim() !== '').length}
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
                     {Object.entries(projectData.socialLinks).map(([platform, url]) => {
                       if (!url || url.trim() === '') return null;
 
@@ -204,13 +204,13 @@ const ARControls = ({
                         <button
                           key={platform}
                           onClick={() => handleSocialClick(platform, url)}
-                          className={`group relative p-3 sm:p-4 bg-gradient-to-br ${config.color} rounded-xl text-white transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 border border-white/10 backdrop-blur-sm`}
+                          className={`group relative p-2 sm:p-3 bg-gradient-to-br ${config.color} rounded-lg text-white transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 border border-white/10 backdrop-blur-sm`}
                           aria-label={`Visit ${config.label}`}
                         >
-                          <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                          <div className="relative flex flex-col items-center gap-2 sm:gap-3">
-                            <Icon size={18} className="sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
-                            <span className="text-xs sm:text-sm font-semibold capitalize">{platform}</span>
+                          <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                          <div className="relative flex flex-col items-center gap-1 sm:gap-2">
+                            <Icon size={16} className="sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" />
+                            <span className="text-xs font-medium capitalize leading-tight">{platform}</span>
                           </div>
                         </button>
                       );
@@ -225,7 +225,7 @@ const ARControls = ({
 
       {/* Scanning Instructions - Enhanced futuristic design */}
       {isScanning && !targetDetected && (
-        <div className="fixed bottom-32 sm:bottom-36 left-0 right-0 z-30 px-3 sm:px-4">
+        <div className="fixed bottom-24 sm:bottom-28 left-0 right-0 z-30 px-3 sm:px-4">
           <div className="relative max-w-md mx-auto">
             {/* Animated background glow */}
             <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/20 via-orange-400/20 to-red-400/20 rounded-2xl blur-xl animate-pulse" />

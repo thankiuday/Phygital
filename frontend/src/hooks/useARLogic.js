@@ -1207,7 +1207,7 @@ export const useARLogic = ({
     try {
       if (videoPlaying) {
         videoRef.current.pause();
-        throttledSetVideoPlaying(false);
+        setVideoPlaying(false); // Use direct setter for immediate response
         addDebugMessage('⏸️ Video paused by user', 'info');
       } else {
         const playPromise = videoRef.current.play();
@@ -1215,7 +1215,7 @@ export const useARLogic = ({
         if (playPromise !== undefined) {
           try {
             await playPromise;
-            throttledSetVideoPlaying(true);
+            setVideoPlaying(true); // Use direct setter for immediate response
             addDebugMessage('▶️ Video started by user', 'success');
           } catch (playError) {
             if (playError.name === 'NotAllowedError') {
@@ -1223,7 +1223,7 @@ export const useARLogic = ({
               videoRef.current.muted = true;
               try {
                 await videoRef.current.play();
-                throttledSetVideoPlaying(true);
+                setVideoPlaying(true); // Use direct setter for immediate response
                 addDebugMessage('▶️ Video started with muted fallback', 'success');
               } catch (mutedError) {
                 addDebugMessage(`❌ Video play failed even with muted: ${mutedError.message}`, 'error');
@@ -1239,7 +1239,7 @@ export const useARLogic = ({
     } catch (error) {
       addDebugMessage(`❌ Video toggle failed: ${error.message}`, 'error');
     }
-  }, [videoPlaying, targetDetected, throttledSetVideoPlaying, addDebugMessage]);
+  }, [videoPlaying, targetDetected, setVideoPlaying, addDebugMessage]);
 
   // Toggle video mute
   const toggleMute = useCallback(() => {

@@ -199,7 +199,7 @@ const ARExperiencePage = () => {
       {/* AR Container - Full screen with enhanced styling */}
       <div
         ref={containerRef}
-        className="absolute inset-0 w-full h-full rounded-2xl shadow-2xl border border-slate-700/50"
+        className="absolute inset-0 w-full h-full"
         style={{
           width: '100%',
           height: '100vh',
@@ -214,9 +214,13 @@ const ARExperiencePage = () => {
           right: 0,
           bottom: 0,
           zIndex: 0,
-          boxShadow: 'inset 0 0 100px rgba(0, 0, 0, 0.3)'
+          borderRadius: '1rem',
+          boxShadow: 'inset 0 0 100px rgba(0, 0, 0, 0.3), 0 0 50px rgba(0, 212, 255, 0.1)'
         }}
       />
+
+      {/* Bottom gradient overlay to eliminate empty space */}
+      <div className="fixed bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-slate-900/80 via-slate-900/40 to-transparent z-10 pointer-events-none" />
 
       {/* Top UI Bar - Professional glass morphism design */}
       <div className="fixed top-0 left-0 right-0 z-40">
