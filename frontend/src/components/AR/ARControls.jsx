@@ -95,83 +95,127 @@ const ARControls = ({
         </div>
       </div>
 
-      {/* Video Controls and Social Links - Combined professional layout */}
+      {/* Video Controls and Social Links - Futuristic glass design */}
       {targetDetected && projectData?.videoUrl && (
         <div className="fixed bottom-16 sm:bottom-20 left-0 right-0 z-30 px-3 sm:px-4">
           <div className="max-w-md mx-auto space-y-3">
             {/* Video Controls */}
-            <div className="bg-black/60 backdrop-blur-lg rounded-2xl p-3 sm:p-4 border border-white/10 shadow-2xl">
-              <div className="flex items-center justify-between gap-3 sm:gap-4">
-                {/* Play/Pause Button */}
+            <div className="relative bg-slate-900/80 backdrop-blur-xl rounded-2xl p-4 sm:p-5 border border-slate-600/40 shadow-2xl hover:shadow-neon-blue/20 transition-all duration-300">
+              {/* Animated border glow */}
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-neon-blue/20 via-neon-purple/20 to-neon-pink/20 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+
+              <div className="relative flex items-center justify-between gap-3 sm:gap-4">
+                {/* Play/Pause Button - Enhanced */}
                 <button
                   onClick={safeToggleVideo}
-                  className="p-3 sm:p-3.5 bg-white/20 hover:bg-white/30 active:bg-white/40 active:scale-95 rounded-full text-white transition-all duration-200 shadow-lg flex-shrink-0"
+                  className="group relative p-3 sm:p-4 bg-gradient-to-br from-slate-800/80 to-slate-900/80 hover:from-neon-blue/20 hover:to-neon-purple/20 active:scale-95 rounded-xl text-white transition-all duration-300 shadow-lg hover:shadow-neon-blue/30 border border-slate-600/30 hover:border-neon-blue/50 flex-shrink-0"
                   aria-label={videoPlaying ? 'Pause video' : 'Play video'}
                 >
-                  {videoPlaying ? <Pause size={20} className="sm:w-6 sm:h-6" /> : <Play size={20} className="sm:w-6 sm:h-6" />}
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-neon-blue/10 to-neon-purple/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  {videoPlaying ? <Pause size={20} className="sm:w-6 sm:h-6 relative z-10 group-hover:scale-110 transition-transform" /> : <Play size={20} className="sm:w-6 sm:h-6 relative z-10 group-hover:scale-110 transition-transform" />}
                 </button>
 
-                {/* Video Status */}
+                {/* Video Status - Enhanced */}
                 <div className="flex-1 text-center text-white min-w-0">
-                  <p className="text-xs sm:text-sm font-semibold truncate">
-                    {videoPlaying ? '▶️ Video Playing' : '⏸️ Paused'}
-                  </p>
-                  <p className="text-xs text-gray-300 mt-0.5 hidden sm:block">
+                  <div className="flex items-center justify-center gap-2 mb-1">
+                    <div className={`w-2 h-2 rounded-full ${videoPlaying ? 'bg-neon-green animate-pulse' : 'bg-slate-500'}`} />
+                    <p className="text-sm sm:text-base font-semibold bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">
+                      {videoPlaying ? '▶️ Video Playing' : '⏸️ Paused'}
+                    </p>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5 hidden sm:block">
                     Tap to {videoPlaying ? 'pause' : 'play'}
                   </p>
                 </div>
 
-                {/* Mute/Unmute Button */}
+                {/* Mute/Unmute Button - Enhanced */}
                 <button
                   onClick={safeToggleMute}
-                  className="p-3 sm:p-3.5 bg-white/20 hover:bg-white/30 active:bg-white/40 active:scale-95 rounded-full text-white transition-all duration-200 shadow-lg flex-shrink-0"
+                  className="group relative p-3 sm:p-4 bg-gradient-to-br from-slate-800/80 to-slate-900/80 hover:from-neon-cyan/20 hover:to-neon-green/20 active:scale-95 rounded-xl text-white transition-all duration-300 shadow-lg hover:shadow-neon-cyan/30 border border-slate-600/30 hover:border-neon-cyan/50 flex-shrink-0"
                   aria-label={videoMuted ? 'Unmute video' : 'Mute video'}
                 >
-                  {videoMuted ? <VolumeX size={20} className="sm:w-6 sm:h-6" /> : <Volume2 size={20} className="sm:w-6 sm:h-6" />}
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-neon-cyan/10 to-neon-green/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  {videoMuted ? <VolumeX size={20} className="sm:w-6 sm:h-6 relative z-10 group-hover:scale-110 transition-transform" /> : <Volume2 size={20} className="sm:w-6 sm:h-6 relative z-10 group-hover:scale-110 transition-transform" />}
                 </button>
               </div>
             </div>
 
             {/* Social Media Links - Only show if user has social links */}
             {projectData?.socialLinks && Object.values(projectData.socialLinks).some(link => link && link.trim() !== '') && (
-              <div className="bg-black/60 backdrop-blur-lg rounded-2xl p-3 sm:p-4 border border-white/10 shadow-2xl">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-white font-semibold text-sm sm:text-base flex items-center gap-2">
-                    <ExternalLink size={16} className="sm:w-5 sm:h-5" />
-                    Connect With Us
-                  </h4>
-                  <span className="text-xs text-gray-300 bg-white/10 px-2 py-1 rounded-full">
-                    {Object.values(projectData.socialLinks).filter(link => link && link.trim() !== '').length} links
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
-                  {Object.entries(projectData.socialLinks).map(([platform, url]) => {
-                    if (!url || url.trim() === '') return null;
+              <div className="relative bg-slate-900/80 backdrop-blur-xl rounded-2xl p-4 sm:p-5 border border-slate-600/40 shadow-2xl hover:shadow-neon-purple/20 transition-all duration-300">
+                {/* Animated border glow */}
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-neon-purple/20 via-neon-pink/20 to-neon-blue/20 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
-                    const platformConfig = {
-                      instagram: { icon: Instagram, color: 'bg-gradient-to-br from-pink-500/20 to-purple-500/20 hover:from-pink-500/30 hover:to-purple-500/30', label: 'Instagram' },
-                      facebook: { icon: Facebook, color: 'bg-gradient-to-br from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30', label: 'Facebook' },
-                      twitter: { icon: Twitter, color: 'bg-gradient-to-br from-sky-500/20 to-sky-600/20 hover:from-sky-500/30 hover:to-sky-600/30', label: 'Twitter' },
-                      linkedin: { icon: Linkedin, color: 'bg-gradient-to-br from-blue-600/20 to-blue-700/20 hover:from-blue-600/30 hover:to-blue-700/30', label: 'LinkedIn' },
-                      website: { icon: Globe, color: 'bg-gradient-to-br from-green-500/20 to-green-600/20 hover:from-green-500/30 hover:to-green-600/30', label: 'Website' }
-                    };
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-white font-bold text-base sm:text-lg flex items-center gap-2">
+                      <ExternalLink size={18} className="sm:w-6 sm:h-6 text-neon-purple" />
+                      <span className="bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">
+                        Connect With Us
+                      </span>
+                    </h4>
+                    <span className="text-xs text-slate-400 bg-slate-800/60 px-3 py-1 rounded-full border border-slate-600/30">
+                      {Object.values(projectData.socialLinks).filter(link => link && link.trim() !== '').length} links
+                    </span>
+                  </div>
 
-                    const config = platformConfig[platform];
-                    if (!config) return null;
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+                    {Object.entries(projectData.socialLinks).map(([platform, url]) => {
+                      if (!url || url.trim() === '') return null;
 
-                    const Icon = config.icon;
-                    return (
-                      <button
-                        key={platform}
-                        onClick={() => handleSocialClick(platform, url)}
-                        className={`p-2 sm:p-3 ${config.color} rounded-xl text-white transition-all duration-200 shadow-lg hover:shadow-xl flex flex-col items-center gap-1 sm:gap-2 active:scale-95 border border-white/10`}
-                        aria-label={`Visit ${config.label}`}
-                      >
-                        <Icon size={16} className="sm:w-5 sm:h-5" />
-                        <span className="text-xs sm:text-sm font-medium capitalize">{platform}</span>
-                      </button>
-                    );
-                  })}
+                      const platformConfig = {
+                        instagram: {
+                          icon: Instagram,
+                          color: 'from-pink-500/30 to-purple-500/30 hover:from-pink-500/50 hover:to-purple-500/50',
+                          glow: 'shadow-pink-500/30 hover:shadow-pink-500/50',
+                          label: 'Instagram'
+                        },
+                        facebook: {
+                          icon: Facebook,
+                          color: 'from-blue-500/30 to-blue-600/30 hover:from-blue-500/50 hover:to-blue-600/50',
+                          glow: 'shadow-blue-500/30 hover:shadow-blue-500/50',
+                          label: 'Facebook'
+                        },
+                        twitter: {
+                          icon: Twitter,
+                          color: 'from-sky-500/30 to-sky-600/30 hover:from-sky-500/50 hover:to-sky-600/50',
+                          glow: 'shadow-sky-500/30 hover:shadow-sky-500/50',
+                          label: 'Twitter'
+                        },
+                        linkedin: {
+                          icon: Linkedin,
+                          color: 'from-blue-600/30 to-blue-700/30 hover:from-blue-600/50 hover:to-blue-700/50',
+                          glow: 'shadow-blue-600/30 hover:shadow-blue-600/50',
+                          label: 'LinkedIn'
+                        },
+                        website: {
+                          icon: Globe,
+                          color: 'from-green-500/30 to-green-600/30 hover:from-green-500/50 hover:to-green-600/50',
+                          glow: 'shadow-green-500/30 hover:shadow-green-500/50',
+                          label: 'Website'
+                        }
+                      };
+
+                      const config = platformConfig[platform];
+                      if (!config) return null;
+
+                      const Icon = config.icon;
+                      return (
+                        <button
+                          key={platform}
+                          onClick={() => handleSocialClick(platform, url)}
+                          className={`group relative p-3 sm:p-4 bg-gradient-to-br ${config.color} rounded-xl text-white transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 border border-white/10 backdrop-blur-sm`}
+                          aria-label={`Visit ${config.label}`}
+                        >
+                          <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                          <div className="relative flex flex-col items-center gap-2 sm:gap-3">
+                            <Icon size={18} className="sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+                            <span className="text-xs sm:text-sm font-semibold capitalize">{platform}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}
@@ -179,21 +223,52 @@ const ARControls = ({
         </div>
       )}
 
-      {/* Scanning Instructions - Helpful tips when scanning */}
+      {/* Scanning Instructions - Enhanced futuristic design */}
       {isScanning && !targetDetected && (
         <div className="fixed bottom-32 sm:bottom-36 left-0 right-0 z-30 px-3 sm:px-4">
-          <div className="max-w-md mx-auto bg-black/70 backdrop-blur-lg rounded-2xl p-3 sm:p-4 border border-yellow-400/30 shadow-2xl">
-            <h4 className="text-yellow-100 font-bold text-xs sm:text-sm mb-2 flex items-center gap-2">
-              <span className="text-yellow-400 text-base">💡</span>
-              Scanning Tips
-            </h4>
-            <ul className="text-yellow-50 text-xs space-y-1">
-              <li>• Scan the <strong>composite image</strong> (design + QR code)</li>
-              <li>• Use the image from <strong>Step 5: Final Design</strong></li>
-              <li>• Keep camera <strong>30-50cm away</strong></li>
-              <li>• Ensure <strong>good lighting</strong>, no glare</li>
-              <li>• Hold camera <strong>steady</strong> and perpendicular</li>
-            </ul>
+          <div className="relative max-w-md mx-auto">
+            {/* Animated background glow */}
+            <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/20 via-orange-400/20 to-red-400/20 rounded-2xl blur-xl animate-pulse" />
+
+            <div className="relative bg-slate-900/90 backdrop-blur-xl rounded-2xl p-4 sm:p-5 border border-yellow-400/40 shadow-2xl hover:shadow-yellow-400/30 transition-all duration-300">
+              {/* Animated border */}
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-yellow-400/30 via-orange-400/30 to-red-400/30 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+
+              <div className="relative">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-yellow-400/20 rounded-xl">
+                    <span className="text-2xl animate-bounce">💡</span>
+                  </div>
+                  <h4 className="text-yellow-100 font-bold text-base sm:text-lg bg-gradient-to-r from-yellow-200 to-orange-200 bg-clip-text text-transparent">
+                    Scanning Guide
+                  </h4>
+                </div>
+
+                <div className="space-y-3">
+                  {[
+                    { icon: '🎯', text: 'Scan the composite image (design + QR code)', highlight: 'composite image' },
+                    { icon: '📸', text: 'Use the image from Step 5: Final Design', highlight: 'Step 5' },
+                    { icon: '📏', text: 'Keep camera 30-50cm away', highlight: '30-50cm' },
+                    { icon: '💡', text: 'Ensure good lighting, no glare', highlight: 'good lighting' },
+                    { icon: '🎯', text: 'Hold camera steady and perpendicular', highlight: 'steady' }
+                  ].map((tip, index) => (
+                    <div key={index} className="flex items-start gap-3 p-2 rounded-lg bg-slate-800/50 hover:bg-slate-800/70 transition-colors duration-200">
+                      <span className="text-yellow-400 text-sm">{tip.icon}</span>
+                      <p className="text-slate-200 text-sm leading-relaxed">
+                        {tip.text.split(tip.highlight).map((part, i) => (
+                          <span key={i}>
+                            {part}
+                            {i < tip.text.split(tip.highlight).length - 1 && (
+                              <span className="text-yellow-400 font-semibold">{tip.highlight}</span>
+                            )}
+                          </span>
+                        ))}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

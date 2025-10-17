@@ -192,59 +192,71 @@ const ARExperiencePage = () => {
   }
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-black">
-      {/* AR Container - Full screen with proper mobile viewport handling */}
-      <div 
+    <div className="relative w-full h-screen overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      {/* Animated background overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-neon-blue/5 via-transparent to-neon-purple/5 animate-pulse-slow" />
+
+      {/* AR Container - Full screen with enhanced styling */}
+      <div
         ref={containerRef}
-        className="absolute inset-0 w-full h-full"
-        style={{ 
-          width: '100%', 
+        className="absolute inset-0 w-full h-full rounded-2xl shadow-2xl border border-slate-700/50"
+        style={{
+          width: '100%',
           height: '100vh',
           touchAction: 'none',
           minWidth: '320px',
           minHeight: '100vh',
-          backgroundColor: '#000',
+          background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)',
           overflow: 'hidden',
           position: 'fixed',
           top: 0,
           left: 0,
           right: 0,
           bottom: 0,
-          zIndex: 0
+          zIndex: 0,
+          boxShadow: 'inset 0 0 100px rgba(0, 0, 0, 0.3)'
         }}
       />
 
-      {/* Top UI Bar - Compact and professional */}
-      <div className="fixed top-0 left-0 right-0 z-40 bg-gradient-to-b from-black/80 via-black/40 to-transparent">
-        <div className="safe-top px-3 py-3 sm:px-4 sm:py-4">
+      {/* Top UI Bar - Professional glass morphism design */}
+      <div className="fixed top-0 left-0 right-0 z-40">
+        {/* Glass morphism background */}
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-900/90 via-slate-800/80 to-transparent backdrop-blur-xl border-b border-slate-700/30" />
+
+        {/* Content */}
+        <div className="relative safe-top px-4 py-4 sm:px-6 sm:py-5">
           <div className="flex items-center justify-between">
             {/* Left: Back button and project info */}
-            <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+            <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
               <button
                 onClick={() => navigate(-1)}
-                className="p-2 sm:p-2.5 bg-black/40 hover:bg-black/60 active:bg-black/70 rounded-full text-white backdrop-blur-md border border-white/10 transition-all duration-200 flex-shrink-0 shadow-lg"
+                className="group p-2.5 sm:p-3 bg-slate-800/60 hover:bg-slate-700/80 active:bg-slate-600/90 rounded-xl text-slate-200 hover:text-white backdrop-blur-md border border-slate-600/30 hover:border-neon-blue/50 transition-all duration-300 flex-shrink-0 shadow-lg hover:shadow-neon-blue/20"
                 aria-label="Go back"
               >
-                <X size={18} className="sm:hidden" />
-                <X size={20} className="hidden sm:block" />
+                <X size={20} className="sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" />
               </button>
+
               <div className="text-white min-w-0 flex-1">
-                <h1 className="font-semibold text-sm sm:text-base truncate">AR Experience</h1>
-                <p className="text-xs sm:text-sm text-gray-300 truncate">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-2 h-2 rounded-full bg-neon-blue animate-pulse" />
+                  <h1 className="font-bold text-base sm:text-lg bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">
+                    AR Experience
+                  </h1>
+                </div>
+                <p className="text-sm sm:text-base text-slate-300 font-medium truncate">
                   {projectData?.projectName || projectData?.name || 'Phygital AR'}
                 </p>
               </div>
             </div>
-            
-            {/* Right: Settings button with debug panel */}
+
+            {/* Right: Settings button with enhanced styling */}
             <div className="flex items-center gap-2 flex-shrink-0">
               <button
                 onClick={() => setShowDebug(true)}
-                className="p-2 sm:p-2.5 bg-black/40 hover:bg-black/60 active:bg-black/70 rounded-full text-white backdrop-blur-md border border-white/10 transition-all duration-200 shadow-lg"
+                className="group p-2.5 sm:p-3 bg-slate-800/60 hover:bg-slate-700/80 active:bg-slate-600/90 rounded-xl text-slate-200 hover:text-white backdrop-blur-md border border-slate-600/30 hover:border-neon-purple/50 transition-all duration-300 shadow-lg hover:shadow-neon-purple/20"
                 aria-label="Settings and Debug"
               >
-                <Settings size={18} className="sm:hidden" />
-                <Settings size={20} className="hidden sm:block" />
+                <Settings size={20} className="sm:w-5 sm:h-5 group-hover:scale-110 group-hover:rotate-90 transition-all duration-300" />
               </button>
             </div>
           </div>
