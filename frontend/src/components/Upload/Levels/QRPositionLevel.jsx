@@ -297,6 +297,12 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     const handleGlobalMouseUp = () => {
       if (isDragging || isResizing) {
         console.log('Global mouse up - stopping drag/resize');
+
+        // Restore scroll behavior
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.width = '';
+
         setIsDragging(false);
         setIsResizing(false);
         setResizeHandle(null);
@@ -448,14 +454,32 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     setIsResizing(true);
     setResizeHandle(handle);
 
-    // Store initial values for resize calculations
-    setDragStart({
-      initialWidth: qrPosition.width,
-      initialHeight: qrPosition.height,
-      initialX: qrPosition.x,
-      initialY: qrPosition.y,
-      resizeHandle: handle
-    });
+    // Find the image element to get current coordinates
+    const imageElement = document.querySelector('img[alt="Design preview"]');
+
+    if (imageElement && imageDimensions.width > 0 && imageDimensions.height > 0) {
+      // Store initial values for resize calculations with current coordinates
+      setDragStart({
+        x: 0, // Will be set in handlePointerMove
+        y: 0, // Will be set in handlePointerMove
+        initialWidth: qrPosition.width,
+        initialHeight: qrPosition.height,
+        initialX: qrPosition.x,
+        initialY: qrPosition.y,
+        resizeHandle: handle
+      });
+    } else {
+      // Fallback for when image dimensions aren't available
+      setDragStart({
+        x: 0,
+        y: 0,
+        initialWidth: qrPosition.width,
+        initialHeight: qrPosition.height,
+        initialX: qrPosition.x,
+        initialY: qrPosition.y,
+        resizeHandle: handle
+      });
+    }
   };
 
   // Get resize handle at mouse position
@@ -482,7 +506,13 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
   // Handle mouse/touch down on QR area or resize handles
   const handlePointerDown = (e) => {
     e.preventDefault();
+    e.stopPropagation();
     console.log('Pointer down on QR area');
+
+    // Prevent page scrolling on mobile
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
 
     // Find the image element
     const imageElement = document.querySelector('img[alt="Design preview"]');
@@ -527,8 +557,8 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         console.log('QR area clicked for dragging');
         setIsDragging(true);
         setDragStart({
-          x: imageCoords.x - qrPosition.x,
-          y: imageCoords.y - qrPosition.y,
+          x: imageCoords.x,
+          y: imageCoords.y,
           offsetX: imageCoords.x - qrPosition.x,
           offsetY: imageCoords.y - qrPosition.y
         });
@@ -553,8 +583,10 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         console.log('Using fallback drag calculation');
         setIsDragging(true);
         setDragStart({
-          x: clientX - rect.left - qrPosition.x,
-          y: clientY - rect.top - qrPosition.y,
+          x: clientX,
+          y: clientY,
+          offsetX: clientX - rect.left - qrPosition.x,
+          offsetY: clientY - rect.top - qrPosition.y,
           fallback: true
         });
       }
@@ -691,6 +723,12 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
   // Handle mouse up
   const handleMouseUp = () => {
     console.log('Mouse up - stopping drag/resize');
+
+    // Restore scroll behavior
+    document.body.style.overflow = '';
+    document.body.style.position = '';
+    document.body.style.width = '';
+
     setIsDragging(false);
     setIsResizing(false);
     setResizeHandle(null);
