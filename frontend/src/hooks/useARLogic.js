@@ -23,12 +23,14 @@ export const useARLogic = ({
   isInitialized,
   isScanning,
   videoPlaying,
+  videoMuted,
   targetDetected,
   setError,
   setCameraActive,
   setArReady,
   setTargetDetected,
   setVideoPlaying,
+  setVideoMuted,
   setIsInitialized,
   setIsScanning,
   addDebugMessage,
@@ -93,11 +95,14 @@ export const useARLogic = ({
         const timeout = setTimeout(() => {
           reject(new Error('Video loading timeout'));
         }, 10000);
-        
+
         video.addEventListener('loadedmetadata', () => {
           clearTimeout(timeout);
           addDebugMessage('✅ Video metadata loaded', 'info');
           addDebugMessage(`📹 Video dimensions: ${video.videoWidth}x${video.videoHeight}`, 'info');
+
+          // Set initial muted state based on current state
+          video.muted = videoMuted !== false;
           resolve();
         }, { once: true });
         
@@ -1198,13 +1203,15 @@ export const useARLogic = ({
     try {
       if (videoPlaying) {
         videoRef.current.pause();
+        throttledSetVideoPlaying(false);
         addDebugMessage('⏸️ Video paused by user', 'info');
       } else {
         const playPromise = videoRef.current.play();
-        
+
         if (playPromise !== undefined) {
           try {
             await playPromise;
+            throttledSetVideoPlaying(true);
             addDebugMessage('▶️ Video started by user', 'success');
           } catch (playError) {
             if (playError.name === 'NotAllowedError') {
@@ -1212,6 +1219,7 @@ export const useARLogic = ({
               videoRef.current.muted = true;
               try {
                 await videoRef.current.play();
+                throttledSetVideoPlaying(true);
                 addDebugMessage('▶️ Video started with muted fallback', 'success');
               } catch (mutedError) {
                 addDebugMessage(`❌ Video play failed even with muted: ${mutedError.message}`, 'error');
@@ -1227,15 +1235,17 @@ export const useARLogic = ({
     } catch (error) {
       addDebugMessage(`❌ Video toggle failed: ${error.message}`, 'error');
     }
-  }, [videoPlaying, targetDetected, addDebugMessage]);
+  }, [videoPlaying, targetDetected, throttledSetVideoPlaying, addDebugMessage]);
 
   // Toggle video mute
   const toggleMute = useCallback(() => {
     if (!videoRef.current) return;
 
     videoRef.current.muted = !videoRef.current.muted;
+    // Update the videoMuted state in the parent component
+    setVideoMuted && setVideoMuted(videoRef.current.muted);
     addDebugMessage(`🔊 Video ${videoRef.current.muted ? 'muted' : 'unmuted'}`, 'info');
-  }, [addDebugMessage]);
+  }, [addDebugMessage, setVideoMuted]);
 
   // Cleanup function
   const cleanupAR = useCallback(async () => {

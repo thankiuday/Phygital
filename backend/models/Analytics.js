@@ -25,7 +25,7 @@ const analyticsSchema = new mongoose.Schema({
   eventType: {
     type: String,
     required: true,
-    enum: ['scan', 'videoView', 'linkClick', 'pageView', 'videoComplete', 'arExperienceStart']
+    enum: ['scan', 'videoView', 'linkClick', 'pageView', 'videoComplete', 'arExperienceStart', 'socialMediaClick']
   },
   
   // Event details
@@ -208,6 +208,7 @@ analyticsSchema.statics.trackEvent = async function(userId, eventType, eventData
       if (eventType === 'scan') fieldToUpdate = 'analytics.totalScans';
       else if (eventType === 'videoView') fieldToUpdate = 'analytics.videoViews';
       else if (eventType === 'linkClick') fieldToUpdate = 'analytics.linkClicks';
+      else if (eventType === 'socialMediaClick') fieldToUpdate = 'analytics.socialMediaClicks';
       else if (eventType === 'arExperienceStart') fieldToUpdate = 'analytics.arExperienceStarts';
       
       console.log(`📊 Updating project analytics: userId=${userId}, projectId=${projectId}, field=${fieldToUpdate}, event=${eventType}`);
@@ -248,6 +249,7 @@ analyticsSchema.statics.trackEvent = async function(userId, eventType, eventData
     if (eventType === 'scan') globalFieldToUpdate = 'analytics.totalScans';
     else if (eventType === 'videoView') globalFieldToUpdate = 'analytics.videoViews';
     else if (eventType === 'linkClick') globalFieldToUpdate = 'analytics.linkClicks';
+    else if (eventType === 'socialMediaClick') globalFieldToUpdate = 'analytics.socialMediaClicks';
     else if (eventType === 'arExperienceStart') globalFieldToUpdate = 'analytics.arExperienceStarts';
     
     await User.findByIdAndUpdate(userId, {

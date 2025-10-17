@@ -90,12 +90,14 @@ const ARExperiencePage = () => {
     isInitialized,
     isScanning,
     videoPlaying,
+    videoMuted,
     targetDetected,
     setError,
     setCameraActive,
     setArReady,
     setTargetDetected,
     setVideoPlaying,
+    setVideoMuted,
     setIsInitialized,
     setIsScanning,
     addDebugMessage,
@@ -261,6 +263,7 @@ const ARExperiencePage = () => {
         onRestartAR={restartAR}
         onToggleVideo={toggleVideo}
         onToggleMute={toggleMute}
+        onTrackAnalytics={trackAnalytics}
       />
 
       {/* Debug Panel - Accessed via Settings */}

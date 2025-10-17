@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Camera, Play, Pause, Volume2, VolumeX, RefreshCw } from 'lucide-react';
+import { Camera, Play, Pause, Volume2, VolumeX, RefreshCw, Instagram, Facebook, Twitter, Linkedin, Globe, ExternalLink } from 'lucide-react';
 
 const ARControls = ({
   isScanning,
@@ -17,7 +17,8 @@ const ARControls = ({
   onStopScanning,
   onRestartAR,
   onToggleVideo,
-  onToggleMute
+  onToggleMute,
+  onTrackAnalytics
 }) => {
   // Safe handler functions with fallbacks
   const safeToggleVideo = onToggleVideo || (() => {
@@ -39,6 +40,28 @@ const ARControls = ({
   const safeRestartAR = onRestartAR || (() => {
     console.warn('onRestartAR handler not provided');
   });
+
+  const safeTrackAnalytics = onTrackAnalytics || (() => {
+    console.warn('onTrackAnalytics handler not provided');
+  });
+
+  // Handle social media link clicks
+  const handleSocialClick = async (platform, url) => {
+    try {
+      // Track the social media click
+      await safeTrackAnalytics('socialMediaClick', {
+        linkType: platform,
+        linkUrl: url
+      });
+
+      // Open the link in a new tab
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      console.error('Failed to track social media click:', error);
+      // Still open the link even if tracking fails
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
   return (
     <>
       {/* Status Indicator - Modern and compact for mobile */}
@@ -114,9 +137,50 @@ const ARControls = ({
         </div>
       )}
 
+      {/* Social Media Links - Only show if user has social links */}
+      {projectData?.socialLinks && Object.values(projectData.socialLinks).some(link => link && link.trim() !== '') && (
+        <div className="fixed bottom-32 sm:bottom-36 left-0 right-0 z-30 px-3 sm:px-4">
+          <div className="max-w-md mx-auto bg-black/60 backdrop-blur-lg rounded-2xl p-3 sm:p-4 border border-white/10 shadow-2xl">
+            <h4 className="text-white font-semibold text-sm sm:text-base mb-3 flex items-center gap-2">
+              <ExternalLink size={16} className="sm:w-5 sm:h-5" />
+              Connect With Us
+            </h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+              {Object.entries(projectData.socialLinks).map(([platform, url]) => {
+                if (!url || url.trim() === '') return null;
+
+                const platformConfig = {
+                  instagram: { icon: Instagram, color: 'bg-pink-500/20 hover:bg-pink-500/30', label: 'Instagram' },
+                  facebook: { icon: Facebook, color: 'bg-blue-500/20 hover:bg-blue-500/30', label: 'Facebook' },
+                  twitter: { icon: Twitter, color: 'bg-sky-500/20 hover:bg-sky-500/30', label: 'Twitter' },
+                  linkedin: { icon: Linkedin, color: 'bg-blue-600/20 hover:bg-blue-600/30', label: 'LinkedIn' },
+                  website: { icon: Globe, color: 'bg-green-500/20 hover:bg-green-500/30', label: 'Website' }
+                };
+
+                const config = platformConfig[platform];
+                if (!config) return null;
+
+                const Icon = config.icon;
+                return (
+                  <button
+                    key={platform}
+                    onClick={() => handleSocialClick(platform, url)}
+                    className={`p-2 sm:p-3 ${config.color} rounded-xl text-white transition-all duration-200 shadow-lg flex flex-col items-center gap-1 sm:gap-2 active:scale-95`}
+                    aria-label={`Visit ${config.label}`}
+                  >
+                    <Icon size={16} className="sm:w-5 sm:h-5" />
+                    <span className="text-xs sm:text-sm font-medium capitalize">{platform}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Scanning Instructions - Helpful tips when scanning */}
       {isScanning && !targetDetected && (
-        <div className="fixed bottom-32 sm:bottom-36 left-0 right-0 z-30 px-3 sm:px-4">
+        <div className="fixed bottom-44 sm:bottom-48 left-0 right-0 z-30 px-3 sm:px-4">
           <div className="max-w-md mx-auto bg-black/70 backdrop-blur-lg rounded-2xl p-3 sm:p-4 border border-yellow-400/30 shadow-2xl">
             <h4 className="text-yellow-100 font-bold text-xs sm:text-sm mb-2 flex items-center gap-2">
               <span className="text-yellow-400 text-base">💡</span>
