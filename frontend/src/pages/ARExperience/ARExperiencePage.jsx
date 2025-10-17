@@ -53,6 +53,7 @@ const ARExperiencePage = () => {
     setArReady,
     setTargetDetected,
     setVideoPlaying,
+    setVideoMuted,
     setIsInitialized,
     setIsScanning,
     setShowDebug,

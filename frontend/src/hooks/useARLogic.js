@@ -37,6 +37,10 @@ export const useARLogic = ({
   resetARState,
   trackAnalytics  // Add analytics tracking
 }) => {
+  // Ensure setVideoMuted is available
+  const safeSetVideoMuted = setVideoMuted || (() => {
+    console.warn('setVideoMuted not provided');
+  });
   // Refs
   const containerRef = useRef(null);
   const videoRef = useRef(null);
@@ -1243,9 +1247,9 @@ export const useARLogic = ({
 
     videoRef.current.muted = !videoRef.current.muted;
     // Update the videoMuted state in the parent component
-    setVideoMuted && setVideoMuted(videoRef.current.muted);
+    safeSetVideoMuted(videoRef.current.muted);
     addDebugMessage(`🔊 Video ${videoRef.current.muted ? 'muted' : 'unmuted'}`, 'info');
-  }, [addDebugMessage, setVideoMuted]);
+  }, [addDebugMessage, safeSetVideoMuted]);
 
   // Cleanup function
   const cleanupAR = useCallback(async () => {
