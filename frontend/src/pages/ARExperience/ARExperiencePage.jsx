@@ -65,20 +65,6 @@ const ARExperiencePage = () => {
   const [isProjectDisabled, setIsProjectDisabled] = React.useState(false);
   const [disabledProjectName, setDisabledProjectName] = React.useState('');
 
-  // Track if user wants to start AR (don't auto-start camera)
-  const [shouldStartAR, setShouldStartAR] = React.useState(false);
-
-  // Handle start AR button click
-  const handleStartAR = React.useCallback(async () => {
-    if (!librariesLoaded || !projectData) {
-      addDebugMessage('⚠️ Cannot start AR: libraries not loaded or project data not available', 'warning');
-      return;
-    }
-
-    addDebugMessage('🚀 User clicked Start AR Experience - initializing camera...', 'info');
-    setShouldStartAR(true);
-  }, [librariesLoaded, projectData, addDebugMessage]);
-
   // Debug utilities
   const { addDebugMessage } = useDebug(setDebugMessages);
 
@@ -147,9 +133,9 @@ const ARExperiencePage = () => {
     }
   }, [librariesLoaded, projectData, fetchProjectData]);
 
-  // Initialize AR when user clicks start button and data is ready
+  // Initialize AR when data is ready
   useEffect(() => {
-    if (librariesLoaded && projectData && !isInitialized && shouldStartAR) {
+    if (librariesLoaded && projectData && !isInitialized) {
       addDebugMessage('⏳ Delaying MindAR initialization to ensure container is ready...', 'info');
       setTimeout(() => {
         arLogic.initializeMindAR().then(success => {
@@ -161,7 +147,7 @@ const ARExperiencePage = () => {
         });
       }, 1500);
     }
-  }, [librariesLoaded, projectData, isInitialized, shouldStartAR, addDebugMessage]);
+  }, [librariesLoaded, projectData, isInitialized, addDebugMessage]);
 
   // Show disabled screen if project is disabled
   if (isProjectDisabled) {
@@ -273,7 +259,7 @@ const ARExperiencePage = () => {
         videoPlaying={videoPlaying}
         videoMuted={videoMuted}
         projectData={projectData}
-        onStartScanning={handleStartAR}
+        onStartScanning={startScanning}
         onStopScanning={stopScanning}
         onRestartAR={restartAR}
         onToggleVideo={toggleVideo}

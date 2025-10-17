@@ -102,7 +102,7 @@ const ARControls = ({
 
       {/* Video Controls - Sleek mobile design */}
       {targetDetected && projectData?.videoUrl && (
-        <div className="fixed bottom-24 sm:bottom-28 left-0 right-0 z-30 px-3 sm:px-4">
+        <div className="fixed bottom-16 sm:bottom-20 left-0 right-0 z-30 px-3 sm:px-4">
           <div className="max-w-md mx-auto bg-black/60 backdrop-blur-lg rounded-2xl p-3 sm:p-4 border border-white/10 shadow-2xl">
             <div className="flex items-center justify-between gap-3 sm:gap-4">
               {/* Play/Pause Button */}
@@ -137,9 +137,9 @@ const ARControls = ({
         </div>
       )}
 
-      {/* Social Media Links - Only show if user has social links and target is detected */}
-      {projectData?.socialLinks && Object.values(projectData.socialLinks).some(link => link && link.trim() !== '') && targetDetected && (
-        <div className="fixed bottom-40 sm:bottom-44 left-0 right-0 z-30 px-3 sm:px-4">
+      {/* Social Media Links - Only show if user has social links */}
+      {projectData?.socialLinks && Object.values(projectData.socialLinks).some(link => link && link.trim() !== '') && (
+        <div className="fixed bottom-28 sm:bottom-32 left-0 right-0 z-30 px-3 sm:px-4">
           <div className="max-w-md mx-auto bg-black/60 backdrop-blur-lg rounded-2xl p-3 sm:p-4 border border-white/10 shadow-2xl">
             <h4 className="text-white font-semibold text-sm sm:text-base mb-3 flex items-center gap-2">
               <ExternalLink size={16} className="sm:w-5 sm:h-5" />
@@ -180,7 +180,7 @@ const ARControls = ({
 
       {/* Scanning Instructions - Helpful tips when scanning */}
       {isScanning && !targetDetected && (
-        <div className="fixed bottom-32 sm:bottom-36 left-0 right-0 z-30 px-3 sm:px-4">
+        <div className="fixed bottom-40 sm:bottom-44 left-0 right-0 z-30 px-3 sm:px-4">
           <div className="max-w-md mx-auto bg-black/70 backdrop-blur-lg rounded-2xl p-3 sm:p-4 border border-yellow-400/30 shadow-2xl">
             <h4 className="text-yellow-100 font-bold text-xs sm:text-sm mb-2 flex items-center gap-2">
               <span className="text-yellow-400 text-base">💡</span>
