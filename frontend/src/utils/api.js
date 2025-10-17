@@ -59,9 +59,13 @@ api.interceptors.response.use(
     return response
   },
   (error) => {
-    // Handle network errors
+    // Handle network errors (but not for static assets)
     if (!error.response) {
-      toast.error('Network error. Please check your connection.')
+      // Don't show toast for static asset requests (favicon, manifest, etc.)
+      const url = error.config?.url || ''
+      if (!url.includes('favicon') && !url.includes('manifest') && !url.includes('.svg') && !url.includes('.png') && !url.includes('.ico')) {
+        toast.error('Network error. Please check your connection.')
+      }
       return Promise.reject(error)
     }
 

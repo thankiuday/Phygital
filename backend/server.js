@@ -130,6 +130,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Serve static files from uploads directory (for local development)
 app.use('/uploads', express.static('uploads'));
 
+// Serve frontend static files (for production deployment)
+app.use(express.static('dist'));
+
 // Database connection
 const connectDB = async () => {
   try {
