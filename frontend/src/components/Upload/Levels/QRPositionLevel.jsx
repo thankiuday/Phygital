@@ -484,27 +484,41 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
 
   // Unified pointer down handler
   const handlePointerDown = useCallback((e) => {
+    // IMMEDIATE prevention - before anything else
     e.preventDefault();
     e.stopPropagation();
+    e.stopImmediatePropagation();
 
     const pointerId = e.pointerId;
     const clientX = e.clientX;
     const clientY = e.clientY;
 
-    // Prevent page scroll/jump on mobile
+    // Prevent page scroll/jump on mobile - IMMEDIATE lock
     if (e.pointerType === 'touch') {
       const scrollY = window.scrollY;
+      
+      // Lock immediately to prevent any scroll
       document.body.style.overflow = 'hidden';
       document.body.style.position = 'fixed';
       document.body.style.top = `-${scrollY}px`;
       document.body.style.width = '100%';
+      document.body.style.height = '100%';
       document.body.style.touchAction = 'none';
+      document.body.style.webkitOverflowScrolling = 'touch';
+      document.body.style.webkitTransform = 'translateZ(0)';
+      
       document.documentElement.style.overflow = 'hidden';
       document.documentElement.style.position = 'fixed';
       document.documentElement.style.touchAction = 'none';
+      document.documentElement.style.height = '100%';
+      document.documentElement.style.webkitTransform = 'translateZ(0)';
       
       // Store scroll position for restoration
       document.body.dataset.scrollY = scrollY.toString();
+      
+      // Force immediate style application and reflow
+      document.body.offsetHeight;
+      document.documentElement.offsetHeight;
     }
 
     const img = imageRef.current;
@@ -638,14 +652,23 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
 
     // Restore body scroll and touch behavior
     const scrollY = document.body.dataset.scrollY || '0';
+    
+    // Restore all styles
     document.body.style.position = '';
     document.body.style.top = '';
     document.body.style.overflow = '';
     document.body.style.width = '';
+    document.body.style.height = '';
     document.body.style.touchAction = '';
+    document.body.style.webkitOverflowScrolling = '';
+    
     document.documentElement.style.overflow = '';
     document.documentElement.style.position = '';
     document.documentElement.style.touchAction = '';
+    document.documentElement.style.height = '';
+    
+    // Force style application before scroll
+    document.body.offsetHeight;
     
     // Restore scroll position
     window.scrollTo(0, parseInt(scrollY));
@@ -701,16 +724,41 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       // Only prevent if we're touching the QR positioning area
       if (e.target.closest('.relative.inline-block')) {
         e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        return false;
       }
     };
 
-    // Add touch prevention for the entire document
-    document.addEventListener('touchstart', preventUnwantedTouch, { passive: false });
-    document.addEventListener('touchmove', preventUnwantedTouch, { passive: false });
+    const preventScroll = (e) => {
+      // Prevent any scroll during QR positioning
+      if (e.target.closest('.relative.inline-block')) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        return false;
+      }
+    };
+
+    // Add aggressive touch prevention with highest priority
+    document.addEventListener('touchstart', preventUnwantedTouch, { passive: false, capture: true });
+    document.addEventListener('touchmove', preventScroll, { passive: false, capture: true });
+    document.addEventListener('touchend', preventUnwantedTouch, { passive: false, capture: true });
+    document.addEventListener('touchcancel', preventUnwantedTouch, { passive: false, capture: true });
+    
+    // Also prevent wheel events that might cause scroll
+    document.addEventListener('wheel', preventScroll, { passive: false, capture: true });
+    
+    // Prevent context menu on long press
+    document.addEventListener('contextmenu', preventUnwantedTouch, { passive: false, capture: true });
 
     return () => {
-      document.removeEventListener('touchstart', preventUnwantedTouch);
-      document.removeEventListener('touchmove', preventUnwantedTouch);
+      document.removeEventListener('touchstart', preventUnwantedTouch, { capture: true });
+      document.removeEventListener('touchmove', preventScroll, { capture: true });
+      document.removeEventListener('touchend', preventUnwantedTouch, { capture: true });
+      document.removeEventListener('touchcancel', preventUnwantedTouch, { capture: true });
+      document.removeEventListener('wheel', preventScroll, { capture: true });
+      document.removeEventListener('contextmenu', preventUnwantedTouch, { capture: true });
     };
   }, []);
 
@@ -1184,7 +1232,16 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
   }
 
   return (
-    <div className="max-w-4xl mx-auto" style={{ overscrollBehavior: 'none' }}>
+    <div 
+      className="max-w-4xl mx-auto" 
+      style={{ 
+        overscrollBehavior: 'none',
+        touchAction: 'none',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none'
+      }}
+    >
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-neon-blue/20 mb-4 shadow-glow-blue">
             <QrCode className="w-8 h-8 text-neon-blue" />
