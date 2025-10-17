@@ -298,10 +298,11 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       if (isDragging || isResizing) {
         console.log('Global mouse up - stopping drag/resize');
 
-        // Restore scroll behavior
+        // Restore scroll behavior and touch action
         document.body.style.overflow = '';
         document.body.style.position = '';
         document.body.style.width = '';
+        document.body.style.touchAction = '';
 
         setIsDragging(false);
         setIsResizing(false);
@@ -398,12 +399,12 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
 
             const newX = Math.max(0, Math.min(imageCoords.x - offsetX, imageDimensions.width - qrPosition.width));
             const newY = Math.max(0, Math.min(imageCoords.y - offsetY, imageDimensions.height - qrPosition.height));
-
-            setQrPosition(prev => ({
-              ...prev,
-              x: newX,
-              y: newY
-            }));
+          
+          setQrPosition(prev => ({
+            ...prev,
+            x: newX,
+            y: newY
+          }));
           }
         } else {
           // Fallback case for global mouse move when image dimensions are not available
@@ -507,20 +508,30 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
   const handlePointerDown = (e) => {
     e.preventDefault();
     e.stopPropagation();
+
+    // Prevent any default touch behaviors that might cause navigation
+    if (e.touches && e.touches.length > 1) {
+      e.preventDefault();
+      return; // Ignore multi-touch gestures
+    }
+
     console.log('Pointer down on QR area');
 
-    // Prevent page scrolling on mobile
-    document.body.style.overflow = 'hidden';
-    document.body.style.position = 'fixed';
-    document.body.style.width = '100%';
-
+    // Prevent page scrolling on mobile during drag operations
+    if (e.touches) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+      document.body.style.touchAction = 'none';
+    }
+    
     // Find the image element
     const imageElement = document.querySelector('img[alt="Design preview"]');
 
     // Get coordinates (handle both mouse and touch events)
     const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
     const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
-
+    
     if (imageElement && imageDimensions.width > 0 && imageDimensions.height > 0) {
       // Convert coordinates to image coordinates
       const imageCoords = screenToImageCoords(clientX, clientY, imageElement);
@@ -545,7 +556,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         console.log('Resize handle clicked:', handle);
         setIsResizing(true);
         setResizeHandle(handle);
-        setDragStart({
+      setDragStart({
           x: imageCoords.x,
           y: imageCoords.y,
           initialWidth: qrPosition.width,
@@ -571,7 +582,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       if (handle) {
         setIsResizing(true);
         setResizeHandle(handle);
-        setDragStart({
+      setDragStart({
           x: clientX,
           y: clientY,
           initialWidth: qrPosition.width,
@@ -596,16 +607,16 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
   // Handle mouse/touch move
   const handlePointerMove = (e) => {
     if (!isDragging && !isResizing) return;
-
+    
     e.preventDefault();
-
+    
     // Find the image element
     const imageElement = document.querySelector('img[alt="Design preview"]');
 
     // Get coordinates (handle both mouse and touch events)
     const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
     const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
-
+    
     if (imageElement && imageDimensions.width > 0 && imageDimensions.height > 0) {
       // Convert coordinates to image coordinates
       const imageCoords = screenToImageCoords(clientX, clientY, imageElement);
@@ -692,12 +703,12 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         const newY = Math.max(0, Math.min(imageCoords.y - offsetY, imageDimensions.height - qrPosition.height));
 
         console.log('Pointer move - new position:', { x: newX, y: newY, offsetX, offsetY });
-
-        setQrPosition(prev => ({
-          ...prev,
-          x: newX,
-          y: newY
-        }));
+      
+      setQrPosition(prev => ({
+        ...prev,
+        x: newX,
+        y: newY
+      }));
       }
     } else {
       // Fallback case when image dimensions are not available
@@ -724,10 +735,11 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
   const handleMouseUp = () => {
     console.log('Mouse up - stopping drag/resize');
 
-    // Restore scroll behavior
+    // Restore scroll behavior and touch action
     document.body.style.overflow = '';
     document.body.style.position = '';
     document.body.style.width = '';
+    document.body.style.touchAction = '';
 
     setIsDragging(false);
     setIsResizing(false);
@@ -1224,6 +1236,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
             src={designImageUrl}
             alt="Design preview"
             className="max-w-full h-auto rounded-lg shadow-sm touch-manipulation"
+            style={{ touchAction: 'none' }}
             crossOrigin="anonymous"
             onLoad={handleImageLoad}
             onMouseMove={handlePointerMove}
@@ -1240,23 +1253,24 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
               left: imageDimensions.width > 0 ? `${Math.max(0, Math.min((qrPosition.x / imageDimensions.width) * 100, 100))}%` : `${qrPosition.x}px`,
               top: imageDimensions.height > 0 ? `${Math.max(0, Math.min((qrPosition.y / imageDimensions.height) * 100, 100))}%` : `${qrPosition.y}px`,
               width: imageDimensions.width > 0 ? `${Math.max(0, Math.min((qrPosition.width / imageDimensions.width) * 100, 100))}%` : `${qrPosition.width}px`,
-              height: imageDimensions.height > 0 ? `${Math.max(0, Math.min((qrPosition.height / imageDimensions.height) * 100, 100))}%` : `${qrPosition.height}px`
+              height: imageDimensions.height > 0 ? `${Math.max(0, Math.min((qrPosition.height / imageDimensions.height) * 100, 100))}%` : `${qrPosition.height}px`,
+              touchAction: 'none' // Prevent default touch behaviors
             }}
             onMouseDown={handlePointerDown}
             onTouchStart={handlePointerDown}
           >
             {/* Resize Handles */}
             {/* Corner handles */}
-            <div className="absolute -top-1 -left-1 w-3 h-3 bg-neon-blue border border-white cursor-nw-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); handleResizeStart('nw'); }} onTouchStart={(e) => { e.stopPropagation(); handleResizeStart('nw'); }}></div>
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-neon-blue border border-white cursor-ne-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); handleResizeStart('ne'); }} onTouchStart={(e) => { e.stopPropagation(); handleResizeStart('ne'); }}></div>
-            <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-neon-blue border border-white cursor-sw-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); handleResizeStart('sw'); }} onTouchStart={(e) => { e.stopPropagation(); handleResizeStart('sw'); }}></div>
-            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-neon-blue border border-white cursor-se-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); handleResizeStart('se'); }} onTouchStart={(e) => { e.stopPropagation(); handleResizeStart('se'); }}></div>
+            <div className="absolute -top-1 -left-1 w-3 h-3 bg-neon-blue border border-white cursor-nw-resize hover:scale-125 transition-transform" style={{ touchAction: 'none' }} onMouseDown={(e) => { e.stopPropagation(); handleResizeStart('nw'); }} onTouchStart={(e) => { e.stopPropagation(); handleResizeStart('nw'); }}></div>
+            <div className="absolute -top-1 -right-1 w-3 h-3 bg-neon-blue border border-white cursor-ne-resize hover:scale-125 transition-transform" style={{ touchAction: 'none' }} onMouseDown={(e) => { e.stopPropagation(); handleResizeStart('ne'); }} onTouchStart={(e) => { e.stopPropagation(); handleResizeStart('ne'); }}></div>
+            <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-neon-blue border border-white cursor-sw-resize hover:scale-125 transition-transform" style={{ touchAction: 'none' }} onMouseDown={(e) => { e.stopPropagation(); handleResizeStart('sw'); }} onTouchStart={(e) => { e.stopPropagation(); handleResizeStart('sw'); }}></div>
+            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-neon-blue border border-white cursor-se-resize hover:scale-125 transition-transform" style={{ touchAction: 'none' }} onMouseDown={(e) => { e.stopPropagation(); handleResizeStart('se'); }} onTouchStart={(e) => { e.stopPropagation(); handleResizeStart('se'); }}></div>
 
             {/* Edge handles */}
-            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1 w-3 h-2 bg-neon-blue border border-white cursor-n-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); handleResizeStart('n'); }} onTouchStart={(e) => { e.stopPropagation(); handleResizeStart('n'); }}></div>
-            <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1 w-3 h-2 bg-neon-blue border border-white cursor-s-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); handleResizeStart('s'); }} onTouchStart={(e) => { e.stopPropagation(); handleResizeStart('s'); }}></div>
-            <div className="absolute left-0 top-1/2 transform -translate-x-1 -translate-y-1/2 w-2 h-3 bg-neon-blue border border-white cursor-w-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); handleResizeStart('w'); }} onTouchStart={(e) => { e.stopPropagation(); handleResizeStart('w'); }}></div>
-            <div className="absolute right-0 top-1/2 transform translate-x-1 -translate-y-1/2 w-2 h-3 bg-neon-blue border border-white cursor-e-resize hover:scale-125 transition-transform" onMouseDown={(e) => { e.stopPropagation(); handleResizeStart('e'); }} onTouchStart={(e) => { e.stopPropagation(); handleResizeStart('e'); }}></div>
+            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1 w-3 h-2 bg-neon-blue border border-white cursor-n-resize hover:scale-125 transition-transform" style={{ touchAction: 'none' }} onMouseDown={(e) => { e.stopPropagation(); handleResizeStart('n'); }} onTouchStart={(e) => { e.stopPropagation(); handleResizeStart('n'); }}></div>
+            <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1 w-3 h-2 bg-neon-blue border border-white cursor-s-resize hover:scale-125 transition-transform" style={{ touchAction: 'none' }} onMouseDown={(e) => { e.stopPropagation(); handleResizeStart('s'); }} onTouchStart={(e) => { e.stopPropagation(); handleResizeStart('s'); }}></div>
+            <div className="absolute left-0 top-1/2 transform -translate-x-1 -translate-y-1/2 w-2 h-3 bg-neon-blue border border-white cursor-w-resize hover:scale-125 transition-transform" style={{ touchAction: 'none' }} onMouseDown={(e) => { e.stopPropagation(); handleResizeStart('w'); }} onTouchStart={(e) => { e.stopPropagation(); handleResizeStart('w'); }}></div>
+            <div className="absolute right-0 top-1/2 transform translate-x-1 -translate-y-1/2 w-2 h-3 bg-neon-blue border border-white cursor-e-resize hover:scale-125 transition-transform" style={{ touchAction: 'none' }} onMouseDown={(e) => { e.stopPropagation(); handleResizeStart('e'); }} onTouchStart={(e) => { e.stopPropagation(); handleResizeStart('e'); }}></div>
 
             <div className="absolute -top-6 left-0 text-xs bg-neon-blue text-slate-900 px-2 py-1 rounded whitespace-nowrap">
               QR Code Area
@@ -1279,15 +1293,15 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           <div className="bg-slate-700/30 rounded p-3">
             <div className="text-xs text-slate-400 mb-1">X Position</div>
             <div className="text-sm font-mono text-slate-100">{isNaN(qrPosition.x) ? '0' : Math.round(qrPosition.x)}px</div>
-          </div>
+        </div>
           <div className="bg-slate-700/30 rounded p-3">
             <div className="text-xs text-slate-400 mb-1">Y Position</div>
             <div className="text-sm font-mono text-slate-100">{isNaN(qrPosition.y) ? '0' : Math.round(qrPosition.y)}px</div>
-          </div>
+        </div>
           <div className="bg-slate-700/30 rounded p-3">
             <div className="text-xs text-slate-400 mb-1">Width</div>
             <div className="text-sm font-mono text-slate-100">{isNaN(qrPosition.width) ? '100' : Math.round(qrPosition.width)}px</div>
-          </div>
+        </div>
           <div className="bg-slate-700/30 rounded p-3">
             <div className="text-xs text-slate-400 mb-1">Height</div>
             <div className="text-sm font-mono text-slate-100">{isNaN(qrPosition.height) ? '100' : Math.round(qrPosition.height)}px</div>
