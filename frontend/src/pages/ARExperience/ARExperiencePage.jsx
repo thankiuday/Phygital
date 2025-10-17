@@ -259,7 +259,6 @@ const ARExperiencePage = () => {
         videoPlaying={videoPlaying}
         videoMuted={videoMuted}
         projectData={projectData}
-        onStartScanning={startScanning}
         onStopScanning={stopScanning}
         onRestartAR={restartAR}
         onToggleVideo={toggleVideo}

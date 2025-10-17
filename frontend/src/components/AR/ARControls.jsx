@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Camera, Play, Pause, Volume2, VolumeX, RefreshCw, Instagram, Facebook, Twitter, Linkedin, Globe, ExternalLink } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, RefreshCw, Instagram, Facebook, Twitter, Linkedin, Globe, ExternalLink } from 'lucide-react';
 
 const ARControls = ({
   isScanning,
@@ -13,7 +13,6 @@ const ARControls = ({
   videoPlaying,
   videoMuted,
   projectData = {}, // Default empty object to prevent crashes
-  onStartScanning,
   onStopScanning,
   onRestartAR,
   onToggleVideo,
@@ -24,19 +23,15 @@ const ARControls = ({
   const safeToggleVideo = onToggleVideo || (() => {
     console.warn('onToggleVideo handler not provided');
   });
-  
+
   const safeToggleMute = onToggleMute || (() => {
     console.warn('onToggleMute handler not provided');
   });
-  
-  const safeStartScanning = onStartScanning || (() => {
-    console.warn('onStartScanning handler not provided');
-  });
-  
+
   const safeStopScanning = onStopScanning || (() => {
     console.warn('onStopScanning handler not provided');
   });
-  
+
   const safeRestartAR = onRestartAR || (() => {
     console.warn('onRestartAR handler not provided');
   });
@@ -203,44 +198,6 @@ const ARControls = ({
         </div>
       )}
 
-      {/* Bottom Action Buttons - Professional mobile-first design */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
-        <div className="safe-bottom px-3 py-4 sm:px-4 sm:py-6">
-          <div className="flex items-center justify-center gap-3">
-            {!isScanning ? (
-              // Start AR Button - Large and prominent
-              <button
-                onClick={safeStartScanning}
-                disabled={!arReady}
-                className="px-6 py-3.5 sm:px-8 sm:py-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 active:scale-95 disabled:from-gray-600 disabled:to-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-full font-bold text-sm sm:text-base flex items-center gap-2 sm:gap-3 transition-all duration-200 shadow-xl shadow-blue-500/30 border border-white/10"
-                aria-label="Start AR Experience"
-              >
-                <Camera size={20} className="sm:w-5 sm:h-5" />
-                <span>Start AR Experience</span>
-              </button>
-            ) : (
-              // Stop and Restart Buttons - Clean layout
-              <div className="flex gap-2 sm:gap-3 w-full max-w-md">
-                <button
-                  onClick={safeStopScanning}
-                  className="flex-1 px-4 py-3 sm:px-6 sm:py-3.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 active:scale-95 text-white rounded-full font-bold text-sm sm:text-base transition-all duration-200 shadow-xl shadow-red-500/30 border border-white/10"
-                  aria-label="Stop Scanning"
-                >
-                  Stop Scanning
-                </button>
-                
-                <button
-                  onClick={safeRestartAR}
-                  className="p-3 sm:p-3.5 bg-gray-700/80 hover:bg-gray-600/80 active:scale-95 text-white rounded-full transition-all duration-200 shadow-lg border border-white/10 flex-shrink-0"
-                  aria-label="Restart AR"
-                >
-                  <RefreshCw size={20} className="sm:w-5 sm:h-5" />
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
     </>
   );
 };
