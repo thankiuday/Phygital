@@ -460,15 +460,15 @@ const ProjectsPage = () => {
               Manage your projects, QR codes, and videos all in one place
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             {/* Sort Dropdown */}
             {projects.length > 0 && (
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-slate-300">Sort by:</label>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                <label className="text-sm font-medium text-slate-300 whitespace-nowrap">Sort by:</label>
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
-                  className="input px-3 py-2 text-sm bg-slate-700/50 border-slate-600 text-slate-100"
+                  className="input px-3 py-2 text-sm bg-slate-700/50 border-slate-600 text-slate-100 w-full sm:w-auto min-w-[140px]"
                 >
                   <option value="newest">Newest First</option>
                   <option value="oldest">Oldest First</option>
@@ -506,13 +506,15 @@ const ProjectsPage = () => {
               </div>
             )}
             {projects.length > 0 && (
-              <button
-                onClick={loadProjects}
-                className="px-4 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors flex items-center justify-center text-sm sm:text-base"
-              >
-                <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                <span>Refresh</span>
-              </button>
+              <div className="flex justify-center sm:justify-end">
+                <button
+                  onClick={loadProjects}
+                  className="px-4 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors flex items-center justify-center text-sm sm:text-base w-full sm:w-auto"
+                >
+                  <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                  <span>Refresh</span>
+                </button>
+              </div>
             )}
             <BackButton to="/dashboard" variant="ghost" text="Back" className="text-sm sm:text-base hidden sm:flex" />
           </div>
@@ -613,7 +615,7 @@ const ProjectCard = ({
   const personalizedUrl = `${window.location.origin}/user/${user?.username}?project=${project.id}`
 
   return (
-    <div className={`card-glass rounded-lg shadow-dark-large border transition-all duration-200 w-full ${
+      <div className={`card-glass rounded-lg shadow-dark-large border transition-all duration-200 w-full ${isExpanded ? 'ring-2 ring-neon-blue/50' : ''}`}>
       project.isEnabled 
         ? 'border-slate-600/30 hover:border-neon-blue/30' 
         : 'border-red-600/30 hover:border-red-500/30 opacity-75'

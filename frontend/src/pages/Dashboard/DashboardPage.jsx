@@ -179,7 +179,7 @@ const DashboardPage = () => {
       } ${isLatest ? 'ring-2 ring-neon-blue/30' : ''}`}>
         
         {/* Project Header */}
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
           <div className="flex items-center">
             <div className={`p-2 rounded-lg mr-3 ${
               isComplete ? 'bg-green-900/30' : 'bg-slate-700'
@@ -190,8 +190,8 @@ const DashboardPage = () => {
                 <Clock className="h-5 w-5 text-slate-300" />
               )}
             </div>
-            <div>
-              <h3 className="font-medium text-slate-100">
+            <div className="min-w-0 flex-1">
+              <h3 className="font-medium text-slate-100 truncate">
                 {project.name || `Project ${project.id}`}
                 {isLatest && <span className="ml-2 text-xs bg-neon-blue/20 text-neon-blue px-2 py-1 rounded">Latest</span>}
               </h3>
@@ -200,8 +200,8 @@ const DashboardPage = () => {
               </p>
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-sm font-medium text-slate-100">{projectProgress}%</div>
+          <div className="text-center sm:text-right">
+            <div className="text-lg sm:text-sm font-medium text-slate-100">{projectProgress}%</div>
             <div className="text-xs text-slate-400">
               {isComplete ? 'Complete' : `${projectProgress}/100`}
             </div>
@@ -221,7 +221,7 @@ const DashboardPage = () => {
         </div>
 
         {/* Project Steps */}
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {setupSteps.map((step) => {
             const Icon = step.icon
             const isCompleted = projectStepCompletion[step.id]
@@ -247,22 +247,22 @@ const DashboardPage = () => {
         </div>
 
         {/* Action Button */}
-        <div className="mt-3">
+        <div className="mt-4 pt-3 border-t border-slate-700/50">
           {isComplete ? (
             <Link
               to="/projects"
-              className="inline-flex items-center text-xs text-neon-green hover:text-neon-cyan transition-colors duration-200"
+              className="w-full sm:w-auto inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-neon-green hover:text-neon-cyan bg-green-900/20 hover:bg-green-900/30 border border-green-600/30 hover:border-green-500/50 rounded-lg transition-all duration-200"
             >
               Manage Project
-              <ArrowRight className="ml-1 h-3 w-3" />
+              <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           ) : (
             <Link
               to="/upload"
-              className="inline-flex items-center text-xs text-neon-blue hover:text-neon-cyan transition-colors duration-200"
+              className="w-full sm:w-auto inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-neon-blue hover:text-neon-cyan bg-blue-900/20 hover:bg-blue-900/30 border border-blue-600/30 hover:border-blue-500/50 rounded-lg transition-all duration-200"
             >
               Continue Project
-              <ArrowRight className="ml-1 h-3 w-3" />
+              <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           )}
         </div>
@@ -271,7 +271,8 @@ const DashboardPage = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
+    <div className="min-h-screen bg-dark-mesh">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
       {/* Header */}
       <div className="mb-6 sm:mb-8">
         {/* Mobile Back Button - Top Left */}
@@ -279,17 +280,18 @@ const DashboardPage = () => {
           <BackButton to="/" variant="ghost" text="Back" className="text-sm" />
         </div>
         
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-100">
-              Welcome back, {user?.username}!
-            </h1>
-            <p className="text-sm sm:text-base text-slate-300 mt-2">
-              Here's an overview of your Phygital account
-            </p>
-          </div>
-          {/* Desktop Back Button */}
-          <BackButton to="/" variant="ghost" className="hidden sm:flex" />
+        <div className="text-center sm:text-left mb-6">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-100 mb-2">
+            Welcome back, {user?.username}!
+          </h1>
+          <p className="text-sm sm:text-base text-slate-300">
+            Here's an overview of your Phygital account
+          </p>
+        </div>
+
+        {/* Desktop Back Button - Right Aligned */}
+        <div className="hidden sm:flex justify-end mb-4">
+          <BackButton to="/" variant="ghost" />
         </div>
       </div>
 
@@ -346,7 +348,7 @@ const DashboardPage = () => {
             {showAllProjects && user?.projects && user.projects.length > 1 && (
               <div className="space-y-4">
                 <h3 className="text-lg font-medium text-slate-100">All Projects</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {user.projects.slice(0, -1).map((project, index) => (
                     <ProjectProgressCard 
                       key={project.id || index} 
@@ -359,11 +361,11 @@ const DashboardPage = () => {
 
             {/* Action Buttons */}
             <div className="mt-6 p-4 bg-green-900/20 border border-green-600/30 rounded-lg">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="flex items-center">
-                  <CheckCircle className="h-5 w-5 text-neon-green mr-2" />
+                  <CheckCircle className="h-5 w-5 text-neon-green mr-3 flex-shrink-0" />
                   <p className="text-sm text-neon-green">
-                    {projectStats.complete > 0 
+                    {projectStats.complete > 0
                       ? `Great! You have ${projectStats.complete} complete project${projectStats.complete !== 1 ? 's' : ''}. Ready to create more!`
                       : 'You have projects started. Complete them or create new ones.'
                     }
@@ -371,10 +373,10 @@ const DashboardPage = () => {
                 </div>
                 <Link
                   to="/upload"
-                  className="btn-primary text-sm px-4 py-2"
+                  className="btn-primary text-sm px-4 py-2 w-full sm:w-auto"
                 >
                   {projectStats.complete > 0 ? 'Create New Project' : 'Continue Project'}
-                  <ArrowRight className="ml-1 h-3 w-3" />
+                  <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </div>
             </div>
@@ -398,19 +400,19 @@ const DashboardPage = () => {
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               {setupSteps.map((step) => {
                 const Icon = step.icon
                 return (
                   <div
                     key={step.id}
-                    className={`p-4 rounded-lg border-2 transition-colors duration-200 ${
+                    className={`p-4 sm:p-6 rounded-lg border-2 transition-colors duration-200 ${
                       stepCompletion[step.id]
                         ? 'border-neon-green/30 bg-green-900/20'
                         : 'border-slate-600/50 bg-slate-800/50'
                     }`}
                   >
-                    <div className="flex items-center mb-2">
+                    <div className="flex items-center mb-3">
                       <div className={`p-2 rounded-lg mr-3 ${
                         stepCompletion[step.id] ? 'bg-green-900/30' : 'bg-slate-700'
                       }`}>
@@ -420,20 +422,20 @@ const DashboardPage = () => {
                           <Icon className="h-5 w-5 text-slate-300" />
                         )}
                       </div>
-                      <h3 className="font-medium text-slate-100">
+                      <h3 className="font-medium text-slate-100 text-sm sm:text-base">
                         {step.title}
                       </h3>
                     </div>
-                    <p className="text-sm text-slate-300 mb-3">
+                    <p className="text-sm text-slate-300 mb-4">
                       {step.description}
                     </p>
                     {!stepCompletion[step.id] && (
                       <Link
                         to={step.link}
-                        className="inline-flex items-center text-sm text-neon-blue hover:text-neon-cyan transition-colors duration-200"
+                        className="inline-flex items-center justify-center w-full sm:w-auto px-3 py-2 text-sm font-medium text-neon-blue hover:text-neon-cyan bg-blue-900/20 hover:bg-blue-900/30 border border-blue-600/30 hover:border-blue-500/50 rounded-lg transition-all duration-200"
                       >
                         Complete
-                        <ArrowRight className="ml-1 h-3 w-3" />
+                        <ArrowRight className="ml-2 h-4 w-4" />
                       </Link>
                     )}
                   </div>
@@ -442,19 +444,19 @@ const DashboardPage = () => {
             </div>
 
             <div className="mt-6 p-4 bg-blue-900/20 border border-blue-600/30 rounded-lg">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="flex items-center">
-                  <Upload className="h-5 w-5 text-neon-blue mr-2" />
+                  <Upload className="h-5 w-5 text-neon-blue mr-3 flex-shrink-0" />
                   <p className="text-sm text-neon-blue">
                     Start creating your first Phygital project by completing the steps above.
                   </p>
                 </div>
                 <Link
                   to="/upload"
-                  className="btn-primary text-sm px-4 py-2"
+                  className="btn-primary text-sm px-4 py-2 w-full sm:w-auto"
                 >
                   Get Started
-                  <ArrowRight className="ml-1 h-3 w-3" />
+                  <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </div>
             </div>
@@ -520,20 +522,20 @@ const DashboardPage = () => {
           </p>
         </div>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {quickActions.map((action, index) => {
             const Icon = action.icon
             return (
               <Link
                 key={index}
                 to={action.link}
-                className="p-4 rounded-lg border border-slate-600/30 hover:border-neon-blue/30 hover:shadow-dark-large transition-all duration-200 group"
+                className="p-4 sm:p-6 rounded-lg border border-slate-600/30 hover:border-neon-blue/30 hover:shadow-dark-large transition-all duration-200 group block"
               >
                 <div className="flex items-center mb-3">
                   <div className={`p-2 rounded-lg mr-3 ${action.color} shadow-glow-${action.color.split('-')[1]}`}>
                     <Icon className="h-5 w-5 text-slate-900" />
                   </div>
-                  <h3 className="font-medium text-slate-100 group-hover:text-neon-blue transition-colors duration-200">
+                  <h3 className="font-medium text-slate-100 group-hover:text-neon-blue transition-colors duration-200 text-sm sm:text-base">
                     {action.title}
                   </h3>
                 </div>
@@ -558,7 +560,7 @@ const DashboardPage = () => {
             </p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {user.projects.slice(0, 3).map((project, index) => (
               <div key={index} className="p-4 bg-slate-800/50 rounded-lg border border-slate-600/30 hover:border-neon-blue/30 transition-all duration-200">
                 <div className="flex items-center mb-2">
