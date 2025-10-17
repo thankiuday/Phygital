@@ -404,8 +404,12 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           if (isDragging && dragStart.fallback) {
             const rect = document.querySelector('img[alt="Design preview"]')?.getBoundingClientRect();
             if (rect) {
-              const deltaX = e.clientX - dragStart.x;
-              const deltaY = e.clientY - dragStart.y;
+              // Get coordinates (handle both mouse and touch events)
+              const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+              const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+
+              const deltaX = clientX - dragStart.x;
+              const deltaY = clientY - dragStart.y;
 
               const newX = Math.max(0, Math.min(qrPosition.x + deltaX, rect.width - qrPosition.width));
               const newY = Math.max(0, Math.min(qrPosition.y + deltaY, rect.height - qrPosition.height));
@@ -425,12 +429,16 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       document.addEventListener('mouseup', handleGlobalMouseUp);
       document.addEventListener('mouseleave', handleGlobalMouseUp);
       document.addEventListener('mousemove', handleGlobalMouseMove);
+      document.addEventListener('touchend', handleGlobalMouseUp);
+      document.addEventListener('touchmove', handleGlobalMouseMove);
     }
 
     return () => {
       document.removeEventListener('mouseup', handleGlobalMouseUp);
       document.removeEventListener('mouseleave', handleGlobalMouseUp);
       document.removeEventListener('mousemove', handleGlobalMouseMove);
+      document.removeEventListener('touchend', handleGlobalMouseUp);
+      document.removeEventListener('touchmove', handleGlobalMouseMove);
     };
   }, [isDragging, isResizing, dragStart, resizeHandle, qrPosition.width, qrPosition.height, imageDimensions]);
 
@@ -497,7 +505,11 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         height: (qrPosition.height / imageDimensions.height) * imageRect.height
       };
 
-      const handle = getResizeHandle(clientX, clientY, qrRect);
+      // For resize handle detection, use coordinates relative to the image element
+      const relativeX = clientX - imageRect.left;
+      const relativeY = clientY - imageRect.top;
+
+      const handle = getResizeHandle(relativeX, relativeY, qrRect);
 
       if (handle) {
         console.log('Resize handle clicked:', handle);
@@ -524,7 +536,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     } else {
       // Fallback to original behavior if image dimensions not available
       const rect = e.currentTarget.getBoundingClientRect();
-      const handle = getResizeHandle(clientX, clientY, rect);
+      const handle = getResizeHandle(clientX - rect.left, clientY - rect.top, rect);
 
       if (handle) {
         setIsResizing(true);
@@ -660,10 +672,6 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       if (isDragging && dragStart.fallback) {
         const rect = document.querySelector('img[alt="Design preview"]')?.getBoundingClientRect();
         if (rect) {
-          // Get coordinates (handle both mouse and touch events)
-          const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
-          const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
-
           const deltaX = clientX - dragStart.x;
           const deltaY = clientY - dragStart.y;
 
