@@ -615,11 +615,11 @@ const ProjectCard = ({
   const personalizedUrl = `${window.location.origin}/user/${user?.username}?project=${project.id}`
 
   return (
-      <div className={`card-glass rounded-lg shadow-dark-large border transition-all duration-200 w-full ${isExpanded ? 'ring-2 ring-neon-blue/50' : ''}`}>
-      project.isEnabled 
-        ? 'border-slate-600/30 hover:border-neon-blue/30' 
-        : 'border-red-600/30 hover:border-red-500/30 opacity-75'
-    }`}>
+      <div className={`card-glass rounded-lg shadow-dark-large border transition-all duration-200 w-full ${isExpanded ? 'ring-2 ring-neon-blue/50' : ''} ${
+        project.isEnabled
+          ? 'border-slate-600/30 hover:border-neon-blue/30'
+          : 'border-red-600/30 hover:border-red-500/30 opacity-75'
+      }`}>
       <div className="p-4 sm:p-6">
         {/* Project Header */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
