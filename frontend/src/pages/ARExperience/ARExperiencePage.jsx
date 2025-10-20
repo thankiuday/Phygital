@@ -6,6 +6,7 @@
 import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { X, Settings } from 'lucide-react';
+import BackButton from '../../components/UI/BackButton';
 import { analyticsAPI } from '../../utils/api';
 
 // Hooks
@@ -272,11 +273,13 @@ const ARExperiencePage = () => {
 
   return (
     <div className="min-h-screen bg-dark-mesh">
+      {/* Floating Back (consistent across pages) */}
+      <BackButton variant="floating" floating iconOnlyOnMobile className="sm:ml-4 sm:mt-4" />
       {/* Main Content */}
       <main className="max-w-md mx-auto bg-slate-900/95 backdrop-blur-sm min-h-screen">
         {/* Video Container */}
         <div className="px-4 py-6">
-          {/* Responsive ratio box using padding-top technique for broader mobile support */}
+          {/* Media Box */}
           <div
             className="relative bg-slate-800/80 rounded-lg overflow-hidden shadow-dark-large w-full"
             style={{ paddingTop: `${paddingTopPercent}%`, minHeight: isLandscape ? '240px' : '200px' }}
@@ -347,7 +350,7 @@ const ARExperiencePage = () => {
           <div className="flex space-x-3">
             <button
               onClick={toggleVideo}
-              className="flex-1 bg-slate-800/80 border border-slate-600/30 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-center space-x-2 hover:bg-slate-700/80 active:bg-slate-600/90 transition-colors touch-manipulation backdrop-blur-md"
+              className="flex-1 bg-slate-800/80 border border-slate-600/30 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-center space-x-2 hover:bg-slate-700/80 active:bg-slate-600/90 focus:outline-none focus:ring-2 focus:ring-neon-blue/40 transition-colors touch-manipulation backdrop-blur-md"
             >
               {videoPlaying ? (
                 <>
@@ -369,7 +372,7 @@ const ARExperiencePage = () => {
             
             <button
               onClick={toggleMute}
-              className="flex-1 bg-slate-800/80 border border-slate-600/30 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-center space-x-2 hover:bg-slate-700/80 active:bg-slate-600/90 transition-colors touch-manipulation backdrop-blur-md"
+              className="flex-1 bg-slate-800/80 border border-slate-600/30 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-center space-x-2 hover:bg-slate-700/80 active:bg-slate-600/90 focus:outline-none focus:ring-2 focus:ring-neon-purple/40 transition-colors touch-manipulation backdrop-blur-md"
             >
               {videoMuted ? (
                 <>
@@ -401,7 +404,8 @@ const ARExperiencePage = () => {
               {contactNumber && (
                 <a 
                   href={`tel:${sanitizeNumber(contactNumber)}`}
-                  className="flex-1 flex items-center space-x-2 bg-slate-800/80 border border-slate-600/30 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-slate-700/80 active:bg-slate-600/90 transition-colors touch-manipulation backdrop-blur-md"
+                  className="flex-1 flex items-center space-x-2 bg-slate-800/80 border border-slate-600/30 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-slate-700/80 active:bg-slate-600/90 focus:outline-none focus:ring-2 focus:ring-neon-green/30 transition-colors touch-manipulation backdrop-blur-md"
+                  aria-label="Call contact number"
                 >
                   <div className="w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center flex-shrink-0">
                     <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 sm:w-5 sm:h-5 text-slate-100">
@@ -416,7 +420,8 @@ const ARExperiencePage = () => {
                   href={`https://wa.me/${sanitizeNumber(whatsappNumber)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 flex items-center space-x-2 bg-slate-800/80 border border-slate-600/30 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-slate-700/80 active:bg-slate-600/90 transition-colors touch-manipulation backdrop-blur-md"
+                  className="flex-1 flex items-center space-x-2 bg-slate-800/80 border border-slate-600/30 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-slate-700/80 active:bg-slate-600/90 focus:outline-none focus:ring-2 focus:ring-green-500/30 transition-colors touch-manipulation backdrop-blur-md"
+                  aria-label="Open WhatsApp chat"
                 >
                   <div className="w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center flex-shrink-0">
                     <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 sm:w-5 sm:h-5 text-slate-100">
@@ -447,7 +452,7 @@ const ARExperiencePage = () => {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => handleSocialClick('instagram', socialLinks.instagram)}
-                  className="bg-slate-800/80 border border-slate-600/30 rounded-lg p-3 sm:p-4 flex flex-col items-center space-y-1.5 sm:space-y-2 hover:bg-slate-700/80 active:bg-slate-600/90 transition-colors touch-manipulation backdrop-blur-md"
+                  className="bg-slate-800/80 border border-slate-600/30 rounded-lg p-3 sm:p-4 flex flex-col items-center space-y-1.5 sm:space-y-2 hover:bg-slate-700/80 active:bg-slate-600/90 focus:outline-none focus:ring-2 focus:ring-pink-500/30 transition-colors touch-manipulation backdrop-blur-md"
                 >
                   <div className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center">
                     <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 sm:w-8 sm:h-8 text-slate-100"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
@@ -461,7 +466,7 @@ const ARExperiencePage = () => {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => handleSocialClick('facebook', socialLinks.facebook)}
-                  className="bg-slate-800/80 border border-slate-600/30 rounded-lg p-3 sm:p-4 flex flex-col items-center space-y-1.5 sm:space-y-2 hover:bg-slate-700/80 active:bg-slate-600/90 transition-colors touch-manipulation backdrop-blur-md"
+                  className="bg-slate-800/80 border border-slate-600/30 rounded-lg p-3 sm:p-4 flex flex-col items-center space-y-1.5 sm:space-y-2 hover:bg-slate-700/80 active:bg-slate-600/90 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-colors touch-manipulation backdrop-blur-md"
                 >
                   <div className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center">
                     <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 sm:w-8 sm:h-8 text-slate-100"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
@@ -475,7 +480,7 @@ const ARExperiencePage = () => {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => handleSocialClick('website', socialLinks.website)}
-                  className="bg-slate-800/80 border border-slate-600/30 rounded-lg p-3 sm:p-4 flex flex-col items-center space-y-1.5 sm:space-y-2 hover:bg-slate-700/80 active:bg-slate-600/90 transition-colors touch-manipulation backdrop-blur-md"
+                  className="bg-slate-800/80 border border-slate-600/30 rounded-lg p-3 sm:p-4 flex flex-col items-center space-y-1.5 sm:space-y-2 hover:bg-slate-700/80 active:bg-slate-600/90 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-colors touch-manipulation backdrop-blur-md"
                 >
                   <div className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center">
                     <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 sm:w-8 sm:h-8 text-slate-100"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
@@ -489,7 +494,7 @@ const ARExperiencePage = () => {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => handleSocialClick('twitter', socialLinks.twitter)}
-                  className="bg-slate-800/80 border border-slate-600/30 rounded-lg p-3 sm:p-4 flex flex-col items-center space-y-1.5 sm:space-y-2 hover:bg-slate-700/80 active:bg-slate-600/90 transition-colors touch-manipulation backdrop-blur-md"
+                  className="bg-slate-800/80 border border-slate-600/30 rounded-lg p-3 sm:p-4 flex flex-col items-center space-y-1.5 sm:space-y-2 hover:bg-slate-700/80 active:bg-slate-600/90 focus:outline-none focus:ring-2 focus:ring-sky-500/30 transition-colors touch-manipulation backdrop-blur-md"
                 >
                   <div className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center">
                     <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 sm:w-8 sm:h-8 text-slate-100"><path d="M22.46 6c-.77.35-1.6.58-2.46.69a4.3 4.3 0 001.88-2.37 8.59 8.59 0 01-2.72 1.04 4.29 4.29 0 00-7.31 3.92A12.18 12.18 0 013 5.16a4.28 4.28 0 001.33 5.72 4.26 4.26 0 01-1.94-.54v.06a4.29 4.29 0 003.44 4.2 4.3 4.3 0 01-1.93.07 4.29 4.29 0 004 2.97A8.61 8.61 0 012 19.54a12.14 12.14 0 006.57 1.92c7.88 0 12.2-6.53 12.2-12.2 0-.19-.01-.39-.02-.58A8.7 8.7 0 0024 5.55a8.5 8.5 0 01-2.54.7z"/></svg>
@@ -503,7 +508,7 @@ const ARExperiencePage = () => {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => handleSocialClick('linkedin', socialLinks.linkedin)}
-                  className="bg-slate-800/80 border border-slate-600/30 rounded-lg p-3 sm:p-4 flex flex-col items-center space-y-1.5 sm:space-y-2 hover:bg-slate-700/80 active:bg-slate-600/90 transition-colors touch-manipulation backdrop-blur-md"
+                  className="bg-slate-800/80 border border-slate-600/30 rounded-lg p-3 sm:p-4 flex flex-col items-center space-y-1.5 sm:space-y-2 hover:bg-slate-700/80 active:bg-slate-600/90 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-colors touch-manipulation backdrop-blur-md"
                 >
                   <div className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center">
                     <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 sm:w-8 sm:h-8 text-slate-100"><path d="M19 0h-14c-2.76 0-5 2.24-5 5v14c0 2.76 2.24 5 5 5h14c2.76 0 5-2.24 5-5v-14c0-2.76-2.24-5-5-5zm-11 19h-3v-10h3v10zm-1.5-11.27c-.97 0-1.75-.79-1.75-1.76s.78-1.76 1.75-1.76 1.75.79 1.75 1.76-.78 1.76-1.75 1.76zm13.5 11.27h-3v-5.6c0-1.34-.02-3.06-1.87-3.06s-2.16 1.46-2.16 2.97v5.69h-3v-10h2.88v1.37h.04c.4-.75 1.38-1.54 2.84-1.54 3.04 0 3.6 2 3.6 4.59v5.58z"/></svg>

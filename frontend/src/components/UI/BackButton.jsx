@@ -12,7 +12,9 @@ const BackButton = ({
   to = null, 
   text = 'Back', 
   className = '',
-  variant = 'default' 
+  variant = 'default',
+  iconOnlyOnMobile = true,
+  floating = false
 }) => {
   const navigate = useNavigate()
   const location = useLocation()
@@ -29,23 +31,32 @@ const BackButton = ({
     }
   }
 
-  const baseClasses = "inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95"
+  const baseClasses = "inline-flex items-center gap-2 rounded-xl transition-all duration-300 hover:scale-105 active:scale-95"
   
   const variantClasses = {
-    default: "bg-slate-800/80 backdrop-blur-sm text-slate-200 border border-slate-600 hover:bg-slate-700 hover:border-slate-500",
-    ghost: "bg-transparent text-slate-300 hover:text-slate-100 hover:bg-slate-800/50",
+    default: "bg-slate-800/80 backdrop-blur-md text-slate-200 border border-slate-600/40 hover:bg-slate-700/80 hover:border-slate-500/50 shadow-lg",
+    ghost: "bg-transparent text-slate-300 hover:text-slate-100 hover:bg-slate-800/40",
     primary: "bg-button-gradient text-white hover:shadow-glow",
-    secondary: "bg-slate-700/80 text-slate-200 border border-slate-600 hover:bg-slate-600"
+    secondary: "bg-slate-700/80 text-slate-200 border border-slate-600 hover:bg-slate-600",
+    floating: "bg-slate-900/70 backdrop-blur-xl text-white border border-slate-700/50 shadow-xl hover:bg-slate-800/70"
   }
+
+  const paddingClasses = iconOnlyOnMobile
+    ? "px-3 py-2 sm:px-4 sm:py-2"
+    : "px-4 py-2"
+
+  const layoutClasses = floating
+    ? "fixed left-3 top-3 sm:static sm:left-auto sm:top-auto z-50"
+    : ""
 
   return (
     <button
       onClick={handleBack}
-      className={`${baseClasses} ${variantClasses[variant]} ${className}`}
+      className={`${baseClasses} ${paddingClasses} ${variantClasses[variant]} ${layoutClasses} ${className}`}
       aria-label={`Go back${to ? ` to ${to}` : ''}`}
     >
-      <ArrowLeft className="h-4 w-4" />
-      {text}
+      <ArrowLeft className="h-5 w-5" />
+      <span className={`${iconOnlyOnMobile ? 'hidden sm:inline' : ''}`}>{text}</span>
     </button>
   )
 }
