@@ -136,6 +136,27 @@ const ARExperiencePage = () => {
   const isLandscape = videoAspectRatio >= 1.5;
   const paddingTopPercent = (100 / videoAspectRatio) * (isLandscape ? 1.15 : 1);
 
+  // Ensure video element respects play/pause state
+  useEffect(() => {
+    if (!videoRef?.current) return;
+    try {
+      if (videoPlaying) {
+        videoRef.current.play().catch(() => {});
+      } else {
+        videoRef.current.pause();
+      }
+    } catch (_) {}
+  }, [videoPlaying, targetDetected]);
+
+  // Auto-play on first detection
+  const prevDetectedRef = React.useRef(false);
+  useEffect(() => {
+    if (targetDetected && !prevDetectedRef.current) {
+      setVideoPlaying(true);
+    }
+    prevDetectedRef.current = targetDetected;
+  }, [targetDetected, setVideoPlaying]);
+
   // Initialize libraries
   useEffect(() => {
     const initializeLibraries = async () => {
@@ -247,7 +268,6 @@ const ARExperiencePage = () => {
                 ref={videoRef}
                 src={projectData.videoUrl}
                 className="absolute inset-0 w-full h-full object-contain z-10"
-                autoPlay
                 muted={videoMuted}
                 loop
                 playsInline
