@@ -157,6 +157,44 @@ const ARExperiencePage = () => {
     prevDetectedRef.current = targetDetected;
   }, [targetDetected, setVideoPlaying]);
 
+  // Ensure MindAR camera/canvas fit inside container at all times
+  useEffect(() => {
+    const container = containerRef?.current;
+    if (!container) return;
+    const applySizing = () => {
+      const elems = container.querySelectorAll('video, canvas');
+      elems.forEach((el) => {
+        el.style.position = 'absolute';
+        el.style.top = '0';
+        el.style.left = '0';
+        el.style.right = '0';
+        el.style.bottom = '0';
+        el.style.width = '100%';
+        el.style.height = '100%';
+        // For video camera feed
+        if (el.tagName.toLowerCase() === 'video') {
+          el.style.objectFit = 'cover';
+          el.setAttribute('playsinline', '');
+          el.setAttribute('webkit-playsinline', '');
+          el.setAttribute('muted', 'true');
+        }
+      });
+    };
+
+    // Apply immediately and on next tick (in case MindAR injects late)
+    applySizing();
+    const id = setTimeout(applySizing, 300);
+
+    // Observe DOM changes inside container to re-apply
+    const observer = new MutationObserver(applySizing);
+    observer.observe(container, { childList: true, subtree: true });
+
+    return () => {
+      clearTimeout(id);
+      observer.disconnect();
+    };
+  }, [containerRef, arReady, cameraActive]);
+
   // Initialize libraries
   useEffect(() => {
     const initializeLibraries = async () => {
