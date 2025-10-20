@@ -140,7 +140,17 @@ router.put('/profile', authenticateToken, [
   body('socialLinks.website')
     .optional()
     .isURL()
-    .withMessage('Website must be a valid URL')
+    .withMessage('Website must be a valid URL'),
+  
+  body('socialLinks.contactNumber')
+    .optional()
+    .isMobilePhone()
+    .withMessage('Contact number must be a valid phone number'),
+  
+  body('socialLinks.whatsappNumber')
+    .optional()
+    .isMobilePhone()
+    .withMessage('WhatsApp number must be a valid phone number')
 ], async (req, res) => {
   try {
     // Check for validation errors

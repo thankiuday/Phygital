@@ -55,6 +55,18 @@ router.post('/scan', [
     
     // Update user analytics
     await user.updateAnalytics('scan');
+
+    // Also increment project-specific analytics if projectId provided
+    if (projectId) {
+      const project = user.projects.find(p => p.id === projectId);
+      if (project) {
+        project.analytics = project.analytics || {};
+        project.analytics.totalScans = (project.analytics.totalScans || 0) + 1;
+        project.analytics.lastScanAt = new Date();
+        project.updatedAt = new Date();
+        await user.save();
+      }
+    }
     
     // Track detailed analytics with projectId
     await Analytics.trackEvent(userId, 'scan', {
@@ -131,6 +143,18 @@ router.post('/video-view', [
     
     // Update user analytics
     await user.updateAnalytics('videoView');
+
+    // Also increment project-specific analytics if projectId provided
+    if (projectId) {
+      const project = user.projects.find(p => p.id === projectId);
+      if (project) {
+        project.analytics = project.analytics || {};
+        project.analytics.videoViews = (project.analytics.videoViews || 0) + 1;
+        project.analytics.lastVideoViewAt = new Date();
+        project.updatedAt = new Date();
+        await user.save();
+      }
+    }
     
     // Track detailed analytics with projectId
     await Analytics.trackEvent(userId, 'videoView', {
@@ -203,6 +227,17 @@ router.post('/link-click', [
     
     // Update user analytics
     await user.updateAnalytics('linkClick');
+
+    // Also increment project-specific analytics if projectId provided
+    if (projectId) {
+      const project = user.projects.find(p => p.id === projectId);
+      if (project) {
+        project.analytics = project.analytics || {};
+        project.analytics.linkClicks = (project.analytics.linkClicks || 0) + 1;
+        project.updatedAt = new Date();
+        await user.save();
+      }
+    }
     
     // Track detailed analytics with projectId
     await Analytics.trackEvent(userId, 'linkClick', {
@@ -443,6 +478,18 @@ router.post('/ar-experience-start', [
     
     // Update user analytics
     await user.updateAnalytics('arExperienceStart');
+
+    // Also increment project-specific analytics if projectId provided
+    if (projectId) {
+      const project = user.projects.find(p => p.id === projectId);
+      if (project) {
+        project.analytics = project.analytics || {};
+        project.analytics.arExperienceStarts = (project.analytics.arExperienceStarts || 0) + 1;
+        project.analytics.lastArExperienceStartAt = new Date();
+        project.updatedAt = new Date();
+        await user.save();
+      }
+    }
     
     // Track detailed analytics with projectId
     await Analytics.trackEvent(userId, 'arExperienceStart', {

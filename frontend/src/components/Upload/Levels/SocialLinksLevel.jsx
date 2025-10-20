@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { uploadAPI } from '../../../utils/api';
-import { Share2, CheckCircle, AlertCircle, Instagram, Facebook, Twitter, Linkedin, Globe } from 'lucide-react';
+import { Share2, CheckCircle, AlertCircle, Instagram, Facebook, Twitter, Linkedin, Globe, Phone, MessageCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = false }) => {
@@ -11,7 +11,9 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
     facebook: currentLinks?.facebook || user?.socialLinks?.facebook || '',
     twitter: currentLinks?.twitter || user?.socialLinks?.twitter || '',
     linkedin: currentLinks?.linkedin || user?.socialLinks?.linkedin || '',
-    website: currentLinks?.website || user?.socialLinks?.website || ''
+    website: currentLinks?.website || user?.socialLinks?.website || '',
+    contactNumber: currentLinks?.contactNumber || user?.socialLinks?.contactNumber || '',
+    whatsappNumber: currentLinks?.whatsappNumber || user?.socialLinks?.whatsappNumber || ''
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -23,7 +25,8 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
       placeholder: 'https://instagram.com/yourusername',
       color: 'from-pink-500 to-purple-500',
       bgColor: 'bg-pink-50',
-      borderColor: 'border-pink-200'
+      borderColor: 'border-pink-200',
+      type: 'url'
     },
     {
       key: 'facebook',
@@ -32,7 +35,8 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
       placeholder: 'https://facebook.com/yourpage',
       color: 'from-blue-600 to-blue-700',
       bgColor: 'bg-blue-50',
-      borderColor: 'border-blue-200'
+      borderColor: 'border-blue-200',
+      type: 'url'
     },
     {
       key: 'twitter',
@@ -41,7 +45,8 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
       placeholder: 'https://twitter.com/yourusername',
       color: 'from-sky-400 to-sky-500',
       bgColor: 'bg-sky-50',
-      borderColor: 'border-sky-200'
+      borderColor: 'border-sky-200',
+      type: 'url'
     },
     {
       key: 'linkedin',
@@ -50,7 +55,8 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
       placeholder: 'https://linkedin.com/in/yourprofile',
       color: 'from-blue-700 to-blue-800',
       bgColor: 'bg-blue-50',
-      borderColor: 'border-blue-200'
+      borderColor: 'border-blue-200',
+      type: 'url'
     },
     {
       key: 'website',
@@ -59,7 +65,28 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
       placeholder: 'https://yourwebsite.com',
       color: 'from-green-500 to-green-600',
       bgColor: 'bg-green-50',
-      borderColor: 'border-green-200'
+      borderColor: 'border-green-200',
+      type: 'url'
+    },
+    {
+      key: 'contactNumber',
+      name: 'Contact Number',
+      icon: Phone,
+      placeholder: 'Enter your phone number',
+      color: 'from-green-600 to-green-700',
+      bgColor: 'bg-green-50',
+      borderColor: 'border-green-200',
+      type: 'tel'
+    },
+    {
+      key: 'whatsappNumber',
+      name: 'WhatsApp Number',
+      icon: MessageCircle,
+      placeholder: 'Enter your WhatsApp number',
+      color: 'from-green-500 to-green-600',
+      bgColor: 'bg-green-50',
+      borderColor: 'border-green-200',
+      type: 'tel'
     }
   ];
 
@@ -70,7 +97,13 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
   const saveSocialLinks = async () => {
     try {
       setIsSaving(true);
-      await uploadAPI.updateSocialLinks(socialLinks);
+      // If current project context exists in user, update project-specific links; else update user-level
+      const currentProjectId = user?.currentProject;
+      if (currentProjectId) {
+        await uploadAPI.updateProjectSocialLinks(currentProjectId, socialLinks);
+      } else {
+        await uploadAPI.updateSocialLinks(socialLinks);
+      }
       updateUser({ ...user, socialLinks });
       toast.success('🔗 Social links updated!');
       
@@ -188,7 +221,7 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
               </div>
               
               <input
-                type="url"
+                type={platform.type}
                 value={value}
                 onChange={(e) => setSocialLinks(prev => ({ ...prev, [platform.key]: e.target.value }))}
                 placeholder={platform.placeholder}
@@ -200,7 +233,7 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
               {hasValue && (
                 <div className="mt-2 flex items-center text-xs sm:text-sm text-neon-green">
                   <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
-                  Link added
+                  {platform.type === 'tel' ? 'Number added' : 'Link added'}
                 </div>
               )}
             </div>

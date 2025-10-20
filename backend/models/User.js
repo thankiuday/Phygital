@@ -80,13 +80,15 @@ const userSchema = new mongoose.Schema({
     height: { type: Number, default: 100 }
   },
   
-  // Social media links
+  // Social media links and contact information
   socialLinks: {
     instagram: { type: String, default: '' },
     facebook: { type: String, default: '' },
     twitter: { type: String, default: '' },
     linkedin: { type: String, default: '' },
-    website: { type: String, default: '' }
+    website: { type: String, default: '' },
+    contactNumber: { type: String, default: '' },
+    whatsappNumber: { type: String, default: '' }
   },
   
   // Analytics data
@@ -147,6 +149,17 @@ const userSchema = new mongoose.Schema({
       }
     },
     
+    // Project-specific social links and contact info
+    socialLinks: {
+      instagram: { type: String, default: '' },
+      facebook: { type: String, default: '' },
+      twitter: { type: String, default: '' },
+      linkedin: { type: String, default: '' },
+      website: { type: String, default: '' },
+      contactNumber: { type: String, default: '' },
+      whatsappNumber: { type: String, default: '' }
+    },
+
     // Project-specific QR position
     qrPosition: {
       x: { type: Number, default: 0 },

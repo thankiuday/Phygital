@@ -369,6 +369,35 @@ router.get('/projects', authenticateToken, async (req, res) => {
   }
 });
 
+// Update project social links
+router.put('/projects/:projectId/social-links', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { projectId } = req.params;
+    const socialLinks = req.body?.socialLinks || {};
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const project = user.projects.find(p => p.id === projectId);
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+
+    project.socialLinks = { ...(project.socialLinks || {}), ...socialLinks };
+    project.updatedAt = new Date();
+
+    await user.save();
+
+    return res.json({ success: true, message: 'Project social links updated', data: { project } });
+  } catch (error) {
+    console.error('Error updating project social links:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 
 const upload = multer({
   storage: memoryStorage,

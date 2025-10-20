@@ -158,6 +158,7 @@ export const uploadAPI = {
   // Project management
   createProject: (projectData) => api.post('/upload/project', projectData),
   getProjects: () => api.get('/upload/projects'),
+  updateProjectSocialLinks: (projectId, links) => api.put(`/upload/projects/${projectId}/social-links`, { socialLinks: links }),
   getProject: (projectId) => api.get(`/upload/project/${projectId}`),
   updateProject: (projectId, projectData) => api.put(`/upload/project/${projectId}`, projectData),
   deleteProject: (projectId) => api.delete(`/upload/project/${projectId}`),
