@@ -176,6 +176,14 @@ router.get('/user-data/:userId', validateUser, async (req, res) => {
       console.log('💡 Composite design (design + QR code) is required for AR tracking');
     }
     
+    // For user-data endpoint, use user's global social links (this is for backward compatibility)
+    const socialLinks = user.socialLinks || {};
+    
+    console.log('🔗 User Social Links Debug:', {
+      userSocialLinks: user.socialLinks,
+      finalSocialLinks: socialLinks
+    });
+    
     const data = {
       userId: user._id.toString(),
       projectId: user.currentProject || null,
@@ -185,7 +193,7 @@ router.get('/user-data/:userId', validateUser, async (req, res) => {
       originalDesignUrl: user.uploadedFiles.design?.url || null,
       videoUrl: user.uploadedFiles.video.url,
       mindTargetUrl: user.uploadedFiles.mindTarget?.url || null,
-      socialLinks: user.socialLinks || {},
+      socialLinks: socialLinks,
       designDimensions: user.uploadedFiles.design?.dimensions || null,
       qrPosition: user.qrPosition,
       arReady: !!user.uploadedFiles.mindTarget?.url,
@@ -231,6 +239,14 @@ router.get('/project-data/:projectId', validateProject, async (req, res) => {
       console.log('💡 Composite design (design + QR code) is required for AR tracking');
     }
     
+    // For project-data endpoint, use user's global social links (this is for backward compatibility)
+    const socialLinks = user.socialLinks || {};
+    
+    console.log('🔗 Project Data Social Links Debug:', {
+      userSocialLinks: user.socialLinks,
+      finalSocialLinks: socialLinks
+    });
+    
     const data = {
       userId: user._id.toString(),
       projectId,
@@ -240,7 +256,7 @@ router.get('/project-data/:projectId', validateProject, async (req, res) => {
       originalDesignUrl: user.uploadedFiles.design?.url || null,
       videoUrl: user.uploadedFiles.video.url,
       mindTargetUrl: user.uploadedFiles.mindTarget?.url || null,
-      socialLinks: user.socialLinks || {},
+      socialLinks: socialLinks,
       designDimensions: user.uploadedFiles.design?.dimensions || null,
       qrPosition: user.qrPosition,
       arReady: !!user.uploadedFiles.mindTarget?.url,
@@ -365,6 +381,18 @@ router.get('/user/:userId/project/:projectId', async (req, res) => {
       }
     }
     
+    // Use project-specific social links if available, otherwise fall back to user's global social links
+    const socialLinks = project.socialLinks && Object.values(project.socialLinks).some(link => link) 
+      ? project.socialLinks 
+      : user.socialLinks || {};
+    
+    console.log('🔗 Social Links Debug:', {
+      projectSocialLinks: project.socialLinks,
+      userSocialLinks: user.socialLinks,
+      finalSocialLinks: socialLinks,
+      hasProjectSocialLinks: !!(project.socialLinks && Object.values(project.socialLinks).some(link => link))
+    });
+    
     const data = {
       userId: user._id.toString(),
       projectId,
@@ -375,7 +403,7 @@ router.get('/user/:userId/project/:projectId', async (req, res) => {
       originalDesignUrl: project.uploadedFiles.design?.url || null,
       videoUrl: project.uploadedFiles.video.url,
       mindTargetUrl: mindTargetUrl,
-      socialLinks: user.socialLinks || {},
+      socialLinks: socialLinks,
       designDimensions: project.uploadedFiles.design?.dimensions || null,
       qrPosition: project.qrPosition,
       arReady: !!project.uploadedFiles.mindTarget?.url,
