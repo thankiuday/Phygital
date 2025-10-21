@@ -122,6 +122,22 @@ const ARExperiencePage = () => {
   const socialLinks = projectData?.socialLinks || {};
   const contactNumber = socialLinks?.contactNumber?.trim();
   const whatsappNumber = socialLinks?.whatsappNumber?.trim();
+  
+  // Debug social links
+  console.log('🔗 Social Links Debug:', {
+    projectData: projectData,
+    socialLinks: socialLinks,
+    hasSocialLinks: !!socialLinks,
+    socialLinksKeys: Object.keys(socialLinks),
+    socialLinksValues: Object.values(socialLinks),
+    instagram: socialLinks?.instagram,
+    facebook: socialLinks?.facebook,
+    twitter: socialLinks?.twitter,
+    linkedin: socialLinks?.linkedin,
+    website: socialLinks?.website,
+    contactNumber: contactNumber,
+    whatsappNumber: whatsappNumber
+  });
 
   const sanitizeNumber = (num) => (num || '').replace(/[^0-9+]/g, '');
   const handleSocialClick = (platform, url) => {
@@ -411,7 +427,17 @@ const ARExperiencePage = () => {
         </div>
 
         {/* Contact Information */}
-        {(contactNumber || whatsappNumber) && (
+        {(() => {
+          const hasContactInfo = !!(contactNumber || whatsappNumber);
+          console.log('📞 Contact Info Condition Check:', {
+            hasContactInfo,
+            contactNumber: contactNumber,
+            whatsappNumber: whatsappNumber,
+            contactNumberTrimmed: contactNumber?.trim(),
+            whatsappNumberTrimmed: whatsappNumber?.trim()
+          });
+          return hasContactInfo;
+        })() && (
           <div className="px-4 pb-6">
             <div className="flex space-x-3 sm:space-x-4">
               {contactNumber && (
@@ -449,13 +475,26 @@ const ARExperiencePage = () => {
         )}
 
         {/* Social Links */}
-        {(
-          socialLinks?.instagram ||
-          socialLinks?.facebook ||
-          socialLinks?.twitter ||
-          socialLinks?.linkedin ||
-          socialLinks?.website
-        ) && (
+        {(() => {
+          const hasSocialLinks = !!(
+            socialLinks?.instagram ||
+            socialLinks?.facebook ||
+            socialLinks?.twitter ||
+            socialLinks?.linkedin ||
+            socialLinks?.website
+          );
+          console.log('🔗 Social Links Condition Check:', {
+            hasSocialLinks,
+            instagram: socialLinks?.instagram,
+            facebook: socialLinks?.facebook,
+            twitter: socialLinks?.twitter,
+            linkedin: socialLinks?.linkedin,
+            website: socialLinks?.website,
+            contactNumber: contactNumber,
+            whatsappNumber: whatsappNumber
+          });
+          return hasSocialLinks;
+        })() && (
           <div className="px-4 pb-8">
             <h2 className="text-base sm:text-lg font-bold text-slate-100 mb-3 sm:mb-4">Social Links</h2>
             <div className="grid grid-cols-3 gap-2 sm:gap-3">

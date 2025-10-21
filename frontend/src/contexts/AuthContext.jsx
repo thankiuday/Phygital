@@ -150,7 +150,11 @@ export const AuthProvider = ({ children }) => {
     try {
       dispatch({ type: AUTH_ACTIONS.LOGIN_START })
       
+      console.log('🔐 Attempting login with:', { email, apiUrl: import.meta.env.VITE_API_URL })
+      
       const response = await api.post('/auth/login', { email, password })
+      
+      console.log('✅ Login response:', response.data)
       
       dispatch({
         type: AUTH_ACTIONS.LOGIN_SUCCESS,
@@ -162,7 +166,12 @@ export const AuthProvider = ({ children }) => {
       
       return { success: true }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Login failed'
+      console.error('❌ Login error:', error)
+      console.error('❌ Error response:', error.response?.data)
+      console.error('❌ Error status:', error.response?.status)
+      console.error('❌ Error headers:', error.response?.headers)
+      
+      const errorMessage = error.response?.data?.message || error.message || 'Login failed'
       
       dispatch({
         type: AUTH_ACTIONS.LOGIN_FAILURE,

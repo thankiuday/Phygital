@@ -72,6 +72,16 @@ export const useProjectData = (projectId, userId, setIsLoading, setProjectData, 
         throw new Error('Invalid response format: missing data field');
       }
       
+      // Debug social links specifically
+      console.log('🔗 Social Links in API Response:', {
+        projectData: projectData,
+        socialLinks: projectData?.socialLinks,
+        hasSocialLinks: !!projectData?.socialLinks,
+        socialLinksType: typeof projectData?.socialLinks,
+        socialLinksKeys: projectData?.socialLinks ? Object.keys(projectData.socialLinks) : 'No socialLinks',
+        socialLinksValues: projectData?.socialLinks ? Object.values(projectData.socialLinks) : 'No socialLinks'
+      });
+      
       setProjectData(projectData);
       console.log('✅ Project data set:', projectData);
       addDebugMessage('✅ Project data loaded successfully', 'success');
