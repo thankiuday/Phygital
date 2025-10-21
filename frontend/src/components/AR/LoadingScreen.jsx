@@ -1,9 +1,10 @@
 /**
  * Loading Screen Component
- * Shows loading state with debug information
+ * Shows loading state with animated website logo
  */
 
 import React from 'react';
+import { QrCode } from 'lucide-react';
 
 const LoadingScreen = ({ 
   librariesLoaded, 
@@ -14,71 +15,44 @@ const LoadingScreen = ({
 }) => {
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-black via-gray-900 to-black flex items-center justify-center p-4">
-      <div className="text-center text-white max-w-md w-full">
-        {/* Animated Logo/Spinner */}
+      {/* Animated background particles */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute w-96 h-96 -top-48 -left-48 bg-neon-purple/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute w-96 h-96 -bottom-48 -right-48 bg-neon-blue/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+      </div>
+
+      <div className="relative z-10 text-center text-white max-w-md w-full">
+        {/* Animated Website Logo */}
         <div className="relative mb-8">
-          <div className="animate-spin rounded-full h-20 w-20 sm:h-24 sm:w-24 border-4 border-gray-700 border-t-blue-500 mx-auto"></div>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full opacity-20 animate-pulse"></div>
+          {/* Outer glow ring */}
+          <div className="absolute inset-0 animate-ping opacity-20">
+            <div className="w-24 h-24 bg-gradient-to-br from-neon-blue to-neon-purple rounded-2xl mx-auto"></div>
+          </div>
+          
+          {/* Main logo */}
+          <div className="relative w-24 h-24 bg-gradient-to-br from-neon-blue to-neon-purple rounded-2xl flex items-center justify-center shadow-glow-lg animate-pulse mx-auto">
+            <QrCode className="w-12 h-12 text-white" />
           </div>
         </div>
         
         {/* Loading Text */}
-        <h2 className="text-xl sm:text-2xl font-bold mb-2 animate-pulse">Loading AR Experience</h2>
-        <p className="text-sm sm:text-base text-gray-400 mb-8">Preparing your augmented reality...</p>
-        
-        {/* Status Cards */}
-        <div className="bg-black/40 backdrop-blur-sm rounded-2xl p-4 sm:p-5 border border-gray-700 mb-6">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-300">Libraries</span>
-              <div className="flex items-center gap-2">
-                {librariesLoaded ? (
-                  <>
-                    <span className="text-green-400 text-sm font-medium">Loaded</span>
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-gray-400 text-sm">Loading...</span>
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse"></div>
-                  </>
-                )}
-              </div>
-            </div>
-            
-            <div className="h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent"></div>
-            
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-300">Project Data</span>
-              <div className="flex items-center gap-2">
-                {projectData ? (
-                  <>
-                    <span className="text-green-400 text-sm font-medium">Loaded</span>
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-gray-400 text-sm">Loading...</span>
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse"></div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
+        <h2 className="text-4xl font-bold text-gradient mb-4 animate-fade-in">Phygital</h2>
+        <p className="text-sm sm:text-base text-slate-400 mb-8 animate-fade-in" style={{ animationDelay: '0.2s' }}>
+          Loading AR Experience...
+        </p>
+
+        {/* Animated loading bar */}
+        <div className="w-64 h-1 bg-slate-700 rounded-full overflow-hidden mx-auto mb-6">
+          <div className="h-full bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink animate-loading-bar"></div>
         </div>
-        
-        {/* Debug button */}
-        <button
-          onClick={() => setShowDebug(true)}
-          className="px-5 py-2.5 bg-gray-800/80 hover:bg-gray-700/80 active:bg-gray-600/80 text-white rounded-full text-sm font-medium transition-all duration-200 border border-gray-600 shadow-lg"
-        >
-          Show Debug Info
-        </button>
+
+        {/* Loading dots */}
+        <div className="flex space-x-2 justify-center">
+          <div className="w-2 h-2 bg-neon-blue rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+          <div className="w-2 h-2 bg-neon-purple rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+          <div className="w-2 h-2 bg-neon-pink rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+        </div>
       </div>
-      
-      {/* Debug Panel - available even during loading */}
-      <DebugPanel />
     </div>
   );
 };

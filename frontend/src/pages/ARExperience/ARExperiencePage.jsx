@@ -172,12 +172,21 @@ const ARExperiencePage = () => {
         el.style.bottom = '0';
         el.style.width = '100%';
         el.style.height = '100%';
+        el.style.maxWidth = '100%';
+        el.style.maxHeight = '100%';
+        el.style.overflow = 'hidden';
         // For video camera feed
         if (el.tagName.toLowerCase() === 'video') {
-          el.style.objectFit = 'cover';
+          el.style.objectFit = 'contain';
+          el.style.objectPosition = 'center';
           el.setAttribute('playsinline', '');
           el.setAttribute('webkit-playsinline', '');
           el.setAttribute('muted', 'true');
+        }
+        // For canvas elements (AR tracking)
+        if (el.tagName.toLowerCase() === 'canvas') {
+          el.style.objectFit = 'contain';
+          el.style.objectPosition = 'center';
         }
       });
     };
@@ -273,8 +282,10 @@ const ARExperiencePage = () => {
 
   return (
     <div className="min-h-screen bg-dark-mesh">
-      {/* Floating Back (consistent across pages) */}
-      <BackButton variant="floating" floating iconOnlyOnMobile className="sm:ml-4 sm:mt-4" />
+      {/* Floating Back (consistent across pages) - Hidden when video is playing */}
+      {!videoPlaying && (
+        <BackButton variant="floating" floating iconOnlyOnMobile className="sm:ml-4 sm:mt-4" />
+      )}
       {/* Main Content */}
       <main className="max-w-md mx-auto bg-slate-900/95 backdrop-blur-sm min-h-screen">
         {/* Video Container */}
@@ -291,6 +302,8 @@ const ARExperiencePage = () => {
               style={{
                 width: '100%',
                 height: '100%',
+                maxWidth: '100%',
+                maxHeight: '100%',
                 touchAction: 'none',
                 background: 'transparent',
                 overflow: 'hidden',
@@ -299,7 +312,8 @@ const ARExperiencePage = () => {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                zIndex: 1
+                zIndex: 1,
+                borderRadius: 'inherit'
               }}
             />
             
@@ -349,28 +363,6 @@ const ARExperiencePage = () => {
         <div className="px-4 pb-4">
           <div className="flex space-x-3">
             <button
-              onClick={toggleVideo}
-              className="flex-1 bg-slate-800/80 border border-slate-600/30 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-center space-x-2 hover:bg-slate-700/80 active:bg-slate-600/90 focus:outline-none focus:ring-2 focus:ring-neon-blue/40 transition-colors touch-manipulation backdrop-blur-md"
-            >
-              {videoPlaying ? (
-                <>
-                  <div className="w-4 h-4 flex items-center justify-center">
-                    <div className="w-1 h-3 bg-slate-100 mr-1"></div>
-                    <div className="w-1 h-3 bg-slate-100"></div>
-                  </div>
-                  <span className="text-slate-100 font-medium text-sm sm:text-base">Pause</span>
-                </>
-              ) : (
-                <>
-                  <div className="w-4 h-4 flex items-center justify-center">
-                    <div className="w-0 h-0 border-l-[6px] border-l-slate-100 border-y-[4px] border-y-transparent ml-0.5"></div>
-                  </div>
-                  <span className="text-slate-100 font-medium text-sm sm:text-base">Play</span>
-                </>
-              )}
-            </button>
-            
-            <button
               onClick={toggleMute}
               className="flex-1 bg-slate-800/80 border border-slate-600/30 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-center space-x-2 hover:bg-slate-700/80 active:bg-slate-600/90 focus:outline-none focus:ring-2 focus:ring-neon-purple/40 transition-colors touch-manipulation backdrop-blur-md"
             >
@@ -394,6 +386,27 @@ const ARExperiencePage = () => {
                 </>
               )}
             </button>
+            
+            {projectData?.videoUrl && (
+              <button
+                onClick={() => {
+                  const link = document.createElement('a');
+                  link.href = projectData.videoUrl;
+                  link.download = `ar-video-${projectId || userId}.mp4`;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }}
+                className="flex-1 bg-slate-800/80 border border-slate-600/30 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-center space-x-2 hover:bg-slate-700/80 active:bg-slate-600/90 focus:outline-none focus:ring-2 focus:ring-neon-green/40 transition-colors touch-manipulation backdrop-blur-md"
+              >
+                <div className="w-4 h-4 flex items-center justify-center">
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-slate-100">
+                    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                  </svg>
+                </div>
+                <span className="text-slate-100 font-medium text-sm sm:text-base">Download</span>
+              </button>
+            )}
           </div>
         </div>
 
