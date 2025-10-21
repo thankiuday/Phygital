@@ -342,14 +342,7 @@ const ProjectsPage = () => {
       const response = await uploadAPI.deleteProject(projectToDelete.id)
       
       if (response.data.success) {
-        const deletedFilesCount = response.data.data?.deletedFiles || 0
-        const cloudinaryDeletion = response.data.data?.cloudinaryDeletion
-        
-        if (cloudinaryDeletion && cloudinaryDeletion.failed > 0) {
-          toast.success(`Project deleted! ${cloudinaryDeletion.successful}/${deletedFilesCount} files removed.`)
-        } else {
-          toast.success(`Project deleted! ${deletedFilesCount} files removed.`)
-        }
+        toast.success('Project deleted successfully! All content has been removed.')
         
         setShowDeleteModal(false)
         setProjectToDelete(null)
@@ -939,15 +932,15 @@ const DeleteConfirmationModal = ({ project, isDeleting, onConfirm, onClose }) =>
           </p>
           <div className="bg-red-900/20 border border-neon-red/30 rounded-lg p-2 sm:p-3">
             <p className="text-xs sm:text-sm text-neon-red">
-              <strong>Warning:</strong> This will permanently delete:
+              <strong>Warning:</strong> This will permanently remove:
             </p>
             <ul className="text-xs sm:text-sm text-slate-300 mt-2 list-disc list-inside">
-              <li>Project data from database</li>
-              <li>Design image from Cloudinary storage</li>
-              <li>Video file from Cloudinary storage</li>
-              <li>Composite design (if generated)</li>
-              <li>AR target file (.mind file)</li>
-              <li>All project history and analytics</li>
+              <li>Your design image and video</li>
+              <li>QR code and AR experience</li>
+              <li>Project settings and configuration</li>
+              <li>All analytics and scan data</li>
+              <li>Generated composite designs</li>
+              <li>Project history and timeline</li>
             </ul>
           </div>
           <p className="text-xs sm:text-sm text-neon-red mt-2 sm:mt-3 font-medium">

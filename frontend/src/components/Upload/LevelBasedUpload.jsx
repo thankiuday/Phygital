@@ -3,7 +3,7 @@ import { ChevronRight, ChevronLeft, Upload, QrCode, Video, Share2, Download, Spa
 import { useAuth } from '../../contexts/AuthContext';
 import PageTransitionLoader from '../UI/PageTransitionLoader';
 import MindFileGenerationLoader from '../UI/MindFileGenerationLoader';
-import GameLevelProgress from './GameLevelProgress';
+import HorizontalLevelProgress from './HorizontalLevelProgress';
 import DesignUploadLevel from './Levels/DesignUploadLevel';
 import QRPositionLevel from './Levels/QRPositionLevel';
 import VideoUploadLevel from './Levels/VideoUploadLevel';
@@ -578,8 +578,8 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
       {/* AR Tracking File Generation Loader */}
       <MindFileGenerationLoader isLoading={isLoading} message={loadingMessage} />
       
-      {/* Game Progress */}
-      <GameLevelProgress 
+      {/* Horizontal Progress */}
+      <HorizontalLevelProgress 
         currentLevel={currentLevel}
         completedLevels={completedLevels}
         totalLevels={levels.length}

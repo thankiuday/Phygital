@@ -25,6 +25,8 @@ import ProfilePage from './pages/Profile/ProfilePage'
 import UserPage from './pages/User/UserPage'
 import HistoryPage from './pages/History/HistoryPage'
 import ProjectsPage from './pages/Projects/ProjectsPage' // New combined page
+import AboutPage from './pages/About/AboutPage'
+import ContactPage from './pages/Contact/ContactPage'
 import ScanPage from './pages/ScanPage'
 import NotFoundPage from './pages/NotFoundPage'
 
@@ -48,6 +50,8 @@ function App() {
           <Route index element={<HomePage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
+          <Route path="about" element={<AboutPage />} />
+          <Route path="contact" element={<ContactPage />} />
           <Route path="user/:username" element={<UserPage />} />
           <Route path="scan/:userId" element={<QRScanPage />} />
           <Route path="scan/project/:projectId" element={<QRScanPage />} />

@@ -57,6 +57,22 @@ const UploadPage = () => {
     if (acceptedFiles.length === 0) return
 
     const file = acceptedFiles[0]
+    
+    // Additional client-side validation for JPG/JPEG only
+    const allowedTypes = ['image/jpeg', 'image/jpg'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Only JPG/JPEG files are supported. Please convert your image.');
+      return;
+    }
+    
+    // Check file size (20MB limit)
+    const maxSize = 20 * 1024 * 1024; // 20MB
+    if (file.size > maxSize) {
+      const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
+      toast.error(`Design file size must be less than 20MB. Your file is ${fileSizeMB}MB. Please compress your image.`);
+      return;
+    }
+    
     const formData = new FormData()
     formData.append('design', file)
 
@@ -181,11 +197,12 @@ const UploadPage = () => {
   const {
     getRootProps: getDesignRootProps,
     getInputProps: getDesignInputProps,
-    isDragActive: isDesignDragActive
+    isDragActive: isDesignDragActive,
+    fileRejections: designFileRejections
   } = useDropzone({
     onDrop: onDesignDrop,
     accept: {
-      'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp']
+      'image/jpeg': ['.jpg', '.jpeg']
     },
     maxFiles: 1,
     disabled: isUploading
@@ -510,7 +527,7 @@ const UploadPage = () => {
       {/* Tabs */}
       <div className="mb-8">
         <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
+          <nav className="-mb-px flex space-x-2 sm:space-x-8 overflow-x-auto scrollbar-hide">
             {tabs.map((tab) => {
               const Icon = tab.icon
               const isActive = activeTab === tab.id
@@ -518,14 +535,15 @@ const UploadPage = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
+                  className={`flex items-center py-2 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors duration-200 whitespace-nowrap min-w-0 ${
                     isActive
                       ? 'border-primary-500 text-primary-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  <Icon className="w-4 h-4 mr-2" />
-                  {tab.name}
+                  <Icon className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                  <span className="hidden sm:inline">{tab.name}</span>
+                  <span className="sm:hidden">{tab.name.split(' ')[0]}</span>
                 </button>
               )
             })}
@@ -582,8 +600,26 @@ const UploadPage = () => {
                   or click to browse files
                 </p>
                 <p className="text-xs text-gray-500">
-                  Supports: JPEG, PNG, GIF, WebP (max 50MB)
+                  Only JPG/JPEG format supported (max 20MB)
                 </p>
+              </div>
+            )}
+            
+            {/* Design File Rejection Errors */}
+            {designFileRejections.length > 0 && (
+              <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-start">
+                  <AlertCircle className="w-5 h-5 text-red-400 mr-3 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-medium text-red-800 mb-2">❌ Invalid File Format</h4>
+                    <p className="text-sm text-red-700 mb-2">
+                      Only JPG/JPEG files are supported (max 20MB). Please convert your image to JPG/JPEG format and ensure it's under 20MB.
+                    </p>
+                    <p className="text-xs text-red-600">
+                      Supported formats: .jpg, .jpeg (max 20MB)
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
           </div>

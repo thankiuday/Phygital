@@ -32,29 +32,22 @@ const VideoUploadLevel = ({ onComplete, onCancel, levelData, user, forceStartFro
   }, []);
 
   const validateFile = (file) => {
-    // Check file type
-    if (!file.type.startsWith('video/')) {
-      setError('Please select a valid video file (MP4, MOV, AVI, etc.)');
+    // Check file type - only MP4 allowed
+    if (file.type !== 'video/mp4') {
+      setError('Only MP4 video files are supported. Please convert your video to MP4 format.');
       return false;
     }
 
     // Check file size (50MB limit)
     const maxSize = 50 * 1024 * 1024; // 50MB
     if (file.size > maxSize) {
-      setError(`Video file size must be less than 50MB. Your file is ${formatFileSize(file.size)}`);
+      setError(`Video file size must be less than 50MB. Your file is ${formatFileSize(file.size)}. Please compress your video or use a shorter clip.`);
       return false;
     }
 
     // Check if file is empty
     if (file.size === 0) {
       setError('The selected file appears to be empty');
-      return false;
-    }
-
-    // Check for common video formats
-    const allowedTypes = ['video/mp4', 'video/mov', 'video/avi', 'video/quicktime', 'video/x-msvideo', 'video/webm'];
-    if (!allowedTypes.includes(file.type)) {
-      setError('Unsupported video format. Please use MP4, MOV, AVI, or WebM');
       return false;
     }
 
@@ -257,7 +250,7 @@ const VideoUploadLevel = ({ onComplete, onCancel, levelData, user, forceStartFro
               </p>
               <input
                 type="file"
-                accept="video/*"
+                accept="video/mp4"
                 onChange={handleFileInput}
                 className="hidden"
                 id="video-upload"
@@ -270,7 +263,7 @@ const VideoUploadLevel = ({ onComplete, onCancel, levelData, user, forceStartFro
                 Choose Video File
               </label>
               <p className="text-xs sm:text-sm text-slate-400 mt-3 sm:mt-4">
-                Supports MP4, MOV, AVI, and other video formats (max 50MB)
+                Only MP4 format supported (max 50MB)
               </p>
             </div>
           ) : (

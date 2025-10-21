@@ -328,16 +328,48 @@ const QRPositioningOverlay = ({
           onMouseDown={handleMouseDown}
         >
           {/* QR Code Label */}
-          <div className="absolute -top-6 left-0 text-xs bg-primary-500 text-white px-2 py-1 rounded whitespace-nowrap">
-            QR Code Area
+          <div className="absolute -top-8 left-0 text-xs bg-primary-500 text-white px-2 py-1 rounded whitespace-nowrap">
+            QR Code Position
+          </div>
+          <div className="absolute -top-6 left-0 text-xs bg-primary-600 text-white px-2 py-1 rounded whitespace-nowrap">
+            Drag to move • Resize handles on edges
           </div>
           {/* QR preview inside overlay (if available) */}
-          {qrImageUrl && (
+          {qrImageUrl ? (
             <img
               src={qrImageUrl}
               alt="QR preview"
               style={{ width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none' }}
             />
+          ) : (
+            /* Dummy QR Code Pattern */
+            <div className="w-full h-full flex items-center justify-center bg-white p-1" style={{ pointerEvents: 'none' }}>
+              <div className="grid grid-cols-7 gap-0.5 w-full h-full max-w-[80%] max-h-[80%]">
+                {/* Generate a 7x7 grid pattern that looks like a QR code */}
+                {Array.from({ length: 49 }, (_, i) => {
+                  const row = Math.floor(i / 7);
+                  const col = i % 7;
+                  // Create a consistent pattern that looks like a QR code
+                  // Corner squares (position detection patterns)
+                  const isTopLeft = row < 3 && col < 3;
+                  const isTopRight = row < 3 && col > 3;
+                  const isBottomLeft = row > 3 && col < 3;
+                  // Some data pattern dots
+                  const isDataPattern = (row === 3 && col === 3) || (row === 3 && col === 5) || 
+                                      (row === 5 && col === 3) || (row === 5 && col === 5) ||
+                                      (row === 1 && col === 5) || (row === 5 && col === 1);
+                  const shouldFill = isTopLeft || isTopRight || isBottomLeft || isDataPattern;
+                  
+                  return (
+                    <div
+                      key={i}
+                      className={`w-full h-full ${shouldFill ? 'bg-black' : 'bg-white'} border border-gray-200`}
+                      style={{ minHeight: '3px', minWidth: '3px' }}
+                    />
+                  );
+                })}
+              </div>
+            </div>
           )}
           
           {/* Move Icon */}
@@ -392,6 +424,14 @@ const QRPositioningOverlay = ({
         </div>
       </div>
       
+      {/* Instructions */}
+      <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+        <p className="text-sm text-blue-800">
+          <strong>💡 Tip:</strong> Position the QR code area where you want your QR code to appear on your design. 
+          The dummy pattern shows you exactly where the QR code will be placed.
+        </p>
+      </div>
+
       {/* Controls */}
       <div className="mt-4 flex items-center justify-between">
         <div className="text-sm text-gray-600">

@@ -196,44 +196,68 @@ const HomePage = () => {
               How it works
             </h2>
             <p className="text-base sm:text-lg lg:text-xl text-slate-300 px-4">
-              Get started in minutes with our simple 3-step process
+              Complete your project in 5 simple levels
             </p>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
             <div className="text-center group">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-button-gradient text-white rounded-full text-2xl font-bold mb-4 shadow-glow group-hover:shadow-glow-blue transition-all duration-300">
+              <div className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-button-gradient text-white rounded-full text-lg sm:text-xl font-bold mb-3 shadow-glow group-hover:shadow-glow-blue transition-all duration-300">
                 1
               </div>
-              <h3 className="text-xl font-semibold text-slate-100 mb-2">
-                Upload Your Content
+              <h3 className="text-lg sm:text-xl font-semibold text-slate-100 mb-2">
+                Design
               </h3>
-              <p className="text-slate-300">
-                Upload your design image and create an explanatory video to showcase your content.
+              <p className="text-sm sm:text-base text-slate-300">
+                Upload your design image (JPG/JPEG format, max 20MB)
               </p>
             </div>
             
             <div className="text-center group">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-accent-gradient text-white rounded-full text-2xl font-bold mb-4 shadow-glow-accent group-hover:shadow-glow-purple transition-all duration-300">
+              <div className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-accent-gradient text-white rounded-full text-lg sm:text-xl font-bold mb-3 shadow-glow-accent group-hover:shadow-glow-purple transition-all duration-300">
                 2
               </div>
-              <h3 className="text-xl font-semibold text-slate-100 mb-2">
-                Generate QR Code
+              <h3 className="text-lg sm:text-xl font-semibold text-slate-100 mb-2">
+                QR Position
               </h3>
-              <p className="text-slate-300">
-                Our system automatically generates a unique QR code that links to your personalized page.
+              <p className="text-sm sm:text-base text-slate-300">
+                Position your QR code on the design where you want it
               </p>
             </div>
             
             <div className="text-center group">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-success-gradient text-white rounded-full text-2xl font-bold mb-4 shadow-glow-green group-hover:shadow-glow-green transition-all duration-300">
+              <div className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-warning-gradient text-white rounded-full text-lg sm:text-xl font-bold mb-3 shadow-glow-yellow group-hover:shadow-glow-yellow transition-all duration-300">
                 3
               </div>
-              <h3 className="text-xl font-semibold text-slate-100 mb-2">
-                Share & Track
+              <h3 className="text-lg sm:text-xl font-semibold text-slate-100 mb-2">
+                Video
               </h3>
-              <p className="text-slate-300">
-                Print your design with the QR code and track engagement through our analytics dashboard.
+              <p className="text-sm sm:text-base text-slate-300">
+                Add your explanatory video (MP4 format, max 50MB)
+              </p>
+            </div>
+            
+            <div className="text-center group">
+              <div className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-success-gradient text-white rounded-full text-lg sm:text-xl font-bold mb-3 shadow-glow-green group-hover:shadow-glow-green transition-all duration-300">
+                4
+              </div>
+              <h3 className="text-lg sm:text-xl font-semibold text-slate-100 mb-2">
+                Social Links
+              </h3>
+              <p className="text-sm sm:text-base text-slate-300">
+                Connect your social media profiles and website
+              </p>
+            </div>
+            
+            <div className="text-center group">
+              <div className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-error-gradient text-white rounded-full text-lg sm:text-xl font-bold mb-3 shadow-glow-red group-hover:shadow-glow-red transition-all duration-300">
+                5
+              </div>
+              <h3 className="text-lg sm:text-xl font-semibold text-slate-100 mb-2">
+                Final Design
+              </h3>
+              <p className="text-sm sm:text-base text-slate-300">
+                Download your complete design with QR code
               </p>
             </div>
           </div>

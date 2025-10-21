@@ -15,6 +15,22 @@ const DesignUploadLevel = ({ onComplete, currentDesign, forceStartFromLevel1 = f
     if (acceptedFiles.length === 0) return;
 
     const file = acceptedFiles[0];
+    
+    // Additional client-side validation for JPG/JPEG only
+    const allowedTypes = ['image/jpeg', 'image/jpg'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Only JPG/JPEG files are supported. Please convert your image.');
+      return;
+    }
+    
+    // Check file size (20MB limit)
+    const maxSize = 20 * 1024 * 1024; // 20MB
+    if (file.size > maxSize) {
+      const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
+      toast.error(`Design file size must be less than 20MB. Your file is ${fileSizeMB}MB. Please compress your image.`);
+      return;
+    }
+    
     const formData = new FormData();
     formData.append('design', file);
 
@@ -74,11 +90,12 @@ const DesignUploadLevel = ({ onComplete, currentDesign, forceStartFromLevel1 = f
   const {
     getRootProps,
     getInputProps,
-    isDragActive
+    isDragActive,
+    fileRejections
   } = useDropzone({
     onDrop: onDesignDrop,
     accept: {
-      'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp']
+      'image/jpeg': ['.jpg', '.jpeg']
     },
     maxFiles: 1,
     disabled: isUploading
@@ -212,11 +229,29 @@ const DesignUploadLevel = ({ onComplete, currentDesign, forceStartFromLevel1 = f
               or tap to browse files
             </p>
             <p className="text-xs sm:text-sm text-slate-400">
-              Supports: JPEG, PNG, GIF, WebP (max 50MB)
+              Only JPG/JPEG format supported (max 20MB)
             </p>
           </div>
         </div>
       </div>
+
+      {/* File Rejection Errors */}
+      {fileRejections.length > 0 && (
+        <div className="mt-6 bg-red-900/20 border border-red-500/30 rounded-lg p-4">
+          <div className="flex items-start">
+            <AlertCircle className="w-5 h-5 text-red-400 mr-3 mt-0.5 flex-shrink-0" />
+            <div>
+              <h4 className="font-medium text-red-400 mb-2">❌ Invalid File Format</h4>
+              <p className="text-sm text-red-300 mb-2">
+                Only JPG/JPEG files are supported (max 20MB). Please convert your image to JPG/JPEG format and ensure it's under 20MB.
+              </p>
+              <p className="text-xs text-red-400">
+                Supported formats: .jpg, .jpeg (max 20MB)
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tips */}
       <div className="mt-6 sm:mt-8 bg-blue-900/20 border border-neon-blue/30 rounded-lg p-3 sm:p-4">
@@ -225,9 +260,9 @@ const DesignUploadLevel = ({ onComplete, currentDesign, forceStartFromLevel1 = f
           <div>
             <h4 className="font-medium text-neon-blue mb-1 text-sm sm:text-base">💡 Pro Tips</h4>
             <ul className="text-xs sm:text-sm text-slate-300 space-y-1">
-              <li>• Use high-quality images for best results</li>
+              <li>• Use high-quality JPG/JPEG images for best results</li>
               <li>• Consider leaving space for your QR code</li>
-              <li>• Supported formats: JPG, PNG, GIF, WebP</li>
+              <li>• Only JPG/JPEG formats are supported (max 20MB)</li>
             </ul>
           </div>
         </div>

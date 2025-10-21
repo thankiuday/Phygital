@@ -18,7 +18,9 @@ import {
   User, 
   LogOut,
   Settings,
-  FolderKanban
+  FolderKanban,
+  Info,
+  Mail
 } from 'lucide-react'
 
 const Layout = () => {
@@ -57,6 +59,8 @@ const Layout = () => {
 
   const navigation = [
     { name: 'Home', href: '/', icon: Home, public: true, authOnly: false },
+    { name: 'About', href: '/about', icon: Info, public: true, authOnly: false },
+    { name: 'Contact', href: '/contact', icon: Mail, public: true, authOnly: false },
     { name: 'Dashboard', href: '/dashboard', icon: BarChart3, public: false, authOnly: true },
     { name: 'Upload', href: '/upload', icon: Upload, public: false, authOnly: true },
     { name: 'Projects', href: '/projects', icon: FolderKanban, public: false, authOnly: true },
@@ -334,21 +338,43 @@ const Layout = () => {
                 Support
               </h3>
               <ul className="space-y-1 sm:space-y-2">
-                <li>
-                  <a href="#" className="text-xs sm:text-sm text-slate-400 hover:text-neon-blue transition-colors duration-200">
-                    Help Center
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-xs sm:text-sm text-slate-400 hover:text-neon-blue transition-colors duration-200">
-                    Contact Us
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-xs sm:text-sm text-slate-400 hover:text-neon-blue transition-colors duration-200">
-                    Privacy Policy
-                  </a>
-                </li>
+                {isAuthenticated ? (
+                  <>
+                    <li>
+                      <Link to="/about" className="text-xs sm:text-sm text-slate-400 hover:text-neon-blue transition-colors duration-200">
+                        About Us
+                      </Link>
+                    </li>
+                    <li>
+                      <Link to="/contact" className="text-xs sm:text-sm text-slate-400 hover:text-neon-blue transition-colors duration-200">
+                        Contact Us
+                      </Link>
+                    </li>
+                    <li>
+                      <a href="#" className="text-xs sm:text-sm text-slate-400 hover:text-neon-blue transition-colors duration-200">
+                        Help Center
+                      </a>
+                    </li>
+                    <li>
+                      <a href="#" className="text-xs sm:text-sm text-slate-400 hover:text-neon-blue transition-colors duration-200">
+                        Privacy Policy
+                      </a>
+                    </li>
+                  </>
+                ) : (
+                  <>
+                    <li>
+                      <a href="#" className="text-xs sm:text-sm text-slate-400 hover:text-neon-blue transition-colors duration-200">
+                        Help Center
+                      </a>
+                    </li>
+                    <li>
+                      <a href="#" className="text-xs sm:text-sm text-slate-400 hover:text-neon-blue transition-colors duration-200">
+                        Privacy Policy
+                      </a>
+                    </li>
+                  </>
+                )}
               </ul>
             </div>
           </div>

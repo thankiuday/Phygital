@@ -437,37 +437,6 @@ const ProfilePage = () => {
             </div>
           </div>
 
-          <div className="card-elevated border-neon-red/30">
-            <div className="card-header">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-8 h-8 bg-neon-red/30 rounded-lg flex items-center justify-center">
-                  <AlertCircle className="w-5 h-5 text-neon-red" />
-                </div>
-                <h2 className="text-lg sm:text-xl font-semibold text-neon-red">
-                  Danger Zone
-                </h2>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div className="p-4 bg-red-900/20 border border-neon-red/30 rounded-lg">
-                <div className="flex items-start gap-3 mb-3">
-                  <AlertCircle className="h-5 w-5 text-neon-red mt-0.5 flex-shrink-0" />
-                  <div>
-                    <h3 className="text-sm font-medium text-neon-red mb-1">
-                      Delete Account
-                    </h3>
-                    <p className="text-sm text-slate-300">
-                      Once you delete your account, there is no going back. Please be certain.
-                    </p>
-                  </div>
-                </div>
-                <button className="btn-danger w-full sm:w-auto text-sm py-2.5 px-4">
-                  Delete Account
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
         </div>
       </div>
