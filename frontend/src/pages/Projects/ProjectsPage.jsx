@@ -4,9 +4,9 @@
  * Combines project list, QR code generation, video updates, and deletion
  */
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { uploadAPI, generateQRCode, downloadFile } from '../../utils/api'
+import { uploadAPI, generateQRCode, downloadFile, api } from '../../utils/api'
 import BackButton from '../../components/UI/BackButton'
 import { 
   Video, 
@@ -28,23 +28,29 @@ import {
   ChevronUp,
   Grid,
   List,
-  Image
+  Image,
+  Save,
+  Phone,
+  MessageCircle,
+  Instagram,
+  Facebook,
+  Twitter,
+  Linkedin,
+  Globe,
+  AlertCircle
 } from 'lucide-react'
 import LoadingSpinner from '../../components/UI/LoadingSpinner'
+import { useDropzone } from 'react-dropzone'
 import toast from 'react-hot-toast'
 
 const ProjectsPage = () => {
-  const { user, loadUser } = useAuth()
+  const { user, loadUser, updateUser } = useAuth()
+
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState('list') // 'list' or 'grid'
   const [sortBy, setSortBy] = useState('newest') // 'newest', 'oldest', 'name', 'scans'
   
-  // Video update modal state
-  const [showVideoUpdateModal, setShowVideoUpdateModal] = useState(false)
-  const [selectedProject, setSelectedProject] = useState(null)
-  const [videoFile, setVideoFile] = useState(null)
-  const [isUploading, setIsUploading] = useState(false)
   
   // Delete modal state
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -59,6 +65,24 @@ const ProjectsPage = () => {
   
   // Toggle status state
   const [togglingStatus, setTogglingStatus] = useState({}) // Map of projectId -> boolean
+  
+  // Edit modal state
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingProject, setEditingProject] = useState(null)
+  const [editFormData, setEditFormData] = useState({
+    video: null,
+    socialLinks: {
+      instagram: '',
+      facebook: '',
+      twitter: '',
+      linkedin: '',
+      website: '',
+      contactNumber: '',
+      whatsappNumber: ''
+    }
+  })
+  const [isSaving, setIsSaving] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
 
   // Sort projects based on selected criteria
   const getSortedProjects = () => {
@@ -78,17 +102,37 @@ const ProjectsPage = () => {
     }
   }
 
+  // Test backend connectivity
+  const testBackendConnection = async () => {
+    try {
+      const response = await api.get('/health');
+      return true;
+    } catch (error) {
+      console.error('❌ Backend health check failed:', error);
+      return false;
+    }
+  };
+
   // Load projects
   const loadProjects = async () => {
     try {
       setLoading(true)
+
+      // Test backend connectivity first
+      const isConnected = await testBackendConnection();
+      if (!isConnected) {
+        toast.error('Cannot connect to backend server. Please check if the backend is running.');
+        return;
+      }
+
       const response = await uploadAPI.getProjects()
-      
       const projectsData = response.data.data?.projects || []
-      
+
       // Enhance projects with user data
       const enhancedProjects = projectsData.map(project => {
         const userProject = user?.projects?.find(p => p.id === project.id)
+        
+
         return {
           ...project,
           hasVideo: !!(userProject?.uploadedFiles?.video?.url),
@@ -104,10 +148,12 @@ const ProjectsPage = () => {
             videoViews: 0,
             linkClicks: 0,
             arExperienceStarts: 0
-          }
-        }
+          },
+          // Include social links from user project data
+          socialLinks: userProject?.socialLinks || {}
+        };
       })
-      
+
       setProjects(enhancedProjects)
     } catch (error) {
       console.error('Failed to load projects:', error)
@@ -266,66 +312,237 @@ const ProjectsPage = () => {
     }
   }
 
-  // Handle video update
-  const handleProjectSelect = (project) => {
-    setSelectedProject(project)
-    setShowVideoUpdateModal(true)
-  }
 
-  const handleVideoFileChange = (event) => {
-    const file = event.target.files[0]
-    if (file) {
-      if (!file.type.startsWith('video/')) {
-        toast.error('Please select a valid video file')
-        return
-      }
-      
-      if (file.size > 50 * 1024 * 1024) {
-        toast.error('Video file size must be less than 50MB')
-        return
-      }
-      
-      setVideoFile(file)
+  // Handle edit project
+  const handleEditProject = (project) => {
+    setEditingProject(project)
+
+    // Initialize form data with current project data
+    const userProject = user?.projects?.find(p => p.id === project.id)
+
+    const initialSocialLinks = {
+      instagram: userProject?.socialLinks?.instagram || '',
+      facebook: userProject?.socialLinks?.facebook || '',
+      twitter: userProject?.socialLinks?.twitter || '',
+      linkedin: userProject?.socialLinks?.linkedin || '',
+      website: userProject?.socialLinks?.website || '',
+      contactNumber: userProject?.socialLinks?.contactNumber || '',
+      whatsappNumber: userProject?.socialLinks?.whatsappNumber || ''
     }
+
+    setEditFormData({
+      video: null, // Will be set when user selects a new video
+      socialLinks: initialSocialLinks
+    })
+
+    setShowEditModal(true)
   }
 
-  const handleVideoUpload = async () => {
-    if (!videoFile || !selectedProject) {
-      toast.error('Please select a video file')
+  // Handle video drop for edit modal
+  const onVideoDrop = useCallback(async (acceptedFiles) => {
+    if (acceptedFiles.length === 0) return
+
+    const file = acceptedFiles[0]
+    
+    // Validate file type - only MP4 allowed
+    if (file.type !== 'video/mp4') {
+      toast.error('Only MP4 video files are supported. Please convert your video to MP4 format.')
+      return
+    }
+    
+    // Check file size (50MB limit)
+    const maxSize = 50 * 1024 * 1024 // 50MB
+    if (file.size > maxSize) {
+      const fileSizeMB = (file.size / 1024 / 1024).toFixed(2)
+      toast.error(`Video file size must be less than 50MB. Your file is ${fileSizeMB}MB. Please compress your video.`)
       return
     }
 
-    try {
-      setIsUploading(true)
-      
-      const formData = new FormData()
-      formData.append('video', videoFile)
-      formData.append('projectId', selectedProject.id)
-      
-      const response = await uploadAPI.updateProjectVideo(selectedProject.id, formData)
-      
-      if (response.data.success) {
-        toast.success('Video updated successfully!')
-        setShowVideoUpdateModal(false)
-        setSelectedProject(null)
-        setVideoFile(null)
-        loadProjects()
-      } else {
-        toast.error('Failed to update video')
+    setEditFormData(prev => ({ ...prev, video: file }))
+    toast.success('Video file selected successfully!')
+  }, [])
+
+  // Handle social links input change
+  const handleSocialLinkChange = (field, value) => {
+    setEditFormData(prev => ({
+      ...prev,
+      socialLinks: {
+        ...prev.socialLinks,
+        [field]: value
       }
+    }))
+  }
+
+  // Save project changes
+  const handleSaveProject = async () => {
+    if (!editingProject) return
+
+    try {
+      setIsSaving(true)
+      setUploadProgress(0)
+
+      // Update social links first (always update to allow clearing fields)
+      let socialLinksUpdated = false
+
+      try {
+
+        const response = await uploadAPI.updateProjectSocialLinks(editingProject.id, editFormData.socialLinks);
+
+        setUploadProgress(50)
+        socialLinksUpdated = true
+      } catch (error) {
+        console.error('Failed to update social links:', error)
+        // Don't throw error here, continue with other updates
+      }
+
+      // Update video if a new one was selected
+      let videoUpdated = false
+      if (editFormData.video) {
+        const formData = new FormData()
+        formData.append('video', editFormData.video)
+
+        // Simulate progress
+        const progressInterval = setInterval(() => {
+          setUploadProgress(prev => {
+            if (prev >= 90) {
+              clearInterval(progressInterval)
+              return 90
+            }
+            return prev + 5
+          })
+        }, 300)
+
+        try {
+
+          await uploadAPI.updateProjectVideo(editingProject.id, formData)
+          clearInterval(progressInterval)
+          setUploadProgress(100)
+          videoUpdated = true
+        } catch (error) {
+          clearInterval(progressInterval)
+          console.error('❌ Failed to update video:', error)
+          console.error('❌ Video update error details:', {
+            message: error.message,
+            response: error.response?.data,
+            status: error.response?.status
+          })
+          // Don't throw error here, continue with refresh
+        }
+
+        // Update progress based on what was successful
+        if (socialLinksUpdated && videoUpdated) {
+          setUploadProgress(100)
+        } else if (socialLinksUpdated || videoUpdated) {
+          setUploadProgress(75)
+        }
+      }
+
+      // Close modal and prepare for refresh
+      setShowEditModal(false)
+      setEditingProject(null)
+      setEditFormData({
+        video: null,
+        socialLinks: {
+          instagram: '',
+          facebook: '',
+          twitter: '',
+          linkedin: '',
+          website: '',
+          contactNumber: '',
+          whatsappNumber: ''
+        }
+      })
+
+      // Show success message and refresh
+      if (socialLinksUpdated || videoUpdated) {
+        toast.success('Project updated successfully!')
+      } else {
+        toast.success('Project updated! Please refresh page to see changes.')
+      }
+
+      // Update projects state immediately with the new data
+      setProjects(prevProjects =>
+        prevProjects.map(project =>
+          project.id === editingProject.id
+            ? { ...project, socialLinks: editFormData.socialLinks }
+            : project
+        )
+      );
+
+      // Also update the user context
+      if (user && user.projects && updateUser) {
+        const updatedUser = {
+          ...user,
+          projects: user.projects.map(p =>
+            p.id === editingProject.id
+              ? { ...p, socialLinks: editFormData.socialLinks }
+              : p
+          )
+        };
+        updateUser(updatedUser);
+      }
+
+      // Refresh user data from backend to ensure consistency
+      try {
+        const userResponse = await api.get('/auth/profile');
+        if (userResponse.data.success && userResponse.data.user) {
+          updateUser(userResponse.data.user);
+        }
+      } catch (error) {
+        console.error('⚠️ Failed to refresh user data from backend:', error);
+      }
+
+      // Then refresh from backend
+      setTimeout(async () => {
+        await loadUser();
+        await loadProjects();
+      }, 1000);
+
+      // Close modal
+      setShowEditModal(false);
+      setEditingProject(null);
+      setEditFormData({
+        video: null,
+        socialLinks: {
+          instagram: '',
+          facebook: '',
+          twitter: '',
+          linkedin: '',
+          website: '',
+          contactNumber: '',
+          whatsappNumber: ''
+        }
+      });
+
     } catch (error) {
-      console.error('Video upload error:', error)
-      toast.error('Failed to update video')
+      console.error('Failed to update project:', error)
+      toast.error('Failed to update project')
     } finally {
-      setIsUploading(false)
+      setIsSaving(false)
+      setUploadProgress(0)
     }
   }
 
-  const closeVideoModal = () => {
-    setShowVideoUpdateModal(false)
-    setSelectedProject(null)
-    setVideoFile(null)
+  // Close edit modal
+  const closeEditModal = () => {
+    setShowEditModal(false)
+    setEditingProject(null)
+    setEditFormData({
+      video: null,
+      socialLinks: {
+        instagram: '',
+        facebook: '',
+        twitter: '',
+        linkedin: '',
+        website: '',
+        contactNumber: '',
+        whatsappNumber: ''
+      }
+    })
+    setUploadProgress(0)
   }
+
+
 
   // Handle project deletion
   const handleDeleteProject = (project) => {
@@ -501,11 +718,19 @@ const ProjectsPage = () => {
             {projects.length > 0 && (
               <div className="flex justify-center sm:justify-end">
                 <button
-                  onClick={loadProjects}
+                  onClick={async () => {
+                    const isConnected = await testBackendConnection();
+                    if (isConnected) {
+                      toast.success('Backend connection successful!');
+                      await loadProjects();
+                    } else {
+                      toast.error('Backend connection failed. Please start the backend server.');
+                    }
+                  }}
                   className="px-4 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors flex items-center justify-center text-sm sm:text-base w-full sm:w-auto"
                 >
                   <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                  <span>Refresh</span>
+                  <span>Test & Refresh</span>
                 </button>
               </div>
             )}
@@ -523,11 +748,19 @@ const ProjectsPage = () => {
             Start creating your first Phygital project!
           </p>
           <button
-            onClick={loadProjects}
+            onClick={async () => {
+              const isConnected = await testBackendConnection();
+              if (isConnected) {
+                toast.success('Backend connection successful!');
+                await loadProjects();
+              } else {
+                toast.error('Backend connection failed. Please start the backend server.');
+              }
+            }}
             className="btn-primary px-6 py-3 rounded-lg transition-colors flex items-center justify-center mx-auto"
           >
             <RefreshCw className="w-4 h-4 mr-2" />
-            <span>Refresh</span>
+            <span>Test Connection & Load</span>
           </button>
         </div>
       ) : (
@@ -550,7 +783,7 @@ const ProjectsPage = () => {
               onDownloadComposite={() => handleDownloadComposite(project)}
               onCopyUrl={() => copyUrlToClipboard(project)}
               onShare={() => handleShareUrl(project)}
-              onUpdateVideo={() => handleProjectSelect(project)}
+              onEdit={() => handleEditProject(project)}
               onDelete={() => handleDeleteProject(project)}
               onToggleStatus={() => handleToggleProjectStatus(project)}
               formatDate={formatDate}
@@ -560,17 +793,6 @@ const ProjectsPage = () => {
         </div>
       )}
 
-      {/* Video Update Modal */}
-      {showVideoUpdateModal && (
-        <VideoUpdateModal
-          project={selectedProject}
-          videoFile={videoFile}
-          isUploading={isUploading}
-          onFileChange={handleVideoFileChange}
-          onUpload={handleVideoUpload}
-          onClose={closeVideoModal}
-        />
-      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
@@ -579,6 +801,20 @@ const ProjectsPage = () => {
           isDeleting={isDeleting}
           onConfirm={confirmDeleteProject}
           onClose={closeDeleteModal}
+        />
+      )}
+
+      {/* Edit Project Modal */}
+      {showEditModal && (
+        <EditProjectModal
+          project={editingProject}
+          formData={editFormData}
+          isSaving={isSaving}
+          uploadProgress={uploadProgress}
+          onVideoDrop={onVideoDrop}
+          onSocialLinkChange={handleSocialLinkChange}
+          onSave={handleSaveProject}
+          onClose={closeEditModal}
         />
       )}
     </div>
@@ -599,7 +835,7 @@ const ProjectCard = ({
   onDownloadComposite,
   onCopyUrl,
   onShare,
-  onUpdateVideo,
+  onEdit,
   onDelete,
   onToggleStatus,
   formatDate,
@@ -707,20 +943,20 @@ const ProjectCard = ({
             {isExpanded ? <ChevronUp className="w-4 h-4 ml-1" /> : <ChevronDown className="w-4 h-4 ml-1" />}
           </button>
           <button
+            onClick={onEdit}
+            className="flex-1 sm:flex-initial px-4 py-2 bg-neon-cyan text-slate-900 text-sm font-medium rounded-lg hover:bg-cyan-400 transition-colors flex items-center justify-center shadow-glow-cyan"
+          >
+            <Edit3 className="w-4 h-4 mr-2" />
+            Edit
+          </button>
+          <button
             onClick={onDownloadComposite}
             disabled={!project.hasCompositeDesign}
             className="flex-1 sm:flex-initial px-4 py-2 bg-neon-green text-slate-900 text-sm font-medium rounded-lg hover:bg-green-400 transition-colors flex items-center justify-center shadow-glow-green disabled:opacity-50 disabled:cursor-not-allowed"
             title={project.hasCompositeDesign ? 'Download composite design' : 'Composite design not available'}
           >
             <Image className="w-4 h-4 mr-2" />
-            Composite
-          </button>
-          <button
-            onClick={onUpdateVideo}
-            className="flex-1 sm:flex-initial px-4 py-2 bg-neon-blue text-slate-900 text-sm font-medium rounded-lg hover:bg-neon-cyan transition-colors flex items-center justify-center shadow-glow-blue"
-          >
-            <Edit3 className="w-4 h-4 mr-2" />
-            Video
+            Final Design
           </button>
           <button
             onClick={onDelete}
@@ -978,6 +1214,258 @@ const DeleteConfirmationModal = ({ project, isDeleting, onConfirm, onClose }) =>
     </div>
   </div>
 )
+
+// Edit Project Modal Component
+const EditProjectModal = ({ 
+  project, 
+  formData, 
+  isSaving, 
+  uploadProgress, 
+  onVideoDrop, 
+  onSocialLinkChange, 
+  onSave, 
+  onClose 
+}) => {
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop: onVideoDrop,
+    accept: {
+      'video/mp4': ['.mp4']
+    },
+    maxFiles: 1,
+    disabled: isSaving
+  })
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 sm:p-4">
+      <div className="card-glass rounded-lg shadow-dark-large max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto border border-slate-600/30">
+        {/* Header */}
+        <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-b border-slate-600/30">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-slate-100 pr-2">
+              Edit Project: {project?.name}
+            </h3>
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-slate-200 flex-shrink-0 touch-manipulation p-1"
+            >
+              <X className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6" />
+            </button>
+          </div>
+        </div>
+        
+        {/* Content */}
+        <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 space-y-6">
+          {/* Video Upload Section */}
+          <div>
+            <h4 className="text-sm sm:text-base font-semibold text-slate-100 mb-3 flex items-center">
+              <Video className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+              Update Video
+            </h4>
+            
+            <div
+              {...getRootProps()}
+              className={`border-2 border-dashed rounded-lg p-4 sm:p-6 text-center cursor-pointer transition-colors ${
+                isDragActive
+                  ? 'border-neon-blue bg-neon-blue/10'
+                  : 'border-slate-600 hover:border-neon-blue/50 bg-slate-800/30'
+              } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <input {...getInputProps()} />
+              
+              {formData.video ? (
+                <div className="space-y-2">
+                  <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10 text-neon-green mx-auto" />
+                  <p className="text-sm sm:text-base text-slate-100 font-medium">
+                    {formData.video.name}
+                  </p>
+                  <p className="text-xs sm:text-sm text-slate-400">
+                    {(formData.video.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Upload className="w-8 h-8 sm:w-10 sm:h-10 text-slate-400 mx-auto" />
+                  <p className="text-sm sm:text-base text-slate-100">
+                    {isDragActive ? 'Drop video here' : 'Click or drag to upload video'}
+                  </p>
+                  <p className="text-xs sm:text-sm text-slate-400">
+                    Only MP4 format supported (max 50MB)
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Social Links Section */}
+          <div>
+            <h4 className="text-sm sm:text-base font-semibold text-slate-100 mb-3 flex items-center">
+              <Share2 className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+              Social Links & Contact
+            </h4>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Instagram */}
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1">
+                  <Instagram className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
+                  Instagram
+                </label>
+                <input
+                  type="url"
+                  value={formData.socialLinks.instagram}
+                  onChange={(e) => onSocialLinkChange('instagram', e.target.value)}
+                  placeholder="https://instagram.com/username"
+                  className="input w-full px-3 py-2 text-sm"
+                  disabled={isSaving}
+                />
+              </div>
+
+              {/* Facebook */}
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1">
+                  <Facebook className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
+                  Facebook
+                </label>
+                <input
+                  type="url"
+                  value={formData.socialLinks.facebook}
+                  onChange={(e) => onSocialLinkChange('facebook', e.target.value)}
+                  placeholder="https://facebook.com/username"
+                  className="input w-full px-3 py-2 text-sm"
+                  disabled={isSaving}
+                />
+              </div>
+
+              {/* Twitter */}
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1">
+                  <Twitter className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
+                  Twitter
+                </label>
+                <input
+                  type="url"
+                  value={formData.socialLinks.twitter}
+                  onChange={(e) => onSocialLinkChange('twitter', e.target.value)}
+                  placeholder="https://twitter.com/username"
+                  className="input w-full px-3 py-2 text-sm"
+                  disabled={isSaving}
+                />
+              </div>
+
+              {/* LinkedIn */}
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1">
+                  <Linkedin className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
+                  LinkedIn
+                </label>
+                <input
+                  type="url"
+                  value={formData.socialLinks.linkedin}
+                  onChange={(e) => onSocialLinkChange('linkedin', e.target.value)}
+                  placeholder="https://linkedin.com/in/username"
+                  className="input w-full px-3 py-2 text-sm"
+                  disabled={isSaving}
+                />
+              </div>
+
+              {/* Website */}
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1">
+                  <Globe className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
+                  Website
+                </label>
+                <input
+                  type="url"
+                  value={formData.socialLinks.website}
+                  onChange={(e) => onSocialLinkChange('website', e.target.value)}
+                  placeholder="https://yourwebsite.com"
+                  className="input w-full px-3 py-2 text-sm"
+                  disabled={isSaving}
+                />
+              </div>
+
+              {/* Contact Number */}
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1">
+                  <Phone className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
+                  Contact Number
+                </label>
+                <input
+                  type="tel"
+                  value={formData.socialLinks.contactNumber}
+                  onChange={(e) => onSocialLinkChange('contactNumber', e.target.value)}
+                  placeholder="+1234567890"
+                  className="input w-full px-3 py-2 text-sm"
+                  disabled={isSaving}
+                />
+              </div>
+
+              {/* WhatsApp Number */}
+              <div className="sm:col-span-2">
+                <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1">
+                  <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
+                  WhatsApp Number
+                </label>
+                <input
+                  type="tel"
+                  value={formData.socialLinks.whatsappNumber}
+                  onChange={(e) => onSocialLinkChange('whatsappNumber', e.target.value)}
+                  placeholder="+1234567890"
+                  className="input w-full px-3 py-2 text-sm"
+                  disabled={isSaving}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Upload Progress */}
+          {isSaving && uploadProgress > 0 && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs sm:text-sm text-slate-300">
+                <span>Saving changes...</span>
+                <span>{uploadProgress}%</span>
+              </div>
+              <div className="w-full bg-slate-700 rounded-full h-2">
+                <div 
+                  className="bg-neon-blue h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {/* Footer */}
+        <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-t border-slate-600/30 flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
+          <button
+            onClick={onClose}
+            disabled={isSaving}
+            className="px-4 py-2 text-sm sm:text-base font-medium text-slate-300 bg-slate-700 rounded-lg hover:bg-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onSave}
+            disabled={isSaving}
+            className="px-4 py-2 text-sm sm:text-base font-medium text-slate-900 bg-neon-blue rounded-lg hover:bg-blue-400 transition-colors flex items-center justify-center shadow-glow-blue disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSaving ? (
+              <>
+                <LoadingSpinner size="sm" />
+                <span className="ml-2">Saving...</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-2" />
+                Save Changes
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default ProjectsPage
 

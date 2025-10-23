@@ -186,10 +186,8 @@ const QRPositioningOverlay = ({
   const captureCompositeImage = useCallback(() => {
     return new Promise((resolve, reject) => {
       try {
-        console.log('=== COMPOSITE IMAGE CAPTURE DEBUG ===');
         
         if (!imageRef.current) {
-          console.log('ERROR: Image not loaded');
           reject(new Error('Image not loaded'));
           return;
         }
@@ -203,11 +201,6 @@ const QRPositioningOverlay = ({
         canvas.width = img.naturalWidth;
         canvas.height = img.naturalHeight;
         
-        console.log('Image dimensions:', {
-          natural: { width: img.naturalWidth, height: img.naturalHeight },
-          displayed: { width: img.offsetWidth, height: img.offsetHeight },
-          canvas: { width: canvas.width, height: canvas.height }
-        });
         
         // Draw the original image
         ctx.drawImage(img, 0, 0);
@@ -220,35 +213,17 @@ const QRPositioningOverlay = ({
         const actualQrWidth = (qrPosition.width / displayedWidth) * img.naturalWidth;
         const actualQrHeight = (qrPosition.height / displayedHeight) * img.naturalHeight;
         
-        console.log('QR Position calculation:', {
-          qrPosition,
-          imageWidth: displayedWidth,
-          imageHeight: displayedHeight,
-          actualQr: {
-            x: actualQrX,
-            y: actualQrY,
-            width: actualQrWidth,
-            height: actualQrHeight
-          }
-        });
         
         // If we have a real QR image, draw it; otherwise, draw placeholder and resolve
         if (qrImageUrl) {
           const qrImg = new Image()
           qrImg.crossOrigin = 'anonymous'
           qrImg.onload = () => {
-            console.log('[QR Overlay] qrImg loaded, drawing onto canvas', {
-              naturalWidth: qrImg.naturalWidth,
-              naturalHeight: qrImg.naturalHeight,
-              drawSize: { w: actualQrWidth, h: actualQrHeight }
-            })
             try {
               ctx.drawImage(qrImg, actualQrX, actualQrY, actualQrWidth, actualQrHeight)
               const compositeImageData = canvas.toDataURL('image/png', 1.0)
-              console.log('Composite with real QR generated')
               resolve(compositeImageData)
             } catch (err) {
-              console.error('Failed drawing QR image, falling back to placeholder', err)
               // Fallback: placeholder
               ctx.fillStyle = 'rgba(59, 130, 246, 0.3)'
               ctx.fillRect(actualQrX, actualQrY, actualQrWidth, actualQrHeight)
@@ -264,7 +239,6 @@ const QRPositioningOverlay = ({
             }
           }
           qrImg.onerror = (e) => {
-            console.error('Failed to load QR image, using placeholder', e)
             ctx.fillStyle = 'rgba(59, 130, 246, 0.3)'
             ctx.fillRect(actualQrX, actualQrY, actualQrWidth, actualQrHeight)
             ctx.strokeStyle = 'rgba(59, 130, 246, 0.8)'

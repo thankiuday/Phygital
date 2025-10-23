@@ -16,13 +16,6 @@ const api = axios.create({
   },
 })
 
-// Debug API configuration
-console.log('🌐 API Configuration:', {
-  baseURL: api.defaults.baseURL,
-  timeout: api.defaults.timeout,
-  environment: import.meta.env.MODE,
-  apiUrl: import.meta.env.VITE_API_URL
-})
 
 // Create a separate instance for file uploads with longer timeout
 const uploadApi = axios.create({
@@ -166,7 +159,9 @@ export const uploadAPI = {
   // Project management
   createProject: (projectData) => api.post('/upload/project', projectData),
   getProjects: () => api.get('/upload/projects'),
-  updateProjectSocialLinks: (projectId, links) => api.put(`/upload/projects/${projectId}/social-links`, { socialLinks: links }),
+  updateProjectSocialLinks: (projectId, links) => {
+    return api.put(`/upload/projects/${projectId}/social-links`, { socialLinks: links })
+  },
   getProject: (projectId) => api.get(`/upload/project/${projectId}`),
   updateProject: (projectId, projectData) => api.put(`/upload/project/${projectId}`, projectData),
   deleteProject: (projectId) => api.delete(`/upload/project/${projectId}`),
@@ -181,9 +176,14 @@ export const uploadAPI = {
   updateVideo: (userId, formData) => uploadApi.put(`/upload/video/${userId}`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
-  updateProjectVideo: (projectId, formData) => uploadApi.put(`/upload/project/${projectId}/video`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  }),
+  updateProjectVideo: (projectId, formData) => {
+    return uploadApi.put(`/upload/project/${projectId}/video`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
+
+  // Health check for backend connectivity
+  healthCheck: () => api.get('/health'),
   toggleProjectStatus: (projectId, isEnabled) => api.patch(`/upload/project/${projectId}/toggle-status`, { isEnabled }),
   setQRPosition: (position) => api.post('/upload/qr-position', position),
   saveCompositeDesign: (compositeImage, qrPosition) => api.post('/upload/save-composite-design', {
@@ -325,4 +325,6 @@ export const generateQRCode = async (text, options = {}) => {
   }
 }
 
+// Export both default and named exports for flexibility
 export default api
+export { api, uploadApi }

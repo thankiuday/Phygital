@@ -149,35 +149,27 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       dispatch({ type: AUTH_ACTIONS.LOGIN_START })
-      
-      console.log('🔐 Attempting login with:', { email, apiUrl: import.meta.env.VITE_API_URL })
-      
+
       const response = await api.post('/auth/login', { email, password })
-      
-      console.log('✅ Login response:', response.data)
-      
+
       dispatch({
         type: AUTH_ACTIONS.LOGIN_SUCCESS,
         payload: response.data.data
       })
-      
+
       toast.success('Login successful!')
       navigate('/dashboard')
-      
+
       return { success: true }
     } catch (error) {
-      console.error('❌ Login error:', error)
-      console.error('❌ Error response:', error.response?.data)
-      console.error('❌ Error status:', error.response?.status)
-      console.error('❌ Error headers:', error.response?.headers)
-      
+      console.error('Login error:', error)
       const errorMessage = error.response?.data?.message || error.message || 'Login failed'
-      
+
       dispatch({
         type: AUTH_ACTIONS.LOGIN_FAILURE,
         payload: errorMessage
       })
-      
+
       toast.error(errorMessage)
       return { success: false, error: errorMessage }
     }
@@ -224,7 +216,7 @@ export const AuthProvider = ({ children }) => {
     dispatch({
       type: AUTH_ACTIONS.UPDATE_USER,
       payload: userData
-    })
+    });
   }
 
   // Clear error function

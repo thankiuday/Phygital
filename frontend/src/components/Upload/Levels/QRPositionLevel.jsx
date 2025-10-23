@@ -24,17 +24,9 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
   const imageRef = useRef(null);
   const qrRef = useRef(null);
 
-  console.log('🎨 QRPositionLevel - Props received:');
-  console.log('  - designUrl (prop):', designUrl);
-  console.log('  - currentPosition:', currentPosition);
-  console.log('  - forceStartFromLevel1:', forceStartFromLevel1);
-  console.log('  - user?.uploadedFiles?.design?.url:', user?.uploadedFiles?.design?.url);
 
   const designImageUrl = designUrl || user?.uploadedFiles?.design?.url;
   
-  console.log('🎨 QRPositionLevel - Final Design Image URL:', designImageUrl);
-  console.log('🎨 QRPositionLevel - designImageUrl is null?', designImageUrl === null);
-  console.log('🎨 QRPositionLevel - designImageUrl is undefined?', designImageUrl === undefined);
 
   // Fetch user's QR image for live preview and composite drawing
   useEffect(() => {
@@ -72,11 +64,9 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
   const captureCompositeImage = React.useCallback(() => {
     return new Promise((resolve, reject) => {
       try {
-        console.log('=== COMPOSITE IMAGE CAPTURE DEBUG (QRPositionLevel) ===');
         
         const imageElement = document.querySelector('img[alt="Design preview"]');
         if (!imageElement) {
-          console.log('ERROR: Image element not found');
           reject(new Error('Image not loaded'));
           return;
         }
@@ -109,15 +99,6 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
             const actualQrWidth = qrPosition.width;
             const actualQrHeight = qrPosition.height;
             
-            console.log('QR Position for composite:', {
-              qrPosition,
-              actualQr: {
-                x: actualQrX,
-                y: actualQrY,
-                width: actualQrWidth,
-                height: actualQrHeight
-              }
-            });
             
             const drawPlaceholderAndResolve = () => {
               // Draw QR code placeholder
@@ -131,7 +112,6 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
               ctx.textAlign = 'center';
               ctx.fillText('QR CODE', actualQrX + actualQrWidth / 2, actualQrY + actualQrHeight / 2);
               const data = canvas.toDataURL('image/png', 1.0);
-              console.log('Composite image generated (placeholder)');
               resolve(data);
             };
 
@@ -140,18 +120,14 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
               qrImg.crossOrigin = 'anonymous';
               qrImg.onload = () => {
                 try {
-                  console.log('[Level QR] qrImg loaded, drawing into canvas', { w: actualQrWidth, h: actualQrHeight });
                   ctx.drawImage(qrImg, actualQrX, actualQrY, actualQrWidth, actualQrHeight);
                   const data = canvas.toDataURL('image/png', 1.0);
-                  console.log('Composite image generated with real QR');
                   resolve(data);
                 } catch (e) {
-                  console.warn('[Level QR] drawImage failed, using placeholder', e);
                   drawPlaceholderAndResolve();
                 }
               };
               qrImg.onerror = (e) => {
-                console.warn('[Level QR] Failed to load qrImg, using placeholder', e);
                 drawPlaceholderAndResolve();
               };
               qrImg.src = qrImageUrl;
@@ -165,8 +141,6 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         };
         
         corsImage.onerror = (error) => {
-          console.error('Error loading CORS image:', error);
-          console.log('Falling back to server-side composite generation...');
           // Fallback: Let the server generate the composite image
           reject(new Error('CORS_FALLBACK'));
         };
@@ -175,7 +149,6 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         corsImage.src = imageElement.src;
         
       } catch (error) {
-        console.error('Error capturing composite image:', error);
         reject(error);
       }
     });
@@ -263,7 +236,6 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         getUser: () => user,
         getToken: () => localStorage.getItem('token')
       };
-      console.log('Debug functions available at window.debugQRPosition');
     }
   }, [currentPosition, user?.qrPosition, designUrl, designImageUrl, qrPosition, imageDimensions]);
 
@@ -731,16 +703,8 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     
     try {
       // Show loader immediately when button is clicked
-      console.log('🔄 Starting save process - signaling parent to show loader');
       setIsSaving(true);
       onLoadingStart('Saving QR position...');
-      console.log('✅ Loader state set:', { isSaving: true });
-      
-      console.log('=== QR Position Save Debug ===');
-      console.log('Saving QR position:', qrPosition);
-      console.log('User token available:', !!localStorage.getItem('token'));
-      console.log('User token value:', localStorage.getItem('token')?.substring(0, 20) + '...');
-      console.log('Current user:', user);
       
       // Check if user is authenticated
       if (!user || !localStorage.getItem('token')) {
@@ -760,14 +724,11 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         return;
       }
       
-      console.log('QR position data validation passed:', qrPosition);
       
       onLoadingStart('Uploading QR position to server...');
       
       // Always use server-side composite generation to ensure real QR is baked in
-      console.log('Using server-side composite generation (setQRPosition)');
       const response = await uploadAPI.setQRPosition(qrPosition);
-      console.log('Server-side composite generation response:', response);
       
       onLoadingStart('Verifying AR tracking file...');
       
@@ -816,16 +777,13 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           const compositeUrl = response.data?.data?.compositeDesign?.url || 
                               response.data?.data?.user?.uploadedFiles?.compositeDesign?.url;
           
-          console.log('[Level QR] Composite URL for .mind generation:', compositeUrl);
           
           if (!compositeUrl) {
-            console.log('🔍 No composite URL available - ending loader');
             onLoadingEnd();
             throw new Error('No composite image available for .mind generation. Please try uploading your design again.');
           }
           
           onLoadingStart('Loading AR compiler...');
-          console.log('[Level QR] Generating .mind on client from composite...');
           const mindarModule = await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image.prod.js');
           const { Compiler } = mindarModule;
           
@@ -836,18 +794,15 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
             let timeoutId;
             
             i.onload = () => {
-              console.log('[Level QR] Composite image loaded successfully');
               clearTimeout(timeoutId); // Clear the timeout since image loaded successfully
               resolve(i);
             };
             i.onerror = (error) => {
-              console.error('[Level QR] Image load error:', error);
               clearTimeout(timeoutId); // Clear the timeout on error
               reject(new Error(`Failed to load composite image: ${error}`));
             };
             i.src = compositeUrl;
             timeoutId = setTimeout(() => {
-              console.error('[Level QR] Image load timeout after 30 seconds');
               reject(new Error('Image load timeout after 30 seconds'));
             }, 30000);
           });
@@ -1303,28 +1258,6 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         </div>
       </div>
 
-      {/* Debug Info */}
-      <div className="mb-6 p-4 bg-slate-800/50 rounded-lg border border-slate-600/30">
-        <h4 className="text-sm font-medium text-slate-300 mb-2">Debug Info:</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-400">
-          <div>
-            <p><strong>Pixel Coordinates:</strong></p>
-            <p>Position: X={qrPosition.x}, Y={qrPosition.y}</p>
-            <p>Size: W={qrPosition.width}, H={qrPosition.height}</p>
-            <p>Max: X={Math.max(0, imageDimensions.width - qrPosition.width)}, Y={Math.max(0, imageDimensions.height - qrPosition.height)}</p>
-          </div>
-          <div>
-            <p><strong>Percentage Coordinates:</strong></p>
-            <p>Position: X={imageDimensions.width > 0 ? ((qrPosition.x / imageDimensions.width) * 100).toFixed(1) : 0}%, Y={imageDimensions.height > 0 ? ((qrPosition.y / imageDimensions.height) * 100).toFixed(1) : 0}%</p>
-            <p>Size: W={imageDimensions.width > 0 ? ((qrPosition.width / imageDimensions.width) * 100).toFixed(1) : 0}%, H={imageDimensions.height > 0 ? ((qrPosition.height / imageDimensions.height) * 100).toFixed(1) : 0}%</p>
-          </div>
-        </div>
-        <div className="mt-2 text-xs text-slate-400">
-          <p>Image Dimensions: {imageDimensions.width} × {imageDimensions.height}</p>
-          <p>Is Dragging: {isDragging ? 'Yes' : 'No'}</p>
-          <p>Design URL: {designImageUrl ? 'Available' : 'Not Available'}</p>
-        </div>
-      </div>
 
       {/* Save Button */}
       <div className="text-center">
@@ -1337,46 +1270,6 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           {isSaving ? 'Saving...' : 'Save QR Position'}
         </button>
         
-        {/* Debug Test Buttons */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="mt-4 space-x-2">
-            <button
-              onClick={() => {
-                console.log('=== Manual Level Complete Test ===');
-                console.log('Calling onComplete directly with:', qrPosition);
-                onComplete(qrPosition);
-              }}
-              className="px-4 py-2 bg-neon-yellow text-slate-900 rounded-lg hover:bg-neon-yellow/80"
-            >
-              🧪 Test Level Complete
-            </button>
-            <button
-              onClick={() => {
-                console.log('=== Force Advance Test ===');
-                if (window.debugLevels) {
-                  window.debugLevels.forceAdvance();
-                } else {
-                  console.log('Debug functions not available');
-                }
-              }}
-              className="px-4 py-2 bg-neon-green text-slate-900 rounded-lg hover:bg-neon-green/80"
-            >
-              🚀 Force Advance
-            </button>
-            <button
-              onClick={() => {
-                console.log('=== Current State Debug ===');
-                console.log('Current level:', window.debugLevels?.getCurrentLevel());
-                console.log('Completed levels:', window.debugLevels?.getCompletedLevels());
-                console.log('Level data:', window.debugLevels?.getLevelData());
-                console.log('Level 2 completed:', window.debugLevels?.isLevelCompleted(2));
-              }}
-              className="px-4 py-2 bg-neon-blue text-slate-900 rounded-lg hover:bg-neon-blue/80"
-            >
-              🔍 Debug State
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Tips */}

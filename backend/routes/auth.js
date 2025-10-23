@@ -184,13 +184,15 @@ router.post('/login', [
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
     // User is already attached to req by authenticateToken middleware
+    const profile = req.user.getPublicProfile();
+
     res.status(200).json({
       status: 'success',
       data: {
-        user: req.user.getPublicProfile()
+        user: profile
       }
     });
-    
+
   } catch (error) {
     console.error('Profile fetch error:', error);
     res.status(500).json({

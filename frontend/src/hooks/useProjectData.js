@@ -10,16 +10,14 @@ export const useProjectData = (projectId, userId, setIsLoading, setProjectData, 
     const startTime = performance.now();
     
     try {
-      console.log('🌐 Starting project data fetch...');
-      addDebugMessage('🌐 Fetching project data...', 'info');
       setIsLoading(true);
-      
+
       // Validate environment variables
       const apiUrl = import.meta.env.VITE_API_URL;
       if (!apiUrl) {
         throw new Error('VITE_API_URL environment variable not defined');
       }
-      
+
       // Determine endpoint based on available parameters
       let endpoint;
       if (userId && projectId) {
@@ -34,13 +32,10 @@ export const useProjectData = (projectId, userId, setIsLoading, setProjectData, 
       } else {
         throw new Error('Either userId and projectId, or userId alone, or projectId alone must be provided');
       }
-      
+
       const fullUrl = `${apiUrl}${endpoint}`;
-      console.log('🌐 Fetching from URL:', fullUrl);
-      addDebugMessage(`🌐 API URL: ${fullUrl}`, 'info');
-      
+
       const response = await fetch(fullUrl);
-      console.log('🌐 Response status:', response.status, response.statusText);
       
       if (!response.ok) {
         // Check if project is disabled (403 status)
@@ -58,33 +53,20 @@ export const useProjectData = (projectId, userId, setIsLoading, setProjectData, 
       }
       
       const data = await response.json();
-      console.log('🌐 Response data:', data);
-      
+
       // Handle both success formats: {success: true} and {status: 'success'}
       const isSuccess = data.success === true || data.status === 'success';
       if (!isSuccess) {
         throw new Error(data.message || 'Failed to fetch project data');
       }
-      
+
       // Validate data structure
       const projectData = data?.data;
       if (!projectData) {
         throw new Error('Invalid response format: missing data field');
       }
-      
-      // Debug social links specifically
-      console.log('🔗 Social Links in API Response:', {
-        projectData: projectData,
-        socialLinks: projectData?.socialLinks,
-        hasSocialLinks: !!projectData?.socialLinks,
-        socialLinksType: typeof projectData?.socialLinks,
-        socialLinksKeys: projectData?.socialLinks ? Object.keys(projectData.socialLinks) : 'No socialLinks',
-        socialLinksValues: projectData?.socialLinks ? Object.values(projectData.socialLinks) : 'No socialLinks'
-      });
-      
+
       setProjectData(projectData);
-      console.log('✅ Project data set:', projectData);
-      addDebugMessage('✅ Project data loaded successfully', 'success');
       
       // Track QR scan first (when user accesses AR experience, they scanned the code)
       // Use time-based deduplication similar to UserPage
@@ -94,7 +76,6 @@ export const useProjectData = (projectId, userId, setIsLoading, setProjectData, 
       
       if (!alreadyTrackedScan && projectId) {
         try {
-          console.log('📊 Tracking QR scan from AR Experience');
           await trackAnalytics('scan', {
             source: 'ar_experience',
             userAgent: navigator.userAgent
@@ -119,10 +100,9 @@ export const useProjectData = (projectId, userId, setIsLoading, setProjectData, 
       }
       
     } catch (error) {
-      console.error('❌ Project data fetch error:', error);
-      addDebugMessage(`❌ Failed to fetch project data: ${error.message}`, 'error');
+      console.error('Project data fetch error:', error);
       setError(`Failed to load project: ${error.message}`);
-      
+
       // Track error with individual try/catch
       try {
         await trackAnalytics('ar-experience-error', {
@@ -134,15 +114,6 @@ export const useProjectData = (projectId, userId, setIsLoading, setProjectData, 
         // Don't block the main flow for analytics failures
       }
     } finally {
-      const loadTime = performance.now() - startTime;
-      
-      // Only log performance in development
-      if (import.meta.env.DEV) {
-        addDebugMessage(`⏱️ Project data fetch took ${loadTime.toFixed(2)}ms`, 'performance');
-        console.log('⏱️ Performance:', `⏱️ Project data fetch took ${loadTime.toFixed(2)}ms`);
-      }
-      
-      console.log('🌐 Setting isLoading to false');
       setIsLoading(false);
     }
   }, [projectId, userId, setIsLoading, setProjectData, setError, addDebugMessage, trackAnalytics]);

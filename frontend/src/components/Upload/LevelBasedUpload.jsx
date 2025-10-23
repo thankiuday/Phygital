@@ -31,13 +31,11 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
   
   // Loader control functions
   const handleLoadingStart = (message) => {
-    console.log('🔍 Parent: Starting loader with message:', message);
     setLoadingMessage(message);
     setIsLoading(true);
   };
 
   const handleLoadingEnd = () => {
-    console.log('🔍 Parent: Ending loader');
     setIsLoading(false);
     setLoadingMessage('');
   };
@@ -205,20 +203,13 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
 
   // Complete current level
   const completeCurrentLevel = (data) => {
-    console.log('=== COMPLETE CURRENT LEVEL DEBUG ===');
-    console.log('Completing level', currentLevel, 'with data:', data);
-    console.log('Current completed levels before:', completedLevels);
-    console.log('Current level data before:', levelData);
-    console.log('Force start from level 1:', forceStartFromLevel1);
     
     // Create the updated level data
     const updatedLevelData = { ...levelData, ...data };
-    console.log('Updated level data (calculated):', updatedLevelData);
     
     // Update level data
     setLevelData(prev => {
       const newData = { ...prev, ...data };
-      console.log('Updated level data (state):', newData);
       return newData;
     });
     
@@ -481,7 +472,6 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
         forceAdvance: forceAdvanceToNextLevel,
         animateToNext: animateToNextLevel
       };
-      console.log('Debug functions available at window.debugLevels');
     }
   }, [currentLevel, completedLevels, levelData]);
 
@@ -503,17 +493,9 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
           />
         );
       case 'QRPosition':
-        console.log('🔧 Rendering QRPosition level with:');
-        console.log('  - levelData.design:', levelData.design);
-        console.log('  - levelData.design?.url:', levelData.design?.url);
-        console.log('  - hasDesign:', !!levelData.design);
-        console.log('  - Full levelData:', JSON.stringify(levelData, null, 2));
         return (
           <QRPositionLevel 
             onComplete={(qrPosition) => {
-              console.log('=== QRPositionLevel onComplete called ===');
-              console.log('Received qrPosition:', qrPosition);
-              console.log('Current level:', currentLevel);
               completeCurrentLevel({ qrPosition });
             }}
             currentPosition={levelData.qrPosition}

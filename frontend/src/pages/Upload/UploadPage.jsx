@@ -127,7 +127,6 @@ const UploadPage = () => {
         let res = await qrAPI.getMyQR('png', 300)
         let blob = res.data instanceof Blob ? res.data : new Blob([res.data], { type: 'image/png' })
         let url = URL.createObjectURL(blob)
-        console.log('[QR Overlay] Loaded QR from my-qr endpoint')
         setQrImageUrl(url)
       } catch (err) {
         console.warn('Failed to fetch QR via my-qr, trying generate...', err)
@@ -135,7 +134,6 @@ const UploadPage = () => {
           const res2 = await qrAPI.generateQR(user._id, 'png', 300)
           const blob2 = res2.data instanceof Blob ? res2.data : new Blob([res2.data], { type: 'image/png' })
           const url2 = URL.createObjectURL(blob2)
-          console.log('[QR Overlay] Loaded QR from generate endpoint')
           setQrImageUrl(url2)
         } catch (err2) {
           console.error('Failed to fetch QR for overlay', err2)
@@ -145,7 +143,6 @@ const UploadPage = () => {
     fetchQR()
     return () => {
       if (qrImageUrl) {
-        console.log('[QR Overlay] Revoking QR object URL')
         URL.revokeObjectURL(qrImageUrl)
       }
     }
@@ -235,13 +232,8 @@ const UploadPage = () => {
   // Save QR position with composite image
   const saveQRPosition = async () => {
     try {
-      console.log('=== SAVE COMPOSITE DESIGN DEBUG ===');
-      console.log('🚀 SAVE BUTTON CLICKED - NEW API SHOULD BE CALLED');
-      console.log('Capture function available:', !!captureCompositeFunction);
-      console.log('QR Position:', qrPosition);
       
       if (!captureCompositeFunction) {
-        console.log('ERROR: Composite image capture not ready');
         toast.error('Composite image capture not ready. Please wait a moment and try again.');
         return;
       }
@@ -250,13 +242,10 @@ const UploadPage = () => {
       const loadingToast = toast.loading('Saving composite design...');
 
       // Capture the composite image
-      console.log('Capturing composite image...');
       const compositeImageData = await captureCompositeFunction();
-      console.log('Composite image captured, sending to API...');
 
       // Save composite design with image data
       const response = await uploadAPI.saveCompositeDesign(compositeImageData, qrPosition);
-      console.log('API Response:', response);
 
       // Try to compile and save .mind on the client as a fallback (if server failed to generate)
       try {
@@ -276,7 +265,6 @@ const UploadPage = () => {
           const buf = await compiler.exportData();
           const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
           await uploadAPI.saveMindTarget(`data:application/octet-stream;base64,${base64}`);
-          console.log('Client-side .mind generated and saved');
         }
       } catch (mindErr) {
         console.warn('Client-side .mind generation failed:', mindErr);
@@ -320,10 +308,6 @@ const UploadPage = () => {
     try {
       setIsDownloading(true)
       
-      console.log('=== DOWNLOAD FINAL DESIGN DEBUG ===');
-      console.log('User data:', user);
-      console.log('Design URL:', user.uploadedFiles?.design?.url);
-      console.log('QR Position:', user.qrPosition);
       
       // Create a fresh composite image instead of using the backend
       const canvas = document.createElement('canvas');
@@ -339,23 +323,14 @@ const UploadPage = () => {
         designImg.src = user.uploadedFiles.design.url;
       });
       
-      console.log('Design image loaded:', {
-        naturalWidth: designImg.naturalWidth,
-        naturalHeight: designImg.naturalHeight
-      });
       
       // Set canvas to image dimensions
       canvas.width = designImg.naturalWidth;
       canvas.height = designImg.naturalHeight;
       
-      console.log('Canvas dimensions set:', {
-        width: canvas.width,
-        height: canvas.height
-      });
       
       // Draw the design image
       ctx.drawImage(designImg, 0, 0);
-      console.log('Design image drawn to canvas');
       
       // Get QR position from user data
       const qrPos = user.qrPosition || { x: 100, y: 100, width: 100, height: 100 };
@@ -366,10 +341,6 @@ const UploadPage = () => {
       const actualQrWidth = (qrPos.width / 800) * designImg.naturalWidth;
       const actualQrHeight = (qrPos.height / 600) * designImg.naturalHeight;
       
-      console.log('QR position calculation:', {
-        qrPos,
-        actualQr: { x: actualQrX, y: actualQrY, width: actualQrWidth, height: actualQrHeight }
-      });
       
       // Try to load and draw the QR code
       try {
@@ -389,10 +360,6 @@ const UploadPage = () => {
           
           // Convert to blob and download
           canvas.toBlob((blob) => {
-            console.log('Canvas converted to blob:', {
-              size: blob.size,
-              type: blob.type
-            });
             const filename = `phygital-design-${user.username}.png`;
             
             // Use the downloadFile utility
@@ -443,7 +410,6 @@ const UploadPage = () => {
       const loadingToast = toast.loading('Creating AR experience...');
       
       const response = await uploadAPI.createARExperience();
-      console.log('AR Experience created:', response.data);
       
       const { arExperienceId, qrData } = response.data.data;
       setArExperienceId(arExperienceId);

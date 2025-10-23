@@ -376,6 +376,16 @@ router.put('/projects/:projectId/social-links', authenticateToken, async (req, r
     const { projectId } = req.params;
     const socialLinks = req.body?.socialLinks || {};
 
+    console.log('🔄 BACKEND: Social links update request received');
+    console.log('📨 Request details:', {
+      userId,
+      projectId,
+      socialLinks,
+      fullUrl: req.originalUrl,
+      method: req.method,
+      headers: req.headers.authorization ? 'Auth present' : 'No auth'
+    });
+
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -391,7 +401,21 @@ router.put('/projects/:projectId/social-links', authenticateToken, async (req, r
 
     await user.save();
 
-    return res.json({ success: true, message: 'Project social links updated', data: { project } });
+    console.log('📤 Sending response:', {
+      success: true,
+      message: 'Project social links updated',
+      projectData: {
+        id: project.id,
+        name: project.name,
+        socialLinks: project.socialLinks
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Project social links updated',
+      data: { project }
+    });
   } catch (error) {
     console.error('Error updating project social links:', error);
     return res.status(500).json({ success: false, message: 'Internal server error' });
@@ -1158,7 +1182,19 @@ router.put('/project/:projectId/video', authenticateToken, upload.single('video'
   try {
     const { projectId } = req.params;
     const userId = req.user.id;
-    
+
+    console.log('🎥 BACKEND: Video update request received');
+    console.log('📨 Video request details:', {
+      userId,
+      projectId,
+      hasFile: !!req.file,
+      fileName: req.file?.originalname,
+      fileSize: req.file?.size,
+      fullUrl: req.originalUrl,
+      method: req.method,
+      headers: req.headers.authorization ? 'Auth present' : 'No auth'
+    });
+
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -1169,37 +1205,56 @@ router.put('/project/:projectId/video', authenticateToken, upload.single('video'
     // Find user and project
     const user = await User.findById(userId);
     if (!user) {
+      console.error('❌ User not found:', userId);
       return res.status(404).json({
         success: false,
         message: 'User not found'
       });
     }
-    
+
+    console.log('🔍 Looking for project for video update:', {
+      projectId,
+      userProjects: user.projects?.map(p => ({ id: p.id, name: p.name })) || []
+    });
+
     const project = user.projects.find(p => p.id === projectId);
     if (!project) {
+      console.error('❌ Project not found for video update:', projectId);
       return res.status(404).json({
         success: false,
         message: 'Project not found'
       });
     }
+
+    console.log('✅ Found project for video update:', { id: project.id, name: project.name });
     
     // Upload video to S3
     const uploadResult = await uploadToS3(req.file, userId, 'video');
     
-    // Update user's video
-    user.uploadedFiles.video = {
+    // Update project's video
+    project.uploadedFiles.video = {
       filename: uploadResult.key.split('/').pop(), // Extract filename from S3 key
       originalName: req.file.originalname,
       size: req.file.size,
       mimetype: req.file.mimetype,
       url: uploadResult.url
     };
+
+    console.log('🔄 Updating project video:', {
+      projectId: project.id,
+      newVideo: project.uploadedFiles.video
+    });
     
     // Update project's updatedAt timestamp
     project.updatedAt = new Date();
     
     await user.save();
-    
+
+    console.log('✅ Project video saved successfully:', {
+      projectId: project.id,
+      videoUrl: project.uploadedFiles.video.url
+    });
+
     // Log video update activity
     await logVideoUpload(userId, {
       filename: uploadResult.key.split('/').pop(),

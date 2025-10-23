@@ -57,7 +57,6 @@ const DesignUploadLevel = ({ onComplete, currentDesign, forceStartFromLevel1 = f
       updateUser(response.data.data.user);
       toast.success('🎨 Design uploaded successfully!');
       
-      console.log('📤 Design upload response:', response.data.data);
       
       // Complete the level - use the design from response (could be in project or root level)
       const designData = response.data.data.design || response.data.data.user?.uploadedFiles?.design;
@@ -68,7 +67,6 @@ const DesignUploadLevel = ({ onComplete, currentDesign, forceStartFromLevel1 = f
         return;
       }
       
-      console.log('✅ Completing level with design:', designData);
       onComplete({
         url: designData.url,
         name: designData.originalName || designData.name,

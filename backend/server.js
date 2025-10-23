@@ -226,4 +226,15 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Phygital Backend running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
+  console.log(`🏥 Health Check: http://localhost:${PORT}/api/health`);
+  console.log(`📋 All routes mounted:`, [
+    '/api/auth',
+    '/api/upload',
+    '/api/qr',
+    '/api/analytics',
+    '/api/user',
+    '/api/history',
+    '/api/ar-experience'
+  ]);
 });
