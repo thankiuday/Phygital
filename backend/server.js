@@ -143,7 +143,12 @@ const connectDB = async () => {
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
     console.error('❌ Database connection error:', error.message);
-    process.exit(1);
+    console.error('❌ Full error details:', error);
+    // Retry connection after 5 seconds
+    setTimeout(() => {
+      console.log('🔄 Retrying database connection...');
+      connectDB();
+    }, 5000);
   }
 };
 
@@ -210,31 +215,63 @@ app.use('*', (req, res) => {
   });
 });
 
-// Global error handler
-app.use((err, req, res, next) => {
-  console.error('❌ Global Error:', err);
-  
-  res.status(err.status || 500).json({
-    status: 'error',
-    message: err.message || 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
-});
+// Import global error handler
+const { globalErrorHandler } = require('./middleware/errorHandler');
+
+// Global error handler (must be last middleware)
+app.use(globalErrorHandler);
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`🚀 Phygital Backend running on port ${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
-  console.log(`🏥 Health Check: http://localhost:${PORT}/api/health`);
-  console.log(`📋 All routes mounted:`, [
-    '/api/auth',
-    '/api/upload',
-    '/api/qr',
-    '/api/analytics',
-    '/api/user',
-    '/api/history',
-    '/api/ar-experience'
-  ]);
-});
+// Enhanced server startup with error handling
+const startServer = async () => {
+  try {
+    const server = app.listen(PORT, () => {
+      console.log(`🚀 Phygital Backend running on port ${PORT}`);
+      console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
+      console.log(`🏥 Health Check: http://localhost:${PORT}/api/health`);
+      console.log(`📋 All routes mounted:`, [
+        '/api/auth',
+        '/api/upload',
+        '/api/qr',
+        '/api/analytics',
+        '/api/user',
+        '/api/history',
+        '/api/ar-experience'
+      ]);
+    });
+
+    // Handle server errors
+    server.on('error', (error) => {
+      console.error('❌ Server error:', error);
+      if (error.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${PORT} is already in use`);
+        process.exit(1);
+      }
+    });
+
+    // Graceful shutdown
+    process.on('SIGTERM', () => {
+      console.log('🛑 SIGTERM received, shutting down gracefully');
+      server.close(() => {
+        console.log('✅ Server closed');
+        process.exit(0);
+      });
+    });
+
+    process.on('SIGINT', () => {
+      console.log('🛑 SIGINT received, shutting down gracefully');
+      server.close(() => {
+        console.log('✅ Server closed');
+        process.exit(0);
+      });
+    });
+
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+startServer();

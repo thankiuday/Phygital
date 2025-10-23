@@ -25,6 +25,8 @@ import LoadingScreen from '../../components/AR/LoadingScreen';
 import ErrorScreen from '../../components/AR/ErrorScreen';
 import ARControls from '../../components/AR/ARControls';
 import ProjectDisabledScreen from '../../components/AR/ProjectDisabledScreen';
+import CompositeImageOverlay from '../../components/AR/CompositeImageOverlay';
+import ScannerAnimation from '../../components/AR/ScannerAnimation';
 
 const ARExperiencePage = () => {
   const { userId, projectId } = useParams();
@@ -66,6 +68,11 @@ const ARExperiencePage = () => {
   // Check if project is disabled
   const [isProjectDisabled, setIsProjectDisabled] = React.useState(false);
   const [disabledProjectName, setDisabledProjectName] = React.useState('');
+  
+  // Composite image and scanner animation state
+  const [showCompositeImage, setShowCompositeImage] = React.useState(false);
+  const [showScannerAnimation, setShowScannerAnimation] = React.useState(false);
+  const [hasShownInitialGuide, setHasShownInitialGuide] = React.useState(false);
 
   // Debug utilities
   const { addDebugMessage } = useDebug(setDebugMessages);
@@ -154,9 +161,52 @@ const ARExperiencePage = () => {
   useEffect(() => {
     if (targetDetected && !prevDetectedRef.current) {
       setVideoPlaying(true);
+      // Hide composite image when target is detected
+      setShowCompositeImage(false);
+      setShowScannerAnimation(false);
     }
     prevDetectedRef.current = targetDetected;
   }, [targetDetected, setVideoPlaying]);
+
+  // Show composite image when AR is ready but no target detected
+  useEffect(() => {
+    if (arReady && !targetDetected && !hasShownInitialGuide) {
+      if (projectData?.compositeDesignUrl) {
+        setShowCompositeImage(true);
+        setShowScannerAnimation(true);
+        setHasShownInitialGuide(true);
+        addDebugMessage('📱 Showing composite image guide to user', 'info');
+      } else if (projectData?.designUrl) {
+        // Fallback to original design if no composite available
+        setShowCompositeImage(true);
+        setShowScannerAnimation(true);
+        setHasShownInitialGuide(true);
+        addDebugMessage('📱 Showing design image guide to user (no composite available)', 'info');
+      }
+    }
+  }, [arReady, targetDetected, hasShownInitialGuide, projectData?.compositeDesignUrl, projectData?.designUrl, addDebugMessage]);
+
+  // Hide composite image when target is detected
+  useEffect(() => {
+    if (targetDetected && showCompositeImage) {
+      setShowCompositeImage(false);
+      setShowScannerAnimation(false);
+    }
+  }, [targetDetected, showCompositeImage]);
+
+  // Show composite image again when target is lost
+  useEffect(() => {
+    if (!targetDetected && hasShownInitialGuide && arReady && (projectData?.compositeDesignUrl || projectData?.designUrl)) {
+      // Delay showing composite image again to avoid flickering
+      const timeoutId = setTimeout(() => {
+        setShowCompositeImage(true);
+        setShowScannerAnimation(true);
+        addDebugMessage('🔄 Target lost, showing composite image guide again', 'info');
+      }, 1000);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [targetDetected, hasShownInitialGuide, arReady, projectData?.compositeDesignUrl, projectData?.designUrl, addDebugMessage]);
 
   // Ensure MindAR camera/canvas fit inside container at all times
   useEffect(() => {
@@ -337,8 +387,41 @@ const ARExperiencePage = () => {
               />
             )}
             
-            {/* Play Button - Shows when no target detected */}
-            {!targetDetected && !isScanning && (
+            {/* Composite Image Overlay - Shows when no target detected */}
+            {showCompositeImage && !targetDetected && (
+              <CompositeImageOverlay
+                projectData={projectData}
+                isVisible={showCompositeImage}
+                onAnimationComplete={() => {
+                  // Restart animation after completion
+                  setTimeout(() => {
+                    if (!targetDetected && showCompositeImage) {
+                      setShowScannerAnimation(true);
+                    }
+                  }, 2000);
+                }}
+              />
+            )}
+            
+            {/* Scanner Animation on Composite Image */}
+            {showCompositeImage && showScannerAnimation && !targetDetected && (
+              <ScannerAnimation
+                isActive={showScannerAnimation}
+                duration={2000}
+                onComplete={() => {
+                  // Restart animation
+                  setTimeout(() => {
+                    if (!targetDetected && showCompositeImage) {
+                      setShowScannerAnimation(true);
+                    }
+                  }, 1000);
+                }}
+                className="absolute inset-0 z-40"
+              />
+            )}
+            
+            {/* Play Button - Shows when no target detected and no composite image */}
+            {!targetDetected && !isScanning && !showCompositeImage && (
               <div className="absolute inset-0 flex items-center justify-center z-20">
                 <div className="w-16 h-16 bg-gradient-to-r from-primary-600 to-purple-600 rounded-full flex items-center justify-center shadow-glow">
                   <div className="w-0 h-0 border-l-[12px] border-l-white border-y-[8px] border-y-transparent ml-1"></div>
@@ -347,7 +430,7 @@ const ARExperiencePage = () => {
             )}
             
             {/* Scanning Indicator */}
-            {isScanning && !targetDetected && (
+            {isScanning && !targetDetected && !showCompositeImage && (
               <div className="absolute inset-0 flex items-center justify-center z-20">
                 <div className="text-white text-center">
                   <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>

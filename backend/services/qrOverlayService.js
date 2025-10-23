@@ -23,6 +23,16 @@ console.log('🔍 Jimp version info:', Jimp.version || 'unknown');
  */
 const generateQRCodeBuffer = async (data, size = 200) => {
   try {
+    if (!data || typeof data !== 'string') {
+      throw new Error('Invalid data provided for QR code generation');
+    }
+    
+    if (!size || size <= 0 || size > 2000) {
+      throw new Error('Invalid QR code size. Must be between 1 and 2000 pixels');
+    }
+    
+    console.log('🔲 Generating QR code buffer:', { dataLength: data.length, size });
+    
     const qrCodeDataURL = await QRCode.toDataURL(data, {
       width: size,
       margin: 2,
@@ -34,10 +44,14 @@ const generateQRCodeBuffer = async (data, size = 200) => {
     
     // Convert data URL to buffer
     const base64Data = qrCodeDataURL.replace(/^data:image\/png;base64,/, '');
-    return Buffer.from(base64Data, 'base64');
+    const buffer = Buffer.from(base64Data, 'base64');
+    
+    console.log('✅ QR code buffer generated:', { size: buffer.length, width: size });
+    return buffer;
   } catch (error) {
-    console.error('QR code generation error:', error);
-    throw new Error('Failed to generate QR code');
+    console.error('❌ QR code generation error:', error);
+    console.error('❌ Error details:', { data: data?.substring(0, 50), size, errorMessage: error.message });
+    throw new Error(`Failed to generate QR code: ${error.message}`);
   }
 };
 
@@ -52,6 +66,23 @@ const generateQRCodeBuffer = async (data, size = 200) => {
  */
 const overlayQRCode = async (designImagePath, qrData, position, outputPath) => {
   try {
+    // Validate input parameters
+    if (!designImagePath || typeof designImagePath !== 'string') {
+      throw new Error('Invalid design image path');
+    }
+    
+    if (!qrData || typeof qrData !== 'string') {
+      throw new Error('Invalid QR data provided');
+    }
+    
+    if (!position || typeof position !== 'object') {
+      throw new Error('Invalid position data provided');
+    }
+    
+    if (!outputPath || typeof outputPath !== 'string') {
+      throw new Error('Invalid output path provided');
+    }
+    
     // Validate and normalize position data
     const normalizedPosition = {
       x: Math.round(position.x),
@@ -60,7 +91,7 @@ const overlayQRCode = async (designImagePath, qrData, position, outputPath) => {
       height: Math.round(position.height)
     };
     
-    console.log('QR overlay position data:', {
+    console.log('🎨 QR overlay position data:', {
       original: position,
       normalized: normalizedPosition
     });
@@ -69,6 +100,11 @@ const overlayQRCode = async (designImagePath, qrData, position, outputPath) => {
     if (normalizedPosition.x < 0 || normalizedPosition.y < 0 || 
         normalizedPosition.width <= 0 || normalizedPosition.height <= 0) {
       throw new Error('Invalid position values: x, y, width, height must be positive');
+    }
+    
+    // Check if design image file exists
+    if (!fs.existsSync(designImagePath)) {
+      throw new Error(`Design image file not found: ${designImagePath}`);
     }
     
     // Load the design image using Jimp
@@ -107,6 +143,8 @@ const overlayQRCode = async (designImagePath, qrData, position, outputPath) => {
       console.error('❌ Failed to load image with Jimp:', loadError.message);
       console.log('🔍 Jimp object keys:', Jimp ? Object.keys(Jimp) : 'undefined');
       console.log('🔍 Jimp type:', typeof Jimp);
+      console.log('🔍 File exists:', fs.existsSync(designImagePath));
+      console.log('🔍 File size:', fs.existsSync(designImagePath) ? fs.statSync(designImagePath).size : 'N/A');
       throw new Error(`Failed to load image: ${loadError.message}`);
     }
     
@@ -163,15 +201,36 @@ const generateFinalDesign = async (designUrl, qrData, position, userId) => {
     console.log('🎨 Starting final design generation:', { designUrl, qrData, position, userId });
     
     // Validate inputs
-    if (!designUrl || !qrData || !position || !userId) {
-      console.error('❌ Missing required parameters:', { designUrl: !!designUrl, qrData: !!qrData, position: !!position, userId: !!userId });
-      throw new Error('Missing required parameters for final design generation');
+    if (!designUrl || typeof designUrl !== 'string') {
+      console.error('❌ Invalid designUrl:', designUrl);
+      throw new Error('Invalid design URL provided');
+    }
+    
+    if (!qrData || typeof qrData !== 'string') {
+      console.error('❌ Invalid qrData:', qrData);
+      throw new Error('Invalid QR data provided');
+    }
+    
+    if (!position || typeof position !== 'object') {
+      console.error('❌ Invalid position:', position);
+      throw new Error('Invalid position data provided');
+    }
+    
+    if (!userId || typeof userId !== 'string') {
+      console.error('❌ Invalid userId:', userId);
+      throw new Error('Invalid user ID provided');
     }
     
     // Validate position data
     if (position.x === undefined || position.y === undefined || position.width === undefined || position.height === undefined) {
       console.error('❌ Invalid position data:', position);
-      throw new Error('Invalid QR position data');
+      throw new Error('Invalid QR position data - missing required fields');
+    }
+    
+    // Validate position values
+    if (position.x < 0 || position.y < 0 || position.width <= 0 || position.height <= 0) {
+      console.error('❌ Invalid position values:', position);
+      throw new Error('Invalid QR position values - must be positive numbers');
     }
     
     // Determine if it's S3, Cloudinary, or local storage

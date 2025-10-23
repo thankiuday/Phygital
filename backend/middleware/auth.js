@@ -20,6 +20,7 @@ const authenticateToken = async (req, res, next) => {
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
     
     if (!token) {
+      console.log('❌ No token provided in request');
       return res.status(401).json({
         status: 'error',
         message: 'Access token required'
@@ -27,12 +28,40 @@ const authenticateToken = async (req, res, next) => {
     }
     
     // Verify JWT token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (jwtError) {
+      console.error('❌ JWT verification failed:', jwtError.message);
+      if (jwtError.name === 'JsonWebTokenError') {
+        return res.status(401).json({
+          status: 'error',
+          message: 'Invalid token'
+        });
+      }
+      if (jwtError.name === 'TokenExpiredError') {
+        return res.status(401).json({
+          status: 'error',
+          message: 'Token expired'
+        });
+      }
+      throw jwtError;
+    }
     
     // Find user by ID from token
-    const user = await User.findById(decoded.userId).select('-password');
+    let user;
+    try {
+      user = await User.findById(decoded.userId).select('-password');
+    } catch (dbError) {
+      console.error('❌ Database error during user lookup:', dbError.message);
+      return res.status(500).json({
+        status: 'error',
+        message: 'Database connection error'
+      });
+    }
     
     if (!user) {
+      console.log('❌ User not found for token:', decoded.userId);
       return res.status(401).json({
         status: 'error',
         message: 'User not found'
@@ -40,6 +69,7 @@ const authenticateToken = async (req, res, next) => {
     }
     
     if (!user.isActive) {
+      console.log('❌ User account is deactivated:', user._id);
       return res.status(401).json({
         status: 'error',
         message: 'Account is deactivated'
@@ -48,11 +78,14 @@ const authenticateToken = async (req, res, next) => {
     
     // Add user to request object
     req.user = user;
+    console.log('✅ User authenticated successfully:', user._id);
     next();
     
   } catch (error) {
-    console.error('Authentication error:', error);
+    console.error('❌ Authentication error:', error);
+    console.error('❌ Error stack:', error.stack);
     
+    // Handle specific error types
     if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({
         status: 'error',
@@ -67,9 +100,18 @@ const authenticateToken = async (req, res, next) => {
       });
     }
     
+    if (error.name === 'CastError') {
+      return res.status(401).json({
+        status: 'error',
+        message: 'Invalid user ID format'
+      });
+    }
+    
+    // Generic error response
     return res.status(500).json({
       status: 'error',
-      message: 'Authentication failed'
+      message: 'Authentication failed',
+      ...(process.env.NODE_ENV === 'development' && { error: error.message })
     });
   }
 };
@@ -84,17 +126,28 @@ const optionalAuth = async (req, res, next) => {
     const token = authHeader && authHeader.split(' ')[1];
     
     if (token) {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findById(decoded.userId).select('-password');
-      
-      if (user && user.isActive) {
-        req.user = user;
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.userId).select('-password');
+        
+        if (user && user.isActive) {
+          req.user = user;
+          console.log('✅ Optional auth: User authenticated:', user._id);
+        } else {
+          console.log('⚠️ Optional auth: User not found or inactive');
+        }
+      } catch (jwtError) {
+        console.log('⚠️ Optional auth: Invalid token, continuing without auth');
+        // Continue without authentication if token is invalid
       }
+    } else {
+      console.log('⚠️ Optional auth: No token provided, continuing without auth');
     }
     
     next();
   } catch (error) {
-    // Continue without authentication if token is invalid
+    console.error('❌ Optional auth error:', error.message);
+    // Continue without authentication if any error occurs
     next();
   }
 };
@@ -106,13 +159,25 @@ const optionalAuth = async (req, res, next) => {
  */
 const generateToken = (userId) => {
   try {
-    return jwt.sign(
+    if (!userId) {
+      throw new Error('User ID is required to generate token');
+    }
+    
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET environment variable is not set');
+    }
+    
+    const token = jwt.sign(
       { userId },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRE || '7d' }
     );
+    
+    console.log('✅ JWT token generated for user:', userId);
+    return token;
   } catch (error) {
-    throw new Error('Failed to generate token');
+    console.error('❌ Token generation error:', error.message);
+    throw new Error(`Failed to generate token: ${error.message}`);
   }
 };
 
@@ -122,17 +187,46 @@ const generateToken = (userId) => {
  */
 const requireUploadedFiles = async (req, res, next) => {
   try {
-    if (!req.user.uploadedFiles.design.url || !req.user.uploadedFiles.video.url) {
-      return res.status(400).json({
+    if (!req.user) {
+      console.log('❌ requireUploadedFiles: No user in request');
+      return res.status(401).json({
         status: 'error',
-        message: 'Please upload both design and video files first'
+        message: 'Authentication required'
       });
     }
+    
+    if (!req.user.uploadedFiles) {
+      console.log('❌ requireUploadedFiles: No uploadedFiles object for user:', req.user._id);
+      return res.status(400).json({
+        status: 'error',
+        message: 'User profile not properly initialized'
+      });
+    }
+    
+    const hasDesign = req.user.uploadedFiles.design && req.user.uploadedFiles.design.url;
+    const hasVideo = req.user.uploadedFiles.video && req.user.uploadedFiles.video.url;
+    
+    if (!hasDesign || !hasVideo) {
+      const missing = [];
+      if (!hasDesign) missing.push('design');
+      if (!hasVideo) missing.push('video');
+      
+      console.log('❌ requireUploadedFiles: Missing files for user:', req.user._id, 'Missing:', missing);
+      return res.status(400).json({
+        status: 'error',
+        message: `Please upload ${missing.join(' and ')} files first`,
+        missingFiles: missing
+      });
+    }
+    
+    console.log('✅ requireUploadedFiles: User has all required files:', req.user._id);
     next();
   } catch (error) {
+    console.error('❌ requireUploadedFiles error:', error);
     return res.status(500).json({
       status: 'error',
-      message: 'Failed to verify uploaded files'
+      message: 'Failed to verify uploaded files',
+      ...(process.env.NODE_ENV === 'development' && { error: error.message })
     });
   }
 };
