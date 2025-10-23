@@ -586,12 +586,15 @@ router.post('/page-view', [
  * POST /api/analytics/ar-experience-error
  * Track AR experience error events
  * Logs when users encounter errors during AR experience
+ * Updated: Fixed validation and error handling
  */
 router.post('/ar-experience-error', [
   body('userId').isString().withMessage('User ID is required'),
   body('projectId').optional().isString().withMessage('Project ID must be a string'),
-  body('errorType').isString().withMessage('Error type is required'),
+  body('errorType').optional().isString().withMessage('Error type must be a string'),
   body('errorMessage').optional().isString().withMessage('Error message must be a string'),
+  body('error').optional().isString().withMessage('Error must be a string'),
+  body('step').optional().isString().withMessage('Step must be a string'),
   body('timestamp').optional().isISO8601().withMessage('Valid timestamp is required'),
   body('userAgent').optional().isString().withMessage('User agent must be string')
 ], async (req, res) => {
@@ -611,6 +614,8 @@ router.post('/ar-experience-error', [
       projectId, 
       errorType, 
       errorMessage = '', 
+      error = '',
+      step = '',
       timestamp = new Date().toISOString(),
       userAgent 
     } = req.body;
@@ -635,8 +640,8 @@ router.post('/ar-experience-error', [
     
     // Track detailed analytics with projectId
     await Analytics.trackEvent(userId, 'arExperienceError', {
-      errorType,
-      errorMessage,
+      errorType: errorType || step,
+      errorMessage: errorMessage || error,
       userAgent: userAgent || req.headers['user-agent'],
       ipAddress: req.ip || req.connection.remoteAddress,
       referrer: req.headers.referer,
