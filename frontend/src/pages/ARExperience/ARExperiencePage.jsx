@@ -73,6 +73,7 @@ const ARExperiencePage = () => {
   const [showCompositeImage, setShowCompositeImage] = React.useState(false);
   const [showScannerAnimation, setShowScannerAnimation] = React.useState(false);
   const [hasShownInitialGuide, setHasShownInitialGuide] = React.useState(false);
+  const [containerHeight, setContainerHeight] = React.useState('400px');
 
   // Debug utilities
   const { addDebugMessage } = useDebug(setDebugMessages);
@@ -143,6 +144,23 @@ const ARExperiencePage = () => {
   const [videoAspectRatio, setVideoAspectRatio] = React.useState(16 / 9);
   const isLandscape = videoAspectRatio >= 1.5;
   const paddingTopPercent = (100 / videoAspectRatio) * (isLandscape ? 1.15 : 1);
+  
+  // Dynamic container height based on content and screen size
+  const getContainerHeight = () => {
+    if (showCompositeImage) {
+      // Larger height for composite image display - responsive to screen size
+      const screenHeight = window.innerHeight;
+      const isMobile = window.innerWidth < 640;
+      
+      if (isMobile) {
+        return isLandscape ? '280px' : '400px';
+      } else {
+        return isLandscape ? '350px' : '450px';
+      }
+    }
+    // Standard height for video
+    return isLandscape ? '300px' : '400px';
+  };
 
   // Ensure video element respects play/pause state
   useEffect(() => {
@@ -175,16 +193,23 @@ const ARExperiencePage = () => {
         setShowCompositeImage(true);
         setShowScannerAnimation(true);
         setHasShownInitialGuide(true);
+        setContainerHeight(getContainerHeight());
         addDebugMessage('📱 Showing composite image guide to user', 'info');
       } else if (projectData?.designUrl) {
         // Fallback to original design if no composite available
         setShowCompositeImage(true);
         setShowScannerAnimation(true);
         setHasShownInitialGuide(true);
+        setContainerHeight(getContainerHeight());
         addDebugMessage('📱 Showing design image guide to user (no composite available)', 'info');
       }
     }
   }, [arReady, targetDetected, hasShownInitialGuide, projectData?.compositeDesignUrl, projectData?.designUrl, addDebugMessage]);
+
+  // Update container height when composite image state changes
+  useEffect(() => {
+    setContainerHeight(getContainerHeight());
+  }, [showCompositeImage, isLandscape]);
 
   // Hide composite image when target is detected
   useEffect(() => {
@@ -201,6 +226,7 @@ const ARExperiencePage = () => {
       const timeoutId = setTimeout(() => {
         setShowCompositeImage(true);
         setShowScannerAnimation(true);
+        setContainerHeight(getContainerHeight());
         addDebugMessage('🔄 Target lost, showing composite image guide again', 'info');
       }, 1000);
       
@@ -340,13 +366,14 @@ const ARExperiencePage = () => {
       <main className="max-w-md mx-auto bg-slate-900/95 backdrop-blur-sm min-h-screen">
         {/* Video Container */}
         <div className="px-2 sm:px-4 py-4 sm:py-6">
-          {/* Media Box - Enhanced responsiveness */}
+          {/* Media Box - Enhanced responsiveness with proper height for composite image */}
           <div
             className="relative bg-slate-800/80 rounded-xl overflow-hidden shadow-dark-large w-full"
             style={{ 
-              paddingTop: `${paddingTopPercent}%`, 
-              minHeight: isLandscape ? '200px' : '180px',
-              maxHeight: '70vh'
+              paddingTop: showCompositeImage ? '0' : `${paddingTopPercent}%`, 
+              minHeight: containerHeight,
+              maxHeight: '85vh',
+              height: showCompositeImage ? containerHeight : 'auto'
             }}
           >
             {/* AR Container - Hidden but functional */}

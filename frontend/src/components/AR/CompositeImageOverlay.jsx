@@ -59,17 +59,20 @@ const CompositeImageOverlay = ({
   return (
     <div className="absolute inset-0 w-full h-full flex items-center justify-center z-30">
       {/* Composite Image Container */}
-      <div className="relative w-full h-full flex items-center justify-center p-4">
-        {/* Composite Design Image - Responsive sizing */}
-        <div className="relative w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl">
+      <div className="relative w-full h-full flex items-center justify-center p-2 sm:p-4">
+        {/* Composite Design Image - Responsive sizing with proper container fit */}
+        <div className="relative w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl h-full flex items-center justify-center">
           <img
             src={projectData.compositeDesignUrl || projectData.designUrl}
             alt="AR Target"
             className="w-full h-auto rounded-xl shadow-2xl"
             style={{
               filter: 'drop-shadow(0 0 30px rgba(59, 130, 246, 0.4))',
-              maxHeight: '70vh',
-              objectFit: 'contain'
+              maxHeight: '90%',
+              maxWidth: '95%',
+              objectFit: 'contain',
+              width: 'auto',
+              height: 'auto'
             }}
           />
           
