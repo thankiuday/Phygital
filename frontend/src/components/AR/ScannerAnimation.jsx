@@ -49,40 +49,40 @@ const ScannerAnimation = ({
       {/* Scanner Overlay */}
       {isAnimating && (
         <div className="absolute inset-0 pointer-events-none">
-          {/* Corner Brackets */}
-          <div className="absolute top-2 left-2 w-6 h-6">
-            <div className="absolute top-0 left-0 w-4 h-0.5 bg-white rounded-sm opacity-80"></div>
-            <div className="absolute top-0 left-0 w-0.5 h-4 bg-white rounded-sm opacity-80"></div>
+          {/* Corner Brackets - Responsive sizing */}
+          <div className="absolute top-1 left-1 w-4 h-4 sm:w-6 sm:h-6">
+            <div className="absolute top-0 left-0 w-3 h-0.5 sm:w-4 sm:h-0.5 bg-white rounded-sm opacity-90 shadow-lg"></div>
+            <div className="absolute top-0 left-0 w-0.5 h-3 sm:w-0.5 sm:h-4 bg-white rounded-sm opacity-90 shadow-lg"></div>
           </div>
-          <div className="absolute top-2 right-2 w-6 h-6">
-            <div className="absolute top-0 right-0 w-4 h-0.5 bg-white rounded-sm opacity-80"></div>
-            <div className="absolute top-0 right-0 w-0.5 h-4 bg-white rounded-sm opacity-80"></div>
+          <div className="absolute top-1 right-1 w-4 h-4 sm:w-6 sm:h-6">
+            <div className="absolute top-0 right-0 w-3 h-0.5 sm:w-4 sm:h-0.5 bg-white rounded-sm opacity-90 shadow-lg"></div>
+            <div className="absolute top-0 right-0 w-0.5 h-3 sm:w-0.5 sm:h-4 bg-white rounded-sm opacity-90 shadow-lg"></div>
           </div>
-          <div className="absolute bottom-2 left-2 w-6 h-6">
-            <div className="absolute bottom-0 left-0 w-4 h-0.5 bg-white rounded-sm opacity-80"></div>
-            <div className="absolute bottom-0 left-0 w-0.5 h-4 bg-white rounded-sm opacity-80"></div>
+          <div className="absolute bottom-1 left-1 w-4 h-4 sm:w-6 sm:h-6">
+            <div className="absolute bottom-0 left-0 w-3 h-0.5 sm:w-4 sm:h-0.5 bg-white rounded-sm opacity-90 shadow-lg"></div>
+            <div className="absolute bottom-0 left-0 w-0.5 h-3 sm:w-0.5 sm:h-4 bg-white rounded-sm opacity-90 shadow-lg"></div>
           </div>
-          <div className="absolute bottom-2 right-2 w-6 h-6">
-            <div className="absolute bottom-0 right-0 w-4 h-0.5 bg-white rounded-sm opacity-80"></div>
-            <div className="absolute bottom-0 right-0 w-0.5 h-4 bg-white rounded-sm opacity-80"></div>
+          <div className="absolute bottom-1 right-1 w-4 h-4 sm:w-6 sm:h-6">
+            <div className="absolute bottom-0 right-0 w-3 h-0.5 sm:w-4 sm:h-0.5 bg-white rounded-sm opacity-90 shadow-lg"></div>
+            <div className="absolute bottom-0 right-0 w-0.5 h-3 sm:w-0.5 sm:h-4 bg-white rounded-sm opacity-90 shadow-lg"></div>
           </div>
 
-          {/* Scanning Line */}
+          {/* Scanning Line - Enhanced visibility */}
           <div 
-            className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-blue-400 to-transparent opacity-90"
+            className="absolute left-0 right-0 h-0.5 sm:h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent opacity-95"
             style={{
               top: `${scanProgress * 100}%`,
               transform: 'translateY(-50%)',
-              boxShadow: '0 0 10px rgba(59, 130, 246, 0.8)',
+              boxShadow: '0 0 15px rgba(59, 130, 246, 0.9), 0 0 30px rgba(59, 130, 246, 0.6)',
             }}
           />
 
-          {/* Scanning Pulse Effect */}
+          {/* Scanning Pulse Effect - More subtle */}
           <div 
             className="absolute inset-0 border-2 border-blue-400 rounded-lg opacity-60"
             style={{
-              transform: `scale(${1 + scanProgress * 0.1})`,
-              boxShadow: `0 0 ${20 + scanProgress * 30}px rgba(59, 130, 246, ${0.3 + scanProgress * 0.4})`,
+              transform: `scale(${1 + scanProgress * 0.05})`,
+              boxShadow: `0 0 ${25 + scanProgress * 40}px rgba(59, 130, 246, ${0.4 + scanProgress * 0.3})`,
             }}
           />
         </div>

@@ -59,82 +59,85 @@ const CompositeImageOverlay = ({
   return (
     <div className="absolute inset-0 w-full h-full flex items-center justify-center z-30">
       {/* Composite Image Container */}
-      <div className="relative w-full h-full flex items-center justify-center">
-        {/* Composite Design Image */}
-        <div className="relative max-w-sm w-full mx-4">
+      <div className="relative w-full h-full flex items-center justify-center p-4">
+        {/* Composite Design Image - Responsive sizing */}
+        <div className="relative w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl">
           <img
             src={projectData.compositeDesignUrl || projectData.designUrl}
             alt="AR Target"
-            className="w-full h-auto rounded-lg shadow-2xl"
+            className="w-full h-auto rounded-xl shadow-2xl"
             style={{
-              filter: 'drop-shadow(0 0 20px rgba(59, 130, 246, 0.3))',
+              filter: 'drop-shadow(0 0 30px rgba(59, 130, 246, 0.4))',
+              maxHeight: '70vh',
+              objectFit: 'contain'
             }}
           />
           
           {/* Scanner Animation Overlay */}
           <div className="absolute inset-0 pointer-events-none">
-            {/* Corner Brackets */}
-            <div className="absolute top-0 left-0 w-8 h-8">
-              <div className="absolute top-0 left-0 w-6 h-0.5 bg-white rounded-sm opacity-80"></div>
-              <div className="absolute top-0 left-0 w-0.5 h-6 bg-white rounded-sm opacity-80"></div>
+            {/* Corner Brackets - Responsive sizing */}
+            <div className="absolute top-1 left-1 w-6 h-6 sm:w-8 sm:h-8">
+              <div className="absolute top-0 left-0 w-4 h-0.5 sm:w-6 sm:h-0.5 bg-white rounded-sm opacity-90 shadow-lg"></div>
+              <div className="absolute top-0 left-0 w-0.5 h-4 sm:w-0.5 sm:h-6 bg-white rounded-sm opacity-90 shadow-lg"></div>
             </div>
-            <div className="absolute top-0 right-0 w-8 h-8">
-              <div className="absolute top-0 right-0 w-6 h-0.5 bg-white rounded-sm opacity-80"></div>
-              <div className="absolute top-0 right-0 w-0.5 h-6 bg-white rounded-sm opacity-80"></div>
+            <div className="absolute top-1 right-1 w-6 h-6 sm:w-8 sm:h-8">
+              <div className="absolute top-0 right-0 w-4 h-0.5 sm:w-6 sm:h-0.5 bg-white rounded-sm opacity-90 shadow-lg"></div>
+              <div className="absolute top-0 right-0 w-0.5 h-4 sm:w-0.5 sm:h-6 bg-white rounded-sm opacity-90 shadow-lg"></div>
             </div>
-            <div className="absolute bottom-0 left-0 w-8 h-8">
-              <div className="absolute bottom-0 left-0 w-6 h-0.5 bg-white rounded-sm opacity-80"></div>
-              <div className="absolute bottom-0 left-0 w-0.5 h-6 bg-white rounded-sm opacity-80"></div>
+            <div className="absolute bottom-1 left-1 w-6 h-6 sm:w-8 sm:h-8">
+              <div className="absolute bottom-0 left-0 w-4 h-0.5 sm:w-6 sm:h-0.5 bg-white rounded-sm opacity-90 shadow-lg"></div>
+              <div className="absolute bottom-0 left-0 w-0.5 h-4 sm:w-0.5 sm:h-6 bg-white rounded-sm opacity-90 shadow-lg"></div>
             </div>
-            <div className="absolute bottom-0 right-0 w-8 h-8">
-              <div className="absolute bottom-0 right-0 w-6 h-0.5 bg-white rounded-sm opacity-80"></div>
-              <div className="absolute bottom-0 right-0 w-0.5 h-6 bg-white rounded-sm opacity-80"></div>
+            <div className="absolute bottom-1 right-1 w-6 h-6 sm:w-8 sm:h-8">
+              <div className="absolute bottom-0 right-0 w-4 h-0.5 sm:w-6 sm:h-0.5 bg-white rounded-sm opacity-90 shadow-lg"></div>
+              <div className="absolute bottom-0 right-0 w-0.5 h-4 sm:w-0.5 sm:h-6 bg-white rounded-sm opacity-90 shadow-lg"></div>
             </div>
 
             {/* Scanning Line */}
             {showScanLine && (
               <div 
-                className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-blue-400 to-transparent opacity-90"
+                className="absolute left-0 right-0 h-0.5 sm:h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent opacity-90"
                 style={{
                   top: `${scanProgress * 100}%`,
                   transform: 'translateY(-50%)',
-                  boxShadow: '0 0 10px rgba(59, 130, 246, 0.8)',
+                  boxShadow: '0 0 15px rgba(59, 130, 246, 0.9), 0 0 30px rgba(59, 130, 246, 0.6)',
                 }}
               />
             )}
 
             {/* Scanning Pulse Effect */}
             <div 
-              className="absolute inset-0 border-2 border-blue-400 rounded-lg opacity-60"
+              className="absolute inset-0 border-2 border-blue-400 rounded-xl opacity-70"
               style={{
-                transform: `scale(${1 + scanProgress * 0.1})`,
-                boxShadow: `0 0 ${20 + scanProgress * 30}px rgba(59, 130, 246, ${0.3 + scanProgress * 0.4})`,
+                transform: `scale(${1 + scanProgress * 0.05})`,
+                boxShadow: `0 0 ${30 + scanProgress * 50}px rgba(59, 130, 246, ${0.4 + scanProgress * 0.3})`,
               }}
             />
           </div>
         </div>
 
-        {/* Instructions Text */}
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-center">
-          <div className="bg-black/80 backdrop-blur-sm rounded-lg px-6 py-3 border border-blue-400/30">
-            <div className="flex items-center justify-center space-x-2 mb-2">
-              <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-              <p className="text-white text-sm font-medium">
-                Point your camera at this image
+        {/* Instructions Text - Responsive and smaller */}
+        <div className="absolute bottom-2 sm:bottom-4 left-1/2 transform -translate-x-1/2 text-center w-full max-w-sm px-4">
+          <div className="bg-black/70 backdrop-blur-md rounded-lg px-3 py-2 sm:px-4 sm:py-3 border border-blue-400/40">
+            <div className="flex items-center justify-center space-x-1 sm:space-x-2 mb-1">
+              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-400 rounded-full animate-pulse"></div>
+              <p className="text-white text-xs sm:text-sm font-medium">
+                Point camera at this image
               </p>
-              <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-400 rounded-full animate-pulse"></div>
             </div>
             <p className="text-blue-300 text-xs">
-              Keep the image in the frame to activate AR experience
+              Keep in frame to activate AR
             </p>
           </div>
         </div>
 
-        {/* Top Instructions */}
-        <div className="absolute top-8 left-1/2 transform -translate-x-1/2 text-center">
-          <div className="bg-black/60 backdrop-blur-sm rounded-lg px-4 py-2">
-            <p className="text-white text-xs font-medium">
-              📱 AR Target Detected
+        {/* Top Status - Smaller and less intrusive */}
+        <div className="absolute top-2 sm:top-4 left-1/2 transform -translate-x-1/2 text-center">
+          <div className="bg-black/50 backdrop-blur-sm rounded-full px-3 py-1">
+            <p className="text-white text-xs font-medium flex items-center space-x-1">
+              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+              <span>AR Ready</span>
             </p>
           </div>
         </div>

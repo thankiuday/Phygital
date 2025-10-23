@@ -339,11 +339,15 @@ const ARExperiencePage = () => {
       {/* Main Content */}
       <main className="max-w-md mx-auto bg-slate-900/95 backdrop-blur-sm min-h-screen">
         {/* Video Container */}
-        <div className="px-4 py-6">
-          {/* Media Box */}
+        <div className="px-2 sm:px-4 py-4 sm:py-6">
+          {/* Media Box - Enhanced responsiveness */}
           <div
-            className="relative bg-slate-800/80 rounded-lg overflow-hidden shadow-dark-large w-full"
-            style={{ paddingTop: `${paddingTopPercent}%`, minHeight: isLandscape ? '240px' : '200px' }}
+            className="relative bg-slate-800/80 rounded-xl overflow-hidden shadow-dark-large w-full"
+            style={{ 
+              paddingTop: `${paddingTopPercent}%`, 
+              minHeight: isLandscape ? '200px' : '180px',
+              maxHeight: '70vh'
+            }}
           >
             {/* AR Container - Hidden but functional */}
             <div
@@ -443,11 +447,11 @@ const ARExperiencePage = () => {
         </div>
 
         {/* Video Controls */}
-        <div className="px-4 pb-4">
-          <div className="flex space-x-3">
+        <div className="px-2 sm:px-4 pb-4">
+          <div className="flex space-x-2 sm:space-x-3">
             <button
               onClick={toggleMute}
-              className="flex-1 bg-slate-800/80 border border-slate-600/30 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-center space-x-2 hover:bg-slate-700/80 active:bg-slate-600/90 focus:outline-none focus:ring-2 focus:ring-neon-purple/40 transition-colors touch-manipulation backdrop-blur-md"
+              className="flex-1 bg-slate-800/80 border border-slate-600/30 rounded-lg px-2 sm:px-4 py-2 sm:py-3 flex items-center justify-center space-x-1 sm:space-x-2 hover:bg-slate-700/80 active:bg-slate-600/90 focus:outline-none focus:ring-2 focus:ring-neon-purple/40 transition-colors touch-manipulation backdrop-blur-md"
             >
               {videoMuted ? (
                 <>
@@ -498,8 +502,8 @@ const ARExperiencePage = () => {
           const hasContactInfo = !!(contactNumber || whatsappNumber);
           return hasContactInfo;
         })() && (
-          <div className="px-4 pb-6">
-            <div className="flex space-x-3 sm:space-x-4">
+          <div className="px-2 sm:px-4 pb-4 sm:pb-6">
+            <div className="flex space-x-2 sm:space-x-4">
               {contactNumber && (
                 <a 
                   href={`tel:${sanitizeNumber(contactNumber)}`}
@@ -545,9 +549,9 @@ const ARExperiencePage = () => {
           );
           return hasSocialLinks;
         })() && (
-          <div className="px-4 pb-8">
-            <h2 className="text-base sm:text-lg font-bold text-slate-100 mb-3 sm:mb-4">Social Links</h2>
-            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          <div className="px-2 sm:px-4 pb-6 sm:pb-8">
+            <h2 className="text-sm sm:text-base font-bold text-slate-100 mb-2 sm:mb-3">Social Links</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
               {socialLinks.instagram && (
                 <a
                   href={socialLinks.instagram}
