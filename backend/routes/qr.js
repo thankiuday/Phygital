@@ -289,14 +289,29 @@ router.get('/user/:userId/project/:projectId', async (req, res) => {
     const user = await User.findById(userId).select('-password');
     
     if (!user) {
+      console.log(`❌ User ${userId} not found`);
       return res.status(404).json({
         status: 'error',
         message: 'User not found'
       });
     }
     
+    console.log(`✅ User ${userId} found: ${user.username}`);
+    console.log(`📊 User has ${user.projects?.length || 0} projects`);
+    console.log(`📁 User has uploadedFiles:`, {
+      design: !!user.uploadedFiles?.design?.url,
+      video: !!user.uploadedFiles?.video?.url,
+      composite: !!user.uploadedFiles?.compositeDesign?.url
+    });
+    
     // Find the specific project
     let project = user.projects?.find(p => p.id === projectId);
+    
+    console.log(`🔍 Project lookup result:`, {
+      projectFound: !!project,
+      projectId: projectId,
+      availableProjects: user.projects?.map(p => ({ id: p.id, name: p.name })) || []
+    });
     
     // BACKWARD COMPATIBILITY: If project not found, use root-level uploadedFiles
     // This handles both 'default' and timestamp-based project IDs for existing users
