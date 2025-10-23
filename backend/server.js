@@ -231,6 +231,7 @@ const startServer = async () => {
       console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
       console.log(`🏥 Health Check: http://localhost:${PORT}/api/health`);
+      console.log(`🔄 Deployment: Updated with latest analytics endpoints`);
       console.log(`📋 All routes mounted:`, [
         '/api/auth',
         '/api/upload',
