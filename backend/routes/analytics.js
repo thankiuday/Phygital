@@ -582,4 +582,80 @@ router.post('/page-view', [
   }
 });
 
+/**
+ * POST /api/analytics/ar-experience-error
+ * Track AR experience error events
+ * Logs when users encounter errors during AR experience
+ */
+router.post('/ar-experience-error', [
+  body('userId').isString().withMessage('User ID is required'),
+  body('projectId').optional().isString().withMessage('Project ID must be a string'),
+  body('errorType').isString().withMessage('Error type is required'),
+  body('errorMessage').optional().isString().withMessage('Error message must be a string'),
+  body('timestamp').optional().isISO8601().withMessage('Valid timestamp is required'),
+  body('userAgent').optional().isString().withMessage('User agent must be string')
+], async (req, res) => {
+  try {
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+    
+    const { 
+      userId, 
+      projectId, 
+      errorType, 
+      errorMessage = '', 
+      timestamp = new Date().toISOString(),
+      userAgent 
+    } = req.body;
+    
+    // Validate if userId is a valid ObjectId format (24 hex characters)
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
+    
+    // Find user by ID or username
+    let user;
+    if (isValidObjectId) {
+      user = await User.findById(userId);
+    } else {
+      user = await User.findOne({ username: userId });
+    }
+    
+    if (!user) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'User not found'
+      });
+    }
+    
+    // Track detailed analytics with projectId
+    await Analytics.trackEvent(userId, 'arExperienceError', {
+      errorType,
+      errorMessage,
+      userAgent: userAgent || req.headers['user-agent'],
+      ipAddress: req.ip || req.connection.remoteAddress,
+      referrer: req.headers.referer,
+      timestamp: new Date(timestamp)
+    }, projectId);
+    
+    res.status(200).json({
+      status: 'success',
+      message: 'AR experience error tracked successfully'
+    });
+    
+  } catch (error) {
+    console.error('AR experience error tracking error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to track AR experience error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 module.exports = router;
