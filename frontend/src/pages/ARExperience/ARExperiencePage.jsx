@@ -251,9 +251,13 @@ const ARExperiencePage = () => {
         el.style.maxWidth = '100%';
         el.style.maxHeight = '100%';
         el.style.overflow = 'hidden';
+        el.style.margin = '0';
+        el.style.padding = '0';
+        el.style.border = 'none';
+        el.style.outline = 'none';
         // For video camera feed
         if (el.tagName.toLowerCase() === 'video') {
-          el.style.objectFit = 'contain';
+          el.style.objectFit = 'cover';
           el.style.objectPosition = 'center';
           el.setAttribute('playsinline', '');
           el.setAttribute('webkit-playsinline', '');
@@ -261,7 +265,7 @@ const ARExperiencePage = () => {
         }
         // For canvas elements (AR tracking)
         if (el.tagName.toLowerCase() === 'canvas') {
-          el.style.objectFit = 'contain';
+          el.style.objectFit = 'cover';
           el.style.objectPosition = 'center';
         }
       });
@@ -363,9 +367,9 @@ const ARExperiencePage = () => {
         <BackButton variant="floating" floating iconOnlyOnMobile className="sm:ml-4 sm:mt-4" />
       )}
       {/* Main Content */}
-      <main className="max-w-md mx-auto bg-slate-900/95 backdrop-blur-sm min-h-screen">
+      <main className="w-full max-w-md mx-auto bg-slate-900/95 backdrop-blur-sm min-h-screen" style={{ margin: 0, padding: 0 }}>
         {/* Video Container */}
-        <div className="px-2 sm:px-4 py-4 sm:py-6">
+        <div className="px-2 sm:px-4 py-4 sm:py-6 w-full" style={{ margin: 0, padding: '16px 8px', boxSizing: 'border-box' }}>
           {/* Media Box - Enhanced responsiveness with proper height for composite image */}
           <div
             className="relative bg-slate-800/80 rounded-xl overflow-hidden shadow-dark-large w-full"
@@ -373,7 +377,13 @@ const ARExperiencePage = () => {
               paddingTop: showCompositeImage ? '0' : `${paddingTopPercent}%`, 
               minHeight: containerHeight,
               maxHeight: '85vh',
-              height: showCompositeImage ? containerHeight : 'auto'
+              height: showCompositeImage ? containerHeight : 'auto',
+              width: '100%',
+              margin: 0,
+              padding: 0,
+              border: 'none',
+              outline: 'none',
+              boxSizing: 'border-box'
             }}
           >
             {/* AR Container - Hidden but functional */}
@@ -394,7 +404,9 @@ const ARExperiencePage = () => {
                 right: 0,
                 bottom: 0,
                 zIndex: 1,
-                borderRadius: 'inherit'
+                borderRadius: 'inherit',
+                margin: 0,
+                padding: 0
               }}
             />
             
