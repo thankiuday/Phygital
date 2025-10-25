@@ -583,7 +583,7 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
             <currentLevelConfig.icon className="w-6 h-6 md:w-8 md:h-8" />
           </div>
           <h2 className="text-2xl md:text-3xl font-bold text-slate-100 mb-2">
-            Level {currentLevel}: {currentLevelConfig.name}
+            {currentLevelConfig.name}
           </h2>
           <p className="text-sm md:text-base text-slate-300 px-4">
             {currentLevel === 1 && "Upload your design image to get started"}

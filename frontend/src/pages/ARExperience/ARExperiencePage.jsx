@@ -74,6 +74,10 @@ const ARExperiencePage = () => {
   const [showScannerAnimation, setShowScannerAnimation] = React.useState(false);
   const [hasShownInitialGuide, setHasShownInitialGuide] = React.useState(false);
   const [containerHeight, setContainerHeight] = React.useState('400px');
+  
+  // Video controls overlay state
+  const [showVideoControls, setShowVideoControls] = React.useState(false);
+  const [controlsTimeout, setControlsTimeout] = React.useState(null);
 
   // Debug utilities
   const { addDebugMessage } = useDebug(setDebugMessages);
@@ -132,9 +136,44 @@ const ARExperiencePage = () => {
   const whatsappNumber = socialLinks?.whatsappNumber?.trim();
 
   const sanitizeNumber = (num) => (num || '').replace(/[^0-9+]/g, '');
+  
+  // Track clicked links to prevent double tracking
+  const [clickedLinks, setClickedLinks] = React.useState(new Set());
+  
   const handleSocialClick = (platform, url) => {
     try {
       if (url) {
+        // Create a unique key for this click
+        const clickKey = `${platform}-${url}-${Date.now()}`;
+        
+        // Check if we've already tracked this click recently (within 1 second)
+        const recentClicks = Array.from(clickedLinks).filter(key => {
+          const [p, u, timestamp] = key.split('-');
+          return p === platform && u === url && (Date.now() - parseInt(timestamp)) < 1000;
+        });
+        
+        if (recentClicks.length > 0) {
+          console.log('🚫 Duplicate link click detected, skipping tracking:', { platform, url });
+          return;
+        }
+        
+        console.log('🔗 Social link clicked:', { platform, url, userId, projectId });
+        
+        // Add to clicked links set
+        setClickedLinks(prev => {
+          const newSet = new Set(prev);
+          newSet.add(clickKey);
+          // Clean up old entries (older than 5 seconds)
+          const fiveSecondsAgo = Date.now() - 5000;
+          Array.from(newSet).forEach(key => {
+            const [, , timestamp] = key.split('-');
+            if (parseInt(timestamp) < fiveSecondsAgo) {
+              newSet.delete(key);
+            }
+          });
+          return newSet;
+        });
+        
         analyticsAPI.trackLinkClick(userId, platform, url, projectId).catch(() => {});
       }
     } catch (_) {}
@@ -143,6 +182,7 @@ const ARExperiencePage = () => {
   // Responsive video sizing support
   const [videoAspectRatio, setVideoAspectRatio] = React.useState(16 / 9);
   const isLandscape = videoAspectRatio >= 1.5;
+  const isHorizontal = videoAspectRatio > 1.2; // More sensitive detection for horizontal videos
   const paddingTopPercent = (100 / videoAspectRatio) * (isLandscape ? 1.15 : 1);
   
   // Dynamic container height based on content and screen size
@@ -157,6 +197,11 @@ const ARExperiencePage = () => {
       } else {
         return isLandscape ? '350px' : '450px';
       }
+    }
+    // Enhanced height calculation for horizontal videos
+    if (isHorizontal) {
+      const isMobile = window.innerWidth < 640;
+      return isMobile ? '250px' : '320px';
     }
     // Standard height for video
     return isLandscape ? '300px' : '400px';
@@ -209,7 +254,46 @@ const ARExperiencePage = () => {
   // Update container height when composite image state changes
   useEffect(() => {
     setContainerHeight(getContainerHeight());
-  }, [showCompositeImage, isLandscape]);
+  }, [showCompositeImage, isLandscape, isHorizontal]);
+
+  // Handle window resize for better responsiveness
+  useEffect(() => {
+    const handleResize = () => {
+      setContainerHeight(getContainerHeight());
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isLandscape, isHorizontal, showCompositeImage]);
+
+  // Video controls overlay management
+  const showControls = () => {
+    setShowVideoControls(true);
+    if (controlsTimeout) {
+      clearTimeout(controlsTimeout);
+    }
+    const timeout = setTimeout(() => {
+      setShowVideoControls(false);
+    }, 3000); // Hide controls after 3 seconds
+    setControlsTimeout(timeout);
+  };
+
+  const hideControls = () => {
+    setShowVideoControls(false);
+    if (controlsTimeout) {
+      clearTimeout(controlsTimeout);
+      setControlsTimeout(null);
+    }
+  };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (controlsTimeout) {
+        clearTimeout(controlsTimeout);
+      }
+    };
+  }, [controlsTimeout]);
 
   // Hide composite image when target is detected
   useEffect(() => {
@@ -262,6 +346,12 @@ const ARExperiencePage = () => {
           el.setAttribute('playsinline', '');
           el.setAttribute('webkit-playsinline', '');
           el.setAttribute('muted', 'true');
+          // Ensure video fills container properly for horizontal videos
+          if (isHorizontal) {
+            el.style.width = '100%';
+            el.style.height = '100%';
+            el.style.objectFit = 'cover';
+          }
         }
         // For canvas elements (AR tracking)
         if (el.tagName.toLowerCase() === 'canvas') {
@@ -376,14 +466,15 @@ const ARExperiencePage = () => {
             style={{ 
               paddingTop: showCompositeImage ? '0' : `${paddingTopPercent}%`, 
               minHeight: containerHeight,
-              maxHeight: '85vh',
+              maxHeight: isHorizontal ? '70vh' : '85vh', // Reduced max height for horizontal videos
               height: showCompositeImage ? containerHeight : 'auto',
               width: '100%',
               margin: 0,
               padding: 0,
               border: 'none',
               outline: 'none',
-              boxSizing: 'border-box'
+              boxSizing: 'border-box',
+              aspectRatio: isHorizontal ? '16/9' : 'auto' // Set aspect ratio for horizontal videos
             }}
           >
             {/* AR Container - Hidden but functional */}
@@ -412,22 +503,129 @@ const ARExperiencePage = () => {
             
             {/* Video Overlay - Shows when target is detected */}
             {targetDetected && projectData?.videoUrl && (
-              <video
-                ref={videoRef}
-                src={projectData.videoUrl}
-                className="absolute inset-0 w-full h-full object-contain z-10"
-                muted={videoMuted}
-                loop
-                playsInline
-                onLoadedMetadata={(e) => {
-                  // Adjust container size based on video dimensions
-                  const video = e.target;
-                  const aspectRatio = video.videoWidth / video.videoHeight;
-                  if (aspectRatio && isFinite(aspectRatio)) {
-                    setVideoAspectRatio(aspectRatio);
-                  }
-                }}
-              />
+              <div 
+                className="absolute inset-0 w-full h-full z-10"
+                onMouseEnter={showControls}
+                onMouseLeave={hideControls}
+                onTouchStart={showControls}
+                onClick={showControls}
+              >
+                <video
+                  ref={videoRef}
+                  src={projectData.videoUrl}
+                  className={`w-full h-full ${
+                    isHorizontal ? 'object-cover' : 'object-contain'
+                  }`}
+                  muted={videoMuted}
+                  loop
+                  playsInline
+                  onLoadedMetadata={(e) => {
+                    // Adjust container size based on video dimensions
+                    const video = e.target;
+                    const aspectRatio = video.videoWidth / video.videoHeight;
+                    if (aspectRatio && isFinite(aspectRatio)) {
+                      setVideoAspectRatio(aspectRatio);
+                    }
+                  }}
+                />
+                
+                {/* Video Controls Overlay - YouTube Style */}
+                <div 
+                  className={`absolute inset-0 bg-black/20 transition-opacity duration-300 ${
+                    showVideoControls ? 'opacity-100' : 'opacity-0'
+                  }`}
+                >
+                  {/* Top Controls Bar */}
+                  <div className="absolute top-0 left-0 right-0 p-2 sm:p-3 bg-gradient-to-b from-black/60 to-transparent">
+                    <div className="flex justify-end">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleMute();
+                        }}
+                        className="p-2 sm:p-3 rounded-full bg-black/50 hover:bg-black/70 active:bg-black/80 transition-colors touch-manipulation min-h-[44px] min-w-[44px] flex items-center justify-center"
+                      >
+                        {videoMuted ? (
+                          <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Center Play/Pause Button */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleVideo();
+                      }}
+                      className="p-3 sm:p-4 rounded-full bg-black/50 hover:bg-black/70 active:bg-black/80 transition-all duration-200 transform hover:scale-110 active:scale-95 touch-manipulation min-h-[60px] min-w-[60px] sm:min-h-[80px] sm:min-w-[80px] flex items-center justify-center"
+                    >
+                      {videoPlaying ? (
+                        <svg className="w-6 h-6 sm:w-8 sm:h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                        </svg>
+                      ) : (
+                        <svg className="w-6 h-6 sm:w-8 sm:h-8 text-white ml-0.5 sm:ml-1" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z"/>
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Bottom Controls Bar */}
+                  <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-3 bg-gradient-to-t from-black/60 to-transparent">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2 sm:space-x-3">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleMute();
+                          }}
+                          className="p-2 sm:p-3 rounded-full bg-black/50 hover:bg-black/70 active:bg-black/80 transition-colors touch-manipulation min-h-[44px] min-w-[44px] flex items-center justify-center"
+                        >
+                          {videoMuted ? (
+                            <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                            </svg>
+                          )}
+                        </button>
+                        <span className="text-white text-xs sm:text-sm font-medium hidden sm:block">
+                          {videoMuted ? 'Unmute' : 'Mute'}
+                        </span>
+                      </div>
+                      
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const link = document.createElement('a');
+                          link.href = projectData.videoUrl;
+                          link.download = `ar-video-${projectId || userId}.mp4`;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                        }}
+                        className="p-2 sm:p-3 rounded-full bg-black/50 hover:bg-black/70 active:bg-black/80 transition-colors touch-manipulation min-h-[44px] min-w-[44px] flex items-center justify-center"
+                        title="Download Video"
+                      >
+                        <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
             
             {/* Composite Image Overlay - Shows when no target detected */}
@@ -485,56 +683,6 @@ const ARExperiencePage = () => {
           </div>
         </div>
 
-        {/* Video Controls */}
-        <div className="px-2 sm:px-4 pb-4">
-          <div className="flex space-x-2 sm:space-x-3">
-            <button
-              onClick={toggleMute}
-              className="flex-1 bg-slate-800/80 border border-slate-600/30 rounded-lg px-2 sm:px-4 py-2 sm:py-3 flex items-center justify-center space-x-1 sm:space-x-2 hover:bg-slate-700/80 active:bg-slate-600/90 focus:outline-none focus:ring-2 focus:ring-neon-purple/40 transition-colors touch-manipulation backdrop-blur-md"
-            >
-              {videoMuted ? (
-                <>
-                  <div className="w-4 h-4 flex items-center justify-center">
-                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-slate-100">
-                      <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
-                    </svg>
-                  </div>
-                  <span className="text-slate-100 font-medium text-sm sm:text-base">Mute</span>
-                </>
-              ) : (
-                <>
-                  <div className="w-4 h-4 flex items-center justify-center">
-                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-slate-100">
-                      <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-                    </svg>
-                  </div>
-                  <span className="text-slate-100 font-medium text-sm sm:text-base">Unmute</span>
-                </>
-              )}
-            </button>
-            
-            {projectData?.videoUrl && (
-              <button
-                onClick={() => {
-                  const link = document.createElement('a');
-                  link.href = projectData.videoUrl;
-                  link.download = `ar-video-${projectId || userId}.mp4`;
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                }}
-                className="flex-1 bg-slate-800/80 border border-slate-600/30 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-center space-x-2 hover:bg-slate-700/80 active:bg-slate-600/90 focus:outline-none focus:ring-2 focus:ring-neon-green/40 transition-colors touch-manipulation backdrop-blur-md"
-              >
-                <div className="w-4 h-4 flex items-center justify-center">
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-slate-100">
-                    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
-                  </svg>
-                </div>
-                <span className="text-slate-100 font-medium text-sm sm:text-base">Download</span>
-              </button>
-            )}
-          </div>
-        </div>
 
         {/* Contact Information */}
         {(() => {

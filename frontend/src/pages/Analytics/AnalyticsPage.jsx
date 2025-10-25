@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
+import { useDataRefresh } from '../../hooks/useDataRefresh'
 import { analyticsAPI } from '../../utils/api'
 import BackButton from '../../components/UI/BackButton'
 import { 
@@ -33,6 +34,9 @@ const AnalyticsPage = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [selectedPeriod, setSelectedPeriod] = useState('30d')
   const [showAllProjects, setShowAllProjects] = useState(false)
+  
+  // Auto-refresh data when navigating to this page
+  useDataRefresh()
 
   // Initial load
   useEffect(() => {

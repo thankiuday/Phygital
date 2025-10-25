@@ -6,7 +6,9 @@
 
 import React, { useState, useCallback, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
+import { useSearchParams, useLocation } from 'react-router-dom'
 import { uploadAPI, generateQRCode, downloadFile, api } from '../../utils/api'
+import { useDataRefresh } from '../../hooks/useDataRefresh'
 import BackButton from '../../components/UI/BackButton'
 import { 
   Video, 
@@ -44,7 +46,24 @@ import { useDropzone } from 'react-dropzone'
 import toast from 'react-hot-toast'
 
 const ProjectsPage = () => {
-  const { user, loadUser, updateUser } = useAuth()
+  console.log('🚀 ProjectsPage component is loading!')
+  
+  const { user, loadUser, updateUser, refreshUserData } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const location = useLocation()
+  
+  // Auto-refresh data when navigating to this page
+  useDataRefresh()
+
+  // Debug: Log URL parameters immediately
+  console.log('🔍 ProjectsPage mounted - URL params:', searchParams.toString())
+  console.log('🔍 Edit param:', searchParams.get('edit'))
+  console.log('🔍 Location search:', location.search)
+  
+  // Alternative approach using URLSearchParams
+  const urlParams = new URLSearchParams(location.search)
+  const editParam = urlParams.get('edit')
+  console.log('🔍 Alternative edit param:', editParam)
 
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
@@ -83,6 +102,34 @@ const ProjectsPage = () => {
   })
   const [isSaving, setIsSaving] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+
+  // Handle edit project - moved here to avoid hoisting issues
+  const handleEditProject = (project) => {
+    console.log('🔧 handleEditProject called with:', project)
+    setEditingProject(project)
+
+    // Initialize form data with current project data
+    const userProject = user?.projects?.find(p => p.id === project.id)
+    console.log('🔧 Found user project:', userProject)
+
+    const initialSocialLinks = {
+      instagram: userProject?.socialLinks?.instagram || '',
+      facebook: userProject?.socialLinks?.facebook || '',
+      twitter: userProject?.socialLinks?.twitter || '',
+      linkedin: userProject?.socialLinks?.linkedin || '',
+      website: userProject?.socialLinks?.website || '',
+      contactNumber: userProject?.socialLinks?.contactNumber || '',
+      whatsappNumber: userProject?.socialLinks?.whatsappNumber || ''
+    }
+
+    setEditFormData({
+      video: null, // Will be set when user selects a new video
+      socialLinks: initialSocialLinks
+    })
+
+    console.log('🔧 Setting showEditModal to true')
+    setShowEditModal(true)
+  }
 
   // Sort projects based on selected criteria
   const getSortedProjects = () => {
@@ -166,6 +213,36 @@ const ProjectsPage = () => {
   useEffect(() => {
     loadProjects()
   }, [user])
+
+  // Handle auto-edit from URL parameter
+  useEffect(() => {
+    console.log('🔍 useEffect triggered - projects:', projects.length, 'searchParams:', searchParams.toString())
+    const editProjectId = searchParams.get('edit') || editParam
+    console.log('🔍 Auto-edit check:', { editProjectId, projectsLength: projects.length })
+    
+    if (editProjectId && projects.length > 0) {
+      console.log('🔍 Looking for project with ID:', editProjectId)
+      console.log('🔍 Available project IDs:', projects.map(p => ({ id: p.id, name: p.name })))
+      
+      const projectToEdit = projects.find(p => p.id === editProjectId || p.id === parseInt(editProjectId) || p.id === editProjectId.toString())
+      console.log('🔍 Found project:', projectToEdit)
+      
+      if (projectToEdit) {
+        console.log('🔍 Opening edit modal for project:', projectToEdit.name)
+        // Add a small delay to ensure everything is ready
+        setTimeout(() => {
+          // Auto-open edit modal for the specified project
+          handleEditProject(projectToEdit)
+          // Clear the URL parameter
+          setSearchParams({})
+        }, 100)
+      } else {
+        console.log('❌ Project not found with ID:', editProjectId)
+      }
+    } else {
+      console.log('🔍 Conditions not met:', { editProjectId: !!editProjectId, projectsLength: projects.length })
+    }
+  }, [projects, searchParams, setSearchParams, handleEditProject, editParam])
 
   // Format date
   const formatDate = (dateString) => {
@@ -313,30 +390,6 @@ const ProjectsPage = () => {
   }
 
 
-  // Handle edit project
-  const handleEditProject = (project) => {
-    setEditingProject(project)
-
-    // Initialize form data with current project data
-    const userProject = user?.projects?.find(p => p.id === project.id)
-
-    const initialSocialLinks = {
-      instagram: userProject?.socialLinks?.instagram || '',
-      facebook: userProject?.socialLinks?.facebook || '',
-      twitter: userProject?.socialLinks?.twitter || '',
-      linkedin: userProject?.socialLinks?.linkedin || '',
-      website: userProject?.socialLinks?.website || '',
-      contactNumber: userProject?.socialLinks?.contactNumber || '',
-      whatsappNumber: userProject?.socialLinks?.whatsappNumber || ''
-    }
-
-    setEditFormData({
-      video: null, // Will be set when user selects a new video
-      socialLinks: initialSocialLinks
-    })
-
-    setShowEditModal(true)
-  }
 
   // Handle video drop for edit modal
   const onVideoDrop = useCallback(async (acceptedFiles) => {
@@ -484,10 +537,7 @@ const ProjectsPage = () => {
 
       // Refresh user data from backend to ensure consistency
       try {
-        const userResponse = await api.get('/auth/profile');
-        if (userResponse.data.success && userResponse.data.user) {
-          updateUser(userResponse.data.user);
-        }
+        await refreshUserData();
       } catch (error) {
         console.error('⚠️ Failed to refresh user data from backend:', error);
       }

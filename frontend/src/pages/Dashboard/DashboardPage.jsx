@@ -7,7 +7,10 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { useDataRefresh } from '../../hooks/useDataRefresh'
 import BackButton from '../../components/UI/BackButton'
+import ProfessionalButton from '../../components/UI/ProfessionalButton'
+import ProfessionalCard from '../../components/UI/ProfessionalCard'
 import { 
   Upload, 
   QrCode, 
@@ -27,6 +30,9 @@ import {
 const DashboardPage = () => {
   const { user, isSetupComplete, getSetupProgress, getProjectStats, isProjectComplete } = useAuth()
   const [showAllProjects, setShowAllProjects] = useState(false)
+  
+  // Auto-refresh data when navigating to this page
+  useDataRefresh()
 
   // Get project statistics
   const projectStats = getProjectStats()
@@ -54,7 +60,8 @@ const DashboardPage = () => {
     const hasDesign = project.uploadedFiles?.design?.url
     const hasVideo = project.uploadedFiles?.video?.url
     const hasQR = project.uploadedFiles?.mindTarget?.generated || (project.qrPosition?.x !== 0 || project.qrPosition?.y !== 0)
-    const hasSocial = Object.values(user?.socialLinks || {}).some(link => link) // Social links are global
+    // Fix: Check project-specific social links instead of global ones
+    const hasSocial = project.socialLinks ? Object.values(project.socialLinks).some(link => link && link.trim() !== '') : false
     
     if (hasDesign) completedSteps++
     if (hasVideo) completedSteps++
@@ -73,7 +80,8 @@ const DashboardPage = () => {
       design: !!project.uploadedFiles?.design?.url,
       video: !!project.uploadedFiles?.video?.url,
       qr: !!project.uploadedFiles?.mindTarget?.generated || !!(project.qrPosition?.x !== 0 || project.qrPosition?.y !== 0),
-      social: Object.values(user?.socialLinks || {}).some(link => link) // Social links are global
+      // Fix: Check project-specific social links instead of global ones
+      social: project.socialLinks ? Object.values(project.socialLinks).some(link => link && link.trim() !== '') : false
     }
   }
 
@@ -271,7 +279,7 @@ const DashboardPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-dark-mesh">
+    <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
       {/* Header */}
       <div className="mb-6 sm:mb-8">
@@ -281,10 +289,10 @@ const DashboardPage = () => {
         </div>
         
         <div className="text-center sm:text-left mb-6">
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-100 mb-2">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2">
             Welcome back, {user?.username}!
           </h1>
-          <p className="text-sm sm:text-base text-slate-300">
+          <p className="text-sm sm:text-base text-gray-600">
             Here's an overview of your Phygital account
           </p>
         </div>

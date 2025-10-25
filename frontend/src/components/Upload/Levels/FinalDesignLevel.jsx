@@ -183,11 +183,11 @@ const FinalDesignLevel = ({ onComplete, levelData, onStartNewJourney, forceStart
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-neon-orange/20 mb-4 shadow-glow-orange">
           <Sparkles className="w-8 h-8 text-neon-orange" />
         </div>
-        <h3 className="text-xl font-semibold text-slate-100 mb-2">
-          Generate Your Final Design
+        <h3 className="text-2xl font-bold text-slate-100 mb-2">
+          Download Your Design
         </h3>
         <p className="text-slate-300">
-          Create and download your masterpiece with QR code overlay
+          Generate and download your final design with the QR code overlaid
         </p>
       </div>
 

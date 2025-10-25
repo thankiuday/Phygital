@@ -522,12 +522,17 @@ const UploadPage = () => {
         {/* Design Upload */}
         {activeTab === 'design' && (
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              Upload Design Image
-            </h2>
-            <p className="text-gray-600 mb-6">
-              Upload your design image (poster, business card, etc.)
-            </p>
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-100 mb-4">
+                <Image className="w-8 h-8 text-primary-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Upload Your Design
+              </h2>
+              <p className="text-gray-600">
+                Choose an image file to get started with your Phygital creation
+              </p>
+            </div>
 
             {user?.uploadedFiles?.design?.url ? (
               <div className="mb-6">
@@ -594,12 +599,17 @@ const UploadPage = () => {
         {/* Video Upload */}
         {activeTab === 'video' && (
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              Upload Video
-            </h2>
-            <p className="text-gray-600 mb-6">
-              Upload an explanatory video for your design
-            </p>
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-100 mb-4">
+                <Video className="w-8 h-8 text-primary-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Upload Your Video
+              </h2>
+              <p className="text-gray-600">
+                Add a video that will play when users scan your QR code
+              </p>
+            </div>
 
             {user?.uploadedFiles?.video?.url ? (
               <div className="mb-6">
@@ -648,12 +658,17 @@ const UploadPage = () => {
         {/* QR Position */}
         {activeTab === 'qr' && (
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              QR Code Position
-            </h2>
-            <p className="text-gray-600 mb-6">
-              Set where the QR code should be placed on your design
-            </p>
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-100 mb-4">
+                <QrCode className="w-8 h-8 text-primary-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Position Your QR Code
+              </h2>
+              <p className="text-gray-600">
+                Drag and resize the QR code to place it perfectly on your design
+              </p>
+            </div>
 
             {user?.uploadedFiles?.design?.url ? (
               <div className="space-y-6">
@@ -744,12 +759,17 @@ const UploadPage = () => {
         {/* Social Links */}
         {activeTab === 'social' && (
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              Social Media Links
-            </h2>
-            <p className="text-gray-600 mb-6">
-              Add your social media profiles to your personalized page
-            </p>
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-100 mb-4">
+                <Share2 className="w-8 h-8 text-primary-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Add Social Links
+              </h2>
+              <p className="text-gray-600">
+                Connect your social media profiles to your personalized page
+              </p>
+            </div>
 
             <div className="space-y-4">
               <div>
@@ -816,12 +836,17 @@ const UploadPage = () => {
         {/* AR Experience */}
         {activeTab === 'ar' && (
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              Create AR Experience
-            </h2>
-            <p className="text-gray-600 mb-6">
-              Generate an AR experience that overlays your video on the tracked image
-            </p>
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-100 mb-4">
+                <QrCode className="w-8 h-8 text-primary-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Create AR Experience
+              </h2>
+              <p className="text-gray-600">
+                Generate an AR experience that overlays your video on the tracked image
+              </p>
+            </div>
 
             {user?.uploadedFiles?.design?.url && user?.uploadedFiles?.video?.url && user?.qrPosition ? (
               <div className="space-y-6">
@@ -918,12 +943,17 @@ const UploadPage = () => {
         {/* Final Design */}
         {activeTab === 'final' && (
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              Download Final Design
-            </h2>
-            <p className="text-gray-600 mb-6">
-              Generate and download your design with the QR code overlaid
-            </p>
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-100 mb-4">
+                <Download className="w-8 h-8 text-primary-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Download Your Design
+              </h2>
+              <p className="text-gray-600">
+                Generate and download your final design with the QR code overlaid
+              </p>
+            </div>
 
             {user?.uploadedFiles?.design?.url && user?.qrPosition ? (
               <div className="space-y-6">

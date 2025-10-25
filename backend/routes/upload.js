@@ -1228,12 +1228,47 @@ router.put('/project/:projectId/video', authenticateToken, upload.single('video'
 
     console.log('✅ Found project for video update:', { id: project.id, name: project.name });
     
-    // Upload video to S3
-    const uploadResult = await uploadToS3(req.file, userId, 'video');
+    // Delete old video from Cloudinary if it exists
+    if (project.uploadedFiles?.video?.url) {
+      try {
+        console.log('🗑️ Deleting old video from Cloudinary:', project.uploadedFiles.video.url);
+        
+        // Extract public_id from the old video URL
+        const oldVideoUrl = project.uploadedFiles.video.url;
+        let oldPublicId = null;
+        
+        // Try to extract public_id from Cloudinary URL
+        if (oldVideoUrl.includes('cloudinary.com')) {
+          const urlParts = oldVideoUrl.split('/');
+          const uploadIndex = urlParts.findIndex(part => part === 'upload');
+          if (uploadIndex !== -1 && uploadIndex + 1 < urlParts.length) {
+            const versionAndId = urlParts[uploadIndex + 1];
+            const parts = versionAndId.split('/');
+            if (parts.length >= 2) {
+              oldPublicId = parts.slice(1).join('/').split('.')[0]; // Remove version and file extension
+            }
+          }
+        }
+        
+        if (oldPublicId) {
+          console.log('🗑️ Deleting old video with public_id:', oldPublicId);
+          await deleteFromCloudinary(oldPublicId);
+          console.log('✅ Old video deleted successfully');
+        } else {
+          console.log('⚠️ Could not extract public_id from old video URL, skipping deletion');
+        }
+      } catch (deleteError) {
+        console.error('⚠️ Failed to delete old video from Cloudinary:', deleteError.message);
+        // Continue with upload even if deletion fails
+      }
+    }
+    
+    // Upload new video to Cloudinary
+    const uploadResult = await uploadToCloudinary(req.file, userId, 'video');
     
     // Update project's video
     project.uploadedFiles.video = {
-      filename: uploadResult.key.split('/').pop(), // Extract filename from S3 key
+      filename: uploadResult.public_id,
       originalName: req.file.originalname,
       size: req.file.size,
       mimetype: req.file.mimetype,
@@ -1257,7 +1292,7 @@ router.put('/project/:projectId/video', authenticateToken, upload.single('video'
 
     // Log video update activity
     await logVideoUpload(userId, {
-      filename: uploadResult.key.split('/').pop(),
+      filename: uploadResult.public_id,
       originalName: req.file.originalname,
       size: req.file.size,
       mimetype: req.file.mimetype,

@@ -94,7 +94,7 @@ const authReducer = (state, action) => {
     case AUTH_ACTIONS.UPDATE_USER:
       return {
         ...state,
-        user: { ...state.user, ...action.payload }
+        user: action.payload // Replace entire user object to ensure proper updates
       }
     
     case AUTH_ACTIONS.CLEAR_ERROR:
@@ -211,12 +211,27 @@ export const AuthProvider = ({ children }) => {
     navigate('/')
   }
 
-  // Update user function
+  // Update user function - improved to handle nested objects properly
   const updateUser = (userData) => {
     dispatch({
       type: AUTH_ACTIONS.UPDATE_USER,
       payload: userData
     });
+  }
+
+  // Refresh user data from backend to ensure consistency
+  const refreshUserData = async () => {
+    try {
+      const response = await api.get('/auth/profile')
+      dispatch({
+        type: AUTH_ACTIONS.LOAD_USER_SUCCESS,
+        payload: response.data.data.user
+      })
+      return response.data.data.user
+    } catch (error) {
+      console.error('Failed to refresh user data:', error)
+      return null
+    }
   }
 
   // Clear error function
@@ -248,7 +263,8 @@ export const AuthProvider = ({ children }) => {
     const hasDesign = project.uploadedFiles?.design?.url
     const hasVideo = project.uploadedFiles?.video?.url
     const hasQR = project.uploadedFiles?.mindTarget?.generated || (project.qrPosition?.x !== 0 || project.qrPosition?.y !== 0)
-    const hasSocial = Object.values(state.user?.socialLinks || {}).some(link => link) // Social links are global
+    // Fix: Check project-specific social links instead of global ones
+    const hasSocial = project.socialLinks ? Object.values(project.socialLinks).some(link => link && link.trim() !== '') : false
     
     return !!(hasDesign && hasVideo && hasQR && hasSocial)
   }
@@ -285,10 +301,10 @@ export const AuthProvider = ({ children }) => {
     // Step 3: QR position set or .mind file generated (project-specific)
     if (latestProject.uploadedFiles?.mindTarget?.generated || (latestProject.qrPosition?.x !== 0 || latestProject.qrPosition?.y !== 0)) completedSteps++
     
-    // Step 4: Social links added (global, but only count if project has other files)
+    // Step 4: Social links added (project-specific)
     // Only count social links if the project has at least design or video
     const projectHasFiles = latestProject.uploadedFiles?.design?.url || latestProject.uploadedFiles?.video?.url
-    if (projectHasFiles && Object.values(state.user.socialLinks || {}).some(link => link)) {
+    if (projectHasFiles && latestProject.socialLinks && Object.values(latestProject.socialLinks).some(link => link && link.trim() !== '')) {
       completedSteps++
     }
     
@@ -312,6 +328,7 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     updateUser,
+    refreshUserData,
     clearError,
     loadUser,
     isSetupComplete,

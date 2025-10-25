@@ -16,8 +16,30 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
     whatsappNumber: currentLinks?.whatsappNumber || user?.socialLinks?.whatsappNumber || ''
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedPlatforms, setSelectedPlatforms] = useState([]);
+  const [showForm, setShowForm] = useState(false);
 
   const socialPlatforms = [
+    {
+      key: 'contactNumber',
+      name: 'Contact Number',
+      icon: Phone,
+      placeholder: 'Enter your phone number',
+      color: 'from-green-600 to-green-700',
+      bgColor: 'bg-green-50',
+      borderColor: 'border-green-200',
+      type: 'tel'
+    },
+    {
+      key: 'whatsappNumber',
+      name: 'WhatsApp Number',
+      icon: MessageCircle,
+      placeholder: 'Enter your WhatsApp number',
+      color: 'from-green-500 to-green-600',
+      bgColor: 'bg-green-50',
+      borderColor: 'border-green-200',
+      type: 'tel'
+    },
     {
       key: 'instagram',
       name: 'Instagram',
@@ -67,31 +89,32 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
       bgColor: 'bg-green-50',
       borderColor: 'border-green-200',
       type: 'url'
-    },
-    {
-      key: 'contactNumber',
-      name: 'Contact Number',
-      icon: Phone,
-      placeholder: 'Enter your phone number',
-      color: 'from-green-600 to-green-700',
-      bgColor: 'bg-green-50',
-      borderColor: 'border-green-200',
-      type: 'tel'
-    },
-    {
-      key: 'whatsappNumber',
-      name: 'WhatsApp Number',
-      icon: MessageCircle,
-      placeholder: 'Enter your WhatsApp number',
-      color: 'from-green-500 to-green-600',
-      bgColor: 'bg-green-50',
-      borderColor: 'border-green-200',
-      type: 'tel'
     }
   ];
 
   // Check if any links are provided
   const hasAnyLinks = Object.values(socialLinks).some(link => link.trim() !== '');
+
+  // Handle platform selection
+  const togglePlatform = (platformKey) => {
+    setSelectedPlatforms(prev => {
+      if (prev.includes(platformKey)) {
+        return prev.filter(key => key !== platformKey);
+      } else {
+        return [...prev, platformKey];
+      }
+    });
+  };
+
+  // Proceed to form with selected platforms
+  const proceedToForm = () => {
+    if (selectedPlatforms.length === 0) {
+      // If no platforms selected, skip directly
+      onComplete({});
+      return;
+    }
+    setShowForm(true);
+  };
 
   // Save social links
   const saveSocialLinks = async () => {
@@ -187,6 +210,91 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
     );
   }
 
+  // Show platform selection interface
+  if (!showForm) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-neon-green/20 mb-4 shadow-glow-green">
+            <Share2 className="w-8 h-8 text-neon-green" />
+          </div>
+          <h3 className="text-xl font-semibold text-slate-100 mb-2">
+            Choose Your Social Links (Optional)
+          </h3>
+          <p className="text-slate-300">
+            Select which social media platforms you'd like to add to your personalized page
+          </p>
+        </div>
+
+        {/* Platform Selection Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-8">
+          {socialPlatforms.map((platform) => {
+            const Icon = platform.icon;
+            const isSelected = selectedPlatforms.includes(platform.key);
+            
+            return (
+              <button
+                key={platform.key}
+                onClick={() => togglePlatform(platform.key)}
+                className={`p-3 sm:p-4 rounded-lg border-2 transition-all duration-200 ${
+                  isSelected
+                    ? 'border-neon-green bg-green-900/20 shadow-glow-green'
+                    : 'border-slate-600 bg-slate-800/50 hover:border-slate-500'
+                }`}
+              >
+                <div className="flex flex-col items-center text-center">
+                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-r ${platform.color} flex items-center justify-center mb-2 sm:mb-3`}>
+                    <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                  </div>
+                  <h4 className="font-medium text-slate-100 text-xs sm:text-sm">{platform.name}</h4>
+                  {isSelected && (
+                    <CheckCircle className="w-4 h-4 text-neon-green mt-1" />
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
+          <button
+            onClick={proceedToForm}
+            className="btn-primary inline-flex items-center px-6 sm:px-8 py-2 sm:py-3 touch-manipulation text-sm sm:text-base"
+          >
+            <Share2 className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+            {selectedPlatforms.length > 0 ? `Add ${selectedPlatforms.length} Platform${selectedPlatforms.length !== 1 ? 's' : ''}` : 'Skip Social Links'}
+          </button>
+          
+          {selectedPlatforms.length > 0 && (
+            <button
+              onClick={() => setSelectedPlatforms([])}
+              className="btn-secondary inline-flex items-center px-6 sm:px-8 py-2 sm:py-3 touch-manipulation text-sm sm:text-base"
+            >
+              Clear Selection
+            </button>
+          )}
+        </div>
+
+        {/* Tips */}
+        <div className="mt-6 sm:mt-8 bg-green-900/20 border border-neon-green/30 rounded-lg p-3 sm:p-4">
+          <div className="flex items-start">
+            <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-neon-green mr-2 sm:mr-3 mt-0.5 flex-shrink-0" />
+            <div>
+              <h4 className="font-medium text-neon-green mb-1 text-sm sm:text-base">💡 Pro Tips</h4>
+              <ul className="text-xs sm:text-sm text-slate-300 space-y-1">
+                <li>• Select only the platforms you want to add</li>
+                <li>• You can skip this level entirely if you don't want social links</li>
+                <li>• You can always add or update them later in your profile</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show form for selected platforms
   return (
     <div className="max-w-2xl mx-auto">
       <div className="text-center mb-8">
@@ -197,75 +305,69 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
           Add Your Social Links
         </h3>
         <p className="text-slate-300">
-          Connect your social media profiles to your personalized page
+          Fill in the details for your selected platforms
         </p>
       </div>
 
-      {/* Social Links Form */}
+      {/* Social Links Form - Only show selected platforms */}
       <div className="space-y-4 sm:space-y-6 mb-6 sm:mb-8">
-        {socialPlatforms.map((platform) => {
-          const Icon = platform.icon;
-          const value = socialLinks[platform.key];
-          const hasValue = value && value.trim() !== '';
-          
-          return (
-            <div key={platform.key} className="bg-slate-800/50 border border-slate-600/30 rounded-lg p-3 sm:p-4">
-              <div className="flex items-center mb-2 sm:mb-3">
-                <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-r ${platform.color} flex items-center justify-center mr-2 sm:mr-3 flex-shrink-0`}>
-                  <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+        {socialPlatforms
+          .filter(platform => selectedPlatforms.includes(platform.key))
+          .map((platform) => {
+            const Icon = platform.icon;
+            const value = socialLinks[platform.key];
+            const hasValue = value && value.trim() !== '';
+            
+            return (
+              <div key={platform.key} className="bg-slate-800/50 border border-slate-600/30 rounded-lg p-3 sm:p-4">
+                <div className="flex items-center mb-2 sm:mb-3">
+                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-r ${platform.color} flex items-center justify-center mr-2 sm:mr-3 flex-shrink-0`}>
+                    <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-slate-100 text-sm sm:text-base">{platform.name}</h4>
+                    <p className="text-xs sm:text-sm text-slate-400">Optional</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-semibold text-slate-100 text-sm sm:text-base">{platform.name}</h4>
-                  <p className="text-xs sm:text-sm text-slate-400">Optional</p>
-                </div>
+                
+                <input
+                  type={platform.type}
+                  value={value}
+                  onChange={(e) => setSocialLinks(prev => ({ ...prev, [platform.key]: e.target.value }))}
+                  placeholder={platform.placeholder}
+                  className={`input w-full px-3 sm:px-4 py-2 sm:py-3 transition-all duration-200 text-sm sm:text-base touch-manipulation ${
+                    hasValue ? 'border-neon-green bg-green-900/20' : ''
+                  }`}
+                />
+                
+                {hasValue && (
+                  <div className="mt-2 flex items-center text-xs sm:text-sm text-neon-green">
+                    <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
+                    {platform.type === 'tel' ? 'Number added' : 'Link added'}
+                  </div>
+                )}
               </div>
-              
-              <input
-                type={platform.type}
-                value={value}
-                onChange={(e) => setSocialLinks(prev => ({ ...prev, [platform.key]: e.target.value }))}
-                placeholder={platform.placeholder}
-                className={`input w-full px-3 sm:px-4 py-2 sm:py-3 transition-all duration-200 text-sm sm:text-base touch-manipulation ${
-                  hasValue ? 'border-neon-green bg-green-900/20' : ''
-                }`}
-              />
-              
-              {hasValue && (
-                <div className="mt-2 flex items-center text-xs sm:text-sm text-neon-green">
-                  <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
-                  {platform.type === 'tel' ? 'Number added' : 'Link added'}
-                </div>
-              )}
-            </div>
-          );
-        })}
+            );
+          })}
       </div>
 
-      {/* Save Button */}
-      <div className="text-center">
+      {/* Action Buttons */}
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
         <button
           onClick={saveSocialLinks}
-          disabled={isSaving || !hasAnyLinks}
+          disabled={isSaving}
           className="btn-primary inline-flex items-center px-6 sm:px-8 py-2 sm:py-3 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation text-sm sm:text-base"
         >
           <Share2 className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
           {isSaving ? 'Saving...' : 'Save Social Links'}
         </button>
-      </div>
-
-      {/* Tips */}
-      <div className="mt-6 sm:mt-8 bg-green-900/20 border border-neon-green/30 rounded-lg p-3 sm:p-4">
-        <div className="flex items-start">
-          <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-neon-green mr-2 sm:mr-3 mt-0.5 flex-shrink-0" />
-          <div>
-            <h4 className="font-medium text-neon-green mb-1 text-sm sm:text-base">💡 Pro Tips</h4>
-            <ul className="text-xs sm:text-sm text-slate-300 space-y-1">
-              <li>• Add at least one social link to complete this level</li>
-              <li>• These links will appear on your personalized QR page</li>
-              <li>• You can always update them later in your profile</li>
-            </ul>
-          </div>
-        </div>
+        
+        <button
+          onClick={() => setShowForm(false)}
+          className="btn-secondary inline-flex items-center px-6 sm:px-8 py-2 sm:py-3 touch-manipulation text-sm sm:text-base"
+        >
+          Back to Selection
+        </button>
       </div>
     </div>
   );

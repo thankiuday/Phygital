@@ -1224,39 +1224,6 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         </div>
       </div>
 
-      {/* Current Position Display */}
-      <div className="bg-slate-800/50 border border-slate-600/30 rounded-lg p-4 mb-6">
-        <h3 className="text-sm font-medium text-slate-200 mb-3 flex items-center">
-          <QrCode className="w-4 h-4 mr-2 text-neon-blue" />
-          QR Code Position & Size
-        </h3>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="bg-slate-700/30 rounded p-3">
-            <div className="text-xs text-slate-400 mb-1">X Position</div>
-            <div className="text-sm font-mono text-slate-100">{isNaN(qrPosition.x) ? '0' : Math.round(qrPosition.x)}px</div>
-        </div>
-          <div className="bg-slate-700/30 rounded p-3">
-            <div className="text-xs text-slate-400 mb-1">Y Position</div>
-            <div className="text-sm font-mono text-slate-100">{isNaN(qrPosition.y) ? '0' : Math.round(qrPosition.y)}px</div>
-        </div>
-          <div className="bg-slate-700/30 rounded p-3">
-            <div className="text-xs text-slate-400 mb-1">Width</div>
-            <div className="text-sm font-mono text-slate-100">{isNaN(qrPosition.width) ? '100' : Math.round(qrPosition.width)}px</div>
-        </div>
-          <div className="bg-slate-700/30 rounded p-3">
-            <div className="text-xs text-slate-400 mb-1">Height</div>
-            <div className="text-sm font-mono text-slate-100">{isNaN(qrPosition.height) ? '100' : Math.round(qrPosition.height)}px</div>
-          </div>
-        </div>
-
-        <div className="mt-4 p-3 bg-blue-900/20 border border-blue-600/30 rounded-lg">
-          <p className="text-sm text-blue-300 flex items-center">
-            <MousePointer className="w-4 h-4 mr-2" />
-            <strong>Instructions:</strong> Drag the QR code area to reposition it, or use the blue handles at the corners and edges to resize it.
-          </p>
-        </div>
-      </div>
 
 
       {/* Save Button */}

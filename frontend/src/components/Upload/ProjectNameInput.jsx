@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { uploadAPI } from '../../utils/api';
+import { useNavigate } from 'react-router-dom';
 import { FolderPlus, ArrowRight, Sparkles, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const ProjectNameInput = ({ onProjectCreated, onCancel }) => {
   const { user, updateUser } = useAuth();
+  const navigate = useNavigate();
   const [projectName, setProjectName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [isValid, setIsValid] = useState(false);
@@ -189,8 +191,9 @@ const ProjectNameInput = ({ onProjectCreated, onCancel }) => {
                   </div>
                   <button
                     onClick={() => {
-                      setProjectName(project.name);
-                      setIsValid(true);
+                      // Navigate to projects page with edit parameter using React Router
+                      console.log('🔍 Use button clicked for project:', project.id);
+                      navigate(`/projects?edit=${project.id}`);
                     }}
                     className="text-neon-purple hover:text-neon-cyan text-sm font-medium transition-colors"
                   >

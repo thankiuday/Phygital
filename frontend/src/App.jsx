@@ -31,7 +31,7 @@ import ScanPage from './pages/ScanPage'
 import NotFoundPage from './pages/NotFoundPage'
 
 function App() {
-  const { isLoading } = useAuth()
+  const { isLoading, isAuthenticated } = useAuth()
 
   // Show loading spinner while checking authentication
   if (isLoading) {
@@ -47,7 +47,9 @@ function App() {
       <Routes>
         {/* Public Routes - Project-specific QR scan routes added */}
         <Route path="/" element={<Layout />}>
-          <Route index element={<HomePage />} />
+          <Route index element={
+            isAuthenticated ? <Navigate to="/dashboard" replace /> : <HomePage />
+          } />
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
           <Route path="about" element={<AboutPage />} />
