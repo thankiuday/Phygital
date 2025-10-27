@@ -21,13 +21,72 @@ import {
   TrendingUp,
   Brain,
   MessageSquare,
-  FileText
+  FileText,
+  Loader2,
+  PartyPopper,
+  Linkedin,
+  Github,
+  Mail
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import toast from 'react-hot-toast'
 
 const AIVideoPage = () => {
   const [hoveredFeature, setHoveredFeature] = useState(null)
   const [activeStep, setActiveStep] = useState(0)
+  const [email, setEmail] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSubmitted, setIsSubmitted] = useState(false)
+
+  const handleNotifyMe = async (e) => {
+    e.preventDefault()
+    
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!email || !emailRegex.test(email)) {
+      toast.error('Please enter a valid email address', {
+        icon: '⚠️',
+        style: {
+          background: '#1e293b',
+          color: '#f1f5f9',
+          border: '1px solid #ef4444',
+        },
+      })
+      return
+    }
+
+    // Simulate submission with animation
+    setIsSubmitting(true)
+    
+    // Wait for 1.5 seconds to simulate API call
+    setTimeout(() => {
+      setIsSubmitting(false)
+      setIsSubmitted(true)
+      
+      // Show success toast with custom styling
+      toast.success(
+        <div className="flex items-center gap-2">
+          <PartyPopper className="w-5 h-5" />
+          <span>You're on the list! We'll notify you when we launch.</span>
+        </div>,
+        {
+          duration: 5000,
+          style: {
+            background: '#1e293b',
+            color: '#f1f5f9',
+            border: '1px solid #10b981',
+            padding: '16px',
+          },
+        }
+      )
+      
+      // Clear email after 2 seconds
+      setTimeout(() => {
+        setEmail('')
+        setIsSubmitted(false)
+      }, 2000)
+    }, 1500)
+  }
 
   const features = [
     {
@@ -306,6 +365,75 @@ const AIVideoPage = () => {
         </div>
       </section>
 
+      {/* Meet Our Team Section */}
+      <section className="py-16 sm:py-24 bg-slate-900/50 relative">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12 sm:mb-16">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-100 mb-4">
+              Meet Our <span className="text-gradient">Team</span>
+            </h2>
+            <p className="text-lg sm:text-xl text-slate-300 max-w-2xl mx-auto">
+              The brilliant mind behind this innovative technology
+            </p>
+          </div>
+
+          <div className="max-w-md mx-auto">
+            <div className="card-elevated p-8 rounded-2xl border border-slate-600/50 hover:border-neon-blue/50 transition-all duration-300 hover:scale-105 group">
+              {/* Avatar */}
+              <div className="relative mb-6">
+                <div className="w-32 h-32 mx-auto rounded-2xl bg-gradient-to-br from-neon-blue to-neon-purple p-1 group-hover:scale-110 transition-transform duration-300">
+                  <div className="w-full h-full bg-slate-900 rounded-2xl flex items-center justify-center">
+                    <span className="text-6xl">🧑‍💻</span>
+                  </div>
+                </div>
+                {/* Decorative glow */}
+                <div className="absolute inset-0 bg-gradient-to-br from-neon-blue/20 to-neon-purple/20 rounded-2xl blur-2xl -z-10 group-hover:blur-3xl transition-all duration-300"></div>
+              </div>
+
+              {/* Name & Title */}
+              <div className="text-center mb-4">
+                <h3 className="text-2xl font-bold text-slate-100 mb-2 group-hover:text-gradient transition-colors">
+                  Uday Thanki
+                </h3>
+                <p className="text-neon-blue font-semibold mb-3">
+                  Full Stack Developer
+                </p>
+                <p className="text-sm text-slate-300 leading-relaxed">
+                  Innovative MERN stack developer passionate about building scalable web applications 
+                  and delivering seamless user experiences through modern technologies.
+                </p>
+              </div>
+
+              {/* Social Links */}
+              <div className="flex justify-center gap-4 pt-4 border-t border-slate-700/50">
+                <a
+                  href="https://linkedin.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-10 h-10 rounded-lg bg-slate-800/50 hover:bg-neon-blue/20 border border-slate-600/50 hover:border-neon-blue/50 flex items-center justify-center transition-all duration-300 hover:scale-110 group/social"
+                >
+                  <Linkedin className="w-5 h-5 text-slate-400 group-hover/social:text-neon-blue transition-colors" />
+                </a>
+                <a
+                  href="https://github.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-10 h-10 rounded-lg bg-slate-800/50 hover:bg-neon-purple/20 border border-slate-600/50 hover:border-neon-purple/50 flex items-center justify-center transition-all duration-300 hover:scale-110 group/social"
+                >
+                  <Github className="w-5 h-5 text-slate-400 group-hover/social:text-neon-purple transition-colors" />
+                </a>
+                <a
+                  href="mailto:contact@phygital.com"
+                  className="w-10 h-10 rounded-lg bg-slate-800/50 hover:bg-neon-pink/20 border border-slate-600/50 hover:border-neon-pink/50 flex items-center justify-center transition-all duration-300 hover:scale-110 group/social"
+                >
+                  <Mail className="w-5 h-5 text-slate-400 group-hover/social:text-neon-pink transition-colors" />
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-16 sm:py-24 relative">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -325,20 +453,53 @@ const AIVideoPage = () => {
                 AI video generation technology.
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <form onSubmit={handleNotifyMe} className="flex flex-col sm:flex-row gap-4 justify-center items-center">
                 <input
                   type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="Enter your email"
-                  className="input w-full sm:w-96 px-6 py-4 text-lg"
+                  disabled={isSubmitting || isSubmitted}
+                  className={`input w-full sm:w-96 px-6 py-4 text-lg transition-all duration-300 ${
+                    isSubmitted ? 'bg-green-900/20 border-neon-green' : ''
+                  }`}
                 />
-                <button className="btn-primary px-8 py-4 text-lg flex items-center gap-2 w-full sm:w-auto">
-                  <span>Notify Me</span>
-                  <ArrowRight className="w-5 h-5" />
+                <button 
+                  type="submit"
+                  disabled={isSubmitting || isSubmitted}
+                  className={`px-8 py-4 text-lg flex items-center gap-2 w-full sm:w-auto rounded-xl font-semibold transition-all duration-300 ${
+                    isSubmitted 
+                      ? 'bg-gradient-to-r from-neon-green to-neon-cyan text-white shadow-glow-green' 
+                      : 'btn-primary'
+                  }`}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>Joining...</span>
+                    </>
+                  ) : isSubmitted ? (
+                    <>
+                      <CheckCircle className="w-5 h-5" />
+                      <span>Joined!</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Notify Me</span>
+                      <ArrowRight className="w-5 h-5" />
+                    </>
+                  )}
                 </button>
-              </div>
+              </form>
 
               <p className="text-sm text-slate-400 mt-6">
-                No spam, ever. We'll only notify you when we launch.
+                {isSubmitted ? (
+                  <span className="text-neon-green font-semibold animate-pulse">
+                    ✨ Success! Check your email for confirmation.
+                  </span>
+                ) : (
+                  "No spam, ever. We'll only notify you when we launch."
+                )}
               </p>
 
               {/* Features List */}

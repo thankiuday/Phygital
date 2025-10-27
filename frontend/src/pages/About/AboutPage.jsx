@@ -40,28 +40,10 @@ const AboutPage = () => {
 
   const team = [
     {
-      name: 'Sarah Johnson',
-      role: 'CEO & Founder',
-      description: 'Visionary leader with 10+ years in AR technology and digital innovation.',
-      image: '👩‍💼'
-    },
-    {
-      name: 'Mike Chen',
-      role: 'CTO',
-      description: 'Technical architect specializing in computer vision and mobile AR solutions.',
-      image: '👨‍💻'
-    },
-    {
-      name: 'Emily Rodriguez',
-      role: 'Head of Design',
-      description: 'Creative director focused on user experience and visual design excellence.',
-      image: '👩‍🎨'
-    },
-    {
-      name: 'David Kim',
-      role: 'Lead Developer',
-      description: 'Full-stack developer passionate about creating seamless user experiences.',
-      image: '👨‍🔧'
+      name: 'Uday Thanki',
+      role: 'Full Stack Developer',
+      description: 'Innovative MERN stack developer passionate about building scalable web applications and delivering seamless user experiences through modern technologies.',
+      image: '🧑‍💻'
     }
   ]
 
@@ -157,21 +139,21 @@ const AboutPage = () => {
               Meet Our Team
             </h2>
             <p className="text-lg text-slate-300 max-w-2xl mx-auto">
-              The passionate individuals behind Phygital's innovative solutions.
+              The brilliant mind behind Phygital's innovative solutions.
             </p>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 gap-6 max-w-lg mx-auto">
             {team.map((member, index) => (
-              <div key={index} className="card text-center group hover:scale-105 transition-all duration-300">
-                <div className="text-4xl mb-4">{member.image}</div>
-                <h3 className="text-lg font-semibold text-slate-100 mb-1">
+              <div key={index} className="card-elevated text-center group hover:scale-105 transition-all duration-300 hover:border-neon-blue/50 border border-slate-600/50">
+                <div className="text-7xl mb-6">{member.image}</div>
+                <h3 className="text-2xl font-bold text-slate-100 mb-2">
                   {member.name}
                 </h3>
-                <p className="text-sm text-neon-blue mb-2">
+                <p className="text-base text-neon-blue font-semibold mb-4">
                   {member.role}
                 </p>
-                <p className="text-sm text-slate-300">
+                <p className="text-sm text-slate-300 leading-relaxed">
                   {member.description}
                 </p>
               </div>
