@@ -198,7 +198,7 @@ const UserPage = () => {
           <h1 className="text-2xl font-bold text-slate-100 mb-4">
             User Not Found
           </h1>
-          <p className="text-slate-300">
+          <p className="text-slate-400">
             The user you're looking for doesn't exist or hasn't completed their setup.
           </p>
         </div>
@@ -218,7 +218,7 @@ const UserPage = () => {
               </div>
               <span className="text-xl font-bold text-gradient">Phygital</span>
             </div>
-            <div className="text-sm text-slate-300">
+            <div className="text-sm text-slate-400">
               @{userData.username}
             </div>
           </div>
@@ -320,7 +320,7 @@ const UserPage = () => {
               <h1 className="text-xl sm:text-2xl font-bold text-slate-100 mb-2">
                 {userData.username}
               </h1>
-              <p className="text-sm sm:text-base text-slate-300 mb-3 sm:mb-4">
+              <p className="text-sm sm:text-base text-slate-400 mb-3 sm:mb-4">
                 Interactive digital experience powered by Phygital
               </p>
               
@@ -329,19 +329,19 @@ const UserPage = () => {
                   <p className="text-lg sm:text-2xl font-bold text-primary-600">
                     {userData.analytics?.totalScans || 0}
                   </p>
-                  <p className="text-xs sm:text-sm text-slate-300">Scans</p>
+                  <p className="text-xs sm:text-sm text-slate-400">Scans</p>
                 </div>
                 <div>
                   <p className="text-lg sm:text-2xl font-bold text-green-600">
                     {userData.analytics?.videoViews || 0}
                   </p>
-                  <p className="text-xs sm:text-sm text-slate-300">Views</p>
+                  <p className="text-xs sm:text-sm text-slate-400">Views</p>
                 </div>
                 <div>
                   <p className="text-lg sm:text-2xl font-bold text-purple-600">
                     {userData.analytics?.linkClicks || 0}
                   </p>
-                  <p className="text-xs sm:text-sm text-slate-300">Clicks</p>
+                  <p className="text-xs sm:text-sm text-slate-400">Clicks</p>
                 </div>
               </div>
             </div>
@@ -363,8 +363,8 @@ const UserPage = () => {
                         onClick={() => handleSocialLinkClick(platform, url)}
                         className="flex items-center space-x-2 sm:space-x-3 p-2 sm:p-3 rounded-lg border border-gray-200 hover:border-primary-300 hover:bg-primary-50 transition-all duration-200 group touch-manipulation"
                       >
-                        <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-slate-300 group-hover:text-primary-600 flex-shrink-0" />
-                        <span className="text-xs sm:text-sm font-medium text-gray-700 group-hover:text-primary-600 capitalize">
+                        <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400 group-hover:text-primary-600 flex-shrink-0" />
+                        <span className="text-xs sm:text-sm font-medium text-slate-400 group-hover:text-primary-600 capitalize">
                           {platform}
                         </span>
                       </button>
@@ -404,7 +404,7 @@ const UserPage = () => {
               </div>
               <span className="text-sm font-medium text-slate-100">Phygital</span>
             </div>
-            <p className="text-sm text-slate-300">
+            <p className="text-sm text-slate-400">
               Powered by Phygital Platform
             </p>
           </div>

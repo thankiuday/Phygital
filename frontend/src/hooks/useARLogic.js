@@ -674,31 +674,8 @@ export const useARLogic = ({
               console.log(`▶️ [${timestamp}] Resuming video playback from ${videoRef.current.currentTime.toFixed(2)}s`);
               
               videoRef.current.play().then(() => {
-                // Track video view when it successfully starts playing (only once)
-                if (trackAnalytics && !videoViewTrackedRef.current) {
-                  console.log('📊 Tracking video view in AR', {
-                    hasTrackAnalytics: !!trackAnalytics,
-                    alreadyTracked: videoViewTrackedRef.current,
-                    videoDuration: videoRef.current.duration
-                  });
-                  trackAnalytics('video-view', {  // Changed from 'videoView' to 'video-view' to match backend route
-                    source: 'ar_experience',
-                    userAgent: navigator.userAgent,
-                    videoProgress: 0,
-                    videoDuration: videoRef.current.duration || 0
-                  }).then(() => {
-                    console.log('✅ Video view tracked in AR');
-                    videoViewTrackedRef.current = true;
-                  }).catch(err => {
-                    console.error('❌ Video view tracking failed:', err);
-                    addDebugMessage(`❌ Video view tracking error: ${err.message}`, 'error');
-                  });
-                } else {
-                  console.log('ℹ️ Video view tracking skipped:', {
-                    hasTrackAnalytics: !!trackAnalytics,
-                    alreadyTracked: videoViewTrackedRef.current
-                  });
-                }
+                // Video view tracking is handled in UserPage.jsx - don't duplicate here
+                // This prevents double counting of video view events
               }).catch(e => {
                 console.log(`⚠️ [${timestamp}] Auto-play failed:`, e.message);
                 addDebugMessage('💡 Tap the screen to allow video playback', 'info');

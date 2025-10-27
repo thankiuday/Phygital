@@ -103,7 +103,7 @@ const ProfessionalNav = () => {
                   className="flex items-center space-x-2 text-sm font-medium text-slate-300 hover:text-slate-100 focus:outline-none"
                 >
                   <div className="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center">
-                    <span className="text-sm font-medium text-slate-200">
+                    <span className="text-sm font-medium text-slate-300">
                       {user?.username?.charAt(0).toUpperCase()}
                     </span>
                   </div>
@@ -204,7 +204,7 @@ const ProfessionalNav = () => {
                 <div className="border-t border-slate-700/50 pt-4">
                   <div className="flex items-center px-3 py-2">
                     <div className="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center mr-3">
-                      <span className="text-sm font-medium text-slate-200">
+                      <span className="text-sm font-medium text-slate-300">
                         {user?.username?.charAt(0).toUpperCase()}
                       </span>
                     </div>

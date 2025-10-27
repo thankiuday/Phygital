@@ -4,7 +4,7 @@
  * Combines project list, QR code generation, video updates, and deletion
  */
 
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useSearchParams, useLocation } from 'react-router-dom'
 import { uploadAPI, generateQRCode, downloadFile, api } from '../../utils/api'
@@ -214,35 +214,34 @@ const ProjectsPage = () => {
     loadProjects()
   }, [user])
 
-  // Handle auto-edit from URL parameter
+  // Handle auto-edit from URL parameter - use ref to prevent unnecessary re-runs
+  const editProcessedRef = useRef(false);
+  
   useEffect(() => {
-    console.log('🔍 useEffect triggered - projects:', projects.length, 'searchParams:', searchParams.toString())
-    const editProjectId = searchParams.get('edit') || editParam
-    console.log('🔍 Auto-edit check:', { editProjectId, projectsLength: projects.length })
+    const editProjectId = searchParams.get('edit') || editParam;
     
-    if (editProjectId && projects.length > 0) {
-      console.log('🔍 Looking for project with ID:', editProjectId)
-      console.log('🔍 Available project IDs:', projects.map(p => ({ id: p.id, name: p.name })))
+    // Only process if we have an edit ID, projects are loaded, and we haven't processed this edit yet
+    if (editProjectId && projects.length > 0 && !editProcessedRef.current) {
+      console.log('🔍 Processing auto-edit for project ID:', editProjectId);
       
-      const projectToEdit = projects.find(p => p.id === editProjectId || p.id === parseInt(editProjectId) || p.id === editProjectId.toString())
-      console.log('🔍 Found project:', projectToEdit)
+      const projectToEdit = projects.find(p => 
+        p.id === editProjectId || 
+        p.id === parseInt(editProjectId) || 
+        p.id === editProjectId.toString()
+      );
       
       if (projectToEdit) {
-        console.log('🔍 Opening edit modal for project:', projectToEdit.name)
+        console.log('🔍 Opening edit modal for project:', projectToEdit.name);
+        editProcessedRef.current = true; // Mark as processed
+        
         // Add a small delay to ensure everything is ready
         setTimeout(() => {
-          // Auto-open edit modal for the specified project
-          handleEditProject(projectToEdit)
-          // Clear the URL parameter
-          setSearchParams({})
-        }, 100)
-      } else {
-        console.log('❌ Project not found with ID:', editProjectId)
+          handleEditProject(projectToEdit);
+          setSearchParams({}); // Clear the URL parameter
+        }, 100);
       }
-    } else {
-      console.log('🔍 Conditions not met:', { editProjectId: !!editProjectId, projectsLength: projects.length })
     }
-  }, [projects, searchParams, setSearchParams, handleEditProject, editParam])
+  }, [projects.length, searchParams, setSearchParams, handleEditProject, editParam]);
 
   // Format date
   const formatDate = (dateString) => {
