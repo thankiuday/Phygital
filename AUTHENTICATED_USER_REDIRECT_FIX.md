@@ -104,3 +104,4 @@ function App() {
 - The redirect only happens on the root path (`/`), other routes work normally
 - Dashboard route is already protected, so no additional authentication checks needed
 
+

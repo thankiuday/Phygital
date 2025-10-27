@@ -84,7 +84,7 @@ const ProfessionalModal = ({
         <div
           ref={modalRef}
           className={`
-            relative bg-white rounded-lg shadow-xl w-full ${sizes[size]}
+            relative bg-slate-800/95 backdrop-blur-sm rounded-lg shadow-dark-large w-full ${sizes[size]}
             transform transition-all duration-300 ease-out
             ${className}
           `}
@@ -125,4 +125,5 @@ const ProfessionalModal = ({
 };
 
 export default ProfessionalModal;
+
 

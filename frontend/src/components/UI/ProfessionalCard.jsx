@@ -18,13 +18,13 @@ const ProfessionalCard = ({
   hover = false,
   ...props
 }) => {
-  const baseClasses = 'bg-white rounded-lg shadow-sm border border-gray-200 transition-all duration-200';
+  const baseClasses = 'bg-slate-800/80 backdrop-blur-sm rounded-lg shadow-dark-soft border border-slate-700/50 transition-all duration-200';
   
   const variants = {
-    default: 'bg-white border-gray-200',
-    elevated: 'bg-white border-gray-200 shadow-lg',
-    outlined: 'bg-white border-2 border-gray-300',
-    filled: 'bg-gray-50 border-gray-200',
+    default: 'bg-slate-800/80 border-slate-700/50',
+    elevated: 'bg-slate-800/80 border-slate-700/50 shadow-dark-large',
+    outlined: 'bg-slate-800/80 border-2 border-slate-600',
+    filled: 'bg-slate-700/50 border-slate-700/50',
     success: 'bg-green-50 border-green-200',
     warning: 'bg-yellow-50 border-yellow-200',
     danger: 'bg-red-50 border-red-200',
@@ -85,4 +85,5 @@ const ProfessionalCard = ({
 };
 
 export default ProfessionalCard;
+
 

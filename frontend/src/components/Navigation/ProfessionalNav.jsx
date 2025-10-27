@@ -56,7 +56,7 @@ const ProfessionalNav = () => {
   };
 
   return (
-    <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
+    <nav className="bg-slate-900/95 backdrop-blur-sm shadow-dark-large border-b border-slate-700/50 sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Logo */}
@@ -65,7 +65,7 @@ const ProfessionalNav = () => {
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">P</span>
               </div>
-              <span className="text-xl font-bold text-gray-900">Phygital</span>
+              <span className="text-xl font-bold text-slate-100">Phygital</span>
             </Link>
           </div>
 
@@ -79,13 +79,13 @@ const ProfessionalNav = () => {
                 <Link
                   key={item.name}
                   to={item.href}
-                  className={`
-                    flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors
-                    ${active 
-                      ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600' 
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                    }
-                  `}
+                    className={`
+                      flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors
+                      ${active 
+                        ? 'bg-primary-600/20 text-primary-400 border-b-2 border-primary-500' 
+                        : 'text-slate-300 hover:text-slate-100 hover:bg-slate-800/50'
+                      }
+                    `}
                 >
                   <Icon className="w-4 h-4 mr-2" />
                   {item.name}
@@ -100,10 +100,10 @@ const ProfessionalNav = () => {
               <div className="relative">
                 <button
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center space-x-2 text-sm font-medium text-gray-700 hover:text-gray-900 focus:outline-none"
+                  className="flex items-center space-x-2 text-sm font-medium text-slate-300 hover:text-slate-100 focus:outline-none"
                 >
-                  <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                    <span className="text-sm font-medium text-gray-600">
+                  <div className="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center">
+                    <span className="text-sm font-medium text-slate-200">
                       {user?.username?.charAt(0).toUpperCase()}
                     </span>
                   </div>
@@ -112,10 +112,10 @@ const ProfessionalNav = () => {
                 </button>
 
                 {isUserMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1">
+                  <div className="absolute right-0 mt-2 w-48 bg-slate-800/95 backdrop-blur-sm rounded-md shadow-dark-large border border-slate-700/50 py-1">
                     <Link
                       to="/profile"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      className="flex items-center px-4 py-2 text-sm text-slate-300 hover:bg-slate-700/50 hover:text-slate-100"
                       onClick={() => setIsUserMenuOpen(false)}
                     >
                       <User className="w-4 h-4 mr-3" />
@@ -123,7 +123,7 @@ const ProfessionalNav = () => {
                     </Link>
                     <Link
                       to="/settings"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      className="flex items-center px-4 py-2 text-sm text-slate-300 hover:bg-slate-700/50 hover:text-slate-100"
                       onClick={() => setIsUserMenuOpen(false)}
                     >
                       <Settings className="w-4 h-4 mr-3" />
@@ -131,7 +131,7 @@ const ProfessionalNav = () => {
                     </Link>
                     <button
                       onClick={handleLogout}
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      className="flex items-center w-full px-4 py-2 text-sm text-slate-300 hover:bg-slate-700/50 hover:text-slate-100"
                     >
                       <LogOut className="w-4 h-4 mr-3" />
                       Logout
@@ -162,7 +162,7 @@ const ProfessionalNav = () => {
           <div className="md:hidden flex items-center">
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              className="p-2 rounded-md text-slate-300 hover:text-slate-100 hover:bg-slate-800/50"
             >
               {isMobileMenuOpen ? (
                 <X className="w-6 h-6" />
@@ -175,7 +175,7 @@ const ProfessionalNav = () => {
 
         {/* Mobile Navigation */}
         {isMobileMenuOpen && (
-          <div className="md:hidden border-t border-gray-200">
+          <div className="md:hidden border-t border-slate-700/50">
             <div className="px-2 pt-2 pb-3 space-y-1">
               {filteredNavigation.map((item) => {
                 const Icon = item.icon;
@@ -189,8 +189,8 @@ const ProfessionalNav = () => {
                     className={`
                       flex items-center px-3 py-2 rounded-md text-base font-medium
                       ${active 
-                        ? 'bg-blue-50 text-blue-700' 
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                        ? 'bg-primary-600/20 text-primary-400' 
+                        : 'text-slate-300 hover:text-slate-100 hover:bg-slate-800/50'
                       }
                     `}
                   >
@@ -201,20 +201,20 @@ const ProfessionalNav = () => {
               })}
               
               {isAuthenticated && (
-                <div className="border-t border-gray-200 pt-4">
+                <div className="border-t border-slate-700/50 pt-4">
                   <div className="flex items-center px-3 py-2">
-                    <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center mr-3">
-                      <span className="text-sm font-medium text-gray-600">
+                    <div className="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center mr-3">
+                      <span className="text-sm font-medium text-slate-200">
                         {user?.username?.charAt(0).toUpperCase()}
                       </span>
                     </div>
-                    <span className="text-sm font-medium text-gray-700">
+                    <span className="text-sm font-medium text-slate-300">
                       {user?.username}
                     </span>
                   </div>
                   <button
                     onClick={handleLogout}
-                    className="flex items-center w-full px-3 py-2 text-base text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
+                    className="flex items-center w-full px-3 py-2 text-base text-slate-300 hover:text-slate-100 hover:bg-slate-800/50 rounded-md"
                   >
                     <LogOut className="w-5 h-5 mr-3" />
                     Logout
@@ -223,7 +223,7 @@ const ProfessionalNav = () => {
               )}
               
               {!isAuthenticated && (
-                <div className="border-t border-gray-200 pt-4 space-y-2">
+                <div className="border-t border-slate-700/50 pt-4 space-y-2">
                   <Link to="/login" onClick={() => setIsMobileMenuOpen(false)}>
                     <ProfessionalButton variant="ghost" size="sm" fullWidth>
                       Login
@@ -245,4 +245,5 @@ const ProfessionalNav = () => {
 };
 
 export default ProfessionalNav;
+
 

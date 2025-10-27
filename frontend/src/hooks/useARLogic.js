@@ -123,7 +123,7 @@ export const useARLogic = ({
       try {
         await video.play();
         video.pause();
-        video.currentTime = 0;
+        // Don't reset currentTime to 0 - let it stay at 0 naturally
         addDebugMessage('✅ Video primed and ready (will play on target detection)', 'success');
       } catch (playError) {
         addDebugMessage(`⚠️ Video priming failed: ${playError.message}`, 'warning');
@@ -668,10 +668,10 @@ export const useARLogic = ({
               });
             }
             
-            // Play video if paused (matching working code)
+            // Play video if paused (resume from current time, don't restart)
             if (videoRef.current && videoRef.current.paused) {
               const timestamp = new Date().toLocaleTimeString();
-              console.log(`▶️ [${timestamp}] Starting video playback`);
+              console.log(`▶️ [${timestamp}] Resuming video playback from ${videoRef.current.currentTime.toFixed(2)}s`);
               
               videoRef.current.play().then(() => {
                 // Track video view when it successfully starts playing (only once)
@@ -725,11 +725,11 @@ export const useARLogic = ({
               console.log(`👁️ [${timestamp}] Video mesh hidden`);
             }
             
-            // Pause video (matching working code)
+            // Pause video but preserve current time (don't reset to beginning)
             if (videoRef.current && !videoRef.current.paused) {
               videoRef.current.pause();
               const timestamp = new Date().toLocaleTimeString();
-              console.log(`⏸️ [${timestamp}] Video paused`);
+              console.log(`⏸️ [${timestamp}] Video paused (preserving time: ${videoRef.current.currentTime.toFixed(2)}s)`);
             }
             
             // Only log when state CHANGES (not every frame)

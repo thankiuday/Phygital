@@ -43,7 +43,7 @@ const Layout = () => {
   }, [location.pathname])
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-dark-mesh">
       {/* Page Transition Loader */}
       <PageTransitionLoader isLoading={isPageTransitioning} />
       

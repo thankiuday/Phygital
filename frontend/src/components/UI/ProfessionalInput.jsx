@@ -30,7 +30,7 @@ const ProfessionalInput = forwardRef(({
     ? 'border-red-300 focus:border-red-500 focus:ring-red-500 bg-red-50'
     : success 
     ? 'border-green-300 focus:border-green-500 focus:ring-green-500 bg-green-50'
-    : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white hover:border-gray-400';
+    : 'border-slate-600 focus:border-primary-500 focus:ring-primary-500 bg-slate-800/80 hover:border-slate-500';
   
   const iconClasses = iconPosition === 'left' 
     ? 'pl-10' 
@@ -45,7 +45,7 @@ const ProfessionalInput = forwardRef(({
 
   const iconElement = icon && (
     <div className={`absolute inset-y-0 ${iconPosition === 'left' ? 'left-0 pl-3' : 'right-0 pr-3'} flex items-center pointer-events-none`}>
-      <span className="text-gray-400">
+      <span className="text-slate-400">
         {icon}
       </span>
     </div>
@@ -58,9 +58,9 @@ const ProfessionalInput = forwardRef(({
       onClick={() => setShowPassword(!showPassword)}
     >
       {showPassword ? (
-        <EyeOff className="h-4 w-4 text-gray-400" />
+        <EyeOff className="h-4 w-4 text-slate-400" />
       ) : (
-        <Eye className="h-4 w-4 text-gray-400" />
+        <Eye className="h-4 w-4 text-slate-400" />
       )}
     </button>
   );
@@ -74,7 +74,7 @@ const ProfessionalInput = forwardRef(({
   return (
     <div className="space-y-1">
       {label && (
-        <label className="block text-sm font-medium text-gray-700">
+        <label className="block text-sm font-medium text-slate-200">
           {label}
         </label>
       )}
@@ -112,7 +112,7 @@ const ProfessionalInput = forwardRef(({
             </p>
           )}
           {helperText && !error && !success && (
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-slate-400">
               {helperText}
             </p>
           )}
@@ -125,4 +125,5 @@ const ProfessionalInput = forwardRef(({
 ProfessionalInput.displayName = 'ProfessionalInput';
 
 export default ProfessionalInput;
+
 

@@ -180,7 +180,7 @@ const UserPage = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-dark-mesh">
         <LoadingSpinner size="lg" />
       </div>
     )
@@ -193,7 +193,7 @@ const UserPage = () => {
 
   if (!userData) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-dark-mesh">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-slate-100 mb-4">
             User Not Found
