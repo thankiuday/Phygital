@@ -23,8 +23,7 @@ import {
   Share2,
   Clock,
   CheckCircle,
-  ArrowRight,
-  RefreshCw
+  ArrowRight
 } from 'lucide-react'
 import LoadingSpinner from '../../components/UI/LoadingSpinner'
 
@@ -57,27 +56,28 @@ const AnalyticsPage = () => {
     }
   }
 
-  const handleRefresh = async () => {
-    setIsLoading(true)
-    try {
-      await loadUser()
-      await fetchAnalytics()
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   // Get project statistics
   const projectStats = getProjectStats()
 
-  // Calculate aggregated analytics from all projects
+  // Calculate aggregated analytics - USE FILTERED DATA FROM BACKEND
   const getAggregatedAnalytics = () => {
+    // Prioritize filtered analytics from backend API
+    if (analytics?.overview) {
+      return {
+        totalScans: analytics.overview.totalScans || 0,
+        totalVideoViews: analytics.overview.totalVideoViews || 0,
+        totalLinkClicks: analytics.overview.totalLinkClicks || 0,
+        totalARStarts: analytics.overview.totalARStarts || 0
+      }
+    }
+
+    // Fallback to project totals only if no analytics data
     if (!user?.projects) {
       return {
-        totalScans: analytics?.overview?.totalScans || 0,
-        totalVideoViews: analytics?.overview?.totalVideoViews || 0,
-        totalLinkClicks: analytics?.overview?.totalLinkClicks || 0,
-        totalARStarts: analytics?.overview?.totalARStarts || 0
+        totalScans: 0,
+        totalVideoViews: 0,
+        totalLinkClicks: 0,
+        totalARStarts: 0
       }
     }
 
@@ -130,8 +130,12 @@ const AnalyticsPage = () => {
     const projectProgress = getProjectProgress(project)
     const isComplete = isProjectComplete(project)
     
-    // Get project-specific analytics from the actual DB structure
-    const projectAnalytics = project.analytics || {
+    // Get project-specific analytics
+    // Try to get filtered data from analytics response first, then fall back to project data
+    const projectId = project._id || project.id
+    const filteredProjectData = analytics?.projects?.find(p => p.projectId === projectId)
+    
+    const projectAnalytics = filteredProjectData || project.analytics || {
       totalScans: 0,
       videoViews: 0,
       linkClicks: 0,
@@ -161,6 +165,7 @@ const AnalyticsPage = () => {
               <h3 className="text-lg font-semibold text-slate-100">
                 {project.name || `Project ${project.id}`}
                 {isLatest && <span className="ml-2 text-xs bg-neon-blue/20 text-neon-blue px-2 py-1 rounded">Latest</span>}
+                {filteredProjectData && <span className="ml-2 text-xs bg-neon-cyan/20 text-neon-cyan px-2 py-1 rounded">Filtered</span>}
               </h3>
               <p className="text-sm text-slate-400">
                 Created {new Date(project.createdAt).toLocaleDateString()}
@@ -277,14 +282,6 @@ const AnalyticsPage = () => {
             </p>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-            <button
-              onClick={handleRefresh}
-              className="btn-secondary flex items-center justify-center gap-2 text-sm sm:text-base"
-              disabled={isLoading}
-            >
-              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
             <select
               value={selectedPeriod}
               onChange={(e) => setSelectedPeriod(e.target.value)}
@@ -308,12 +305,19 @@ const AnalyticsPage = () => {
           {/* Overall Summary */}
           <div className="card mb-8">
             <div className="card-header">
-              <h2 className="text-xl font-semibold text-slate-100">
-                Overall Summary
-              </h2>
-              <p className="text-slate-300">
-                Combined analytics across all your projects
-              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-100">
+                    Overall Summary
+                  </h2>
+                  <p className="text-slate-300">
+                    Combined analytics across all your projects
+                  </p>
+                </div>
+                <div className="text-sm px-3 py-1 bg-neon-blue/20 text-neon-blue rounded-full border border-neon-blue/30">
+                  {periods.find(p => p.value === selectedPeriod)?.label}
+                </div>
+              </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">

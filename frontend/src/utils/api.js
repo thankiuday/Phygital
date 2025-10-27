@@ -20,7 +20,7 @@ const api = axios.create({
 // Create a separate instance for file uploads with longer timeout
 const uploadApi = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
-  timeout: 300000, // 5 minutes for file uploads
+  timeout: 720000, // 12 minutes for file uploads (especially videos)
   headers: {
     'Content-Type': 'application/json',
   },

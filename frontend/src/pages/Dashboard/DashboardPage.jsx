@@ -159,26 +159,6 @@ const DashboardPage = () => {
     const projectStepCompletion = getProjectStepCompletion(project)
     const isComplete = isProjectComplete(project)
     
-    // Debug logging based on actual DB schema
-    console.log('Project Progress Debug:', {
-      projectName: project?.name,
-      projectProgress,
-      projectStepCompletion,
-      isComplete,
-      // Actual project fields from DB
-      projectDesign: !!project.uploadedFiles?.design?.url,
-      projectVideo: !!project.uploadedFiles?.video?.url,
-      projectMindTarget: !!project.uploadedFiles?.mindTarget?.generated,
-      projectQRPosition: !!(project.qrPosition?.x !== 0 || project.qrPosition?.y !== 0),
-      // Global fields
-      globalSocial: Object.values(user?.socialLinks || {}).some(link => link),
-      // Full project structure
-      projectStructure: {
-        uploadedFiles: project.uploadedFiles,
-        qrPosition: project.qrPosition
-      }
-    })
-    
     return (
       <div className={`p-4 rounded-lg border-2 transition-all duration-200 ${
         isComplete 
@@ -266,7 +246,7 @@ const DashboardPage = () => {
             </Link>
           ) : (
             <Link
-              to="/upload"
+              to={`/projects?edit=${project._id || project.id}`}
               className="w-full sm:w-auto inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-neon-blue hover:text-neon-cyan bg-blue-900/20 hover:bg-blue-900/30 border border-blue-600/30 hover:border-blue-500/50 rounded-lg transition-all duration-200"
             >
               Continue Project
@@ -289,10 +269,10 @@ const DashboardPage = () => {
         </div>
         
         <div className="text-center sm:text-left mb-6">
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-100 mb-2">
             Welcome back, {user?.username}!
           </h1>
-          <p className="text-sm sm:text-base text-gray-600">
+          <p className="text-sm sm:text-base text-slate-300">
             Here's an overview of your Phygital account
           </p>
         </div>
@@ -380,7 +360,10 @@ const DashboardPage = () => {
                   </p>
                 </div>
                 <Link
-                  to="/upload"
+                  to={projectStats.complete > 0 
+                    ? "/upload" 
+                    : `/projects?edit=${user?.projects?.find(p => !isProjectComplete(p))?._id || user?.projects?.[user.projects.length - 1]?._id}`
+                  }
                   className="btn-primary text-sm px-4 py-2 w-full sm:w-auto"
                 >
                   {projectStats.complete > 0 ? 'Create New Project' : 'Continue Project'}

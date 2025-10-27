@@ -5,7 +5,6 @@
 
 import React from 'react'
 import { Link } from 'react-router-dom'
-import BackButton from '../../components/UI/BackButton'
 import { 
   Users, 
   Target, 
@@ -71,22 +70,13 @@ const AboutPage = () => {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Header */}
         <div className="mb-8 sm:mb-12">
-          {/* Mobile Back Button */}
-          <div className="flex justify-start mb-6 sm:hidden">
-            <BackButton to="/" variant="ghost" text="Back" className="text-sm" />
-          </div>
-
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-100 mb-4">
-                About <span className="text-gradient-fire">Phygital</span>
-              </h1>
-              <p className="text-lg sm:text-xl text-slate-300 max-w-3xl">
-                We're revolutionizing how people connect physical and digital experiences through innovative AR technology and QR code solutions.
-              </p>
-            </div>
-            {/* Desktop Back Button */}
-            <BackButton to="/" variant="ghost" className="hidden sm:flex" />
+          <div className="mb-6">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-100 mb-4">
+              About <span className="text-gradient-fire">Phygital</span>
+            </h1>
+            <p className="text-lg sm:text-xl text-slate-300 max-w-3xl">
+              We're revolutionizing how people connect physical and digital experiences through innovative AR technology and QR code solutions.
+            </p>
           </div>
         </div>
 

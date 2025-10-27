@@ -182,15 +182,6 @@ const LoginPage = () => {
             </Link>
           </div>
         </form>
-
-        {/* Demo Credentials */}
-        <div className="mt-6 p-4 bg-slate-800/50 border border-slate-600/50 rounded-md">
-          <h3 className="text-sm font-medium text-neon-blue mb-2">Demo Credentials</h3>
-          <p className="text-xs text-slate-300">
-            Email: demo@phygital.com<br />
-            Password: demo123
-          </p>
-        </div>
       </div>
     </div>
   )

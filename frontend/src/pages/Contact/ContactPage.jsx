@@ -5,7 +5,6 @@
 
 import React, { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import BackButton from '../../components/UI/BackButton'
 import { 
   Mail, 
   Phone, 
@@ -16,10 +15,11 @@ import {
   AlertCircle
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { api } from '../../utils/api'
 
 const ContactPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false)
-  
+
   const {
     register,
     handleSubmit,
@@ -31,14 +31,18 @@ const ContactPage = () => {
     try {
       setIsSubmitting(true)
       
-      // Simulate form submission
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Submit to backend API
+      const response = await api.post('/contact/submit', data)
       
-      console.log('Contact form submitted:', data)
-      toast.success('Message sent successfully! We\'ll get back to you soon.')
-      reset()
+      if (response.data.status === 'success') {
+        toast.success(response.data.message || 'Thank you for contacting us! We\'ll get back to you soon.')
+        reset()
+      } else {
+        throw new Error(response.data.message || 'Failed to send message')
+      }
     } catch (error) {
-      toast.error('Failed to send message. Please try again.')
+      console.error('Contact form error:', error)
+      toast.error(error.response?.data?.message || 'Failed to send message. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
@@ -48,20 +52,20 @@ const ContactPage = () => {
     {
       icon: Mail,
       title: 'Email Us',
-      details: ['hello@phygital.com', 'support@phygital.com'],
+      details: ['Info@nerdsandgeeks.in'],
       description: 'Send us an email anytime'
     },
     {
       icon: Phone,
       title: 'Call Us',
-      details: ['+1 (555) 123-4567', '+1 (555) 987-6543'],
-      description: 'Mon-Fri 9AM-6PM EST'
+      details: ['+91 70755 70455'],
+      description: 'Mon-Fri 9AM-6PM IST'
     },
     {
       icon: MapPin,
-      title: 'Visit Us',
-      details: ['123 Innovation Street', 'Tech City, TC 12345'],
-      description: 'Come say hello!'
+      title: 'Our Locations',
+      details: ['Hyderabad', 'Bangalore', 'Tirupati'],
+      description: 'We are available across India'
     },
     {
       icon: Clock,
@@ -103,23 +107,14 @@ const ContactPage = () => {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Header */}
         <div className="mb-8 sm:mb-12">
-          {/* Mobile Back Button */}
-          <div className="flex justify-start mb-6 sm:hidden">
-            <BackButton to="/" variant="ghost" text="Back" className="text-sm" />
-          </div>
-
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-100 mb-4">
-                Contact <span className="text-gradient-fire">Us</span>
-              </h1>
-              <p className="text-lg sm:text-xl text-slate-300 max-w-3xl">
-                Have questions? Need help? We're here to assist you on your phygital journey. 
-                Reach out to us anytime!
-              </p>
-            </div>
-            {/* Desktop Back Button */}
-            <BackButton to="/" variant="ghost" className="hidden sm:flex" />
+          <div className="mb-6">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-100 mb-4">
+              Contact <span className="text-gradient-fire">Us</span>
+            </h1>
+            <p className="text-lg sm:text-xl text-slate-300 max-w-3xl">
+              Have questions? Need help? We're here to assist you on your phygital journey. 
+              Reach out to us anytime!
+            </p>
           </div>
         </div>
 

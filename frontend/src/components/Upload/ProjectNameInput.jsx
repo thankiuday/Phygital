@@ -66,26 +66,26 @@ const ProjectNameInput = ({ onProjectCreated, onCancel }) => {
   };
 
   return (
-    <div className="min-h-screen bg-dark-mesh flex items-center justify-center p-4">
-      <div className="max-w-md w-full">
+    <div className="min-h-screen bg-dark-mesh flex items-center justify-center p-4 sm:p-6 lg:p-8">
+      <div className="max-w-md sm:max-w-lg lg:max-w-2xl w-full">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-button-gradient mb-6 shadow-glow-purple">
-            <FolderPlus className="w-10 h-10 text-slate-100" />
+        <div className="text-center mb-8 lg:mb-10">
+          <div className="inline-flex items-center justify-center w-20 h-20 lg:w-24 lg:h-24 rounded-full bg-button-gradient mb-6 shadow-glow-purple">
+            <FolderPlus className="w-10 h-10 lg:w-12 lg:h-12 text-slate-100" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-100 mb-2">
+          <h1 className="text-3xl lg:text-4xl font-bold text-slate-100 mb-3">
             🚀 Start Your Project
           </h1>
-          <p className="text-slate-300">
+          <p className="text-slate-300 text-base lg:text-lg">
             Give your Phygital creation a name to get started
           </p>
         </div>
 
         {/* Project Name Form */}
-        <div className="card-glass rounded-2xl shadow-dark-large p-8 border border-slate-600/30">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="card-glass rounded-2xl shadow-dark-large p-6 sm:p-8 lg:p-10 border border-slate-600/30">
+          <form onSubmit={handleSubmit} className="space-y-6 lg:space-y-8">
             <div>
-              <label htmlFor="projectName" className="block text-sm font-semibold text-slate-300 mb-2">
+              <label htmlFor="projectName" className="block text-sm lg:text-base font-semibold text-slate-300 mb-3">
                 Project Name
               </label>
               <div className="relative">
@@ -95,7 +95,7 @@ const ProjectNameInput = ({ onProjectCreated, onCancel }) => {
                   value={projectName}
                   onChange={handleInputChange}
                   placeholder="e.g., My Awesome Design, Brand Campaign 2024"
-                  className={`input w-full px-4 py-3 text-lg font-medium transition-all duration-200 ${
+                  className={`input w-full px-4 py-3 lg:px-5 lg:py-4 text-lg font-medium transition-all duration-200 ${
                     projectName && isValid
                       ? 'border-neon-green bg-green-900/20'
                       : projectName && !isValid
@@ -126,9 +126,9 @@ const ProjectNameInput = ({ onProjectCreated, onCancel }) => {
             </div>
 
             {/* Guidelines */}
-            <div className="bg-blue-900/20 border border-neon-blue/30 rounded-lg p-4">
-              <h4 className="font-semibold text-neon-blue mb-2">💡 Naming Guidelines</h4>
-              <ul className="text-sm text-slate-300 space-y-1">
+            <div className="bg-blue-900/20 border border-neon-blue/30 rounded-lg p-4 lg:p-6">
+              <h4 className="font-semibold text-neon-blue mb-3 lg:mb-4 text-sm lg:text-base">💡 Naming Guidelines</h4>
+              <ul className="text-sm lg:text-base text-slate-300 space-y-2">
                 <li>• 2-50 characters long</li>
                 <li>• Use letters, numbers, spaces, hyphens, and underscores</li>
                 <li>• Make it descriptive and memorable</li>
@@ -137,18 +137,18 @@ const ProjectNameInput = ({ onProjectCreated, onCancel }) => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-col sm:flex-row gap-3 lg:gap-4">
               <button
                 type="button"
                 onClick={onCancel}
-                className="flex-1 px-6 py-3 text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-xl font-medium transition-all duration-200"
+                className="flex-1 px-6 py-3 lg:px-8 lg:py-4 text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-xl font-medium transition-all duration-200 text-base lg:text-lg"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={!isValid || isCreating}
-                className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center ${
+                className={`flex-1 px-6 py-3 lg:px-8 lg:py-4 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center text-base lg:text-lg ${
                   isValid && !isCreating
                     ? 'btn-primary shadow-lg hover:shadow-xl transform hover:scale-105'
                     : 'text-slate-500 bg-slate-700 cursor-not-allowed'
@@ -173,19 +173,19 @@ const ProjectNameInput = ({ onProjectCreated, onCancel }) => {
 
         {/* Recent Projects */}
         {user?.projects && user.projects.length > 0 && (
-          <div className="mt-8 card-glass rounded-xl shadow-dark-large p-6 border border-slate-600/30">
-            <h3 className="text-lg font-semibold text-slate-100 mb-4">
+          <div className="mt-8 lg:mt-10 card-glass rounded-xl shadow-dark-large p-6 lg:p-8 border border-slate-600/30">
+            <h3 className="text-lg lg:text-xl font-semibold text-slate-100 mb-4 lg:mb-6">
               📁 Recent Projects
             </h3>
-            <div className="space-y-2">
+            <div className="space-y-3 lg:space-y-4">
               {user.projects.slice(0, 3).map((project) => (
                 <div
                   key={project.id}
-                  className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg hover:bg-slate-700/50 transition-colors duration-200 border border-slate-600/30"
+                  className="flex items-center justify-between p-4 lg:p-5 bg-slate-800/50 rounded-lg hover:bg-slate-700/50 transition-colors duration-200 border border-slate-600/30"
                 >
                   <div>
-                    <p className="font-medium text-slate-100">{project.name}</p>
-                    <p className="text-sm text-slate-400">
+                    <p className="font-medium text-slate-100 text-base lg:text-lg">{project.name}</p>
+                    <p className="text-sm lg:text-base text-slate-400">
                       Created {new Date(project.createdAt).toLocaleDateString()}
                     </p>
                   </div>
@@ -195,7 +195,7 @@ const ProjectNameInput = ({ onProjectCreated, onCancel }) => {
                       console.log('🔍 Use button clicked for project:', project.id);
                       navigate(`/projects?edit=${project.id}`);
                     }}
-                    className="text-neon-purple hover:text-neon-cyan text-sm font-medium transition-colors"
+                    className="text-neon-purple hover:text-neon-cyan text-sm lg:text-base font-medium transition-colors px-4 py-2 lg:px-6 lg:py-3 rounded-lg hover:bg-slate-600/30"
                   >
                     Use
                   </button>

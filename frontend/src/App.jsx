@@ -27,6 +27,7 @@ import HistoryPage from './pages/History/HistoryPage'
 import ProjectsPage from './pages/Projects/ProjectsPage' // New combined page
 import AboutPage from './pages/About/AboutPage'
 import ContactPage from './pages/Contact/ContactPage'
+import AIVideoPage from './pages/AIVideo/AIVideoPage'
 import ScanPage from './pages/ScanPage'
 import NotFoundPage from './pages/NotFoundPage'
 
@@ -54,6 +55,7 @@ function App() {
           <Route path="register" element={<RegisterPage />} />
           <Route path="about" element={<AboutPage />} />
           <Route path="contact" element={<ContactPage />} />
+          <Route path="ai-video" element={<AIVideoPage />} />
           <Route path="user/:username" element={<UserPage />} />
           <Route path="scan/:userId" element={<QRScanPage />} />
           <Route path="scan/project/:projectId" element={<QRScanPage />} />

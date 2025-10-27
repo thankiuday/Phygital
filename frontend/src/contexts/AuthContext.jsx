@@ -206,9 +206,16 @@ export const AuthProvider = ({ children }) => {
 
   // Logout function
   const logout = () => {
+    // Dispatch logout first to update state and remove token
     dispatch({ type: AUTH_ACTIONS.LOGOUT })
+    
+    // Show success message
     toast.success('Logged out successfully')
-    navigate('/')
+    
+    // Navigate to home page after a brief delay to ensure state is updated
+    setTimeout(() => {
+      navigate('/')
+    }, 100)
   }
 
   // Update user function - improved to handle nested objects properly
@@ -221,6 +228,11 @@ export const AuthProvider = ({ children }) => {
 
   // Refresh user data from backend to ensure consistency
   const refreshUserData = async () => {
+    // Don't attempt to refresh if not authenticated or no token
+    if (!state.isAuthenticated || !state.token) {
+      return null
+    }
+
     try {
       const response = await api.get('/auth/profile')
       dispatch({
@@ -229,7 +241,10 @@ export const AuthProvider = ({ children }) => {
       })
       return response.data.data.user
     } catch (error) {
-      console.error('Failed to refresh user data:', error)
+      // Only log errors if we're still authenticated (ignore logout scenarios)
+      if (state.isAuthenticated) {
+        console.error('Failed to refresh user data:', error)
+      }
       return null
     }
   }

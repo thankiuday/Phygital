@@ -56,24 +56,26 @@ const uploadToCloudinary = async (file, userId, type) => {
     console.log('Uploading to Cloudinary with folder:', folderPath);
     console.log('File name:', fileName);
 
-    // Upload options
+    // Upload options with different timeouts for videos vs images
     const uploadOptions = {
       folder: folderPath,
       public_id: fileName.replace(`.${fileExtension}`, ''), // Remove extension for public_id
       resource_type: type === 'video' ? 'video' : 'image',
       format: fileExtension,
-      quality: 'auto',
-      fetch_format: 'auto',
-      timeout: 120000, // 2 minutes timeout for large files
-      transformation: type === 'video' ? [
-        { quality: 'auto' },
-        { fetch_format: 'auto' }
-      ] : [
+      timeout: type === 'video' ? 600000 : 120000, // 10 minutes for videos, 2 minutes for images
+      chunk_size: type === 'video' ? 6000000 : undefined, // 6MB chunks for videos (better for large files)
+    };
+
+    // Add quality settings only for images (not for videos during upload to avoid processing delays)
+    if (type !== 'video') {
+      uploadOptions.quality = 'auto';
+      uploadOptions.fetch_format = 'auto';
+      uploadOptions.transformation = [
         { quality: 'auto' },
         { fetch_format: 'auto' },
         { width: 1920, height: 1080, crop: 'limit' } // Limit image size
-      ]
-    };
+      ];
+    }
 
     console.log('Upload options:', uploadOptions);
 
@@ -165,11 +167,12 @@ const uploadToCloudinaryBuffer = async (buffer, userId, type, filename, contentT
       folder: folderPath,
       public_id: finalFilename,
       resource_type: resourceType,
-      timeout: 120000 // 2 minutes timeout for large files
+      timeout: type === 'video' ? 600000 : 120000, // 10 minutes for videos, 2 minutes for others
+      chunk_size: type === 'video' ? 6000000 : undefined, // 6MB chunks for videos
     };
     
-    // Only add quality and fetch_format for images and videos, not raw files
-    if (resourceType !== 'raw') {
+    // Only add quality and fetch_format for images (not for videos or raw files)
+    if (resourceType === 'image') {
       uploadOptions.quality = 'auto';
       uploadOptions.fetch_format = 'auto';
     }

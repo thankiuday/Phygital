@@ -241,6 +241,7 @@ export default {
         'error-gradient': 'linear-gradient(135deg, #ef4444 0%, #ec4899 100%)',
       },
       backgroundSize: {
+        '200%': '200% 200%',
         '300%': '300% 300%',
       }
     },

@@ -13,15 +13,16 @@ import {
   BarChart3, 
   User, 
   LogOut,
-  Settings,
   FolderKanban,
   Info,
   Mail,
   Menu,
   X,
-  ChevronDown
+  ChevronDown,
+  Sparkles
 } from 'lucide-react';
 import ProfessionalButton from '../UI/ProfessionalButton';
+import Logo from '../UI/Logo';
 
 const ProfessionalNav = () => {
   const { isAuthenticated, user, logout } = useAuth();
@@ -31,6 +32,7 @@ const ProfessionalNav = () => {
 
   const navigation = [
     { name: 'Home', href: '/', icon: Home, public: true },
+    { name: 'AI Video', href: '/ai-video', icon: Sparkles, public: true, showBoth: true, isNew: true },
     { name: 'About', href: '/about', icon: Info, public: true },
     { name: 'Contact', href: '/contact', icon: Mail, public: true },
     { name: 'Dashboard', href: '/dashboard', icon: BarChart3, authOnly: true },
@@ -41,6 +43,7 @@ const ProfessionalNav = () => {
   ];
 
   const filteredNavigation = navigation.filter(item => {
+    if (item.showBoth) return true;
     if (isAuthenticated) {
       return item.authOnly;
     }
@@ -61,12 +64,7 @@ const ProfessionalNav = () => {
         <div className="flex justify-between h-16">
           {/* Logo */}
           <div className="flex items-center">
-            <Link to="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">P</span>
-              </div>
-              <span className="text-xl font-bold text-slate-100">Phygital</span>
-            </Link>
+            <Logo size="lg" showText={true} linkTo="/" />
           </div>
 
           {/* Desktop Navigation */}
@@ -80,15 +78,21 @@ const ProfessionalNav = () => {
                   key={item.name}
                   to={item.href}
                     className={`
-                      flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors
+                      flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors relative
                       ${active 
                         ? 'bg-primary-600/20 text-primary-400 border-b-2 border-primary-500' 
                         : 'text-slate-300 hover:text-slate-100 hover:bg-slate-800/50'
                       }
+                      ${item.isNew ? 'text-gradient hover:scale-105' : ''}
                     `}
                 >
-                  <Icon className="w-4 h-4 mr-2" />
+                  <Icon className={`w-4 h-4 mr-2 ${item.isNew ? 'animate-pulse' : ''}`} />
                   {item.name}
+                  {item.isNew && (
+                    <span className="absolute -top-1 -right-1 px-1.5 py-0.5 text-[10px] font-bold bg-gradient-to-r from-neon-pink to-neon-orange text-white rounded-full animate-pulse">
+                      NEW
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -100,15 +104,15 @@ const ProfessionalNav = () => {
               <div className="relative">
                 <button
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center space-x-2 text-sm font-medium text-slate-300 hover:text-slate-100 focus:outline-none"
+                  className="flex items-center space-x-2 text-sm font-medium focus:outline-none"
                 >
-                  <div className="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center">
-                    <span className="text-sm font-medium text-slate-300">
+                  <div className="w-8 h-8 bg-gradient-to-br from-neon-blue to-neon-purple rounded-full flex items-center justify-center shadow-lg">
+                    <span className="text-sm font-medium text-white">
                       {user?.username?.charAt(0).toUpperCase()}
                     </span>
                   </div>
-                  <span>{user?.username}</span>
-                  <ChevronDown className="w-4 h-4" />
+                  <span className="text-gradient">{user?.username}</span>
+                  <ChevronDown className="w-4 h-4 text-slate-300" />
                 </button>
 
                 {isUserMenuOpen && (
@@ -120,14 +124,6 @@ const ProfessionalNav = () => {
                     >
                       <User className="w-4 h-4 mr-3" />
                       Profile
-                    </Link>
-                    <Link
-                      to="/settings"
-                      className="flex items-center px-4 py-2 text-sm text-slate-300 hover:bg-slate-700/50 hover:text-slate-100"
-                      onClick={() => setIsUserMenuOpen(false)}
-                    >
-                      <Settings className="w-4 h-4 mr-3" />
-                      Settings
                     </Link>
                     <button
                       onClick={handleLogout}
@@ -146,14 +142,14 @@ const ProfessionalNav = () => {
           {!isAuthenticated && (
             <div className="hidden md:flex items-center space-x-3">
               <Link to="/login">
-                <ProfessionalButton variant="ghost" size="sm">
+                <button className="px-5 py-2 text-sm font-semibold rounded-lg bg-slate-800/50 text-slate-200 border border-slate-600/50 hover:bg-slate-700 hover:border-neon-blue/50 hover:text-neon-blue transition-all duration-300 hover:shadow-glow-blue">
                   Login
-                </ProfessionalButton>
+                </button>
               </Link>
               <Link to="/register">
-                <ProfessionalButton variant="primary" size="sm">
+                <button className="px-5 py-2 text-sm font-semibold rounded-lg bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink text-white hover:shadow-glow-lg transition-all duration-300 hover:scale-105 active:scale-95 animate-gradient-x bg-size-200">
                   Sign Up
-                </ProfessionalButton>
+                </button>
               </Link>
             </div>
           )}
@@ -187,15 +183,21 @@ const ProfessionalNav = () => {
                     to={item.href}
                     onClick={() => setIsMobileMenuOpen(false)}
                     className={`
-                      flex items-center px-3 py-2 rounded-md text-base font-medium
+                      flex items-center px-3 py-2 rounded-md text-base font-medium relative
                       ${active 
                         ? 'bg-primary-600/20 text-primary-400' 
                         : 'text-slate-300 hover:text-slate-100 hover:bg-slate-800/50'
                       }
+                      ${item.isNew ? 'text-gradient' : ''}
                     `}
                   >
-                    <Icon className="w-5 h-5 mr-3" />
+                    <Icon className={`w-5 h-5 mr-3 ${item.isNew ? 'animate-pulse' : ''}`} />
                     {item.name}
+                    {item.isNew && (
+                      <span className="ml-2 px-2 py-0.5 text-[10px] font-bold bg-gradient-to-r from-neon-pink to-neon-orange text-white rounded-full animate-pulse">
+                        NEW
+                      </span>
+                    )}
                   </Link>
                 );
               })}
@@ -203,12 +205,12 @@ const ProfessionalNav = () => {
               {isAuthenticated && (
                 <div className="border-t border-slate-700/50 pt-4">
                   <div className="flex items-center px-3 py-2">
-                    <div className="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center mr-3">
-                      <span className="text-sm font-medium text-slate-300">
+                    <div className="w-8 h-8 bg-gradient-to-br from-neon-blue to-neon-purple rounded-full flex items-center justify-center mr-3 shadow-lg">
+                      <span className="text-sm font-medium text-white">
                         {user?.username?.charAt(0).toUpperCase()}
                       </span>
                     </div>
-                    <span className="text-sm font-medium text-slate-300">
+                    <span className="text-sm font-medium text-gradient">
                       {user?.username}
                     </span>
                   </div>
@@ -223,16 +225,16 @@ const ProfessionalNav = () => {
               )}
               
               {!isAuthenticated && (
-                <div className="border-t border-slate-700/50 pt-4 space-y-2">
+                <div className="border-t border-slate-700/50 pt-4 space-y-2 px-2">
                   <Link to="/login" onClick={() => setIsMobileMenuOpen(false)}>
-                    <ProfessionalButton variant="ghost" size="sm" fullWidth>
+                    <button className="w-full px-5 py-3 text-base font-semibold rounded-lg bg-slate-800/50 text-slate-200 border border-slate-600/50 hover:bg-slate-700 hover:border-neon-blue/50 hover:text-neon-blue transition-all duration-300">
                       Login
-                    </ProfessionalButton>
+                    </button>
                   </Link>
                   <Link to="/register" onClick={() => setIsMobileMenuOpen(false)}>
-                    <ProfessionalButton variant="primary" size="sm" fullWidth>
+                    <button className="w-full px-5 py-3 text-base font-semibold rounded-lg bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink text-white hover:shadow-glow-lg transition-all duration-300 hover:scale-105 active:scale-95">
                       Sign Up
-                    </ProfessionalButton>
+                    </button>
                   </Link>
                 </div>
               )}

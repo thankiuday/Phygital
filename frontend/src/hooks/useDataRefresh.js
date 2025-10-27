@@ -10,20 +10,27 @@ import { useAuth } from '../contexts/AuthContext';
 
 export const useDataRefresh = () => {
   const location = useLocation();
-  const { refreshUserData } = useAuth();
+  const { refreshUserData, isAuthenticated } = useAuth();
 
   useEffect(() => {
+    // Only refresh if user is authenticated
+    if (!isAuthenticated) {
+      return;
+    }
+
     // Refresh user data when navigating to important pages
     const importantPages = ['/dashboard', '/projects', '/analytics', '/profile'];
     const currentPath = location.pathname;
     
     if (importantPages.includes(currentPath)) {
-      console.log('🔄 Refreshing user data for page:', currentPath);
+      // Silently refresh user data to ensure consistency
       refreshUserData().catch(error => {
+        // Only log errors, not successful refreshes
         console.error('Failed to refresh user data:', error);
       });
     }
-  }, [location.pathname, refreshUserData]);
+  }, [location.pathname, refreshUserData, isAuthenticated]);
 };
+
 
 

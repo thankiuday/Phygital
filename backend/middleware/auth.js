@@ -78,7 +78,7 @@ const authenticateToken = async (req, res, next) => {
     
     // Add user to request object
     req.user = user;
-    console.log('✅ User authenticated successfully:', user._id);
+    // Successful authentication - no logging needed for every request
     next();
     
   } catch (error) {
@@ -132,16 +132,10 @@ const optionalAuth = async (req, res, next) => {
         
         if (user && user.isActive) {
           req.user = user;
-          console.log('✅ Optional auth: User authenticated:', user._id);
-        } else {
-          console.log('⚠️ Optional auth: User not found or inactive');
         }
       } catch (jwtError) {
-        console.log('⚠️ Optional auth: Invalid token, continuing without auth');
         // Continue without authentication if token is invalid
       }
-    } else {
-      console.log('⚠️ Optional auth: No token provided, continuing without auth');
     }
     
     next();
@@ -173,7 +167,6 @@ const generateToken = (userId) => {
       { expiresIn: process.env.JWT_EXPIRE || '7d' }
     );
     
-    console.log('✅ JWT token generated for user:', userId);
     return token;
   } catch (error) {
     console.error('❌ Token generation error:', error.message);
@@ -211,7 +204,6 @@ const requireUploadedFiles = async (req, res, next) => {
       if (!hasDesign) missing.push('design');
       if (!hasVideo) missing.push('video');
       
-      console.log('❌ requireUploadedFiles: Missing files for user:', req.user._id, 'Missing:', missing);
       return res.status(400).json({
         status: 'error',
         message: `Please upload ${missing.join(' and ')} files first`,
@@ -219,7 +211,6 @@ const requireUploadedFiles = async (req, res, next) => {
       });
     }
     
-    console.log('✅ requireUploadedFiles: User has all required files:', req.user._id);
     next();
   } catch (error) {
     console.error('❌ requireUploadedFiles error:', error);

@@ -23,6 +23,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
   const [qrImageUrl, setQrImageUrl] = useState('');
   const imageRef = useRef(null);
   const qrRef = useRef(null);
+  const scrollPositionRef = useRef({ x: 0, y: 0 });
 
 
   const designImageUrl = designUrl || user?.uploadedFiles?.design?.url;
@@ -463,16 +464,18 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     const clientX = e.clientX;
     const clientY = e.clientY;
 
-    // Gentle scroll lock for touch events - only what's necessary
+    // Store current scroll position for ALL pointer types (mouse and touch)
+    scrollPositionRef.current = {
+      x: window.scrollX || window.pageXOffset,
+      y: window.scrollY || window.pageYOffset
+    };
+
+    // Prevent scroll behavior during drag for ALL pointer types
+    document.body.style.overscrollBehavior = 'none';
+    
+    // Additional touch-specific handling
     if (e.pointerType === 'touch') {
-      const scrollY = window.scrollY;
-
-      // Minimal scroll lock - just prevent scroll behavior
-      document.body.style.overscrollBehavior = 'none';
       document.body.style.touchAction = 'none';
-
-      // Store scroll position for restoration
-      document.body.dataset.scrollY = scrollY.toString();
     }
 
     const img = imageRef.current;
@@ -529,6 +532,10 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
   const handleGlobalPointerMove = useCallback((e) => {
     if (!isDragging && !isResizing) return;
     e.preventDefault();
+    e.stopPropagation();
+
+    // Maintain scroll position during drag/resize
+    window.scrollTo(scrollPositionRef.current.x, scrollPositionRef.current.y);
 
     const drag = dragStart;
     if (!drag || drag.pointerId !== e.pointerId) return;
@@ -605,23 +612,34 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     if (e.pointerId !== dragStart?.pointerId) return;
 
     // Restore body scroll and touch behavior
-    const scrollY = document.body.dataset.scrollY || '0';
-
-    // Restore styles
     document.body.style.overscrollBehavior = '';
     document.body.style.touchAction = '';
 
-    // Restore scroll position
-    window.scrollTo(0, parseInt(scrollY));
-
-    // Clean up stored scroll position
-    delete document.body.dataset.scrollY;
+    // Ensure scroll position is maintained (final check)
+    window.scrollTo(scrollPositionRef.current.x, scrollPositionRef.current.y);
 
     setIsDragging(false);
     setIsResizing(false);
     setResizeHandle(null);
     setDragStart(null);
   }, [dragStart]);
+
+  // Prevent scroll during state updates when dragging/resizing
+  useEffect(() => {
+    if (isDragging || isResizing) {
+      // Lock scroll position during drag/resize operations
+      const scrollLock = () => {
+        window.scrollTo(scrollPositionRef.current.x, scrollPositionRef.current.y);
+      };
+      
+      // Prevent any scroll events
+      window.addEventListener('scroll', scrollLock, { passive: false });
+      
+      return () => {
+        window.removeEventListener('scroll', scrollLock);
+      };
+    }
+  }, [isDragging, isResizing]);
 
   // Add/remove global listeners
   useEffect(() => {

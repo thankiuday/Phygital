@@ -8,12 +8,10 @@ import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useSearchParams, useLocation } from 'react-router-dom'
 import { uploadAPI, generateQRCode, downloadFile, api } from '../../utils/api'
-import { useDataRefresh } from '../../hooks/useDataRefresh'
 import BackButton from '../../components/UI/BackButton'
 import { 
   Video, 
   Calendar,
-  RefreshCw,
   Edit3,
   X,
   Upload,
@@ -46,24 +44,13 @@ import { useDropzone } from 'react-dropzone'
 import toast from 'react-hot-toast'
 
 const ProjectsPage = () => {
-  console.log('🚀 ProjectsPage component is loading!')
-  
   const { user, loadUser, updateUser, refreshUserData } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const location = useLocation()
   
-  // Auto-refresh data when navigating to this page
-  useDataRefresh()
-
-  // Debug: Log URL parameters immediately
-  console.log('🔍 ProjectsPage mounted - URL params:', searchParams.toString())
-  console.log('🔍 Edit param:', searchParams.get('edit'))
-  console.log('🔍 Location search:', location.search)
-  
-  // Alternative approach using URLSearchParams
+  // Get edit parameter from URL
   const urlParams = new URLSearchParams(location.search)
   const editParam = urlParams.get('edit')
-  console.log('🔍 Alternative edit param:', editParam)
 
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
@@ -104,7 +91,7 @@ const ProjectsPage = () => {
   const [uploadProgress, setUploadProgress] = useState(0)
 
   // Handle edit project - moved here to avoid hoisting issues
-  const handleEditProject = (project) => {
+  const handleEditProject = useCallback((project) => {
     console.log('🔧 handleEditProject called with:', project)
     setEditingProject(project)
 
@@ -129,7 +116,7 @@ const ProjectsPage = () => {
 
     console.log('🔧 Setting showEditModal to true')
     setShowEditModal(true)
-  }
+  }, [user])
 
   // Sort projects based on selected criteria
   const getSortedProjects = () => {
@@ -155,13 +142,13 @@ const ProjectsPage = () => {
       const response = await api.get('/health');
       return true;
     } catch (error) {
-      console.error('❌ Backend health check failed:', error);
+      // Backend not available
       return false;
     }
   };
 
-  // Load projects
-  const loadProjects = async () => {
+  // Load projects - memoized to prevent infinite loops
+  const loadProjects = useCallback(async () => {
     try {
       setLoading(true)
 
@@ -208,11 +195,11 @@ const ProjectsPage = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user])
 
   useEffect(() => {
     loadProjects()
-  }, [user])
+  }, [loadProjects])
 
   // Handle auto-edit from URL parameter - use ref to prevent unnecessary re-runs
   const editProcessedRef = useRef(false);
@@ -764,25 +751,6 @@ const ProjectsPage = () => {
                 </button>
               </div>
             )}
-            {projects.length > 0 && (
-              <div className="flex justify-center sm:justify-end">
-                <button
-                  onClick={async () => {
-                    const isConnected = await testBackendConnection();
-                    if (isConnected) {
-                      toast.success('Backend connection successful!');
-                      await loadProjects();
-                    } else {
-                      toast.error('Backend connection failed. Please start the backend server.');
-                    }
-                  }}
-                  className="px-4 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors flex items-center justify-center text-sm sm:text-base w-full sm:w-auto"
-                >
-                  <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                  <span>Test & Refresh</span>
-                </button>
-              </div>
-            )}
             <BackButton to="/dashboard" variant="ghost" text="Back" className="text-sm sm:text-base hidden sm:flex" />
           </div>
         </div>
@@ -793,24 +761,9 @@ const ProjectsPage = () => {
         <div className="text-center py-12">
           <FolderOpen className="w-16 h-16 text-slate-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-slate-100 mb-2">No projects found</h3>
-          <p className="text-slate-300 mb-6">
+          <p className="text-slate-300">
             Start creating your first Phygital project!
           </p>
-          <button
-            onClick={async () => {
-              const isConnected = await testBackendConnection();
-              if (isConnected) {
-                toast.success('Backend connection successful!');
-                await loadProjects();
-              } else {
-                toast.error('Backend connection failed. Please start the backend server.');
-              }
-            }}
-            className="btn-primary px-6 py-3 rounded-lg transition-colors flex items-center justify-center mx-auto"
-          >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            <span>Test Connection & Load</span>
-          </button>
         </div>
       ) : (
         <div className={viewMode === 'grid'

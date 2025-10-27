@@ -37,8 +37,7 @@ const ProfilePage = () => {
     reset: resetProfile
   } = useForm({
     defaultValues: {
-      username: user?.username || '',
-      email: user?.email || ''
+      username: user?.username || ''
     }
   })
 
@@ -55,7 +54,8 @@ const ProfilePage = () => {
   const onProfileSubmit = async (data) => {
     try {
       setIsUpdating(true)
-      const response = await authAPI.updateProfile(data)
+      // Only send username, not email
+      const response = await authAPI.updateProfile({ username: data.username })
       updateUser(response.data.data.user)
       toast.success('Profile updated successfully!')
     } catch (error) {
@@ -125,7 +125,7 @@ const ProfilePage = () => {
                 </h2>
               </div>
               <p className="text-sm sm:text-base text-slate-300 ml-11">
-                Update your username and email address
+                Update your username
               </p>
             </div>
 
@@ -135,7 +135,7 @@ const ProfilePage = () => {
                   Username
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10">
                     <User className="h-5 w-5 text-neon-blue" />
                   </div>
                   <input
@@ -172,28 +172,22 @@ const ProfilePage = () => {
                   Email Address
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Mail className="h-5 w-5 text-neon-cyan" />
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10">
+                    <Mail className="h-5 w-5 text-slate-500" />
                   </div>
                   <input
-                    {...registerProfile('email', {
-                      required: 'Email is required',
-                      pattern: {
-                        value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                        message: 'Invalid email address'
-                      }
-                    })}
                     type="email"
-                    className={`input pl-12 w-full ${profileErrors.email ? 'input-error' : ''}`}
-                    placeholder="Enter your email"
+                    value={user?.email || ''}
+                    readOnly
+                    disabled
+                    className="input pl-12 w-full bg-slate-800/50 text-slate-400 cursor-not-allowed opacity-70"
+                    placeholder="Email address"
                   />
                 </div>
-                {profileErrors.email && (
-                  <p className="text-sm text-neon-red flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4 text-neon-red" />
-                    {profileErrors.email.message}
-                  </p>
-                )}
+                <p className="text-xs text-slate-400 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  Email address cannot be changed for security reasons
+                </p>
               </div>
 
               <div className="pt-4 border-t border-slate-700">
@@ -237,7 +231,7 @@ const ProfilePage = () => {
                   Current Password
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10">
                     <Lock className="h-5 w-5 text-neon-purple" />
                   </div>
                   <input
@@ -250,7 +244,7 @@ const ProfilePage = () => {
                   />
                   <button
                     type="button"
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center hover:text-slate-300 transition-colors"
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center hover:text-slate-300 transition-colors z-10"
                     onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                   >
                     {showCurrentPassword ? (
@@ -273,7 +267,7 @@ const ProfilePage = () => {
                   New Password
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10">
                     <Lock className="h-5 w-5 text-neon-purple" />
                   </div>
                   <input
@@ -294,7 +288,7 @@ const ProfilePage = () => {
                   />
                   <button
                     type="button"
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center hover:text-slate-300 transition-colors"
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center hover:text-slate-300 transition-colors z-10"
                     onClick={() => setShowNewPassword(!showNewPassword)}
                   >
                     {showNewPassword ? (
@@ -317,7 +311,7 @@ const ProfilePage = () => {
                   Confirm New Password
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10">
                     <Lock className="h-5 w-5 text-neon-purple" />
                   </div>
                   <input
@@ -331,7 +325,7 @@ const ProfilePage = () => {
                   />
                   <button
                     type="button"
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center hover:text-slate-300 transition-colors"
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center hover:text-slate-300 transition-colors z-10"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   >
                     {showConfirmPassword ? (

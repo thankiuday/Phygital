@@ -20,6 +20,7 @@ const analyticsRoutes = require('./routes/analytics');
 const userRoutes = require('./routes/user');
 const historyRoutes = require('./routes/history');
 const arExperienceRoutes = require('./routes/arExperience');
+const contactRoutes = require('./routes/contact');
 
 const app = express();
 
@@ -40,33 +41,25 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin: function (origin, callback) {
-    console.log('🔍 CORS check - Origin:', origin);
-    console.log('🔍 CORS check - Allowed origins:', allowedOrigins);
-    
+    // Allow requests with no origin (server-to-server, mobile apps, etc.)
     if (!origin) {
-      console.log('✅ CORS - No origin (server-to-server request)');
       return callback(null, true);
     }
     
     const isAllowed = allowedOrigins.some(allowedOrigin => {
       if (typeof allowedOrigin === 'string') {
-        const match = allowedOrigin === origin;
-        console.log(`🔍 CORS - String check: ${allowedOrigin} === ${origin} = ${match}`);
-        return match;
+        return allowedOrigin === origin;
       } else if (allowedOrigin instanceof RegExp) {
-        const match = allowedOrigin.test(origin);
-        console.log(`🔍 CORS - Regex check: ${allowedOrigin} test ${origin} = ${match}`);
-        return match;
+        return allowedOrigin.test(origin);
       }
       return false;
     });
     
     if (isAllowed) {
-      console.log('✅ CORS - Origin allowed:', origin);
       callback(null, true);
     } else {
+      // Only log blocked origins (not every request)
       console.warn(`❌ CORS - Origin blocked: ${origin}`);
-      console.warn(`❌ CORS - Allowed origins:`, allowedOrigins);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -113,13 +106,22 @@ if (process.env.NODE_ENV === 'production') {
 app.use(helmet());
 app.use(compression());
 
-// Rate limiting to prevent abuse (increased limits for development)
+// Rate limiting to prevent abuse
+// More lenient in development, stricter in production
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // limit each IP to 1000 requests per windowMs (increased for analytics)
+  max: process.env.NODE_ENV === 'production' ? 1000 : 10000, // 10000 for dev, 1000 for production
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  skip: (req) => {
+    // Skip rate limiting in development for localhost
+    if (process.env.NODE_ENV === 'development') {
+      const origin = req.headers.origin || req.headers.host;
+      return origin && (origin.includes('localhost') || origin.includes('127.0.0.1'));
+    }
+    return false;
+  }
 });
 app.use('/api/', limiter);
 
@@ -163,6 +165,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/ar-experience', arExperienceRoutes);
+app.use('/api/contact', contactRoutes);
 
 // Health check endpoint with detailed status
 app.get('/api/health', async (req, res) => {

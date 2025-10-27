@@ -105,3 +105,4 @@ function App() {
 - Dashboard route is already protected, so no additional authentication checks needed
 
 
+
