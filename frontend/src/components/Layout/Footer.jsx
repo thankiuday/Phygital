@@ -117,10 +117,10 @@ const Footer = () => {
               <li className="flex items-start space-x-2">
                 <Mail className="w-4 h-4 text-neon-blue mt-0.5 flex-shrink-0" />
                 <a 
-                  href="mailto:info@metadigilabs.com"
+                  href="mailto:phygital.zone@gmail.com"
                   className="text-slate-400 hover:text-neon-blue text-sm transition-colors duration-200 break-all"
                 >
-                  info@metadigilabs.com
+                  phygital.zone@gmail.com
                 </a>
               </li>
               <li className="flex items-start space-x-2">

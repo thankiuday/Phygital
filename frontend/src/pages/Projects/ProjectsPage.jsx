@@ -89,6 +89,40 @@ const ProjectsPage = () => {
   })
   const [isSaving, setIsSaving] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [phoneErrors, setPhoneErrors] = useState({
+    contactNumber: '',
+    whatsappNumber: ''
+  })
+
+  // Phone number validation function
+  const validatePhoneNumber = (value) => {
+    if (!value || value.trim() === '') return '';
+    
+    // Check if it contains only allowed characters: digits, +, -, (, ), and spaces
+    const phoneRegex = /^[\d\s\-\+\(\)]+$/;
+    if (!phoneRegex.test(value)) {
+      return 'Please enter only numbers, +, -, (, ), and spaces';
+    }
+    
+    // Check minimum length (at least 7 digits)
+    const digitsOnly = value.replace(/[\s\-\+\(\)]/g, '');
+    if (digitsOnly.length < 7) {
+      return 'Phone number must have at least 7 digits';
+    }
+    
+    // Check maximum length (at most 15 digits)
+    if (digitsOnly.length > 15) {
+      return 'Phone number cannot exceed 15 digits';
+    }
+    
+    return '';
+  };
+
+  // Filter phone input to only allow valid characters
+  const filterPhoneInput = (value) => {
+    // Allow only digits, +, -, (, ), and spaces
+    return value.replace(/[^\d\s\-\+\(\)]/g, '');
+  };
 
   // Handle edit project - moved here to avoid hoisting issues
   const handleEditProject = useCallback((project) => {
@@ -403,6 +437,15 @@ const ProjectsPage = () => {
 
   // Handle social links input change
   const handleSocialLinkChange = (field, value) => {
+    // Filter phone inputs to only allow valid characters
+    if (field === 'contactNumber' || field === 'whatsappNumber') {
+      value = filterPhoneInput(value);
+      
+      // Validate and set error
+      const error = validatePhoneNumber(value);
+      setPhoneErrors(prev => ({ ...prev, [field]: error }));
+    }
+    
     setEditFormData(prev => ({
       ...prev,
       socialLinks: {
@@ -415,6 +458,19 @@ const ProjectsPage = () => {
   // Save project changes
   const handleSaveProject = async () => {
     if (!editingProject) return
+
+    // Validate phone numbers before saving
+    const contactError = validatePhoneNumber(editFormData.socialLinks.contactNumber);
+    const whatsappError = validatePhoneNumber(editFormData.socialLinks.whatsappNumber);
+    
+    if (contactError || whatsappError) {
+      setPhoneErrors({
+        contactNumber: contactError,
+        whatsappNumber: whatsappError
+      });
+      toast.error('Please fix the phone number errors before saving');
+      return;
+    }
 
     try {
       setIsSaving(true)
@@ -817,6 +873,7 @@ const ProjectsPage = () => {
           onSocialLinkChange={handleSocialLinkChange}
           onSave={handleSaveProject}
           onClose={closeEditModal}
+          phoneErrors={phoneErrors}
         />
       )}
     </div>
@@ -1226,7 +1283,8 @@ const EditProjectModal = ({
   onVideoDrop, 
   onSocialLinkChange, 
   onSave, 
-  onClose 
+  onClose,
+  phoneErrors 
 }) => {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: onVideoDrop,
@@ -1397,9 +1455,27 @@ const EditProjectModal = ({
                   value={formData.socialLinks.contactNumber}
                   onChange={(e) => onSocialLinkChange('contactNumber', e.target.value)}
                   placeholder="+1234567890"
-                  className="input w-full px-3 py-2 text-sm"
+                  className={`input w-full px-3 py-2 text-sm ${
+                    phoneErrors?.contactNumber 
+                      ? 'border-neon-red bg-red-900/20' 
+                      : formData.socialLinks.contactNumber 
+                      ? 'border-neon-green bg-green-900/20' 
+                      : ''
+                  }`}
                   disabled={isSaving}
                 />
+                {phoneErrors?.contactNumber && (
+                  <div className="mt-1 flex items-start text-xs text-neon-red">
+                    <AlertCircle className="w-3 h-3 mr-1 flex-shrink-0 mt-0.5" />
+                    <span>{phoneErrors.contactNumber}</span>
+                  </div>
+                )}
+                {formData.socialLinks.contactNumber && !phoneErrors?.contactNumber && (
+                  <div className="mt-1 flex items-center text-xs text-neon-green">
+                    <CheckCircle className="w-3 h-3 mr-1 flex-shrink-0" />
+                    <span>Valid number</span>
+                  </div>
+                )}
               </div>
 
               {/* WhatsApp Number */}
@@ -1413,9 +1489,27 @@ const EditProjectModal = ({
                   value={formData.socialLinks.whatsappNumber}
                   onChange={(e) => onSocialLinkChange('whatsappNumber', e.target.value)}
                   placeholder="+1234567890"
-                  className="input w-full px-3 py-2 text-sm"
+                  className={`input w-full px-3 py-2 text-sm ${
+                    phoneErrors?.whatsappNumber 
+                      ? 'border-neon-red bg-red-900/20' 
+                      : formData.socialLinks.whatsappNumber 
+                      ? 'border-neon-green bg-green-900/20' 
+                      : ''
+                  }`}
                   disabled={isSaving}
                 />
+                {phoneErrors?.whatsappNumber && (
+                  <div className="mt-1 flex items-start text-xs text-neon-red">
+                    <AlertCircle className="w-3 h-3 mr-1 flex-shrink-0 mt-0.5" />
+                    <span>{phoneErrors.whatsappNumber}</span>
+                  </div>
+                )}
+                {formData.socialLinks.whatsappNumber && !phoneErrors?.whatsappNumber && (
+                  <div className="mt-1 flex items-center text-xs text-neon-green">
+                    <CheckCircle className="w-3 h-3 mr-1 flex-shrink-0" />
+                    <span>Valid number</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

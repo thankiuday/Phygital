@@ -52,7 +52,7 @@ const ContactPage = () => {
     {
       icon: Mail,
       title: 'Email Us',
-      details: ['info@metadigilabs.com'],
+      details: ['phygital.zone@gmail.com'],
       description: 'Send us an email anytime'
     },
     {

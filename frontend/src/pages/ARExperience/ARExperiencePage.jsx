@@ -82,6 +82,15 @@ const ARExperiencePage = () => {
   // Debug utilities
   const { addDebugMessage } = useDebug(setDebugMessages);
 
+  // Preload composite image when project data is loaded
+  React.useEffect(() => {
+    if (projectData?.compositeDesignUrl || projectData?.designUrl) {
+      const img = new Image();
+      img.src = projectData.compositeDesignUrl || projectData.designUrl;
+      addDebugMessage('📷 Preloading composite image...', 'info');
+    }
+  }, [projectData?.compositeDesignUrl, projectData?.designUrl, addDebugMessage]);
+
   // Analytics
   const { trackAnalytics } = useAnalytics(userId, projectId, addDebugMessage);
 
@@ -231,25 +240,18 @@ const ARExperiencePage = () => {
     prevDetectedRef.current = targetDetected;
   }, [targetDetected, setVideoPlaying]);
 
-  // Show composite image when AR is ready but no target detected
+  // Show composite image immediately when project data is loaded
   useEffect(() => {
-    if (arReady && !targetDetected && !hasShownInitialGuide) {
-      if (projectData?.compositeDesignUrl) {
+    if (projectData && !targetDetected && !hasShownInitialGuide && !isLoading) {
+      if (projectData?.compositeDesignUrl || projectData?.designUrl) {
         setShowCompositeImage(true);
         setShowScannerAnimation(true);
         setHasShownInitialGuide(true);
         setContainerHeight(getContainerHeight());
         addDebugMessage('📱 Showing composite image guide to user', 'info');
-      } else if (projectData?.designUrl) {
-        // Fallback to original design if no composite available
-        setShowCompositeImage(true);
-        setShowScannerAnimation(true);
-        setHasShownInitialGuide(true);
-        setContainerHeight(getContainerHeight());
-        addDebugMessage('📱 Showing design image guide to user (no composite available)', 'info');
       }
     }
-  }, [arReady, targetDetected, hasShownInitialGuide, projectData?.compositeDesignUrl, projectData?.designUrl, addDebugMessage]);
+  }, [projectData, targetDetected, hasShownInitialGuide, isLoading, projectData?.compositeDesignUrl, projectData?.designUrl, addDebugMessage]);
 
   // Update container height when composite image state changes
   useEffect(() => {
@@ -305,18 +307,18 @@ const ARExperiencePage = () => {
 
   // Show composite image again when target is lost
   useEffect(() => {
-    if (!targetDetected && hasShownInitialGuide && arReady && (projectData?.compositeDesignUrl || projectData?.designUrl)) {
-      // Delay showing composite image again to avoid flickering
+    if (!targetDetected && hasShownInitialGuide && (projectData?.compositeDesignUrl || projectData?.designUrl)) {
+      // Short delay to avoid flickering
       const timeoutId = setTimeout(() => {
         setShowCompositeImage(true);
         setShowScannerAnimation(true);
         setContainerHeight(getContainerHeight());
         addDebugMessage('🔄 Target lost, showing composite image guide again', 'info');
-      }, 1000);
+      }, 500);
       
       return () => clearTimeout(timeoutId);
     }
-  }, [targetDetected, hasShownInitialGuide, arReady, projectData?.compositeDesignUrl, projectData?.designUrl, addDebugMessage]);
+  }, [targetDetected, hasShownInitialGuide, projectData?.compositeDesignUrl, projectData?.designUrl, addDebugMessage]);
 
   // Ensure MindAR camera/canvas fit inside container at all times
   useEffect(() => {
@@ -395,16 +397,16 @@ const ARExperiencePage = () => {
   // Initialize AR when data is ready
   useEffect(() => {
     if (librariesLoaded && projectData && !isInitialized) {
-      addDebugMessage('⏳ Delaying MindAR initialization to ensure container is ready...', 'info');
+      addDebugMessage('⏳ Initializing MindAR...', 'info');
       setTimeout(() => {
         arLogic.initializeMindAR().then(success => {
           if (success) {
             setTimeout(() => {
               startScanning();
-            }, 100);
+            }, 50);
           }
         });
-      }, 1500);
+      }, 500);
     }
   }, [librariesLoaded, projectData, isInitialized, addDebugMessage]);
 

@@ -33,27 +33,55 @@ const AnalyticsPage = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [selectedPeriod, setSelectedPeriod] = useState('30d')
   const [showAllProjects, setShowAllProjects] = useState(false)
+  const [lastRefresh, setLastRefresh] = useState(Date.now())
   
   // Auto-refresh data when navigating to this page
   useDataRefresh()
 
-  // Initial load
+  // Initial load and period change
   useEffect(() => {
     if (user?._id) {
       fetchAnalytics()
     }
   }, [user?._id, selectedPeriod])
 
-  const fetchAnalytics = async () => {
+  // Auto-refresh analytics every 10 seconds while on the page (silent refresh)
+  useEffect(() => {
+    if (!user?._id) return
+
+    const refreshInterval = setInterval(() => {
+      console.log('🔄 Auto-refreshing analytics (silent)...')
+      fetchAnalytics(true) // Silent refresh to avoid loading flicker
+    }, 10000) // Refresh every 10 seconds
+
+    return () => clearInterval(refreshInterval)
+  }, [user?._id, selectedPeriod])
+
+  const fetchAnalytics = async (silent = false) => {
     try {
-      setIsLoading(true)
+      if (!silent) setIsLoading(true)
       const response = await analyticsAPI.getDashboardAnalytics(user._id, selectedPeriod)
       setAnalytics(response.data.data)
+      setLastRefresh(Date.now())
     } catch (error) {
       console.error('Failed to fetch analytics:', error)
     } finally {
-      setIsLoading(false)
+      if (!silent) setIsLoading(false)
     }
+  }
+
+  // Manual refresh function
+  const handleManualRefresh = () => {
+    console.log('🔄 Manual refresh triggered')
+    fetchAnalytics(false)
+  }
+
+  // Get time since last refresh
+  const getTimeSinceRefresh = () => {
+    const seconds = Math.floor((Date.now() - lastRefresh) / 1000)
+    if (seconds < 60) return `${seconds}s ago`
+    const minutes = Math.floor(seconds / 60)
+    return `${minutes}m ago`
   }
 
   // Get project statistics
@@ -109,7 +137,8 @@ const AnalyticsPage = () => {
     const hasDesign = project.uploadedFiles?.design?.url
     const hasVideo = project.uploadedFiles?.video?.url
     const hasQR = project.uploadedFiles?.mindTarget?.generated || (project.qrPosition?.x !== 0 || project.qrPosition?.y !== 0)
-    const hasSocial = Object.values(user?.socialLinks || {}).some(link => link)
+    // Fix: Check project-specific social links instead of global user social links
+    const hasSocial = project.socialLinks ? Object.values(project.socialLinks).some(link => link && link.trim() !== '') : false
     
     if (hasDesign) completedSteps++
     if (hasVideo) completedSteps++

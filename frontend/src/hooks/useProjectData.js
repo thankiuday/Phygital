@@ -68,16 +68,34 @@ export const useProjectData = (projectId, userId, setIsLoading, setProjectData, 
 
       setProjectData(projectData);
       
-      // QR scan tracking is handled in UserPage.jsx - don't duplicate here
-      // This prevents double counting of scan events
+      // Track QR scan when accessing AR experience (prevents duplicates within 1 minute)
+      try {
+        const sessionMinute = Math.floor(Date.now() / 60000);
+        const scanSessionKey = `scan_${userId}_${projectId}_${sessionMinute}`;
+        const alreadyTrackedScan = sessionStorage.getItem(scanSessionKey);
+        
+        if (!alreadyTrackedScan && projectId) {
+          addDebugMessage('📊 Tracking QR scan...', 'info');
+          await trackAnalytics('scan', {
+            source: 'ar_experience',
+            userAgent: navigator.userAgent
+          });
+          sessionStorage.setItem(scanSessionKey, 'true');
+          addDebugMessage('✅ QR scan tracked', 'success');
+        }
+      } catch (analyticsError) {
+        console.warn('Scan tracking failed:', analyticsError);
+      }
       
       // Track AR experience start with error handling
       try {
+        addDebugMessage('📊 Tracking AR experience start...', 'info');
         await trackAnalytics('ar-experience-start', {
           loadTime: performance.now() - startTime,
           hasVideo: !!projectData.videoUrl,
           hasDesign: !!projectData.designUrl
         });
+        addDebugMessage('✅ AR experience start tracked', 'success');
       } catch (analyticsError) {
         console.warn('Analytics tracking failed:', analyticsError);
         // Don't block the main flow for analytics failures

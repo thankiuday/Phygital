@@ -14,7 +14,7 @@ const LoadingScreen = ({
   DebugPanel 
 }) => {
   return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-black via-gray-900 to-black flex items-center justify-center p-4">
+    <div className="fixed inset-0 w-full h-full bg-gradient-to-b from-black via-gray-900 to-black flex items-center justify-center p-4 overflow-hidden z-[9999]">
       {/* Animated background particles */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute w-96 h-96 -top-48 -left-48 bg-neon-purple/10 rounded-full blur-3xl animate-pulse"></div>

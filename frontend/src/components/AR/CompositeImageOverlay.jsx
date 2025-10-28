@@ -47,7 +47,7 @@ const CompositeImageOverlay = ({
 
     const timeoutId = setTimeout(() => {
       requestAnimationFrame(animate);
-    }, 500);
+    }, 100);
 
     return () => clearTimeout(timeoutId);
   }, [isVisible, onAnimationComplete]);
@@ -57,7 +57,7 @@ const CompositeImageOverlay = ({
   }
 
   return (
-    <div className="absolute inset-0 w-full h-full flex items-center justify-center z-30">
+    <div className="absolute inset-0 w-full h-full flex items-center justify-center z-30 animate-fade-in">
       {/* Composite Image Container */}
       <div className="relative w-full h-full flex items-center justify-center p-2 sm:p-4">
         {/* Composite Design Image - Responsive sizing with proper container fit */}
@@ -65,7 +65,8 @@ const CompositeImageOverlay = ({
           <img
             src={projectData.compositeDesignUrl || projectData.designUrl}
             alt="AR Target"
-            className="w-full h-auto rounded-xl shadow-2xl"
+            className="w-full h-auto rounded-xl shadow-2xl animate-fade-in"
+            loading="eager"
             style={{
               filter: 'drop-shadow(0 0 30px rgba(59, 130, 246, 0.4))',
               maxHeight: '90%',

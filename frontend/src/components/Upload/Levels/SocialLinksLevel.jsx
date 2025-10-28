@@ -18,6 +18,40 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
   const [isSaving, setIsSaving] = useState(false);
   const [selectedPlatforms, setSelectedPlatforms] = useState([]);
   const [showForm, setShowForm] = useState(false);
+  const [phoneErrors, setPhoneErrors] = useState({
+    contactNumber: '',
+    whatsappNumber: ''
+  });
+
+  // Phone number validation function
+  const validatePhoneNumber = (value) => {
+    if (!value || value.trim() === '') return '';
+    
+    // Check if it contains only allowed characters: digits, +, -, (, ), and spaces
+    const phoneRegex = /^[\d\s\-\+\(\)]+$/;
+    if (!phoneRegex.test(value)) {
+      return 'Please enter only numbers, +, -, (, ), and spaces';
+    }
+    
+    // Check minimum length (at least 7 digits)
+    const digitsOnly = value.replace(/[\s\-\+\(\)]/g, '');
+    if (digitsOnly.length < 7) {
+      return 'Phone number must have at least 7 digits';
+    }
+    
+    // Check maximum length (at most 15 digits)
+    if (digitsOnly.length > 15) {
+      return 'Phone number cannot exceed 15 digits';
+    }
+    
+    return '';
+  };
+
+  // Filter phone input to only allow valid characters
+  const filterPhoneInput = (value) => {
+    // Allow only digits, +, -, (, ), and spaces
+    return value.replace(/[^\d\s\-\+\(\)]/g, '');
+  };
 
   const socialPlatforms = [
     {
@@ -116,8 +150,35 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
     setShowForm(true);
   };
 
+  // Handle input change with phone validation
+  const handleInputChange = (key, value) => {
+    // Filter phone inputs to only allow valid characters
+    if (key === 'contactNumber' || key === 'whatsappNumber') {
+      value = filterPhoneInput(value);
+      
+      // Validate and set error
+      const error = validatePhoneNumber(value);
+      setPhoneErrors(prev => ({ ...prev, [key]: error }));
+    }
+    
+    setSocialLinks(prev => ({ ...prev, [key]: value }));
+  };
+
   // Save social links
   const saveSocialLinks = async () => {
+    // Validate phone numbers before saving
+    const contactError = validatePhoneNumber(socialLinks.contactNumber);
+    const whatsappError = validatePhoneNumber(socialLinks.whatsappNumber);
+    
+    if (contactError || whatsappError) {
+      setPhoneErrors({
+        contactNumber: contactError,
+        whatsappNumber: whatsappError
+      });
+      toast.error('Please fix the phone number errors before saving');
+      return;
+    }
+    
     try {
       setIsSaving(true);
       // If current project context exists in user, update project-specific links; else update user-level
@@ -333,17 +394,28 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
                 <input
                   type={platform.type}
                   value={value}
-                  onChange={(e) => setSocialLinks(prev => ({ ...prev, [platform.key]: e.target.value }))}
+                  onChange={(e) => handleInputChange(platform.key, e.target.value)}
                   placeholder={platform.placeholder}
                   className={`input w-full px-3 sm:px-4 py-2 sm:py-3 transition-all duration-200 text-sm sm:text-base touch-manipulation ${
-                    hasValue ? 'border-neon-green bg-green-900/20' : ''
+                    phoneErrors[platform.key] 
+                      ? 'border-neon-red bg-red-900/20' 
+                      : hasValue 
+                      ? 'border-neon-green bg-green-900/20' 
+                      : ''
                   }`}
                 />
                 
-                {hasValue && (
+                {phoneErrors[platform.key] && (
+                  <div className="mt-2 flex items-start text-xs sm:text-sm text-neon-red">
+                    <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0 mt-0.5" />
+                    <span>{phoneErrors[platform.key]}</span>
+                  </div>
+                )}
+                
+                {hasValue && !phoneErrors[platform.key] && (
                   <div className="mt-2 flex items-center text-xs sm:text-sm text-neon-green">
                     <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
-                    {platform.type === 'tel' ? 'Number added' : 'Link added'}
+                    {platform.type === 'tel' ? 'Valid number' : 'Link added'}
                   </div>
                 )}
               </div>
