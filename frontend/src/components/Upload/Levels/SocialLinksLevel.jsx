@@ -3,18 +3,34 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { uploadAPI } from '../../../utils/api';
 import { Share2, CheckCircle, AlertCircle, Instagram, Facebook, Twitter, Linkedin, Globe, Phone, MessageCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { countryCodes, validatePhoneNumber as validatePhone, parsePhoneNumber, filterPhoneInput as filterPhone, formatPhoneNumber } from '../../../utils/countryCodes';
 
 const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = false }) => {
   const { user, updateUser } = useAuth();
+  
+  // Parse existing phone numbers to extract country code and number
+  const existingContact = currentLinks?.contactNumber || user?.socialLinks?.contactNumber || '';
+  const existingWhatsApp = currentLinks?.whatsappNumber || user?.socialLinks?.whatsappNumber || '';
+  
+  const parsedContact = parsePhoneNumber(existingContact);
+  const parsedWhatsApp = parsePhoneNumber(existingWhatsApp);
+  
   const [socialLinks, setSocialLinks] = useState({
     instagram: currentLinks?.instagram || user?.socialLinks?.instagram || '',
     facebook: currentLinks?.facebook || user?.socialLinks?.facebook || '',
     twitter: currentLinks?.twitter || user?.socialLinks?.twitter || '',
     linkedin: currentLinks?.linkedin || user?.socialLinks?.linkedin || '',
     website: currentLinks?.website || user?.socialLinks?.website || '',
-    contactNumber: currentLinks?.contactNumber || user?.socialLinks?.contactNumber || '',
-    whatsappNumber: currentLinks?.whatsappNumber || user?.socialLinks?.whatsappNumber || ''
+    contactNumber: parsedContact.phoneNumber,
+    whatsappNumber: parsedWhatsApp.phoneNumber
   });
+  
+  // Country code state
+  const [countryCodes_state, setCountryCodesState] = useState({
+    contactNumber: parsedContact.countryCode,
+    whatsappNumber: parsedWhatsApp.countryCode
+  });
+  
   const [isSaving, setIsSaving] = useState(false);
   const [selectedPlatforms, setSelectedPlatforms] = useState([]);
   const [showForm, setShowForm] = useState(false);
@@ -23,34 +39,15 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
     whatsappNumber: ''
   });
 
-  // Phone number validation function
-  const validatePhoneNumber = (value) => {
-    if (!value || value.trim() === '') return '';
+  // Handle country code change
+  const handleCountryCodeChange = (field, newCountryCode) => {
+    setCountryCodesState(prev => ({ ...prev, [field]: newCountryCode }));
     
-    // Check if it contains only allowed characters: digits, +, -, (, ), and spaces
-    const phoneRegex = /^[\d\s\-\+\(\)]+$/;
-    if (!phoneRegex.test(value)) {
-      return 'Please enter only numbers, +, -, (, ), and spaces';
+    // Revalidate the phone number with new country code
+    if (socialLinks[field]) {
+      const validation = validatePhone(socialLinks[field], newCountryCode);
+      setPhoneErrors(prev => ({ ...prev, [field]: validation.error }));
     }
-    
-    // Check minimum length (at least 7 digits)
-    const digitsOnly = value.replace(/[\s\-\+\(\)]/g, '');
-    if (digitsOnly.length < 7) {
-      return 'Phone number must have at least 7 digits';
-    }
-    
-    // Check maximum length (at most 15 digits)
-    if (digitsOnly.length > 15) {
-      return 'Phone number cannot exceed 15 digits';
-    }
-    
-    return '';
-  };
-
-  // Filter phone input to only allow valid characters
-  const filterPhoneInput = (value) => {
-    // Allow only digits, +, -, (, ), and spaces
-    return value.replace(/[^\d\s\-\+\(\)]/g, '');
   };
 
   const socialPlatforms = [
@@ -152,13 +149,14 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
 
   // Handle input change with phone validation
   const handleInputChange = (key, value) => {
-    // Filter phone inputs to only allow valid characters
+    // Filter phone inputs to only allow digits
     if (key === 'contactNumber' || key === 'whatsappNumber') {
-      value = filterPhoneInput(value);
+      value = filterPhone(value);
       
-      // Validate and set error
-      const error = validatePhoneNumber(value);
-      setPhoneErrors(prev => ({ ...prev, [key]: error }));
+      // Validate with country code
+      const countryCode = countryCodes_state[key];
+      const validation = validatePhone(value, countryCode);
+      setPhoneErrors(prev => ({ ...prev, [key]: validation.error }));
     }
     
     setSocialLinks(prev => ({ ...prev, [key]: value }));
@@ -166,14 +164,14 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
 
   // Save social links
   const saveSocialLinks = async () => {
-    // Validate phone numbers before saving
-    const contactError = validatePhoneNumber(socialLinks.contactNumber);
-    const whatsappError = validatePhoneNumber(socialLinks.whatsappNumber);
+    // Validate phone numbers with country codes before saving
+    const contactValidation = validatePhone(socialLinks.contactNumber, countryCodes_state.contactNumber);
+    const whatsappValidation = validatePhone(socialLinks.whatsappNumber, countryCodes_state.whatsappNumber);
     
-    if (contactError || whatsappError) {
+    if (contactValidation.error || whatsappValidation.error) {
       setPhoneErrors({
-        contactNumber: contactError,
-        whatsappNumber: whatsappError
+        contactNumber: contactValidation.error,
+        whatsappNumber: whatsappValidation.error
       });
       toast.error('Please fix the phone number errors before saving');
       return;
@@ -181,18 +179,30 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
     
     try {
       setIsSaving(true);
+      
+      // Format phone numbers with country codes
+      const formattedLinks = {
+        ...socialLinks,
+        contactNumber: socialLinks.contactNumber 
+          ? formatPhoneNumber(socialLinks.contactNumber, countryCodes_state.contactNumber)
+          : '',
+        whatsappNumber: socialLinks.whatsappNumber 
+          ? formatPhoneNumber(socialLinks.whatsappNumber, countryCodes_state.whatsappNumber)
+          : ''
+      };
+      
       // If current project context exists in user, update project-specific links; else update user-level
       const currentProjectId = user?.currentProject;
       if (currentProjectId) {
-        await uploadAPI.updateProjectSocialLinks(currentProjectId, socialLinks);
+        await uploadAPI.updateProjectSocialLinks(currentProjectId, formattedLinks);
       } else {
-        await uploadAPI.updateSocialLinks(socialLinks);
+        await uploadAPI.updateSocialLinks(formattedLinks);
       }
-      updateUser({ ...user, socialLinks });
+      updateUser({ ...user, socialLinks: formattedLinks });
       toast.success('🔗 Social links updated!');
       
       // Complete the level
-      onComplete(socialLinks);
+      onComplete(formattedLinks);
     } catch (error) {
       toast.error('Failed to update social links');
     } finally {
@@ -391,19 +401,49 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
                   </div>
                 </div>
                 
-                <input
-                  type={platform.type}
-                  value={value}
-                  onChange={(e) => handleInputChange(platform.key, e.target.value)}
-                  placeholder={platform.placeholder}
-                  className={`input w-full px-3 sm:px-4 py-2 sm:py-3 transition-all duration-200 text-sm sm:text-base touch-manipulation ${
-                    phoneErrors[platform.key] 
-                      ? 'border-neon-red bg-red-900/20' 
-                      : hasValue 
-                      ? 'border-neon-green bg-green-900/20' 
-                      : ''
-                  }`}
-                />
+                {/* Phone number fields with country code selector */}
+                {(platform.key === 'contactNumber' || platform.key === 'whatsappNumber') ? (
+                  <div className="flex gap-2">
+                    {/* Country Code Dropdown */}
+                    <select
+                      value={countryCodes_state[platform.key]}
+                      onChange={(e) => handleCountryCodeChange(platform.key, e.target.value)}
+                      className="input px-2 py-2 sm:py-3 text-sm sm:text-base touch-manipulation flex-shrink-0 w-24 sm:w-28"
+                    >
+                      {countryCodes.map((country) => (
+                        <option key={country.code} value={country.code}>
+                          {country.flag} {country.code}
+                        </option>
+                      ))}
+                    </select>
+                    
+                    {/* Phone Number Input */}
+                    <input
+                      type="tel"
+                      value={value}
+                      onChange={(e) => handleInputChange(platform.key, e.target.value)}
+                      placeholder={platform.placeholder}
+                      className={`input flex-1 px-3 sm:px-4 py-2 sm:py-3 transition-all duration-200 text-sm sm:text-base touch-manipulation ${
+                        phoneErrors[platform.key] 
+                          ? 'border-neon-red bg-red-900/20' 
+                          : hasValue 
+                          ? 'border-neon-green bg-green-900/20' 
+                          : ''
+                      }`}
+                    />
+                  </div>
+                ) : (
+                  /* Regular input for URLs */
+                  <input
+                    type={platform.type}
+                    value={value}
+                    onChange={(e) => handleInputChange(platform.key, e.target.value)}
+                    placeholder={platform.placeholder}
+                    className={`input w-full px-3 sm:px-4 py-2 sm:py-3 transition-all duration-200 text-sm sm:text-base touch-manipulation ${
+                      hasValue ? 'border-neon-green bg-green-900/20' : ''
+                    }`}
+                  />
+                )}
                 
                 {phoneErrors[platform.key] && (
                   <div className="mt-2 flex items-start text-xs sm:text-sm text-neon-red">

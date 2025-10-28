@@ -9,6 +9,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useSearchParams, useLocation } from 'react-router-dom'
 import { uploadAPI, generateQRCode, downloadFile, api } from '../../utils/api'
 import BackButton from '../../components/UI/BackButton'
+import { countryCodes, validatePhoneNumber as validatePhone, parsePhoneNumber, filterPhoneInput as filterPhone, formatPhoneNumber } from '../../utils/countryCodes'
 import { 
   Video, 
   Calendar,
@@ -93,35 +94,20 @@ const ProjectsPage = () => {
     contactNumber: '',
     whatsappNumber: ''
   })
+  const [countryCodes_state, setCountryCodesState] = useState({
+    contactNumber: '+91',
+    whatsappNumber: '+91'
+  })
 
-  // Phone number validation function
-  const validatePhoneNumber = (value) => {
-    if (!value || value.trim() === '') return '';
+  // Handle country code change
+  const handleCountryCodeChange = (field, newCountryCode) => {
+    setCountryCodesState(prev => ({ ...prev, [field]: newCountryCode }));
     
-    // Check if it contains only allowed characters: digits, +, -, (, ), and spaces
-    const phoneRegex = /^[\d\s\-\+\(\)]+$/;
-    if (!phoneRegex.test(value)) {
-      return 'Please enter only numbers, +, -, (, ), and spaces';
+    // Revalidate the phone number with new country code
+    if (editFormData.socialLinks[field]) {
+      const validation = validatePhone(editFormData.socialLinks[field], newCountryCode);
+      setPhoneErrors(prev => ({ ...prev, [field]: validation.error }));
     }
-    
-    // Check minimum length (at least 7 digits)
-    const digitsOnly = value.replace(/[\s\-\+\(\)]/g, '');
-    if (digitsOnly.length < 7) {
-      return 'Phone number must have at least 7 digits';
-    }
-    
-    // Check maximum length (at most 15 digits)
-    if (digitsOnly.length > 15) {
-      return 'Phone number cannot exceed 15 digits';
-    }
-    
-    return '';
-  };
-
-  // Filter phone input to only allow valid characters
-  const filterPhoneInput = (value) => {
-    // Allow only digits, +, -, (, ), and spaces
-    return value.replace(/[^\d\s\-\+\(\)]/g, '');
   };
 
   // Handle edit project - moved here to avoid hoisting issues
@@ -133,15 +119,28 @@ const ProjectsPage = () => {
     const userProject = user?.projects?.find(p => p.id === project.id)
     console.log('🔧 Found user project:', userProject)
 
+    // Parse phone numbers to extract country code and number
+    const existingContact = userProject?.socialLinks?.contactNumber || '';
+    const existingWhatsApp = userProject?.socialLinks?.whatsappNumber || '';
+    
+    const parsedContact = parsePhoneNumber(existingContact);
+    const parsedWhatsApp = parsePhoneNumber(existingWhatsApp);
+
     const initialSocialLinks = {
       instagram: userProject?.socialLinks?.instagram || '',
       facebook: userProject?.socialLinks?.facebook || '',
       twitter: userProject?.socialLinks?.twitter || '',
       linkedin: userProject?.socialLinks?.linkedin || '',
       website: userProject?.socialLinks?.website || '',
-      contactNumber: userProject?.socialLinks?.contactNumber || '',
-      whatsappNumber: userProject?.socialLinks?.whatsappNumber || ''
+      contactNumber: parsedContact.phoneNumber,
+      whatsappNumber: parsedWhatsApp.phoneNumber
     }
+
+    // Set country codes
+    setCountryCodesState({
+      contactNumber: parsedContact.countryCode,
+      whatsappNumber: parsedWhatsApp.countryCode
+    });
 
     setEditFormData({
       video: null, // Will be set when user selects a new video
@@ -437,13 +436,14 @@ const ProjectsPage = () => {
 
   // Handle social links input change
   const handleSocialLinkChange = (field, value) => {
-    // Filter phone inputs to only allow valid characters
+    // Filter phone inputs to only allow digits
     if (field === 'contactNumber' || field === 'whatsappNumber') {
-      value = filterPhoneInput(value);
+      value = filterPhone(value);
       
-      // Validate and set error
-      const error = validatePhoneNumber(value);
-      setPhoneErrors(prev => ({ ...prev, [field]: error }));
+      // Validate with country code
+      const countryCode = countryCodes_state[field];
+      const validation = validatePhone(value, countryCode);
+      setPhoneErrors(prev => ({ ...prev, [field]: validation.error }));
     }
     
     setEditFormData(prev => ({
@@ -459,14 +459,14 @@ const ProjectsPage = () => {
   const handleSaveProject = async () => {
     if (!editingProject) return
 
-    // Validate phone numbers before saving
-    const contactError = validatePhoneNumber(editFormData.socialLinks.contactNumber);
-    const whatsappError = validatePhoneNumber(editFormData.socialLinks.whatsappNumber);
+    // Validate phone numbers with country codes before saving
+    const contactValidation = validatePhone(editFormData.socialLinks.contactNumber, countryCodes_state.contactNumber);
+    const whatsappValidation = validatePhone(editFormData.socialLinks.whatsappNumber, countryCodes_state.whatsappNumber);
     
-    if (contactError || whatsappError) {
+    if (contactValidation.error || whatsappValidation.error) {
       setPhoneErrors({
-        contactNumber: contactError,
-        whatsappNumber: whatsappError
+        contactNumber: contactValidation.error,
+        whatsappNumber: whatsappValidation.error
       });
       toast.error('Please fix the phone number errors before saving');
       return;
@@ -476,12 +476,23 @@ const ProjectsPage = () => {
       setIsSaving(true)
       setUploadProgress(0)
 
+      // Format phone numbers with country codes
+      const formattedSocialLinks = {
+        ...editFormData.socialLinks,
+        contactNumber: editFormData.socialLinks.contactNumber 
+          ? formatPhoneNumber(editFormData.socialLinks.contactNumber, countryCodes_state.contactNumber)
+          : '',
+        whatsappNumber: editFormData.socialLinks.whatsappNumber 
+          ? formatPhoneNumber(editFormData.socialLinks.whatsappNumber, countryCodes_state.whatsappNumber)
+          : ''
+      };
+
       // Update social links first (always update to allow clearing fields)
       let socialLinksUpdated = false
 
       try {
 
-        const response = await uploadAPI.updateProjectSocialLinks(editingProject.id, editFormData.socialLinks);
+        const response = await uploadAPI.updateProjectSocialLinks(editingProject.id, formattedSocialLinks);
 
         setUploadProgress(50)
         socialLinksUpdated = true
@@ -1450,20 +1461,34 @@ const EditProjectModal = ({
                   <Phone className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
                   Contact Number
                 </label>
-                <input
-                  type="tel"
-                  value={formData.socialLinks.contactNumber}
-                  onChange={(e) => onSocialLinkChange('contactNumber', e.target.value)}
-                  placeholder="+1234567890"
-                  className={`input w-full px-3 py-2 text-sm ${
-                    phoneErrors?.contactNumber 
-                      ? 'border-neon-red bg-red-900/20' 
-                      : formData.socialLinks.contactNumber 
-                      ? 'border-neon-green bg-green-900/20' 
-                      : ''
-                  }`}
-                  disabled={isSaving}
-                />
+                <div className="flex gap-2">
+                  <select
+                    value={countryCodes_state.contactNumber}
+                    onChange={(e) => handleCountryCodeChange('contactNumber', e.target.value)}
+                    className="input px-2 py-2 text-xs sm:text-sm flex-shrink-0 w-20 sm:w-24"
+                    disabled={isSaving}
+                  >
+                    {countryCodes.map((country) => (
+                      <option key={country.code} value={country.code}>
+                        {country.flag} {country.code}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="tel"
+                    value={formData.socialLinks.contactNumber}
+                    onChange={(e) => onSocialLinkChange('contactNumber', e.target.value)}
+                    placeholder="9876543210"
+                    className={`input flex-1 px-3 py-2 text-sm ${
+                      phoneErrors?.contactNumber 
+                        ? 'border-neon-red bg-red-900/20' 
+                        : formData.socialLinks.contactNumber 
+                        ? 'border-neon-green bg-green-900/20' 
+                        : ''
+                    }`}
+                    disabled={isSaving}
+                  />
+                </div>
                 {phoneErrors?.contactNumber && (
                   <div className="mt-1 flex items-start text-xs text-neon-red">
                     <AlertCircle className="w-3 h-3 mr-1 flex-shrink-0 mt-0.5" />
@@ -1484,20 +1509,34 @@ const EditProjectModal = ({
                   <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
                   WhatsApp Number
                 </label>
-                <input
-                  type="tel"
-                  value={formData.socialLinks.whatsappNumber}
-                  onChange={(e) => onSocialLinkChange('whatsappNumber', e.target.value)}
-                  placeholder="+1234567890"
-                  className={`input w-full px-3 py-2 text-sm ${
-                    phoneErrors?.whatsappNumber 
-                      ? 'border-neon-red bg-red-900/20' 
-                      : formData.socialLinks.whatsappNumber 
-                      ? 'border-neon-green bg-green-900/20' 
-                      : ''
-                  }`}
-                  disabled={isSaving}
-                />
+                <div className="flex gap-2">
+                  <select
+                    value={countryCodes_state.whatsappNumber}
+                    onChange={(e) => handleCountryCodeChange('whatsappNumber', e.target.value)}
+                    className="input px-2 py-2 text-xs sm:text-sm flex-shrink-0 w-20 sm:w-24"
+                    disabled={isSaving}
+                  >
+                    {countryCodes.map((country) => (
+                      <option key={country.code} value={country.code}>
+                        {country.flag} {country.code}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="tel"
+                    value={formData.socialLinks.whatsappNumber}
+                    onChange={(e) => onSocialLinkChange('whatsappNumber', e.target.value)}
+                    placeholder="9876543210"
+                    className={`input flex-1 px-3 py-2 text-sm ${
+                      phoneErrors?.whatsappNumber 
+                        ? 'border-neon-red bg-red-900/20' 
+                        : formData.socialLinks.whatsappNumber 
+                        ? 'border-neon-green bg-green-900/20' 
+                        : ''
+                    }`}
+                    disabled={isSaving}
+                  />
+                </div>
                 {phoneErrors?.whatsappNumber && (
                   <div className="mt-1 flex items-start text-xs text-neon-red">
                     <AlertCircle className="w-3 h-3 mr-1 flex-shrink-0 mt-0.5" />
