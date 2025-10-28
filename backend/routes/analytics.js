@@ -9,6 +9,7 @@ const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const Analytics = require('../models/Analytics');
 const { authenticateToken } = require('../middleware/auth');
+const { preventDuplicateAnalytics } = require('../middleware/analyticsDeduplication');
 
 const router = express.Router();
 
@@ -17,11 +18,14 @@ const router = express.Router();
  * Track QR code scan event
  * Increments scan counter and logs detailed analytics
  */
-router.post('/scan', [
-  body('userId').isMongoId().withMessage('Valid user ID is required'),
-  body('projectId').optional().isString().withMessage('Project ID must be a string'),
-  body('scanData').optional().isObject().withMessage('Scan data must be an object')
-], async (req, res) => {
+router.post('/scan', 
+  preventDuplicateAnalytics('scan'),
+  [
+    body('userId').isMongoId().withMessage('Valid user ID is required'),
+    body('projectId').optional().isString().withMessage('Project ID must be a string'),
+    body('scanData').optional().isObject().withMessage('Scan data must be an object')
+  ], 
+  async (req, res) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
@@ -104,12 +108,15 @@ router.post('/scan', [
  * Track video view event
  * Increments video view counter and logs analytics
  */
-router.post('/video-view', [
-  body('userId').isMongoId().withMessage('Valid user ID is required'),
-  body('projectId').optional().isString().withMessage('Project ID must be a string'),
-  body('videoProgress').optional().isNumeric().withMessage('Video progress must be a number'),
-  body('videoDuration').optional().isNumeric().withMessage('Video duration must be a number')
-], async (req, res) => {
+router.post('/video-view', 
+  preventDuplicateAnalytics('videoView'),
+  [
+    body('userId').isMongoId().withMessage('Valid user ID is required'),
+    body('projectId').optional().isString().withMessage('Project ID must be a string'),
+    body('videoProgress').optional().isNumeric().withMessage('Video progress must be a number'),
+    body('videoDuration').optional().isNumeric().withMessage('Video duration must be a number')
+  ], 
+  async (req, res) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
@@ -188,12 +195,15 @@ router.post('/video-view', [
  * Track social link click event
  * Increments link click counter and logs analytics
  */
-router.post('/link-click', [
-  body('userId').isString().withMessage('Valid user ID is required'),
-  body('projectId').optional().isString().withMessage('Project ID must be a string'),
-  body('linkType').isString().withMessage('Link type is required'),
-  body('linkUrl').isURL().withMessage('Valid link URL is required')
-], async (req, res) => {
+router.post('/link-click', 
+  preventDuplicateAnalytics('linkClick'),
+  [
+    body('userId').isString().withMessage('Valid user ID is required'),
+    body('projectId').optional().isString().withMessage('Project ID must be a string'),
+    body('linkType').isString().withMessage('Link type is required'),
+    body('linkUrl').isURL().withMessage('Valid link URL is required')
+  ], 
+  async (req, res) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
@@ -428,15 +438,18 @@ router.get('/dashboard/:userId', authenticateToken, async (req, res) => {
  * Track AR experience start event
  * Logs when users start AR experience with performance metrics
  */
-router.post('/ar-experience-start', [
-  body('userId').isString().withMessage('User ID is required'),
-  body('projectId').isString().withMessage('Project ID is required'),
-  body('timestamp').isISO8601().withMessage('Valid timestamp is required'),
-  body('loadTime').optional().isNumeric().withMessage('Load time must be a number'),
-  body('hasDesign').optional().isBoolean().withMessage('Has design must be boolean'),
-  body('hasVideo').optional().isBoolean().withMessage('Has video must be boolean'),
-  body('userAgent').optional().isString().withMessage('User agent must be string')
-], async (req, res) => {
+router.post('/ar-experience-start', 
+  preventDuplicateAnalytics('arExperienceStart'),
+  [
+    body('userId').isString().withMessage('User ID is required'),
+    body('projectId').isString().withMessage('Project ID is required'),
+    body('timestamp').isISO8601().withMessage('Valid timestamp is required'),
+    body('loadTime').optional().isNumeric().withMessage('Load time must be a number'),
+    body('hasDesign').optional().isBoolean().withMessage('Has design must be boolean'),
+    body('hasVideo').optional().isBoolean().withMessage('Has video must be boolean'),
+    body('userAgent').optional().isString().withMessage('User agent must be string')
+  ], 
+  async (req, res) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
