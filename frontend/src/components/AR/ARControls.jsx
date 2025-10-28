@@ -105,15 +105,17 @@ const ARControls = ({
               <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-neon-blue/20 via-neon-purple/20 to-neon-pink/20 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
               <div className="relative flex items-center justify-between gap-2 sm:gap-3">
-                {/* Play/Pause Button - Enhanced */}
-                <button
-                  onClick={safeToggleVideo}
-                  className="group relative p-2.5 sm:p-3 bg-gradient-to-br from-slate-800/80 to-slate-900/80 hover:from-neon-blue/20 hover:to-neon-purple/20 active:scale-95 rounded-lg text-white transition-all duration-300 shadow-lg hover:shadow-neon-blue/30 border border-slate-600/30 hover:border-neon-blue/50 flex-shrink-0"
-                  aria-label={videoPlaying ? 'Pause video' : 'Play video'}
-                >
-                  <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-neon-blue/10 to-neon-purple/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  {videoPlaying ? <Pause size={18} className="sm:w-5 sm:h-5 relative z-10 group-hover:scale-110 transition-transform" /> : <Play size={18} className="sm:w-5 sm:h-5 relative z-10 group-hover:scale-110 transition-transform" />}
-                </button>
+                {/* Play Button - Only show when video is paused */}
+                {!videoPlaying && (
+                  <button
+                    onClick={safeToggleVideo}
+                    className="group relative p-2.5 sm:p-3 bg-gradient-to-br from-slate-800/80 to-slate-900/80 hover:from-neon-blue/20 hover:to-neon-purple/20 active:scale-95 rounded-lg text-white transition-all duration-300 shadow-lg hover:shadow-neon-blue/30 border border-slate-600/30 hover:border-neon-blue/50 flex-shrink-0"
+                    aria-label="Play video"
+                  >
+                    <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-neon-blue/10 to-neon-purple/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <Play size={18} className="sm:w-5 sm:h-5 relative z-10 group-hover:scale-110 transition-transform" />
+                  </button>
+                )}
 
                 {/* Video Status - Enhanced */}
                 <div className="flex-1 text-center text-white min-w-0 px-2">
@@ -123,9 +125,11 @@ const ARControls = ({
                       {videoPlaying ? '▶️ Playing' : '⏸️ Paused'}
                     </p>
                   </div>
-                  <p className="text-xs text-slate-400 hidden sm:block">
-                    Tap to {videoPlaying ? 'pause' : 'play'}
-                  </p>
+                  {!videoPlaying && (
+                    <p className="text-xs text-slate-400 hidden sm:block">
+                      Tap to play
+                    </p>
+                  )}
                 </div>
 
                 {/* Mute/Unmute Button - Enhanced */}

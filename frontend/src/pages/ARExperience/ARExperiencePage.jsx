@@ -524,26 +524,22 @@ const ARExperiencePage = () => {
                     </div>
                   </div>
 
-                  {/* Center Play/Pause Button */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleVideo();
-                      }}
-                      className="p-3 sm:p-4 rounded-full bg-black/50 hover:bg-black/70 active:bg-black/80 transition-all duration-200 transform hover:scale-110 active:scale-95 touch-manipulation min-h-[60px] min-w-[60px] sm:min-h-[80px] sm:min-w-[80px] flex items-center justify-center"
-                    >
-                      {videoPlaying ? (
-                        <svg className="w-6 h-6 sm:w-8 sm:h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
-                        </svg>
-                      ) : (
+                  {/* Center Play Button - Only show when video is paused */}
+                  {!videoPlaying && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleVideo();
+                        }}
+                        className="p-3 sm:p-4 rounded-full bg-black/50 hover:bg-black/70 active:bg-black/80 transition-all duration-200 transform hover:scale-110 active:scale-95 touch-manipulation min-h-[60px] min-w-[60px] sm:min-h-[80px] sm:min-w-[80px] flex items-center justify-center"
+                      >
                         <svg className="w-6 h-6 sm:w-8 sm:h-8 text-white ml-0.5 sm:ml-1" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M8 5v14l11-7z"/>
                         </svg>
-                      )}
-                    </button>
-                  </div>
+                      </button>
+                    </div>
+                  )}
 
                   {/* Bottom Controls Bar */}
                   <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-3 bg-gradient-to-t from-black/60 to-transparent">

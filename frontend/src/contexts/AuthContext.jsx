@@ -193,6 +193,7 @@ export const AuthProvider = ({ children }) => {
       return { success: true }
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Registration failed'
+      const fieldErrors = error.response?.data?.errors || {}
       
       dispatch({
         type: AUTH_ACTIONS.REGISTER_FAILURE,
@@ -200,7 +201,11 @@ export const AuthProvider = ({ children }) => {
       })
       
       toast.error(errorMessage)
-      return { success: false, error: errorMessage }
+      return { 
+        success: false, 
+        error: errorMessage,
+        fieldErrors: fieldErrors // Include field-specific errors
+      }
     }
   }
 

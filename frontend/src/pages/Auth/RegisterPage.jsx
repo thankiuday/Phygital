@@ -15,6 +15,7 @@ const RegisterPage = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [passwordFocused, setPasswordFocused] = useState(false)
   const { register: registerUser, isAuthenticated } = useAuth()
   const navigate = useNavigate()
 
@@ -27,6 +28,19 @@ const RegisterPage = () => {
   } = useForm()
 
   const password = watch('password')
+
+  // Real-time password validation
+  const getPasswordRequirements = (pwd) => {
+    return {
+      minLength: (pwd?.length || 0) >= 6,
+      hasUppercase: /[A-Z]/.test(pwd || ''),
+      hasLowercase: /[a-z]/.test(pwd || ''),
+      hasNumber: /\d/.test(pwd || '')
+    }
+  }
+
+  const passwordRequirements = getPasswordRequirements(password)
+  const allRequirementsMet = Object.values(passwordRequirements).every(Boolean)
 
   // Redirect if already authenticated (when page loads)
   useEffect(() => {
@@ -45,6 +59,23 @@ const RegisterPage = () => {
       })
       
       if (!result.success) {
+        // Set field-specific errors if available
+        if (result.fieldErrors) {
+          if (result.fieldErrors.email) {
+            setError('email', {
+              type: 'manual',
+              message: result.fieldErrors.email
+            })
+          }
+          if (result.fieldErrors.username) {
+            setError('username', {
+              type: 'manual',
+              message: result.fieldErrors.username
+            })
+          }
+        }
+        
+        // Also set root error for general display
         setError('root', {
           type: 'manual',
           message: result.error
@@ -172,8 +203,10 @@ const RegisterPage = () => {
                   })}
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="new-password"
-                  className={`input pl-11 sm:pl-12 pr-11 sm:pr-12 ${errors.password ? 'input-error' : ''}`}
+                  className={`input pl-11 sm:pl-12 pr-11 sm:pr-12 ${errors.password ? 'input-error' : allRequirementsMet && password ? 'border-neon-green' : ''}`}
                   placeholder="Create a password"
+                  onFocus={() => setPasswordFocused(true)}
+                  onBlur={() => setPasswordFocused(false)}
                 />
                 <button
                   type="button"
@@ -187,8 +220,92 @@ const RegisterPage = () => {
                   )}
                 </button>
               </div>
-              {errors.password && (
-                <p className="mt-1 text-sm text-neon-red">{errors.password.message}</p>
+              
+              {/* Password Requirements Indicator */}
+              {(passwordFocused || password) && !errors.password && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs text-slate-400 font-medium">Password must contain:</p>
+                  <div className="space-y-1.5">
+                    {/* Minimum Length */}
+                    <div className={`flex items-center text-xs transition-colors duration-200 ${
+                      passwordRequirements.minLength ? 'text-neon-green' : 'text-slate-400'
+                    }`}>
+                      {passwordRequirements.minLength ? (
+                        <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                      At least 6 characters
+                    </div>
+
+                    {/* Uppercase Letter */}
+                    <div className={`flex items-center text-xs transition-colors duration-200 ${
+                      passwordRequirements.hasUppercase ? 'text-neon-green' : 'text-slate-400'
+                    }`}>
+                      {passwordRequirements.hasUppercase ? (
+                        <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                      One uppercase letter (A-Z)
+                    </div>
+
+                    {/* Lowercase Letter */}
+                    <div className={`flex items-center text-xs transition-colors duration-200 ${
+                      passwordRequirements.hasLowercase ? 'text-neon-green' : 'text-slate-400'
+                    }`}>
+                      {passwordRequirements.hasLowercase ? (
+                        <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                      One lowercase letter (a-z)
+                    </div>
+
+                    {/* Number */}
+                    <div className={`flex items-center text-xs transition-colors duration-200 ${
+                      passwordRequirements.hasNumber ? 'text-neon-green' : 'text-slate-400'
+                    }`}>
+                      {passwordRequirements.hasNumber ? (
+                        <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                      One number (0-9)
+                    </div>
+                  </div>
+
+                  {/* Success Message */}
+                  {allRequirementsMet && (
+                    <div className="flex items-center text-xs text-neon-green font-medium mt-2 animate-fade-in">
+                      <svg className="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      Strong password! ✓
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Show error message only when there's an error and field is not focused */}
+              {errors.password && !passwordFocused && (
+                <p className="mt-2 text-sm text-neon-red">{errors.password.message}</p>
               )}
             </div>
 

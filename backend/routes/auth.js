@@ -48,15 +48,29 @@ router.post('/register', [
     
     const { username, email, password } = req.body;
     
-    // Check if user already exists
-    const existingUser = await User.findOne({
-      $or: [{ email }, { username }]
-    });
+    // Check if email or username already exists - check both separately for better error messages
+    const [existingEmail, existingUsername] = await Promise.all([
+      User.findOne({ email }),
+      User.findOne({ username })
+    ]);
     
-    if (existingUser) {
+    // Build error message if either or both exist
+    const duplicateErrors = [];
+    if (existingEmail) {
+      duplicateErrors.push('Email already registered');
+    }
+    if (existingUsername) {
+      duplicateErrors.push('Username already taken');
+    }
+    
+    if (duplicateErrors.length > 0) {
       return res.status(400).json({
         status: 'error',
-        message: existingUser.email === email ? 'Email already registered' : 'Username already taken'
+        message: duplicateErrors.join('. '),
+        errors: {
+          email: existingEmail ? 'Email already registered' : null,
+          username: existingUsername ? 'Username already taken' : null
+        }
       });
     }
     
