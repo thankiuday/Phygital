@@ -118,9 +118,15 @@ router.post('/video-view',
   ], 
   async (req, res) => {
   try {
+    console.log('📹 Video view request received:', {
+      body: req.body,
+      timestamp: new Date().toISOString()
+    });
+    
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.error('❌ Video view validation failed:', errors.array());
       return res.status(400).json({
         status: 'error',
         message: 'Validation failed',
@@ -129,6 +135,7 @@ router.post('/video-view',
     }
     
     const { userId, projectId, videoProgress = 0, videoDuration = 0 } = req.body;
+    console.log('✅ Video view validation passed:', { userId, projectId, videoProgress, videoDuration });
     
     // Validate if userId is a valid ObjectId format (24 hex characters)
     const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
@@ -149,18 +156,28 @@ router.post('/video-view',
     }
     
     // Update user analytics
+    console.log('📊 Updating user analytics for video view...');
     await user.updateAnalytics('videoView');
+    console.log('✅ User analytics updated');
 
     // Also increment project-specific analytics if projectId provided
     if (projectId) {
+      console.log('🔍 Looking for project:', projectId);
       const project = user.projects.find(p => p.id === projectId);
       if (project) {
+        console.log('📦 Project found:', project.name);
         project.analytics = project.analytics || {};
-        project.analytics.videoViews = (project.analytics.videoViews || 0) + 1;
+        const oldCount = project.analytics.videoViews || 0;
+        project.analytics.videoViews = oldCount + 1;
         project.analytics.lastVideoViewAt = new Date();
         project.updatedAt = new Date();
         await user.save();
+        console.log(`✅ Project video views updated: ${oldCount} -> ${project.analytics.videoViews}`);
+      } else {
+        console.warn('⚠️ Project not found:', projectId);
       }
+    } else {
+      console.log('ℹ️ No projectId provided for video view');
     }
     
     // Track detailed analytics with projectId

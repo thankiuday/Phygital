@@ -59,6 +59,12 @@ export const useAnalytics = (userId, projectId, addDebugMessage) => {
         };
       }
       
+      console.log(`🌐 Sending analytics request:`, {
+        event,
+        endpoint: `${apiUrl}${endpoint}`,
+        body: requestBody
+      });
+      
       const response = await fetch(`${apiUrl}${endpoint}`, {
         method: 'POST',
         headers: {
@@ -67,10 +73,21 @@ export const useAnalytics = (userId, projectId, addDebugMessage) => {
         body: JSON.stringify(requestBody)
       });
       
+      console.log(`📡 Analytics response:`, {
+        event,
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+      
       if (!response.ok) {
         const errorText = await response.text();
+        console.error(`❌ Analytics API error response:`, errorText);
         throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
+      
+      const responseData = await response.json();
+      console.log(`✅ Analytics API success response:`, responseData);
       
       addDebugMessage(`📊 Analytics tracked: ${event}`, 'success');
       console.log(`✅ Analytics tracked: ${event} for project ${projectId}`);

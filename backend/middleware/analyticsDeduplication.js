@@ -49,7 +49,8 @@ const preventDuplicateAnalytics = (eventType) => {
           cacheKey,
           timeSinceCache: `${timeSinceCache}ms`,
           userId,
-          projectId
+          projectId,
+          timestamp: new Date().toISOString()
         });
         
         // Return success response without processing
@@ -64,12 +65,16 @@ const preventDuplicateAnalytics = (eventType) => {
       
       // Mark this event as tracked BEFORE processing
       // This prevents race conditions if two identical requests arrive simultaneously
-      analyticsCache.set(cacheKey, Date.now());
+      const now = Date.now();
+      analyticsCache.set(cacheKey, now);
       
-      console.log(`✅ ${eventType} request allowed:`, {
+      console.log(`✅ ${eventType} request allowed (backend):`, {
         cacheKey,
         userId,
-        projectId
+        projectId,
+        timestamp: new Date().toISOString(),
+        cacheSize: analyticsCache.size,
+        requestBody: req.body
       });
       
       // Continue to the actual route handler
