@@ -5,6 +5,7 @@
  */
 
 const express = require('express');
+const mongoose = require('mongoose');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const Analytics = require('../models/Analytics');
@@ -716,7 +717,7 @@ router.get('/locations/:userId', authenticateToken, async (req, res) => {
     
     // Build query
     const query = {
-      userId: require('mongoose').Types.ObjectId(userId),
+      userId: new mongoose.Types.ObjectId(userId),
       eventType: 'scan',
       timestamp: { $gte: startDate },
       'eventData.scanLocation': { $exists: true, $ne: null }
@@ -815,7 +816,7 @@ router.get('/project/:userId/:projectId/locations', authenticateToken, async (re
     
     // Get all scan events with location data for this project
     const locationEvents = await Analytics.find({
-      userId: require('mongoose').Types.ObjectId(userId),
+      userId: new mongoose.Types.ObjectId(userId),
       projectId: projectId,
       eventType: 'scan',
       timestamp: { $gte: startDate },
