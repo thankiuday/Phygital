@@ -47,45 +47,11 @@ const UserPage = () => {
     // Track page view and QR scan with projectId
     if (userData?._id) {
       // Create a unique session key based on userId, projectId, and timestamp (rounded to nearest minute)
-      // This allows one scan per minute per user/project combination
-      const sessionMinute = Math.floor(Date.now() / 60000); // Round to minute
-      const sessionKey = `scan_${userData._id}_${projectId || 'no-project'}_${sessionMinute}`;
+      // NOTE: QR scan tracking is now handled in useProjectData.js hook
+      // This prevents double-counting when users navigate between UserPage and AR experience
       
-      // Check if we've already tracked this scan in this minute
-      const alreadyTracked = sessionStorage.getItem(sessionKey);
-      
-      if (!alreadyTracked) {
-        // Track page view
-        analyticsAPI.trackPageView(userData._id, projectId);
-        
-        // Track QR scan
-        console.log('📊 Tracking QR scan from UserPage:', { 
-          userId: userData._id, 
-          projectId,
-          sessionKey 
-        });
-        
-        analyticsAPI.trackScan(userData._id, {
-          scanType: projectId ? 'project' : 'user',
-          platform: navigator.userAgent,
-          source: 'user_page',
-          timestamp: new Date().toISOString()
-        }, projectId).then(() => {
-          console.log('✅ QR scan tracked successfully');
-          // Mark this scan as tracked for this minute
-          sessionStorage.setItem(sessionKey, 'true');
-          // Clean up old session keys (keep only last 10)
-          const allKeys = Object.keys(sessionStorage);
-          const scanKeys = allKeys.filter(k => k.startsWith('scan_'));
-          if (scanKeys.length > 10) {
-            scanKeys.slice(0, scanKeys.length - 10).forEach(k => sessionStorage.removeItem(k));
-          }
-        }).catch((error) => {
-          console.error('❌ Failed to track QR scan:', error);
-        });
-      } else {
-        console.log('ℹ️ Scan already tracked in this minute, skipping duplicate');
-      }
+      // Track page view only
+      analyticsAPI.trackPageView(userData._id, projectId);
     }
   }, [userData, projectId])
 
@@ -132,19 +98,8 @@ const UserPage = () => {
       const progress = (videoRef.current.currentTime / videoRef.current.duration) * 100
       setVideoProgress(progress)
       
-      // Track video view only once when video starts playing (at ~1% progress)
-      // This prevents tracking hundreds of events on every timeupdate
-      if (userData?._id && progress > 1 && !videoViewTracked) {
-        console.log('📊 Tracking video view:', { userId: userData._id, projectId, progress });
-        analyticsAPI.trackVideoView(userData._id, progress, videoRef.current.duration, projectId)
-          .then(() => {
-            console.log('✅ Video view tracked successfully');
-            setVideoViewTracked(true); // Mark as tracked
-          })
-          .catch((error) => {
-            console.error('❌ Failed to track video view:', error);
-          });
-      }
+      // NOTE: Video view tracking is now handled in useARLogic.js hook
+      // This prevents double-counting when users watch videos in AR experience
     }
   }
 

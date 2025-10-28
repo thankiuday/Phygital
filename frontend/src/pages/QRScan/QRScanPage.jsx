@@ -16,24 +16,8 @@ const QRScanPage = () => {
   const [showManualOption, setShowManualOption] = useState(false);
 
   // Track QR scan on page load
-  useEffect(() => {
-    if (userId) {
-      trackQRScan();
-    }
-  }, [userId, projectId]);
-
-  const trackQRScan = async () => {
-    try {
-      console.log('📊 Tracking QR scan:', { userId, projectId });
-      await analyticsAPI.trackScan(userId, {
-        scanType: projectId ? 'project' : 'user',
-        platform: navigator.userAgent
-      }, projectId);
-      console.log('✅ QR scan tracked successfully');
-    } catch (error) {
-      console.error('❌ Failed to track QR scan:', error);
-    }
-  };
+  // NOTE: QR scan tracking is now handled in useProjectData.js hook
+  // This prevents double-counting when users navigate to AR experience
 
   useEffect(() => {
     fetchProjectData();
