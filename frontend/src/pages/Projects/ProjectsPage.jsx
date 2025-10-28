@@ -885,6 +885,8 @@ const ProjectsPage = () => {
           onSave={handleSaveProject}
           onClose={closeEditModal}
           phoneErrors={phoneErrors}
+          countryCodes_state={countryCodes_state}
+          handleCountryCodeChange={handleCountryCodeChange}
         />
       )}
     </div>
@@ -1295,7 +1297,9 @@ const EditProjectModal = ({
   onSocialLinkChange, 
   onSave, 
   onClose,
-  phoneErrors 
+  phoneErrors,
+  countryCodes_state,
+  handleCountryCodeChange
 }) => {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: onVideoDrop,
