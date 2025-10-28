@@ -137,9 +137,9 @@ const QRScanPage = () => {
           designUrl: "https://res.cloudinary.com/dzax35hss/image/upload/v1712341263/bharani_newpng_vukiuy.png",
           videoUrl: "https://res.cloudinary.com/dbtfsltkv/video/upload/v1712299085/Untitled_design_1_ongdtf.mp4",
           socialLinks: {
-            instagram: "https://www.instagram.com/nerdsandgeeks.pvt.ltd/",
-            website: "https://nerdsandgeeks.in/",
-            facebook: "https://www.facebook.com/nerdsandgeeks.pvt.ltd/"
+            instagram: "",
+            website: "",
+            facebook: ""
           },
           designDimensions: {
             width: 0.32,
@@ -158,9 +158,9 @@ const QRScanPage = () => {
         designUrl: "https://res.cloudinary.com/dzax35hss/image/upload/v1712341263/bharani_newpng_vukiuy.png",
         videoUrl: "https://res.cloudinary.com/dbtfsltkv/video/upload/v1712299085/Untitled_design_1_ongdtf.mp4",
         socialLinks: {
-          instagram: "https://www.instagram.com/nerdsandgeeks.pvt.ltd/",
-          website: "https://nerdsandgeeks.in/",
-          facebook: "https://www.facebook.com/nerdsandgeeks.pvt.ltd/"
+          instagram: "",
+          website: "",
+          facebook: ""
         },
         designDimensions: {
           width: 0.32,
@@ -319,7 +319,7 @@ const QRScanPage = () => {
           </div>
           <div className="text-center mt-2 sm:mt-3">
             <p className="text-xs sm:text-sm text-gray-300 font-light">
-              Developed By NerdsAndGeeks.Pvt Limited
+              Developed By MetaDigi Labs LLC
             </p>
           </div>
         </div>

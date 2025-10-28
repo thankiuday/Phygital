@@ -117,27 +117,16 @@ const Footer = () => {
               <li className="flex items-start space-x-2">
                 <Mail className="w-4 h-4 text-neon-blue mt-0.5 flex-shrink-0" />
                 <a 
-                  href="mailto:Info@nerdsandgeeks.in"
+                  href="mailto:info@metadigilabs.com"
                   className="text-slate-400 hover:text-neon-blue text-sm transition-colors duration-200 break-all"
                 >
-                  Info@nerdsandgeeks.in
-                </a>
-              </li>
-              <li className="flex items-start space-x-2">
-                <Phone className="w-4 h-4 text-neon-purple mt-0.5 flex-shrink-0" />
-                <a 
-                  href="tel:+917075570455"
-                  className="text-slate-400 hover:text-neon-purple text-sm transition-colors duration-200"
-                >
-                  +91 70755 70455
+                  info@metadigilabs.com
                 </a>
               </li>
               <li className="flex items-start space-x-2">
                 <MapPin className="w-4 h-4 text-neon-pink mt-0.5 flex-shrink-0" />
-                <div className="text-slate-400 text-sm space-y-1">
-                  <p>Hyderabad</p>
-                  <p>Bangalore</p>
-                  <p>Tirupati</p>
+                <div className="text-slate-400 text-sm">
+                  <p>South Carolina, United States</p>
                 </div>
               </li>
             </ul>
@@ -148,20 +137,15 @@ const Footer = () => {
         <div className="border-t border-slate-700/50 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             <div className="flex items-center space-x-1 text-slate-400 text-sm">
-              <span>&copy; {currentYear} Phygital. All rights reserved.</span>
+              <span>&copy; {currentYear} MetaDigi Labs LLC. All rights reserved.</span>
             </div>
             <div className="flex items-center space-x-1 text-slate-400 text-sm">
               <span>Made with</span>
               <Heart className="w-4 h-4 text-neon-pink fill-current animate-pulse" />
               <span>by</span>
-              <a 
-                href="https://nerdsandgeeks.in" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-neon-blue hover:text-neon-cyan transition-colors font-semibold"
-              >
-                Nerds and Geeks
-              </a>
+              <span className="text-neon-blue font-semibold">
+                MetaDigi Labs LLC
+              </span>
             </div>
           </div>
         </div>

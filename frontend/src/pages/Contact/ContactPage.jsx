@@ -52,25 +52,19 @@ const ContactPage = () => {
     {
       icon: Mail,
       title: 'Email Us',
-      details: ['Info@nerdsandgeeks.in'],
+      details: ['info@metadigilabs.com'],
       description: 'Send us an email anytime'
     },
     {
-      icon: Phone,
-      title: 'Call Us',
-      details: ['+91 70755 70455'],
-      description: 'Mon-Fri 9AM-6PM IST'
-    },
-    {
       icon: MapPin,
-      title: 'Our Locations',
-      details: ['Hyderabad', 'Bangalore', 'Tirupati'],
-      description: 'We are available across India'
+      title: 'Our Location',
+      details: ['South Carolina, United States'],
+      description: 'MetaDigi Labs LLC'
     },
     {
       icon: Clock,
       title: 'Business Hours',
-      details: ['Monday - Friday: 9AM - 6PM', 'Saturday: 10AM - 4PM'],
+      details: ['Monday - Friday: 9AM - 6PM EST', 'Saturday: 10AM - 4PM EST'],
       description: 'We\'re here to help'
     }
   ]

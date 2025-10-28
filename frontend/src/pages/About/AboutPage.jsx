@@ -56,6 +56,9 @@ const AboutPage = () => {
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-100 mb-4">
               About <span className="text-gradient-fire">Phygital</span>
             </h1>
+            <p className="text-base sm:text-lg text-neon-blue font-semibold mb-3">
+              A Product by MetaDigi Labs LLC
+            </p>
             <p className="text-lg sm:text-xl text-slate-300 max-w-3xl">
               We're revolutionizing how people connect physical and digital experiences through innovative AR technology and QR code solutions.
             </p>
