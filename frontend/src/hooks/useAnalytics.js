@@ -1,9 +1,11 @@
 /**
  * Analytics Hook
  * Handles analytics tracking for AR experience
+ * Now includes geolocation tracking for better insights
  */
 
 import { useCallback } from 'react';
+import { getUserLocation, reverseGeocode } from '../utils/geolocation';
 
 export const useAnalytics = (userId, projectId, addDebugMessage) => {
   const trackAnalytics = useCallback(async (event, data = {}) => {
@@ -33,10 +35,46 @@ export const useAnalytics = (userId, projectId, addDebugMessage) => {
       
       // Special handling for different event types to match backend expectations
       if (event === 'scan') {
+        // Capture user location for scan events
+        let locationData = null;
+        try {
+          console.log('📍 Attempting to capture user location for scan...');
+          const coords = await getUserLocation();
+          
+          if (coords) {
+            console.log('✅ Location captured:', coords);
+            addDebugMessage(`📍 Location: ${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`, 'info');
+            
+            // Try to get city/country (non-blocking)
+            try {
+              const address = await reverseGeocode(coords.latitude, coords.longitude);
+              locationData = {
+                latitude: coords.latitude,
+                longitude: coords.longitude,
+                city: address.city,
+                country: address.country
+              };
+              console.log('🌍 Location with address:', locationData);
+              addDebugMessage(`🌍 Location: ${address.city}, ${address.country}`, 'success');
+            } catch (geocodeError) {
+              // If reverse geocoding fails, still send coordinates
+              locationData = {
+                latitude: coords.latitude,
+                longitude: coords.longitude
+              };
+              console.log('⚠️ Geocoding failed, using coordinates only');
+            }
+          }
+        } catch (locationError) {
+          console.log('ℹ️ Location not available:', locationError.message);
+          addDebugMessage('ℹ️ Location tracking not available', 'info');
+        }
+        
         requestBody = {
           userId: userId || projectId,
           projectId,
           scanData: {
+            location: locationData,
             userAgent: navigator.userAgent,
             ...data
           }

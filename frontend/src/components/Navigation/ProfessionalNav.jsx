@@ -31,8 +31,8 @@ const ProfessionalNav = () => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const navigation = [
-    { name: 'Home', href: '/', icon: Home, public: true },
     { name: 'AI Video', href: '/ai-video', icon: Sparkles, public: true, showBoth: true, isNew: true },
+    { name: 'Home', href: '/', icon: Home, public: true, showBoth: true },
     { name: 'About', href: '/about', icon: Info, public: true },
     { name: 'Contact', href: '/contact', icon: Mail, public: true },
     { name: 'Dashboard', href: '/dashboard', icon: BarChart3, authOnly: true },

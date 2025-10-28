@@ -693,4 +693,168 @@ router.post('/ar-experience-error', [
   }
 });
 
+/**
+ * GET /api/analytics/locations/:userId
+ * Get location-based analytics for a user
+ * Returns scan locations with city/country data
+ */
+router.get('/locations/:userId', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { projectId, days = 30 } = req.query;
+    
+    // Verify user can only access their own analytics
+    if (userId !== req.user._id.toString()) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Unauthorized to access these analytics'
+      });
+    }
+    
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - parseInt(days));
+    
+    // Build query
+    const query = {
+      userId: require('mongoose').Types.ObjectId(userId),
+      eventType: 'scan',
+      timestamp: { $gte: startDate },
+      'eventData.scanLocation': { $exists: true, $ne: null }
+    };
+    
+    // Add projectId filter if provided
+    if (projectId) {
+      query.projectId = projectId;
+    }
+    
+    // Get all scan events with location data
+    const locationEvents = await Analytics.find(query)
+      .select('timestamp eventData.scanLocation projectId')
+      .sort({ timestamp: -1 })
+      .limit(1000); // Limit to most recent 1000 scans
+    
+    // Group by location
+    const locationGroups = {};
+    const cityCountryStats = {};
+    
+    locationEvents.forEach(event => {
+      const location = event.eventData?.scanLocation;
+      if (!location || !location.latitude || !location.longitude) return;
+      
+      const key = `${location.latitude.toFixed(2)},${location.longitude.toFixed(2)}`;
+      
+      if (!locationGroups[key]) {
+        locationGroups[key] = {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          city: location.city || 'Unknown',
+          country: location.country || 'Unknown',
+          count: 0,
+          lastScanAt: event.timestamp
+        };
+      }
+      
+      locationGroups[key].count++;
+      
+      // Track city/country stats
+      const cityCountryKey = `${location.city || 'Unknown'}, ${location.country || 'Unknown'}`;
+      if (!cityCountryStats[cityCountryKey]) {
+        cityCountryStats[cityCountryKey] = {
+          city: location.city || 'Unknown',
+          country: location.country || 'Unknown',
+          count: 0
+        };
+      }
+      cityCountryStats[cityCountryKey].count++;
+    });
+    
+    res.status(200).json({
+      status: 'success',
+      data: {
+        totalScansWithLocation: locationEvents.length,
+        locations: Object.values(locationGroups),
+        cityCountryStats: Object.values(cityCountryStats).sort((a, b) => b.count - a.count),
+        period: {
+          days: parseInt(days),
+          startDate,
+          endDate: new Date()
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('Location analytics error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch location analytics',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+/**
+ * GET /api/analytics/project/:userId/:projectId/locations
+ * Get location-based analytics for a specific project
+ * Returns scan locations for the project
+ */
+router.get('/project/:userId/:projectId/locations', authenticateToken, async (req, res) => {
+  try {
+    const { userId, projectId } = req.params;
+    const { days = 30 } = req.query;
+    
+    // Verify user can only access their own analytics
+    if (userId !== req.user._id.toString()) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Unauthorized to access these analytics'
+      });
+    }
+    
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - parseInt(days));
+    
+    // Get all scan events with location data for this project
+    const locationEvents = await Analytics.find({
+      userId: require('mongoose').Types.ObjectId(userId),
+      projectId: projectId,
+      eventType: 'scan',
+      timestamp: { $gte: startDate },
+      'eventData.scanLocation': { $exists: true, $ne: null }
+    })
+      .select('timestamp eventData.scanLocation')
+      .sort({ timestamp: -1 });
+    
+    // Format response
+    const locations = locationEvents.map(event => ({
+      latitude: event.eventData.scanLocation.latitude,
+      longitude: event.eventData.scanLocation.longitude,
+      city: event.eventData.scanLocation.city || 'Unknown',
+      country: event.eventData.scanLocation.country || 'Unknown',
+      timestamp: event.timestamp
+    }));
+    
+    res.status(200).json({
+      status: 'success',
+      data: {
+        projectId,
+        totalScansWithLocation: locations.length,
+        locations,
+        period: {
+          days: parseInt(days),
+          startDate,
+          endDate: new Date()
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('Project location analytics error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch project location analytics',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 module.exports = router;
