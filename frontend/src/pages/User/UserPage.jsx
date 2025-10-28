@@ -300,19 +300,19 @@ const UserPage = () => {
               <div className="grid grid-cols-3 gap-3 sm:gap-4 text-center">
                 <div>
                   <p className="text-lg sm:text-2xl font-bold text-primary-600">
-                    {userData.analytics?.totalScans || 0}
+                    {Math.round((userData.analytics?.totalScans || 0) / 2)}
                   </p>
                   <p className="text-xs sm:text-sm text-slate-400">Scans</p>
                 </div>
                 <div>
                   <p className="text-lg sm:text-2xl font-bold text-green-600">
-                    {userData.analytics?.videoViews || 0}
+                    {(userData.analytics?.videoViews || 0) + (userData.analytics?.arExperienceStarts || 0)}
                   </p>
                   <p className="text-xs sm:text-sm text-slate-400">Views</p>
                 </div>
                 <div>
                   <p className="text-lg sm:text-2xl font-bold text-purple-600">
-                    {userData.analytics?.linkClicks || 0}
+                    {Math.round((userData.analytics?.linkClicks || 0) / 2)}
                   </p>
                   <p className="text-xs sm:text-sm text-slate-400">Clicks</p>
                 </div>

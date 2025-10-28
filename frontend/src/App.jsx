@@ -29,6 +29,7 @@ import AboutPage from './pages/About/AboutPage'
 import ContactPage from './pages/Contact/ContactPage'
 import AIVideoPage from './pages/AIVideo/AIVideoPage'
 import ScanPage from './pages/ScanPage'
+import ComingSoonPage from './pages/ComingSoon/ComingSoonPage'
 import NotFoundPage from './pages/NotFoundPage'
 
 function App() {
@@ -56,6 +57,9 @@ function App() {
           <Route path="about" element={<AboutPage />} />
           <Route path="contact" element={<ContactPage />} />
           <Route path="ai-video" element={<AIVideoPage />} />
+          <Route path="pricing" element={<ComingSoonPage />} />
+          <Route path="blog" element={<ComingSoonPage />} />
+          <Route path="careers" element={<ComingSoonPage />} />
           <Route path="user/:username" element={<UserPage />} />
           <Route path="scan/:userId" element={<QRScanPage />} />
           <Route path="scan/project/:projectId" element={<QRScanPage />} />

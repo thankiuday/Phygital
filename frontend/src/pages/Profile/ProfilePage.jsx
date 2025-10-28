@@ -411,21 +411,21 @@ const ProfilePage = () => {
               <div className="flex justify-between items-center py-3 border-b border-slate-700/50">
                 <span className="text-sm font-medium text-slate-300">Total Scans</span>
                 <span className="text-xl sm:text-2xl font-bold text-neon-blue">
-                  {user?.analytics?.totalScans || 0}
+                  {Math.round((user?.analytics?.totalScans || 0) / 2)}
                 </span>
               </div>
 
               <div className="flex justify-between items-center py-3 border-b border-slate-700/50">
                 <span className="text-sm font-medium text-slate-300">Video Views</span>
                 <span className="text-xl sm:text-2xl font-bold text-neon-purple">
-                  {user?.analytics?.videoViews || 0}
+                  {(user?.analytics?.videoViews || 0) + (user?.analytics?.arExperienceStarts || 0)}
                 </span>
               </div>
 
               <div className="flex justify-between items-center py-3">
                 <span className="text-sm font-medium text-slate-300">Link Clicks</span>
                 <span className="text-xl sm:text-2xl font-bold text-neon-green">
-                  {user?.analytics?.linkClicks || 0}
+                  {Math.round((user?.analytics?.linkClicks || 0) / 2)}
                 </span>
               </div>
             </div>

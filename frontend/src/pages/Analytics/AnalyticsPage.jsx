@@ -89,40 +89,53 @@ const AnalyticsPage = () => {
 
   // Calculate aggregated analytics - USE FILTERED DATA FROM BACKEND
   const getAggregatedAnalytics = () => {
+    let rawData;
+    
     // Prioritize filtered analytics from backend API
     if (analytics?.overview) {
-      return {
+      rawData = {
         totalScans: analytics.overview.totalScans || 0,
         totalVideoViews: analytics.overview.totalVideoViews || 0,
         totalLinkClicks: analytics.overview.totalLinkClicks || 0,
         totalARStarts: analytics.overview.totalARStarts || 0
       }
     }
-
     // Fallback to project totals only if no analytics data
-    if (!user?.projects) {
-      return {
+    else if (!user?.projects) {
+      rawData = {
         totalScans: 0,
         totalVideoViews: 0,
         totalLinkClicks: 0,
         totalARStarts: 0
       }
     }
-
-    return user.projects.reduce((totals, project) => {
-      const projectAnalytics = project.analytics || {}
-      return {
-        totalScans: totals.totalScans + (projectAnalytics.totalScans || 0),
-        totalVideoViews: totals.totalVideoViews + (projectAnalytics.videoViews || 0),
-        totalLinkClicks: totals.totalLinkClicks + (projectAnalytics.linkClicks || 0),
-        totalARStarts: totals.totalARStarts + (projectAnalytics.arExperienceStarts || 0)
-      }
-    }, {
-      totalScans: 0,
-      totalVideoViews: 0,
-      totalLinkClicks: 0,
-      totalARStarts: 0
-    })
+    else {
+      rawData = user.projects.reduce((totals, project) => {
+        const projectAnalytics = project.analytics || {}
+        return {
+          totalScans: totals.totalScans + (projectAnalytics.totalScans || 0),
+          totalVideoViews: totals.totalVideoViews + (projectAnalytics.videoViews || 0),
+          totalLinkClicks: totals.totalLinkClicks + (projectAnalytics.linkClicks || 0),
+          totalARStarts: totals.totalARStarts + (projectAnalytics.arExperienceStarts || 0)
+        }
+      }, {
+        totalScans: 0,
+        totalVideoViews: 0,
+        totalLinkClicks: 0,
+        totalARStarts: 0
+      })
+    }
+    
+    // Apply display transformations:
+    // 1. Combine AR starts + video views
+    // 2. Divide QR scans by 2
+    // 3. Divide link clicks by 2
+    return {
+      totalScans: Math.round(rawData.totalScans / 2),
+      totalVideoViews: rawData.totalVideoViews + rawData.totalARStarts,
+      totalLinkClicks: Math.round(rawData.totalLinkClicks / 2),
+      totalARStarts: rawData.totalARStarts
+    }
   }
 
   const aggregatedAnalytics = getAggregatedAnalytics()
@@ -164,11 +177,22 @@ const AnalyticsPage = () => {
     const projectId = project._id || project.id
     const filteredProjectData = analytics?.projects?.find(p => p.projectId === projectId)
     
-    const projectAnalytics = filteredProjectData || project.analytics || {
+    const rawProjectAnalytics = filteredProjectData || project.analytics || {
       totalScans: 0,
       videoViews: 0,
       linkClicks: 0,
       arExperienceStarts: 0
+    }
+    
+    // Apply display transformations:
+    // 1. Combine AR starts + video views
+    // 2. Divide QR scans by 2
+    // 3. Divide link clicks by 2
+    const projectAnalytics = {
+      totalScans: Math.round(rawProjectAnalytics.totalScans / 2),
+      videoViews: rawProjectAnalytics.videoViews + rawProjectAnalytics.arExperienceStarts,
+      linkClicks: Math.round(rawProjectAnalytics.linkClicks / 2),
+      arExperienceStarts: rawProjectAnalytics.arExperienceStarts
     }
     
     return (
@@ -271,11 +295,11 @@ const AnalyticsPage = () => {
           <div className="p-4 bg-green-900/20 border border-green-600/30 rounded-lg">
             <h4 className="text-sm font-medium text-neon-green mb-2">Social Engagement</h4>
             <p className="text-xl font-bold text-neon-green">
-              {projectAnalytics.totalScans > 0 
-                ? Math.round((projectAnalytics.linkClicks / projectAnalytics.totalScans) * 100)
+              {projectAnalytics.videoViews > 0 
+                ? Math.round((projectAnalytics.linkClicks / projectAnalytics.videoViews) * 100)
                 : 0}%
             </p>
-            <p className="text-xs text-slate-300">Users who clicked social links</p>
+            <p className="text-xs text-slate-300">Users who clicked social links after viewing</p>
           </div>
         </div>
       </div>

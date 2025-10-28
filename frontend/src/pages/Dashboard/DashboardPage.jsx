@@ -466,7 +466,7 @@ const DashboardPage = () => {
               <div>
                 <p className="text-sm font-medium text-slate-300">Total Scans</p>
                 <p className="text-2xl font-bold text-slate-100">
-                  {user?.analytics?.totalScans || 0}
+                  {Math.round((user?.analytics?.totalScans || 0) / 2)}
                 </p>
               </div>
             </div>
@@ -480,7 +480,7 @@ const DashboardPage = () => {
               <div>
                 <p className="text-sm font-medium text-slate-300">Video Views</p>
                 <p className="text-2xl font-bold text-slate-100">
-                  {user?.analytics?.videoViews || 0}
+                  {(user?.analytics?.videoViews || 0) + (user?.analytics?.arExperienceStarts || 0)}
                 </p>
               </div>
             </div>
@@ -494,7 +494,7 @@ const DashboardPage = () => {
               <div>
                 <p className="text-sm font-medium text-slate-300">Link Clicks</p>
                 <p className="text-2xl font-bold text-slate-100">
-                  {user?.analytics?.linkClicks || 0}
+                  {Math.round((user?.analytics?.linkClicks || 0) / 2)}
                 </p>
               </div>
             </div>

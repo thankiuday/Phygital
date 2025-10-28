@@ -7,7 +7,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  Linkedin, 
   Mail, 
   Heart,
   Phone,
@@ -39,9 +38,7 @@ const Footer = () => {
     ]
   };
 
-  const socialLinks = [
-    { icon: Linkedin, href: 'https://www.linkedin.com/company/nerds-and-geeks-pvt-ltd/posts/?feedView=all', label: 'LinkedIn', color: 'hover:text-neon-blue' }
-  ];
+  const socialLinks = [];
 
   return (
     <footer className="bg-slate-900/95 backdrop-blur-sm border-t border-slate-700/50 mt-auto">
@@ -57,23 +54,6 @@ const Footer = () => {
               Transform your physical designs into interactive digital experiences. 
               Bridge the gap between physical and digital with innovative QR technology.
             </p>
-            <div className="flex space-x-4">
-              {socialLinks.map((social, index) => {
-                const Icon = social.icon;
-                return (
-                  <a
-                    key={index}
-                    href={social.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={social.label}
-                    className={`text-slate-400 ${social.color} transition-colors duration-200`}
-                  >
-                    <Icon className="w-5 h-5" />
-                  </a>
-                );
-              })}
-            </div>
           </div>
 
           {/* Product Links */}
