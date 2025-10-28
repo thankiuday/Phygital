@@ -4,6 +4,7 @@
  */
 
 import { useCallback } from 'react';
+import { shouldTrackAnalytics, markAnalyticsFailed } from '../utils/analyticsDeduplication';
 
 export const useProjectData = (projectId, userId, setIsLoading, setProjectData, setError, addDebugMessage, trackAnalytics, setIsProjectDisabled = null, setDisabledProjectName = null) => {
   const fetchProjectData = useCallback(async () => {
@@ -68,23 +69,21 @@ export const useProjectData = (projectId, userId, setIsLoading, setProjectData, 
 
       setProjectData(projectData);
       
-      // Track QR scan when accessing AR experience (prevents duplicates within 1 minute)
+      // Track QR scan when accessing AR experience (prevents duplicates using global cache)
       try {
-        const sessionMinute = Math.floor(Date.now() / 60000);
-        const scanSessionKey = `scan_${userId}_${projectId}_${sessionMinute}`;
-        const alreadyTrackedScan = sessionStorage.getItem(scanSessionKey);
-        
-        if (!alreadyTrackedScan && projectId) {
-          // Set the key BEFORE tracking to prevent race conditions in React Strict Mode
-          sessionStorage.setItem(scanSessionKey, 'true');
+        if (projectId && shouldTrackAnalytics('scan', userId, projectId)) {
           addDebugMessage('📊 Tracking QR scan...', 'info');
-          await trackAnalytics('scan', {
-            source: 'ar_experience',
-            userAgent: navigator.userAgent
-          });
-          addDebugMessage('✅ QR scan tracked', 'success');
-        } else if (alreadyTrackedScan) {
-          console.log('ℹ️ Scan already tracked in this minute, skipping duplicate');
+          try {
+            await trackAnalytics('scan', {
+              source: 'ar_experience',
+              userAgent: navigator.userAgent
+            });
+            addDebugMessage('✅ QR scan tracked', 'success');
+          } catch (trackError) {
+            // Mark as failed so it can be retried
+            markAnalyticsFailed('scan', userId, projectId);
+            throw trackError;
+          }
         }
       } catch (analyticsError) {
         console.warn('Scan tracking failed:', analyticsError);

@@ -16,6 +16,7 @@ import {
   getCameraConstraints,
   getMindARFacingMode
 } from '../utils/arUtils';
+import { shouldTrackAnalytics, markAnalyticsFailed } from '../utils/analyticsDeduplication';
 
 export const useARLogic = ({
   librariesLoaded,
@@ -674,24 +675,28 @@ export const useARLogic = ({
               console.log(`▶️ [${timestamp}] Resuming video playback from ${videoRef.current.currentTime.toFixed(2)}s`);
               
               videoRef.current.play().then(() => {
-                // Track video view when video starts playing (once per session)
+                // Track video view when video starts playing (using global deduplication)
                 if (trackAnalytics && !videoViewTrackedRef.current) {
-                  // Set the ref BEFORE tracking to prevent race conditions in React Strict Mode
-                  videoViewTrackedRef.current = true;
-                  console.log('📊 Tracking video view in AR experience');
-                  trackAnalytics('videoView', {
-                    source: 'ar_experience',
-                    videoProgress: 0,
-                    videoDuration: videoRef.current?.duration || 0
-                  }).then(() => {
-                    console.log('✅ Video view tracked');
-                  }).catch(err => {
-                    console.warn('⚠️ Video view tracking failed:', err);
-                    // Reset ref if tracking failed so it can be retried
-                    videoViewTrackedRef.current = false;
-                  });
-                } else if (videoViewTrackedRef.current) {
-                  console.log('ℹ️ Video view already tracked in this session, skipping duplicate');
+                  // Use global deduplication utility
+                  if (shouldTrackAnalytics('videoView', userId || projectId, projectId)) {
+                    videoViewTrackedRef.current = true;
+                    console.log('📊 Tracking video view in AR experience');
+                    trackAnalytics('videoView', {
+                      source: 'ar_experience',
+                      videoProgress: 0,
+                      videoDuration: videoRef.current?.duration || 0
+                    }).then(() => {
+                      console.log('✅ Video view tracked');
+                    }).catch(err => {
+                      console.warn('⚠️ Video view tracking failed:', err);
+                      // Mark as failed so it can be retried
+                      videoViewTrackedRef.current = false;
+                      markAnalyticsFailed('videoView', userId || projectId, projectId);
+                    });
+                  } else {
+                    console.log('ℹ️ Video view already tracked, skipping duplicate');
+                    videoViewTrackedRef.current = true; // Still mark as tracked locally
+                  }
                 }
               }).catch(e => {
                 console.log(`⚠️ [${timestamp}] Auto-play failed:`, e.message);

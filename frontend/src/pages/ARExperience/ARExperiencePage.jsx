@@ -18,6 +18,7 @@ import { useARLogic } from '../../hooks/useARLogic';
 
 // Utils
 import { checkLibraries } from '../../utils/arUtils';
+import { shouldTrackAnalytics, markAnalyticsFailed } from '../../utils/analyticsDeduplication';
 
 // Components
 import DebugPanel from '../../components/AR/DebugPanel';
@@ -149,27 +150,18 @@ const ARExperiencePage = () => {
   const handleSocialClick = (platform, url) => {
     try {
       if (url) {
-        // Use sessionStorage for deduplication (prevents double-tracking in React Strict Mode)
-        const sessionMinute = Math.floor(Date.now() / 60000);
-        const clickSessionKey = `linkclick_${userId}_${projectId}_${platform}_${sessionMinute}`;
-        const alreadyTrackedClick = sessionStorage.getItem(clickSessionKey);
-        
-        if (alreadyTrackedClick) {
-          console.log('ℹ️ Link click already tracked in this minute, skipping duplicate:', { platform, url });
-          return;
+        // Use global deduplication utility
+        if (shouldTrackAnalytics('linkClick', userId, projectId, { platform })) {
+          console.log('🔗 Social link clicked:', { platform, url, userId, projectId });
+          
+          analyticsAPI.trackLinkClick(userId, platform, url, projectId).then(() => {
+            console.log('✅ Link click tracked successfully:', { platform });
+          }).catch((err) => {
+            console.warn('⚠️ Link click tracking failed:', err);
+            // Mark as failed so it can be retried
+            markAnalyticsFailed('linkClick', userId, projectId, { platform });
+          });
         }
-        
-        // Set the key BEFORE tracking to prevent race conditions in React Strict Mode
-        sessionStorage.setItem(clickSessionKey, 'true');
-        console.log('🔗 Social link clicked:', { platform, url, userId, projectId });
-        
-        analyticsAPI.trackLinkClick(userId, platform, url, projectId).then(() => {
-          console.log('✅ Link click tracked successfully:', { platform });
-        }).catch((err) => {
-          console.warn('⚠️ Link click tracking failed:', err);
-          // Remove the key if tracking failed so it can be retried
-          sessionStorage.removeItem(clickSessionKey);
-        });
       }
     } catch (err) {
       console.error('❌ Error in handleSocialClick:', err);

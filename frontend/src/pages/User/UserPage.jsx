@@ -7,6 +7,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { userAPI, analyticsAPI } from '../../utils/api'
+import { shouldTrackAnalytics, markAnalyticsFailed } from '../../utils/analyticsDeduplication'
 import { 
   Play, 
   Pause, 
@@ -112,25 +113,17 @@ const UserPage = () => {
   const handleSocialLinkClick = (platform, url) => {
     try {
       if (userData?._id && url) {
-        // Use sessionStorage for deduplication (prevents double-tracking in React Strict Mode)
-        const sessionMinute = Math.floor(Date.now() / 60000);
-        const clickSessionKey = `linkclick_${userData._id}_${projectId || 'user'}_${platform}_${sessionMinute}`;
-        const alreadyTrackedClick = sessionStorage.getItem(clickSessionKey);
-        
-        if (!alreadyTrackedClick) {
-          // Set the key BEFORE tracking to prevent race conditions in React Strict Mode
-          sessionStorage.setItem(clickSessionKey, 'true');
+        // Use global deduplication utility
+        if (shouldTrackAnalytics('linkClick', userData._id, projectId || 'user', { platform })) {
           console.log('🔗 Social link clicked:', { platform, url, userId: userData._id, projectId });
           
           analyticsAPI.trackLinkClick(userData._id, platform, url, projectId).then(() => {
             console.log('✅ Link click tracked successfully:', { platform });
           }).catch((err) => {
             console.warn('⚠️ Link click tracking failed:', err);
-            // Remove the key if tracking failed so it can be retried
-            sessionStorage.removeItem(clickSessionKey);
+            // Mark as failed so it can be retried
+            markAnalyticsFailed('linkClick', userData._id, projectId || 'user', { platform });
           });
-        } else {
-          console.log('ℹ️ Link click already tracked in this minute, skipping duplicate:', { platform, url });
         }
       }
     } catch (err) {
