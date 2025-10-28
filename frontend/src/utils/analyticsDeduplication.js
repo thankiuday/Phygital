@@ -7,12 +7,45 @@
 // Global cache that persists for the entire session
 const analyticsCache = new Map();
 
+// Load existing cache from sessionStorage on initialization
+const loadCacheFromSessionStorage = () => {
+  try {
+    const keys = Object.keys(sessionStorage);
+    const now = Date.now();
+    const fiveMinutesAgo = now - 5 * 60 * 1000;
+    
+    keys.forEach(key => {
+      if (key.startsWith('scan_') || key.startsWith('videoView_') || key.startsWith('linkClick_') || key.startsWith('arStart_')) {
+        const timestamp = parseInt(sessionStorage.getItem(key)) || now;
+        // Only load if not expired
+        if (timestamp > fiveMinutesAgo) {
+          analyticsCache.set(key, timestamp);
+        } else {
+          // Remove expired keys
+          sessionStorage.removeItem(key);
+        }
+      }
+    });
+    
+    if (analyticsCache.size > 0) {
+      console.log(`🔄 Loaded ${analyticsCache.size} analytics cache entries from sessionStorage`);
+    }
+  } catch (error) {
+    console.error('Failed to load analytics cache from sessionStorage:', error);
+  }
+};
+
+// Initialize cache from sessionStorage
+loadCacheFromSessionStorage();
+
 // Clean up old entries periodically (every 5 minutes)
 setInterval(() => {
   const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
   for (const [key, timestamp] of analyticsCache.entries()) {
     if (timestamp < fiveMinutesAgo) {
       analyticsCache.delete(key);
+      // Also remove from sessionStorage
+      sessionStorage.removeItem(key);
     }
   }
 }, 5 * 60 * 1000);
@@ -49,6 +82,7 @@ export const shouldTrackAnalytics = (eventType, userId, projectId, additionalDat
     }
     
     // Check both in-memory cache and sessionStorage
+    const now = Date.now();
     const inMemoryCheck = analyticsCache.has(cacheKey);
     const sessionCheck = sessionStorage.getItem(cacheKey);
     
@@ -57,9 +91,9 @@ export const shouldTrackAnalytics = (eventType, userId, projectId, additionalDat
       return false;
     }
     
-    // Mark as tracked in both places
-    analyticsCache.set(cacheKey, Date.now());
-    sessionStorage.setItem(cacheKey, 'true');
+    // Mark as tracked in both places with timestamp
+    analyticsCache.set(cacheKey, now);
+    sessionStorage.setItem(cacheKey, now.toString());
     
     console.log(`✅ Analytics event will be tracked: ${eventType} (${cacheKey})`);
     return true;

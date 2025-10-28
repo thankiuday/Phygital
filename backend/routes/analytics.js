@@ -21,7 +21,7 @@ const router = express.Router();
 router.post('/scan', 
   preventDuplicateAnalytics('scan'),
   [
-    body('userId').isMongoId().withMessage('Valid user ID is required'),
+    body('userId').isString().withMessage('Valid user ID is required'),
     body('projectId').optional().isString().withMessage('Project ID must be a string'),
     body('scanData').optional().isObject().withMessage('Scan data must be an object')
   ], 
@@ -111,7 +111,7 @@ router.post('/scan',
 router.post('/video-view', 
   preventDuplicateAnalytics('videoView'),
   [
-    body('userId').isMongoId().withMessage('Valid user ID is required'),
+    body('userId').isString().withMessage('Valid user ID is required'),
     body('projectId').optional().isString().withMessage('Project ID must be a string'),
     body('videoProgress').optional().isNumeric().withMessage('Video progress must be a number'),
     body('videoDuration').optional().isNumeric().withMessage('Video duration must be a number')
@@ -539,7 +539,7 @@ router.post('/ar-experience-start',
  * Logs when users visit the personalized page
  */
 router.post('/page-view', [
-  body('userId').isMongoId().withMessage('Valid user ID is required'),
+  body('userId').isString().withMessage('Valid user ID is required'),
   body('projectId').optional().isString().withMessage('Project ID must be a string')
 ], async (req, res) => {
   try {
