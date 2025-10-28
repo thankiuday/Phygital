@@ -66,18 +66,25 @@ const generateCompositeImage = async (designUrl, userId, qrPosition) => {
     const compositeBuffer = await fsPromises.readFile(tempCompositePath);
     console.log('📖 Composite image buffer size:', compositeBuffer.length, 'bytes');
     
-    // Generate unique filename for composite image
-    const compositeFilename = `composite-${Date.now()}-${uuidv4()}.png`;
-    console.log('📁 Composite filename:', compositeFilename);
+    // Detect the image format from the temp file extension to preserve original format
+    const tempExtension = path.extname(tempCompositePath).toLowerCase();
+    const imageFormat = tempExtension === '.jpeg' || tempExtension === '.jpg' ? 'jpg' : 
+                        tempExtension === '.png' ? 'png' : 'jpg';
+    const mimeType = imageFormat === 'jpg' ? 'image/jpeg' : 'image/png';
+    
+    // Generate unique filename for composite image with correct extension
+    const compositeFilename = `composite-${Date.now()}-${uuidv4()}.${imageFormat}`;
+    console.log('📁 Composite filename:', compositeFilename, `(format: ${imageFormat})`);
     
     // Upload composite image to Cloudinary in composite-image folder
-    console.log('☁️ Uploading composite image to Cloudinary...');
+    console.log('☁️ Uploading composite image to Cloudinary with maximum quality...');
     const uploadResult = await uploadToCloudinaryBuffer(
       compositeBuffer, 
       userId, 
       'composite-image', // New folder for composite images
       compositeFilename, 
-      'image/png'
+      mimeType,
+      { quality: 100 } // Maximum quality, no compression
     );
     
     console.log('✅ Composite image uploaded to Cloudinary:', uploadResult.url);

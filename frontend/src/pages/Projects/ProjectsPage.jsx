@@ -356,9 +356,25 @@ const ProjectsPage = () => {
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
       
+      // Detect file extension from URL or blob type
+      let extension = 'jpg' // Default to jpg
+      if (project.compositeDesignUrl) {
+        const urlExtension = project.compositeDesignUrl.split('.').pop().split('?')[0].toLowerCase()
+        if (['jpg', 'jpeg', 'png'].includes(urlExtension)) {
+          extension = urlExtension === 'jpeg' ? 'jpg' : urlExtension
+        }
+      } else if (blob.type) {
+        // Fallback to blob MIME type
+        extension = blob.type.includes('png') ? 'png' : 'jpg'
+      }
+      
+      // Format filename as: Phygital_username_projecttitle.jpg/jpeg
+      const sanitizedProjectName = project.name.replace(/[^a-zA-Z0-9]/g, '_')
+      const filename = `Phygital_${user?.username || 'user'}_${sanitizedProjectName}.${extension}`
+      
       const link = document.createElement('a')
       link.href = url
-      link.download = `${project.name}-composite-design.png`
+      link.download = filename
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -842,15 +858,8 @@ const ProjectsPage = () => {
               key={project.id}
               project={project}
               user={user}
-              isExpanded={expandedProjectId === project.id}
-              qrCodeUrl={qrCodeUrls[project.id]}
-              isLoadingQR={loadingQR[project.id]}
-              copiedUrl={copiedUrl}
               isTogglingStatus={togglingStatus[project.id]}
-              onToggleExpand={() => toggleProjectExpansion(project)}
-              onDownloadQR={() => handleDownloadQR(project)}
               onDownloadComposite={() => handleDownloadComposite(project)}
-              onCopyUrl={() => copyUrlToClipboard(project)}
               onShare={() => handleShareUrl(project)}
               onEdit={() => handleEditProject(project)}
               onDelete={() => handleDeleteProject(project)}
@@ -897,15 +906,8 @@ const ProjectsPage = () => {
 const ProjectCard = ({
   project,
   user,
-  isExpanded,
-  qrCodeUrl,
-  isLoadingQR,
-  copiedUrl,
   isTogglingStatus,
-  onToggleExpand,
-  onDownloadQR,
   onDownloadComposite,
-  onCopyUrl,
   onShare,
   onEdit,
   onDelete,
@@ -916,7 +918,7 @@ const ProjectCard = ({
   const personalizedUrl = `${window.location.origin}/user/${user?.username}?project=${project.id}`
 
   return (
-      <div className={`card-glass rounded-lg shadow-dark-large border transition-all duration-200 w-full ${isExpanded ? 'ring-2 ring-neon-blue/50' : ''} ${
+      <div className={`card-glass rounded-lg shadow-dark-large border transition-all duration-200 w-full ${
         project.isEnabled
           ? 'border-slate-600/30 hover:border-neon-blue/30'
           : 'border-red-600/30 hover:border-red-500/30 opacity-75'
@@ -1007,14 +1009,6 @@ const ProjectCard = ({
         {/* Action Buttons */}
         <div className="flex flex-wrap gap-2 mb-4">
           <button
-            onClick={onToggleExpand}
-            className="flex-1 sm:flex-initial px-4 py-2 bg-neon-purple text-slate-900 text-sm font-medium rounded-lg hover:bg-purple-400 transition-colors flex items-center justify-center shadow-glow-purple"
-          >
-            <QrCode className="w-4 h-4 mr-2" />
-            {isExpanded ? 'Hide QR' : 'Show QR'}
-            {isExpanded ? <ChevronUp className="w-4 h-4 ml-1" /> : <ChevronDown className="w-4 h-4 ml-1" />}
-          </button>
-          <button
             onClick={onEdit}
             className="flex-1 sm:flex-initial px-4 py-2 bg-neon-cyan text-slate-900 text-sm font-medium rounded-lg hover:bg-cyan-400 transition-colors flex items-center justify-center shadow-glow-cyan"
           >
@@ -1038,100 +1032,6 @@ const ProjectCard = ({
             Delete
           </button>
         </div>
-
-        {/* QR Code Section (Expandable) */}
-        {isExpanded && (
-          <div className="border-t border-slate-600/30 pt-4 mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* QR Code Display */}
-              <div className="flex flex-col items-center justify-center bg-slate-800/50 rounded-lg p-4">
-                {isLoadingQR ? (
-                  <div className="flex flex-col items-center py-8">
-                    <LoadingSpinner size="lg" />
-                    <p className="text-sm text-slate-300 mt-4">Generating QR code...</p>
-                  </div>
-                ) : qrCodeUrl ? (
-                  <>
-                    <img 
-                      src={qrCodeUrl} 
-                      alt={`QR Code for ${project.name}`} 
-                      className="w-48 h-48 sm:w-64 sm:h-64 object-contain rounded-lg shadow-lg"
-                    />
-                    <p className="text-xs text-slate-400 mt-3 text-center">
-                      Scan this code to access your AR experience
-                    </p>
-                  </>
-                ) : (
-                  <div className="py-8">
-                    <QrCode className="w-16 h-16 text-slate-500 mx-auto mb-2" />
-                    <p className="text-sm text-slate-400">QR code not available</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Actions & URL */}
-              <div className="flex flex-col justify-center space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-2">
-                    Project URL
-                  </label>
-                  <div className="flex items-center space-x-2 p-3 bg-slate-800/50 rounded-lg border border-slate-600/30">
-                    <ExternalLink className="h-4 w-4 text-slate-400 flex-shrink-0" />
-                    <span className="text-xs font-mono text-slate-200 flex-1 truncate">
-                      {personalizedUrl}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={onDownloadQR}
-                    disabled={!qrCodeUrl}
-                    className="px-4 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center text-sm"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download
-                  </button>
-                  
-                  <button
-                    onClick={onCopyUrl}
-                    className="px-4 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors flex items-center justify-center text-sm"
-                  >
-                    {copiedUrl === project.id ? (
-                      <>
-                        <CheckCircle className="h-4 w-4 mr-2 text-neon-green" />
-                        Copied!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copy URL
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                <button
-                  onClick={onShare}
-                  className="px-4 py-2 bg-neon-green text-slate-900 rounded-lg hover:bg-green-400 transition-colors flex items-center justify-center text-sm font-medium shadow-glow-green"
-                >
-                  <Share2 className="h-4 w-4 mr-2" />
-                  Share Project
-                </button>
-
-                <a
-                  href={personalizedUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors flex items-center justify-center text-sm"
-                >
-                  <Eye className="h-4 w-4 mr-2" />
-                  Preview
-                </a>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )

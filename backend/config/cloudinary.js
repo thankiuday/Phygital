@@ -119,9 +119,10 @@ const uploadToCloudinary = async (file, userId, type) => {
  * @param {string} type - File type
  * @param {string} filename - Custom filename
  * @param {string} contentType - MIME type of the file
+ * @param {Object} options - Optional upload options (e.g., { quality: 100 })
  * @returns {Promise<Object>} - Upload result with URL and metadata
  */
-const uploadToCloudinaryBuffer = async (buffer, userId, type, filename, contentType) => {
+const uploadToCloudinaryBuffer = async (buffer, userId, type, filename, contentType, options = {}) => {
   try {
     console.log('=== CLOUDINARY BUFFER UPLOAD DEBUG ===');
     console.log('Buffer size:', buffer ? buffer.length : 'null');
@@ -173,8 +174,11 @@ const uploadToCloudinaryBuffer = async (buffer, userId, type, filename, contentT
     
     // Only add quality and fetch_format for images (not for videos or raw files)
     if (resourceType === 'image') {
-      uploadOptions.quality = 'auto';
+      // Use custom quality if provided (e.g., 100 for maximum quality), otherwise use 'auto'
+      uploadOptions.quality = options.quality !== undefined ? options.quality : 'auto';
       uploadOptions.fetch_format = 'auto';
+      
+      console.log(`📸 Image upload quality set to: ${uploadOptions.quality}`);
     }
 
     console.log('Upload options:', uploadOptions);

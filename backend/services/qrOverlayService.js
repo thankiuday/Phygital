@@ -121,7 +121,8 @@ const overlayQRCode = async (designImagePath, qrData, position, outputPath) => {
         keys: designImage ? Object.keys(designImage) : 'undefined',
         hasGetWidth: designImage && typeof designImage.getWidth === 'function',
         hasGetHeight: designImage && typeof designImage.getHeight === 'function',
-        hasBitmap: designImage && designImage.bitmap ? 'yes' : 'no'
+        hasBitmap: designImage && designImage.bitmap ? 'yes' : 'no',
+        mimeType: designImage._originalMime || 'unknown'
       });
       
       // Get dimensions using the correct Jimp API
@@ -137,7 +138,8 @@ const overlayQRCode = async (designImagePath, qrData, position, outputPath) => {
       
       console.log('✅ Design image loaded:', {
         width: width,
-        height: height
+        height: height,
+        format: designImage._originalMime || 'unknown'
       });
     } catch (loadError) {
       console.error('❌ Failed to load image with Jimp:', loadError.message);
@@ -176,10 +178,21 @@ const overlayQRCode = async (designImagePath, qrData, position, outputPath) => {
       opacityDest: 1.0
     });
     
+    // Detect image format and set maximum quality for JPEG
+    const isJPEG = designImage._originalMime === 'image/jpeg' || 
+                   designImagePath.toLowerCase().endsWith('.jpg') || 
+                   designImagePath.toLowerCase().endsWith('.jpeg');
+    
+    if (isJPEG) {
+      console.log('📸 Setting JPEG quality to 100 (maximum quality, no compression)');
+      designImage.quality(100); // Set JPEG quality to 100 (maximum quality)
+    }
+    
     // Save the final composite image
     console.log('💾 Saving composite image to:', outputPath);
+    console.log('📊 Output format:', isJPEG ? 'JPEG (quality: 100)' : 'PNG (lossless)');
     await designImage.writeAsync(outputPath);
-    console.log('✅ Composite image saved successfully');
+    console.log('✅ Composite image saved successfully with maximum quality');
     
     return outputPath;
   } catch (error) {
@@ -292,10 +305,13 @@ const generateFinalDesign = async (designUrl, qrData, position, userId) => {
           fs.mkdirSync(tempDir, { recursive: true });
           console.log('✅ Created temp directory');
         }
-        const tempPath = path.join(tempDir, `design-${userId}-${Date.now()}.png`);
+        // Detect file extension from URL to preserve original format
+        const urlExtension = designUrl.split('.').pop().split('?')[0].toLowerCase();
+        const extension = ['jpg', 'jpeg', 'png'].includes(urlExtension) ? urlExtension : 'jpg';
+        const tempPath = path.join(tempDir, `design-${userId}-${Date.now()}.${extension}`);
         fs.writeFileSync(tempPath, designBuffer);
         designImagePath = tempPath;
-        console.log('✅ Saved temp image:', tempPath);
+        console.log('✅ Saved temp image:', tempPath, `(format: ${extension})`);
       } catch (fsError) {
         console.error('❌ File system error:', fsError);
         throw new Error('Failed to save temporary image file');
@@ -320,8 +336,13 @@ const generateFinalDesign = async (designUrl, qrData, position, userId) => {
         fs.mkdirSync(tempDir, { recursive: true });
         console.log('✅ Created output temp directory');
       }
-      const outputPath = path.join(tempDir, `final-design-${userId}-${Date.now()}.png`);
-      console.log('📄 Output path:', outputPath);
+      
+      // Detect file extension from original image to preserve format
+      const inputExtension = path.extname(designImagePath).toLowerCase();
+      const extension = ['.jpg', '.jpeg', '.png'].includes(inputExtension) ? 
+                        inputExtension.substring(1) : 'jpg';
+      const outputPath = path.join(tempDir, `final-design-${userId}-${Date.now()}.${extension}`);
+      console.log('📄 Output path:', outputPath, `(format: ${extension})`);
       
       // Overlay QR code
       console.log('🎨 Starting QR code overlay...');
