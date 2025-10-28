@@ -146,46 +146,34 @@ const ARExperiencePage = () => {
 
   const sanitizeNumber = (num) => (num || '').replace(/[^0-9+]/g, '');
   
-  // Track clicked links to prevent double tracking
-  const [clickedLinks, setClickedLinks] = React.useState(new Set());
-  
   const handleSocialClick = (platform, url) => {
     try {
       if (url) {
-        // Create a unique key for this click
-        const clickKey = `${platform}-${url}-${Date.now()}`;
+        // Use sessionStorage for deduplication (prevents double-tracking in React Strict Mode)
+        const sessionMinute = Math.floor(Date.now() / 60000);
+        const clickSessionKey = `linkclick_${userId}_${projectId}_${platform}_${sessionMinute}`;
+        const alreadyTrackedClick = sessionStorage.getItem(clickSessionKey);
         
-        // Check if we've already tracked this click recently (within 1 second)
-        const recentClicks = Array.from(clickedLinks).filter(key => {
-          const [p, u, timestamp] = key.split('-');
-          return p === platform && u === url && (Date.now() - parseInt(timestamp)) < 1000;
-        });
-        
-        if (recentClicks.length > 0) {
-          console.log('🚫 Duplicate link click detected, skipping tracking:', { platform, url });
+        if (alreadyTrackedClick) {
+          console.log('ℹ️ Link click already tracked in this minute, skipping duplicate:', { platform, url });
           return;
         }
         
+        // Set the key BEFORE tracking to prevent race conditions in React Strict Mode
+        sessionStorage.setItem(clickSessionKey, 'true');
         console.log('🔗 Social link clicked:', { platform, url, userId, projectId });
         
-        // Add to clicked links set
-        setClickedLinks(prev => {
-          const newSet = new Set(prev);
-          newSet.add(clickKey);
-          // Clean up old entries (older than 5 seconds)
-          const fiveSecondsAgo = Date.now() - 5000;
-          Array.from(newSet).forEach(key => {
-            const [, , timestamp] = key.split('-');
-            if (parseInt(timestamp) < fiveSecondsAgo) {
-              newSet.delete(key);
-            }
-          });
-          return newSet;
+        analyticsAPI.trackLinkClick(userId, platform, url, projectId).then(() => {
+          console.log('✅ Link click tracked successfully:', { platform });
+        }).catch((err) => {
+          console.warn('⚠️ Link click tracking failed:', err);
+          // Remove the key if tracking failed so it can be retried
+          sessionStorage.removeItem(clickSessionKey);
         });
-        
-        analyticsAPI.trackLinkClick(userId, platform, url, projectId).catch(() => {});
       }
-    } catch (_) {}
+    } catch (err) {
+      console.error('❌ Error in handleSocialClick:', err);
+    }
   };
 
   // Responsive video sizing support

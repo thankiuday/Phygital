@@ -75,13 +75,16 @@ export const useProjectData = (projectId, userId, setIsLoading, setProjectData, 
         const alreadyTrackedScan = sessionStorage.getItem(scanSessionKey);
         
         if (!alreadyTrackedScan && projectId) {
+          // Set the key BEFORE tracking to prevent race conditions in React Strict Mode
+          sessionStorage.setItem(scanSessionKey, 'true');
           addDebugMessage('📊 Tracking QR scan...', 'info');
           await trackAnalytics('scan', {
             source: 'ar_experience',
             userAgent: navigator.userAgent
           });
-          sessionStorage.setItem(scanSessionKey, 'true');
           addDebugMessage('✅ QR scan tracked', 'success');
+        } else if (alreadyTrackedScan) {
+          console.log('ℹ️ Scan already tracked in this minute, skipping duplicate');
         }
       } catch (analyticsError) {
         console.warn('Scan tracking failed:', analyticsError);
