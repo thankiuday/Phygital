@@ -144,13 +144,27 @@ router.put('/profile', authenticateToken, [
   
   body('socialLinks.contactNumber')
     .optional()
-    .isMobilePhone()
-    .withMessage('Contact number must be a valid phone number'),
+    .custom((value) => {
+      if (!value || value.trim() === '') return true;
+      // Accept international format: +[country code][number] or just digits
+      const phoneRegex = /^\+?[1-9]\d{7,14}$/;
+      if (!phoneRegex.test(value.replace(/[\s\-\(\)]/g, ''))) {
+        throw new Error('Contact number must be a valid phone number');
+      }
+      return true;
+    }),
   
   body('socialLinks.whatsappNumber')
     .optional()
-    .isMobilePhone()
-    .withMessage('WhatsApp number must be a valid phone number')
+    .custom((value) => {
+      if (!value || value.trim() === '') return true;
+      // Accept international format: +[country code][number] or just digits
+      const phoneRegex = /^\+?[1-9]\d{7,14}$/;
+      if (!phoneRegex.test(value.replace(/[\s\-\(\)]/g, ''))) {
+        throw new Error('WhatsApp number must be a valid phone number');
+      }
+      return true;
+    })
 ], async (req, res) => {
   try {
     // Check for validation errors
