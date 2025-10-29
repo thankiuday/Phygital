@@ -88,11 +88,11 @@ if (process.env.NODE_ENV === 'development') {
   });
 }
 
-// Production CORS fallback for Render deployment
+// Production CORS fallback for Render deployment and custom domains
 if (process.env.NODE_ENV === 'production') {
   app.use((req, res, next) => {
     const origin = req.headers.origin;
-    if (origin && (origin.includes('onrender.com') || origin.includes('localhost'))) {
+    if (origin && (origin.includes('onrender.com') || origin.includes('localhost') || origin.includes('phygital.zone'))) {
       res.header('Access-Control-Allow-Origin', origin);
       res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
       res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
@@ -133,7 +133,10 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/uploads', express.static('uploads'));
 
 // Serve frontend static files (for production deployment)
-app.use(express.static('dist'));
+// Use path.join to correctly reference the frontend dist directory
+const path = require('path');
+const frontendDist = path.join(__dirname, '../frontend/dist');
+app.use(express.static(frontendDist));
 
 // Database connection
 const connectDB = async () => {
@@ -210,12 +213,19 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// 404 handler
-app.use('*', (req, res) => {
-  res.status(404).json({
-    status: 'error',
-    message: 'Route not found'
-  });
+// Serve index.html for all non-API routes (React Router support)
+// This allows frontend routing to work correctly
+app.get('*', (req, res) => {
+  // If request is for API, return 404 JSON
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({
+      status: 'error',
+      message: 'API route not found'
+    });
+  }
+  
+  // Otherwise, serve the frontend index.html for React Router
+  res.sendFile(path.join(frontendDist, 'index.html'));
 });
 
 // Import global error handler
