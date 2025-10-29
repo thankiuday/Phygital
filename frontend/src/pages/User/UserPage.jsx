@@ -113,12 +113,18 @@ const UserPage = () => {
   const handleSocialLinkClick = (platform, url) => {
     try {
       if (userData?._id && url) {
-        // Use global deduplication utility
-        if (shouldTrackAnalytics('linkClick', userData._id, projectId || 'user', { platform })) {
-          console.log('🔗 Social link clicked:', { platform, url, userId: userData._id, projectId });
+        // Create additionalData object to capture eventId
+        const additionalData = { platform };
+        
+        // Use global deduplication utility (this will add eventId to additionalData)
+        if (shouldTrackAnalytics('linkClick', userData._id, projectId || 'user', additionalData)) {
+          // Extract the eventId that was added by shouldTrackAnalytics
+          const eventId = additionalData.eventId;
           
-          analyticsAPI.trackLinkClick(userData._id, platform, url, projectId).then(() => {
-            console.log('✅ Link click tracked successfully:', { platform });
+          console.log('🔗 Social link clicked:', { platform, url, userId: userData._id, projectId, eventId });
+          
+          analyticsAPI.trackLinkClick(userData._id, platform, url, projectId, eventId).then(() => {
+            console.log('✅ Link click tracked successfully:', { platform, eventId });
           }).catch((err) => {
             console.warn('⚠️ Link click tracking failed:', err);
             // Mark as failed so it can be retried

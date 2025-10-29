@@ -1,11 +1,10 @@
 /**
  * Logo Component
- * Reusable Phygital logo with gradient and QR code icon
+ * Reusable Phygital logo with brand image
  * Used across navbar, footer, and loaders for consistent branding
  */
 
 import React from 'react';
-import { QrCode } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Logo = ({ 
@@ -17,59 +16,51 @@ const Logo = ({
 }) => {
   const sizeClasses = {
     sm: {
-      container: 'w-6 h-6',
-      icon: 'w-3 h-3',
+      container: 'h-6',
       text: 'text-base',
-      rounded: 'rounded-lg'
     },
     md: {
-      container: 'w-8 h-8',
-      icon: 'w-4 h-4',
+      container: 'h-8',
       text: 'text-xl',
-      rounded: 'rounded-lg'
     },
     lg: {
-      container: 'w-10 h-10',
-      icon: 'w-5 h-5',
+      container: 'h-10',
       text: 'text-2xl',
-      rounded: 'rounded-xl'
     },
     xl: {
-      container: 'w-16 h-16',
-      icon: 'w-8 h-8',
+      container: 'h-16',
       text: 'text-3xl',
-      rounded: 'rounded-2xl'
     },
     '2xl': {
-      container: 'w-24 h-24',
-      icon: 'w-12 h-12',
+      container: 'h-24',
       text: 'text-4xl',
-      rounded: 'rounded-2xl'
     }
   };
 
   const currentSize = sizeClasses[size] || sizeClasses.md;
 
   const LogoContent = () => (
-    <div className={`flex items-center space-x-2 ${className}`}>
-      {/* Logo Box */}
-      <div className="relative">
+    <div className={`flex items-center gap-2 sm:gap-3 ${className}`}>
+      {/* Logo Image */}
+      <div className={`relative ${showGlow ? 'animate-pulse' : ''}`}>
         {/* Optional outer glow ring */}
         {showGlow && (
           <div className="absolute inset-0 animate-ping opacity-20">
-            <div className={`${currentSize.container} bg-gradient-to-br from-neon-blue to-neon-purple ${currentSize.rounded}`}></div>
+            <div className={`${currentSize.container} aspect-square rounded-xl bg-gradient-to-br from-neon-blue to-neon-purple`}></div>
           </div>
         )}
         
-        {/* Main logo */}
-        <div className={`${currentSize.container} bg-gradient-to-br from-neon-blue to-neon-purple ${currentSize.rounded} flex items-center justify-center ${showGlow ? 'shadow-glow-lg animate-pulse' : 'shadow-lg'} transition-transform hover:scale-105`}>
-          <QrCode className={`${currentSize.icon} text-white`} />
-        </div>
+        {/* Main logo image */}
+        <img 
+          src="/icons/PhygitalLogo.png" 
+          alt="Phygital Logo" 
+          className={`${currentSize.container} w-auto object-contain transition-transform hover:scale-105 ${showGlow ? 'drop-shadow-[0_0_15px_rgba(0,212,255,0.5)]' : 'drop-shadow-lg'}`}
+        />
       </div>
 
       {/* Brand Text */}
       {showText && (
-        <span className={`${currentSize.text} font-bold text-gradient`}>
+        <span className={`${currentSize.text} font-bold text-gradient whitespace-nowrap`}>
           Phygital
         </span>
       )}
@@ -90,4 +81,3 @@ const Logo = ({
 };
 
 export default Logo;
-

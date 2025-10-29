@@ -38,10 +38,13 @@ const LocationAnalytics = ({ userId, projectId = null, days = 30 }) => {
       }
 
       const result = await response.json();
+      console.log('📊 Location Analytics Response:', result);
+      console.log('📍 Total scans with location:', result.data?.totalScansWithLocation);
+      console.log('🌍 City/Country stats:', result.data?.cityCountryStats);
       setLocationData(result.data);
       setError(null);
     } catch (err) {
-      console.error('Location analytics error:', err);
+      console.error('❌ Location analytics error:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -70,12 +73,26 @@ const LocationAnalytics = ({ userId, projectId = null, days = 30 }) => {
   if (!locationData || locationData.totalScansWithLocation === 0) {
     return (
       <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
-        <div className="text-center">
-          <MapPin className="w-12 h-12 text-slate-500 mx-auto mb-3" />
-          <p className="text-slate-300 text-sm">No location data available yet</p>
-          <p className="text-slate-500 text-xs mt-1">
-            Location data will appear when users grant location permission
+        <div className="text-center py-8">
+          <MapPin className="w-16 h-16 text-slate-500 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-slate-200 mb-2">No Location Data Yet</h3>
+          <p className="text-slate-400 text-sm mb-4 max-w-md mx-auto">
+            Geographic analytics will appear here once users scan your QR codes and grant location permission.
           </p>
+          
+          <div className="bg-blue-500/10 rounded-lg p-4 border border-blue-500/30 max-w-md mx-auto text-left">
+            <h4 className="text-blue-400 font-semibold text-sm mb-2">📍 How Location Tracking Works:</h4>
+            <ul className="text-blue-300 text-xs space-y-1.5">
+              <li>• When someone scans your QR code, they may be prompted to share their location</li>
+              <li>• Location data is completely optional and privacy-friendly</li>
+              <li>• Users can deny location access, which is normal and expected</li>
+              <li>• Once granted, you'll see city and country data here</li>
+            </ul>
+          </div>
+          
+          <div className="mt-6 text-slate-500 text-xs">
+            <p>💡 Tip: Share your QR code and scan it yourself to test location tracking</p>
+          </div>
         </div>
       </div>
     );

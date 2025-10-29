@@ -572,28 +572,6 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
         card-glass rounded-xl shadow-dark-large p-4 md:p-8 transition-all duration-500 transform
         ${isAnimating ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}
       `}>
-        {/* Level Header */}
-        <div className="text-center mb-6 md:mb-8">
-          <div className={`
-            inline-flex items-center justify-center w-12 h-12 md:w-16 md:h-16 rounded-full mb-3 md:mb-4
-            bg-neon-${currentLevelConfig.color}/20 text-neon-${currentLevelConfig.color}
-            transition-all duration-500 transform shadow-glow-${currentLevelConfig.color}
-            ${isAnimating ? 'scale-75' : 'scale-100'}
-          `}>
-            <currentLevelConfig.icon className="w-6 h-6 md:w-8 md:h-8" />
-          </div>
-          <h2 className="text-2xl md:text-3xl font-bold text-slate-100 mb-2">
-            {currentLevelConfig.name}
-          </h2>
-          <p className="text-sm md:text-base text-slate-300 px-4">
-            {currentLevel === 1 && "Upload your design image to get started"}
-            {currentLevel === 2 && "Position your QR code on the design"}
-            {currentLevel === 3 && "Upload your video content"}
-            {currentLevel === 4 && "Add your social media links"}
-            {currentLevel === 5 && "Generate and download your final design"}
-          </p>
-        </div>
-
         {/* Level Component */}
         <div className="min-h-[400px]">
           {renderLevelComponent()}

@@ -25,7 +25,6 @@ import {
   Loader2,
   PartyPopper,
   Linkedin,
-  Github,
   Mail
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -201,12 +200,12 @@ const AIVideoPage = () => {
               Create AI-Powered
               <br />
               <span className="text-gradient-fire animate-gradient bg-size-200">
-                Talking Videos
+                Video Avatars
               </span>
             </h1>
 
             <p className="text-lg sm:text-xl lg:text-2xl text-slate-300 max-w-4xl mx-auto mb-12 animate-fade-in" style={{ animationDelay: '0.2s' }}>
-              Transform any image into a realistic talking video with just text. 
+              Transform any image into a lifelike AI avatar that speaks your message. 
               <br className="hidden sm:block" />
               Powered by cutting-edge AI technology.
             </p>
@@ -392,7 +391,7 @@ const AIVideoPage = () => {
 
               {/* Name & Title */}
               <div className="text-center mb-4">
-                <h3 className="text-2xl font-bold text-slate-100 mb-2 group-hover:text-gradient transition-colors">
+                <h3 className="text-2xl font-bold text-gradient mb-2">
                   Uday Thanki
                 </h3>
                 <p className="text-neon-blue font-semibold mb-3">
@@ -407,7 +406,7 @@ const AIVideoPage = () => {
               {/* Social Links */}
               <div className="flex justify-center gap-4 pt-4 border-t border-slate-700/50">
                 <a
-                  href="https://linkedin.com"
+                  href="https://www.linkedin.com/in/uday-thanki-b1491a272/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-10 h-10 rounded-lg bg-slate-800/50 hover:bg-neon-blue/20 border border-slate-600/50 hover:border-neon-blue/50 flex items-center justify-center transition-all duration-300 hover:scale-110 group/social"
@@ -415,15 +414,7 @@ const AIVideoPage = () => {
                   <Linkedin className="w-5 h-5 text-slate-400 group-hover/social:text-neon-blue transition-colors" />
                 </a>
                 <a
-                  href="https://github.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-10 h-10 rounded-lg bg-slate-800/50 hover:bg-neon-purple/20 border border-slate-600/50 hover:border-neon-purple/50 flex items-center justify-center transition-all duration-300 hover:scale-110 group/social"
-                >
-                  <Github className="w-5 h-5 text-slate-400 group-hover/social:text-neon-purple transition-colors" />
-                </a>
-                <a
-                  href="mailto:contact@phygital.com"
+                  href="mailto:udaythanki2@gmail.com"
                   className="w-10 h-10 rounded-lg bg-slate-800/50 hover:bg-neon-pink/20 border border-slate-600/50 hover:border-neon-pink/50 flex items-center justify-center transition-all duration-300 hover:scale-110 group/social"
                 >
                   <Mail className="w-5 h-5 text-slate-400 group-hover/social:text-neon-pink transition-colors" />

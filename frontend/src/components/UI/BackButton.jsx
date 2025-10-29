@@ -14,7 +14,8 @@ const BackButton = ({
   className = '',
   variant = 'default',
   iconOnlyOnMobile = true,
-  floating = false
+  floating = false,
+  hasNavBar = false // New prop to indicate if page has navigation bar
 }) => {
   const navigate = useNavigate()
   const location = useLocation()
@@ -45,8 +46,12 @@ const BackButton = ({
     ? "px-3 py-2 sm:px-4 sm:py-2"
     : "px-4 py-2"
 
+  // Adjust top position based on whether page has navigation bar
+  // Navigation bar is typically 64px (h-16), so we add some spacing
+  const topPosition = hasNavBar ? 'top-20' : 'top-3'
+  
   const layoutClasses = floating
-    ? "fixed left-3 top-3 sm:static sm:left-auto sm:top-auto z-50"
+    ? `hidden sm:flex fixed left-3 ${topPosition} sm:static sm:left-auto sm:top-auto z-50`
     : ""
 
   return (

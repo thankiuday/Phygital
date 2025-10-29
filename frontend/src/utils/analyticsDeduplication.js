@@ -1,52 +1,75 @@
 /**
- * Analytics Deduplication Utility
- * Prevents double-counting of analytics events using a global singleton cache
- * This persists across component re-renders and remounts
+ * Analytics Deduplication Utility - ROBUST VERSION
+ * Prevents double-counting using unique event IDs and persistent storage
+ * Features:
+ * - Unique event IDs for each analytics event
+ * - localStorage for persistent tracking across refreshes
+ * - Time-based expiration
+ * - Backend validation support
  */
 
 // Global cache that persists for the entire session
 const analyticsCache = new Map();
 
-// Load existing cache from sessionStorage on initialization
-const loadCacheFromSessionStorage = () => {
+// Generate unique event ID
+const generateEventId = () => {
+  return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+};
+
+// Load existing cache from localStorage on initialization
+const loadCacheFromLocalStorage = () => {
   try {
-    const keys = Object.keys(sessionStorage);
-    const now = Date.now();
-    const fiveMinutesAgo = now - 5 * 60 * 1000;
-    
-    keys.forEach(key => {
-      if (key.startsWith('scan_') || key.startsWith('videoView_') || key.startsWith('linkClick_') || key.startsWith('arStart_')) {
-        const timestamp = parseInt(sessionStorage.getItem(key)) || now;
-        // Only load if not expired
-        if (timestamp > fiveMinutesAgo) {
-          analyticsCache.set(key, timestamp);
-        } else {
-          // Remove expired keys
-          sessionStorage.removeItem(key);
+    const stored = localStorage.getItem('phygital_analytics_cache');
+    if (stored) {
+      const data = JSON.parse(stored);
+      const now = Date.now();
+      const oneHourAgo = now - 60 * 60 * 1000; // 1 hour expiration
+      
+      // Load non-expired entries
+      Object.entries(data).forEach(([key, value]) => {
+        if (value.timestamp > oneHourAgo) {
+          analyticsCache.set(key, value);
         }
-      }
-    });
-    
-    if (analyticsCache.size > 0) {
-      console.log(`🔄 Loaded ${analyticsCache.size} analytics cache entries from sessionStorage`);
+      });
+      
+      console.log(`🔄 Loaded ${analyticsCache.size} analytics cache entries from localStorage`);
     }
   } catch (error) {
-    console.error('Failed to load analytics cache from sessionStorage:', error);
+    console.error('Failed to load analytics cache from localStorage:', error);
   }
 };
 
-// Initialize cache from sessionStorage
-loadCacheFromSessionStorage();
+// Save cache to localStorage
+const saveCacheToLocalStorage = () => {
+  try {
+    const data = {};
+    analyticsCache.forEach((value, key) => {
+      data[key] = value;
+    });
+    localStorage.setItem('phygital_analytics_cache', JSON.stringify(data));
+  } catch (error) {
+    console.error('Failed to save analytics cache to localStorage:', error);
+  }
+};
 
-// Clean up old entries periodically (every 5 minutes)
+// Initialize cache from localStorage
+loadCacheFromLocalStorage();
+
+// Clean up old entries periodically (every 5 minutes) and save to localStorage
 setInterval(() => {
-  const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
-  for (const [key, timestamp] of analyticsCache.entries()) {
-    if (timestamp < fiveMinutesAgo) {
+  const oneHourAgo = Date.now() - 60 * 60 * 1000;
+  let cleaned = 0;
+  
+  for (const [key, value] of analyticsCache.entries()) {
+    if (value.timestamp < oneHourAgo) {
       analyticsCache.delete(key);
-      // Also remove from sessionStorage
-      sessionStorage.removeItem(key);
+      cleaned++;
     }
+  }
+  
+  if (cleaned > 0) {
+    console.log(`🧹 Cleaned up ${cleaned} old analytics cache entries`);
+    saveCacheToLocalStorage();
   }
 }, 5 * 60 * 1000);
 
@@ -60,42 +83,73 @@ setInterval(() => {
  */
 export const shouldTrackAnalytics = (eventType, userId, projectId, additionalData = {}) => {
   try {
-    // Create unique key based on event type and time window
-    const sessionMinute = Math.floor(Date.now() / 60000);
-    let cacheKey;
+    const now = Date.now();
     
+    // Define time windows for different event types
+    const timeWindows = {
+      'scan': 600000,              // 10 minutes - scans are rare, prevent all duplicates
+      'videoView': 180000,         // 3 minutes - video watching
+      'linkClick': 30000,          // 30 seconds - allow multiple link clicks
+      'ar-experience-start': 600000, // 10 minutes - AR session start
+      'default': 60000             // 1 minute default
+    };
+    
+    const timeWindow = timeWindows[eventType] || timeWindows.default;
+    
+    // Create unique cache key
+    let cacheKey;
     switch (eventType) {
       case 'scan':
-        cacheKey = `scan_${userId}_${projectId}_${sessionMinute}`;
+        cacheKey = `scan_${userId}_${projectId}`;
         break;
       case 'videoView':
-        cacheKey = `videoView_${userId}_${projectId}_${sessionMinute}`;
+        cacheKey = `videoView_${userId}_${projectId}`;
         break;
       case 'linkClick':
-        cacheKey = `linkClick_${userId}_${projectId}_${additionalData.platform}_${sessionMinute}`;
+        cacheKey = `linkClick_${userId}_${projectId}_${additionalData.platform || 'unknown'}`;
         break;
       case 'ar-experience-start':
-        cacheKey = `arStart_${userId}_${projectId}_${sessionMinute}`;
+        cacheKey = `arStart_${userId}_${projectId}`;
         break;
       default:
-        cacheKey = `${eventType}_${userId}_${projectId}_${sessionMinute}`;
+        cacheKey = `${eventType}_${userId}_${projectId}`;
     }
     
-    // Check both in-memory cache and sessionStorage
-    const now = Date.now();
-    const inMemoryCheck = analyticsCache.has(cacheKey);
-    const sessionCheck = sessionStorage.getItem(cacheKey);
+    // Check cache for recent tracking
+    const cachedData = analyticsCache.get(cacheKey);
     
-    if (inMemoryCheck || sessionCheck) {
-      console.log(`ℹ️ Analytics event already tracked: ${eventType} (${cacheKey})`);
-      return false;
+    if (cachedData) {
+      const timeSinceLastTrack = now - cachedData.timestamp;
+      
+      if (timeSinceLastTrack < timeWindow) {
+        console.log(`🚫 Analytics BLOCKED: ${eventType} - Last tracked ${(timeSinceLastTrack / 1000).toFixed(1)}s ago (eventId: ${cachedData.eventId})`);
+        return false;
+      }
     }
     
-    // Mark as tracked in both places with timestamp
-    analyticsCache.set(cacheKey, now);
-    sessionStorage.setItem(cacheKey, now.toString());
+    // Generate unique event ID for this tracking
+    const eventId = generateEventId();
     
-    console.log(`✅ Analytics event will be tracked: ${eventType} (${cacheKey})`);
+    // Mark as tracked with event ID and timestamp
+    const trackingData = {
+      eventId,
+      timestamp: now,
+      eventType,
+      userId,
+      projectId
+    };
+    
+    analyticsCache.set(cacheKey, trackingData);
+    
+    // Persist to localStorage
+    saveCacheToLocalStorage();
+    
+    // Store event ID in additionalData for backend validation
+    if (additionalData) {
+      additionalData.eventId = eventId;
+    }
+    
+    console.log(`✅ Analytics ALLOWED: ${eventType} (eventId: ${eventId}, cacheKey: ${cacheKey})`);
     return true;
     
   } catch (error) {
@@ -114,31 +168,35 @@ export const shouldTrackAnalytics = (eventType, userId, projectId, additionalDat
  */
 export const markAnalyticsFailed = (eventType, userId, projectId, additionalData = {}) => {
   try {
-    const sessionMinute = Math.floor(Date.now() / 60000);
     let cacheKey;
     
     switch (eventType) {
       case 'scan':
-        cacheKey = `scan_${userId}_${projectId}_${sessionMinute}`;
+        cacheKey = `scan_${userId}_${projectId}`;
         break;
       case 'videoView':
-        cacheKey = `videoView_${userId}_${projectId}_${sessionMinute}`;
+        cacheKey = `videoView_${userId}_${projectId}`;
         break;
       case 'linkClick':
-        cacheKey = `linkClick_${userId}_${projectId}_${additionalData.platform}_${sessionMinute}`;
+        cacheKey = `linkClick_${userId}_${projectId}_${additionalData.platform || 'unknown'}`;
         break;
       case 'ar-experience-start':
-        cacheKey = `arStart_${userId}_${projectId}_${sessionMinute}`;
+        cacheKey = `arStart_${userId}_${projectId}`;
         break;
       default:
-        cacheKey = `${eventType}_${userId}_${projectId}_${sessionMinute}`;
+        cacheKey = `${eventType}_${userId}_${projectId}`;
     }
     
-    // Remove from both caches so it can be retried
-    analyticsCache.delete(cacheKey);
-    sessionStorage.removeItem(cacheKey);
+    const cachedData = analyticsCache.get(cacheKey);
+    const eventId = cachedData?.eventId || 'unknown';
     
-    console.log(`🔄 Analytics event marked for retry: ${eventType} (${cacheKey})`);
+    // Remove from cache so it can be retried
+    analyticsCache.delete(cacheKey);
+    
+    // Update localStorage
+    saveCacheToLocalStorage();
+    
+    console.log(`🔄 Analytics event marked for retry: ${eventType} (eventId: ${eventId}, cacheKey: ${cacheKey})`);
   } catch (error) {
     console.error('Error in markAnalyticsFailed:', error);
   }
@@ -149,13 +207,30 @@ export const markAnalyticsFailed = (eventType, userId, projectId, additionalData
  */
 export const clearAnalyticsCache = () => {
   analyticsCache.clear();
-  // Clear sessionStorage keys related to analytics
-  const keys = Object.keys(sessionStorage);
-  keys.forEach(key => {
-    if (key.startsWith('scan_') || key.startsWith('videoView_') || key.startsWith('linkClick_') || key.startsWith('arStart_')) {
-      sessionStorage.removeItem(key);
-    }
+  localStorage.removeItem('phygital_analytics_cache');
+  console.log('🧹 Analytics cache cleared from memory and localStorage');
+};
+
+/**
+ * Get analytics cache statistics
+ */
+export const getAnalyticsCacheStats = () => {
+  const stats = {
+    totalEntries: analyticsCache.size,
+    entries: []
+  };
+  
+  const now = Date.now();
+  analyticsCache.forEach((value, key) => {
+    stats.entries.push({
+      key,
+      eventId: value.eventId,
+      eventType: value.eventType,
+      age: Math.floor((now - value.timestamp) / 1000), // seconds
+      timestamp: new Date(value.timestamp).toISOString()
+    });
   });
-  console.log('🧹 Analytics cache cleared');
+  
+  return stats;
 };
 

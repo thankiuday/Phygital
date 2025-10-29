@@ -7,16 +7,23 @@
 import React from 'react';
 import { QrCode, Cpu, Zap } from 'lucide-react';
 
-const MindFileGenerationLoader = ({ isLoading, message = 'Generating AR tracking file...' }) => {
+const MindFileGenerationLoader = ({ isLoading, message = 'Generating AR tracking file...', progress = null }) => {
   // Debug logging
   React.useEffect(() => {
-    console.log('🔍 MindFileGenerationLoader state:', { isLoading, message });
+    console.log('🔍 MindFileGenerationLoader state:', { isLoading, message, progress });
     if (!isLoading) {
       console.log('🔍 MindFileGenerationLoader: isLoading changed to FALSE - loader will be hidden');
     } else {
       console.log('🔍 MindFileGenerationLoader: isLoading changed to TRUE - loader will be shown');
     }
-  }, [isLoading, message]);
+  }, [isLoading, message, progress]);
+  
+  // Extract percentage from message if present (e.g., "Compiling AR data: 45%")
+  const extractedProgress = React.useMemo(() => {
+    if (progress !== null) return progress;
+    const match = message.match(/(\d+)%/);
+    return match ? parseInt(match[1], 10) : null;
+  }, [message, progress]);
 
   if (!isLoading) {
     console.log('❌ MindFileGenerationLoader: isLoading is false, not rendering');
@@ -86,15 +93,30 @@ const MindFileGenerationLoader = ({ isLoading, message = 'Generating AR tracking
           This may take 10-30 seconds depending on image complexity
         </p>
 
-        {/* Animated loading bar */}
-        <div className="w-full max-w-xs h-1 bg-slate-700 rounded-full overflow-hidden">
-          <div className="h-full bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink animate-loading-bar"></div>
-        </div>
+        {/* Progress bar */}
+        {extractedProgress !== null ? (
+          <div className="w-full max-w-xs space-y-2">
+            <div className="flex justify-between text-xs text-slate-400">
+              <span>Progress</span>
+              <span className="text-neon-blue font-semibold">{extractedProgress}%</span>
+            </div>
+            <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink transition-all duration-300 ease-out"
+                style={{ width: `${extractedProgress}%` }}
+              ></div>
+            </div>
+          </div>
+        ) : (
+          <div className="w-full max-w-xs h-1 bg-slate-700 rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink animate-loading-bar"></div>
+          </div>
+        )}
 
         {/* Tech indicator */}
         <div className="flex items-center space-x-2 mt-6 text-xs text-slate-500">
           <QrCode className="w-3 h-3" />
-          <span>Powered by MindAR Image Tracking</span>
+          <span>Powered by Phygital</span>
         </div>
       </div>
     </div>

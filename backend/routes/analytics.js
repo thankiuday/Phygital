@@ -58,22 +58,8 @@ router.post('/scan',
       });
     }
     
-    // Update user analytics
-    await user.updateAnalytics('scan');
-
-    // Also increment project-specific analytics if projectId provided
-    if (projectId) {
-      const project = user.projects.find(p => p.id === projectId);
-      if (project) {
-        project.analytics = project.analytics || {};
-        project.analytics.totalScans = (project.analytics.totalScans || 0) + 1;
-        project.analytics.lastScanAt = new Date();
-        project.updatedAt = new Date();
-        await user.save();
-      }
-    }
-    
     // Track detailed analytics with projectId
+    // Note: Analytics.trackEvent() handles both user-level and project-level analytics updates
     await Analytics.trackEvent(userId, 'scan', {
       scanLocation: scanData.location || {},
       userAgent: req.headers['user-agent'],
@@ -156,32 +142,9 @@ router.post('/video-view',
       });
     }
     
-    // Update user analytics
-    console.log('📊 Updating user analytics for video view...');
-    await user.updateAnalytics('videoView');
-    console.log('✅ User analytics updated');
-
-    // Also increment project-specific analytics if projectId provided
-    if (projectId) {
-      console.log('🔍 Looking for project:', projectId);
-      const project = user.projects.find(p => p.id === projectId);
-      if (project) {
-        console.log('📦 Project found:', project.name);
-        project.analytics = project.analytics || {};
-        const oldCount = project.analytics.videoViews || 0;
-        project.analytics.videoViews = oldCount + 1;
-        project.analytics.lastVideoViewAt = new Date();
-        project.updatedAt = new Date();
-        await user.save();
-        console.log(`✅ Project video views updated: ${oldCount} -> ${project.analytics.videoViews}`);
-      } else {
-        console.warn('⚠️ Project not found:', projectId);
-      }
-    } else {
-      console.log('ℹ️ No projectId provided for video view');
-    }
-    
     // Track detailed analytics with projectId
+    // Note: Analytics.trackEvent() handles both user-level and project-level analytics updates
+    console.log('📊 Tracking video view analytics...');
     await Analytics.trackEvent(userId, 'videoView', {
       videoProgress: parseFloat(videoProgress),
       videoDuration: parseFloat(videoDuration),
@@ -253,21 +216,8 @@ router.post('/link-click',
       });
     }
     
-    // Update user analytics
-    await user.updateAnalytics('linkClick');
-
-    // Also increment project-specific analytics if projectId provided
-    if (projectId) {
-      const project = user.projects.find(p => p.id === projectId);
-      if (project) {
-        project.analytics = project.analytics || {};
-        project.analytics.linkClicks = (project.analytics.linkClicks || 0) + 1;
-        project.updatedAt = new Date();
-        await user.save();
-      }
-    }
-    
     // Track detailed analytics with projectId
+    // Note: Analytics.trackEvent() handles both user-level and project-level analytics updates
     await Analytics.trackEvent(userId, 'linkClick', {
       linkType,
       linkUrl,
@@ -507,22 +457,8 @@ router.post('/ar-experience-start',
       });
     }
     
-    // Update user analytics
-    await user.updateAnalytics('arExperienceStart');
-
-    // Also increment project-specific analytics if projectId provided
-    if (projectId) {
-      const project = user.projects.find(p => p.id === projectId);
-      if (project) {
-        project.analytics = project.analytics || {};
-        project.analytics.arExperienceStarts = (project.analytics.arExperienceStarts || 0) + 1;
-        project.analytics.lastArExperienceStartAt = new Date();
-        project.updatedAt = new Date();
-        await user.save();
-      }
-    }
-    
     // Track detailed analytics with projectId
+    // Note: Analytics.trackEvent() handles both user-level and project-level analytics updates
     await Analytics.trackEvent(userId, 'arExperienceStart', {
       loadTime: parseFloat(loadTime),
       hasDesign: Boolean(hasDesign),

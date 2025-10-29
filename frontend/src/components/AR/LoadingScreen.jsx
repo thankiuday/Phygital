@@ -1,10 +1,10 @@
 /**
  * Loading Screen Component
- * Shows loading state with animated website logo
+ * Shows loading state with animated Phygital logo
  */
 
 import React from 'react';
-import { QrCode } from 'lucide-react';
+import Logo from '../UI/Logo';
 
 const LoadingScreen = ({ 
   librariesLoaded, 
@@ -22,17 +22,9 @@ const LoadingScreen = ({
       </div>
 
       <div className="relative z-10 text-center text-white max-w-md w-full">
-        {/* Animated Website Logo */}
-        <div className="relative mb-8">
-          {/* Outer glow ring */}
-          <div className="absolute inset-0 animate-ping opacity-20">
-            <div className="w-24 h-24 bg-gradient-to-br from-neon-blue to-neon-purple rounded-2xl mx-auto"></div>
-          </div>
-          
-          {/* Main logo */}
-          <div className="relative w-24 h-24 bg-gradient-to-br from-neon-blue to-neon-purple rounded-2xl flex items-center justify-center shadow-glow-lg animate-pulse mx-auto">
-            <QrCode className="w-12 h-12 text-white" />
-          </div>
+        {/* Animated Phygital Logo */}
+        <div className="flex justify-center mb-8">
+          <Logo size="2xl" showText={false} linkTo={null} showGlow={true} />
         </div>
         
         {/* Loading Text */}

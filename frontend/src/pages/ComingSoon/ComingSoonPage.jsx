@@ -6,15 +6,61 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Clock, Zap, Bell, Sparkles } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
 const ComingSoonPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { isAuthenticated } = useAuth();
+  
+  // Smart back button handler
+  const handleGoBack = () => {
+    // Check if there's history to go back to
+    if (window.history.length > 2) {
+      navigate(-1);
+    } else {
+      // If no history, navigate to appropriate page based on auth status
+      navigate(isAuthenticated ? '/dashboard' : '/');
+    }
+  };
 
   // Extract page name from pathname
   const getPageName = () => {
     const path = location.pathname.replace('/', '');
-    return path.charAt(0).toUpperCase() + path.slice(1);
+    
+    // Handle specific routes with custom names
+    const customNames = {
+      'forgot-password': 'Password Recovery',
+      'ai-video': 'AI Video',
+      'pricing': 'Pricing',
+      'blog': 'Blog',
+      'careers': 'Careers',
+      'terms': 'Terms of Service',
+      'privacy': 'Privacy Policy',
+      'docs': 'Documentation',
+      'help': 'Help Center'
+    };
+    
+    return customNames[path] || path.charAt(0).toUpperCase() + path.slice(1);
+  };
+  
+  // Get custom description based on route
+  const getDescription = () => {
+    const path = location.pathname.replace('/', '');
+    
+    const customDescriptions = {
+      'forgot-password': 'Password reset functionality is coming soon. In the meantime, please contact support for assistance.',
+      'ai-video': 'Revolutionary AI-powered video generation is on its way!',
+      'pricing': 'Flexible pricing plans will be available soon.',
+      'blog': 'Our blog with tips, tutorials, and updates is coming soon!',
+      'careers': 'Exciting career opportunities will be posted here soon.',
+      'terms': 'Our Terms of Service page is being prepared. Standard platform terms apply until then.',
+      'privacy': 'Our Privacy Policy page is being finalized. We respect your privacy and protect your data.',
+      'docs': 'Comprehensive documentation is coming soon to help you get the most out of Phygital.',
+      'help': 'Our Help Center with FAQs and guides is under construction. Contact us for assistance.'
+    };
+    
+    return customDescriptions[path] || 'We\'re working hard to bring you this exciting new feature. Stay tuned for updates!';
   };
 
   return (
@@ -22,7 +68,7 @@ const ComingSoonPage = () => {
       <div className="max-w-2xl w-full">
         {/* Back Button */}
         <button
-          onClick={() => navigate(-1)}
+          onClick={handleGoBack}
           className="mb-8 flex items-center text-slate-400 hover:text-neon-blue transition-colors duration-200 group"
         >
           <ArrowLeft className="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform duration-200" />
@@ -57,8 +103,7 @@ const ComingSoonPage = () => {
           </div>
 
           <p className="text-slate-400 text-lg mb-8 max-w-lg mx-auto">
-            We're working hard to bring you this exciting new feature. 
-            Stay tuned for updates!
+            {getDescription()}
           </p>
 
           {/* Features Preview */}
@@ -82,12 +127,21 @@ const ComingSoonPage = () => {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="btn-primary px-6 py-3"
-            >
-              Go to Dashboard
-            </button>
+            {isAuthenticated ? (
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="btn-primary px-6 py-3"
+              >
+                Go to Dashboard
+              </button>
+            ) : (
+              <button
+                onClick={() => navigate('/register')}
+                className="btn-primary px-6 py-3"
+              >
+                Sign Up Free
+              </button>
+            )}
             <button
               onClick={() => navigate('/')}
               className="btn-secondary px-6 py-3"

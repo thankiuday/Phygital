@@ -21,6 +21,8 @@ import { shouldTrackAnalytics, markAnalyticsFailed } from '../utils/analyticsDed
 export const useARLogic = ({
   librariesLoaded,
   projectData,
+  userId,
+  projectId,
   isInitialized,
   isScanning,
   videoPlaying,
@@ -52,7 +54,9 @@ export const useARLogic = ({
   const anchorRef = useRef(null);
   const videoMeshRef = useRef(null);
   const blobURLRef = useRef(null); // Store blob URL for cleanup
+  const savedVideoTimeRef = useRef(0); // Store video time when target is lost for resume
   const videoViewTrackedRef = useRef(false); // Track if video view has been counted
+  const isResuming = useRef(false); // Prevent multiple simultaneous resume attempts
 
   // Throttled state updates
   const throttledSetTargetDetected = useCallback(
@@ -75,12 +79,13 @@ export const useARLogic = ({
       const video = document.createElement('video');
       video.src = projectData.videoUrl;
       video.muted = true;
-      video.loop = true;
+      video.loop = false; // Don't loop - preserve video time for resume functionality
       video.playsInline = true;
       video.crossOrigin = 'anonymous';
       video.preload = 'auto'; // Changed from 'metadata' to 'auto' for faster loading
       video.controls = false;
       video.autoplay = false; // Don't autoplay - wait for target detection
+      video.preservesPitch = false; // Better performance on mobile
       
       // Mobile-specific attributes for iOS and Android
       video.setAttribute('webkit-playsinline', 'true');
@@ -234,8 +239,12 @@ export const useARLogic = ({
       });
 
       video.addEventListener('ended', () => {
+        // When video ends, restart from beginning (manual loop for better control)
+        video.currentTime = 0;
+        savedVideoTimeRef.current = 0;
         setVideoPlaying(false);
-        addDebugMessage('🔚 Video ended', 'info');
+        addDebugMessage('🔄 Video ended, restarting...', 'info');
+        // Video will auto-play if target is still visible (handled by animation loop)
       });
 
       addDebugMessage('✅ Video mesh created successfully', 'success');
@@ -638,9 +647,15 @@ export const useARLogic = ({
         
         // Track previous state to avoid logging every frame
         let wasTargetVisible = false;
+        let hasBeenPausedThisCycle = false; // Prevent double-pausing when target is lost
         
         const animateVideoControl = () => {
           const isTargetVisible = anchorRef.current && anchorRef.current.visible;
+          
+          // Reset pause flag when target becomes visible again
+          if (isTargetVisible && !wasTargetVisible) {
+            hasBeenPausedThisCycle = false;
+          }
           
           // ✅ CRITICAL: Update video texture every frame when video is playing
           // This ensures the video texture reflects the current video frame
@@ -654,11 +669,10 @@ export const useARLogic = ({
             // ✅ Target is detected - show video mesh AND play video
             // This matches the working code pattern exactly
             
-            // Show video mesh
+            // Prepare video mesh (but don't show yet - will show after seek completes)
             if (videoMeshRef.current && !videoMeshRef.current.visible) {
-              videoMeshRef.current.visible = true;
               const timestamp = new Date().toLocaleTimeString();
-              console.log(`👁️ [${timestamp}] Video mesh shown`);
+              console.log(`👁️ [${timestamp}] Target detected, preparing video mesh`);
               console.log(`📊 [${timestamp}] Video mesh info:`, {
                 visible: videoMeshRef.current.visible,
                 position: videoMeshRef.current.position,
@@ -667,14 +681,186 @@ export const useARLogic = ({
                 videoPlaying: videoRef.current && !videoRef.current.paused,
                 videoCurrentTime: videoRef.current ? videoRef.current.currentTime : 0
               });
+              // NOTE: Mesh visibility will be set by the seek/play logic below
+              
+              // Check if video element was destroyed and needs to be recreated
+              if (!videoRef.current && videoMeshRef.current.material && videoMeshRef.current.material.map) {
+                console.log(`🔧 [${timestamp}] Video element lost, attempting to recover from texture...`);
+                // Try to get the video element from the texture
+                const texture = videoMeshRef.current.material.map;
+                if (texture.image && texture.image.tagName === 'VIDEO') {
+                  videoRef.current = texture.image;
+                  console.log(`✅ [${timestamp}] Recovered video element from texture`);
+                  
+                  // CRITICAL: Check if recovered video is playing when it shouldn't be
+                  if (!videoRef.current.paused) {
+                    // Video is playing but should be paused, save current time and pause it
+                    savedVideoTimeRef.current = videoRef.current.currentTime;
+                    videoRef.current.pause();
+                    console.log(`⏸️ [${timestamp}] Recovered video was playing unexpectedly - paused at ${savedVideoTimeRef.current.toFixed(2)}s`);
+                  }
+                } else {
+                  console.warn(`⚠️ [${timestamp}] WARNING: Could not recover video element!`);
+                }
+              }
+              
+              // Debug: Check video state immediately after target detection
+              if (videoRef.current) {
+                console.log(`🎬 [${timestamp}] Video state at detection:`, {
+                  paused: videoRef.current.paused,
+                  currentTime: videoRef.current.currentTime.toFixed(2),
+                  savedTime: savedVideoTimeRef.current.toFixed(2),
+                  readyState: videoRef.current.readyState
+                });
+              } else {
+                console.log(`⚠️ [${timestamp}] WARNING: videoRef.current is null/undefined and could not be recovered!`);
+              }
             }
             
-            // Play video if paused (resume from current time, don't restart)
-            if (videoRef.current && videoRef.current.paused) {
+            // Play video if paused (resume from saved time)
+            // CRITICAL: Prevent multiple simultaneous resume attempts
+            if (videoRef.current && videoRef.current.paused && !isResuming.current) {
+              isResuming.current = true; // Mark as resuming
               const timestamp = new Date().toLocaleTimeString();
-              console.log(`▶️ [${timestamp}] Resuming video playback from ${videoRef.current.currentTime.toFixed(2)}s`);
               
+              // Debug: Log video state before resume attempt
+              console.log(`🔍 [${timestamp}] Attempting to resume video:`, {
+                paused: true,
+                currentTime: videoRef.current.currentTime.toFixed(2),
+                savedTime: savedVideoTimeRef.current.toFixed(2),
+                readyState: videoRef.current.readyState,
+                hasVideoRef: !!videoRef.current
+              });
+              
+              // CRITICAL: Hide video mesh during entire resume process
+              if (videoMeshRef.current) {
+                videoMeshRef.current.visible = false;
+                if (savedVideoTimeRef.current > 0.1) {
+                  console.log(`🙈 [${timestamp}] Hiding video mesh during resume to prevent frame 0 flash`);
+                }
+              }
+              
+              console.log(`▶️ [${timestamp}] Starting video playback...`);
+              
+              // CRITICAL: On mobile, seeking a PAUSED video doesn't work reliably
+              // Solution: Play FIRST, then seek WHILE PLAYING, then show mesh
               videoRef.current.play().then(() => {
+                // Clear resume flag after successful play
+                isResuming.current = false;
+                const playTimestamp = new Date().toLocaleTimeString();
+                console.log(`✅ [${playTimestamp}] Video play() resolved, currentTime: ${videoRef.current.currentTime.toFixed(2)}s`);
+                
+                // CRITICAL: Wait for video decoder to stabilize BEFORE seeking
+                // Mobile browsers need 100-200ms after play() before they accept seeks
+                const targetTime = savedVideoTimeRef.current;
+                // ALWAYS seek if targetTime > 0 to force texture update, even if currentTime is close
+                if (targetTime > 0.5) { // Only skip seek if very beginning of video
+                  console.log(`⏳ [${playTimestamp}] Waiting 150ms for decoder to stabilize before seeking to ${targetTime.toFixed(2)}s...`);
+                  
+                  // Wait for decoder to stabilize, THEN seek
+                  setTimeout(() => {
+                    if (!videoRef.current || videoRef.current.paused) {
+                      console.warn(`⚠️ Video paused before seek could execute`);
+                      return;
+                    }
+                    
+                    const beforeSeek = videoRef.current.currentTime;
+                    console.log(`⏩ [${new Date().toLocaleTimeString()}] Seeking from ${beforeSeek.toFixed(2)}s to ${targetTime.toFixed(2)}s (decoder ready)...`);
+                    
+                    try {
+                      videoRef.current.currentTime = targetTime;
+                    
+                    // Poll until seek completes, then show mesh
+                    let seekAttempts = 0;
+                    const maxSeekAttempts = 30; // 600ms max wait
+                    
+                    const waitForSeek = () => {
+                      seekAttempts++;
+                      
+                      if (!videoRef.current || !videoMeshRef.current) {
+                        return; // Aborted
+                      }
+                      
+                      const currentTime = videoRef.current.currentTime;
+                      const diff = Math.abs(currentTime - targetTime);
+                      const ts = new Date().toLocaleTimeString();
+                      
+                      if (diff < 0.5 || seekAttempts >= maxSeekAttempts) {
+                        // Seek complete (or timeout), show mesh
+                        const material = videoMeshRef.current.material;
+                        if (material && material.map) {
+                          for (let i = 0; i < 5; i++) {
+                            material.map.needsUpdate = true;
+                          }
+                        }
+                        videoMeshRef.current.visible = true;
+                        
+                        if (diff < 0.5) {
+                          console.log(`👁️ [${ts}] Seek complete after ${seekAttempts * 20}ms - showing mesh at ${currentTime.toFixed(2)}s (target: ${targetTime.toFixed(2)}s)`);
+                        } else {
+                          console.warn(`⚠️ [${ts}] Seek timeout after ${seekAttempts * 20}ms - showing mesh anyway at ${currentTime.toFixed(2)}s (target: ${targetTime.toFixed(2)}s, diff: ${diff.toFixed(2)}s)`);
+                        }
+                      } else {
+                        // Still seeking, check again
+                        setTimeout(waitForSeek, 20);
+                      }
+                    };
+                    
+                      // Start checking after 50ms
+                      setTimeout(waitForSeek, 50);
+                      
+                    } catch (seekError) {
+                      console.error(`❌ [${new Date().toLocaleTimeString()}] Seek error:`, seekError);
+                      // Show mesh anyway on error
+                      if (videoMeshRef.current) {
+                        videoMeshRef.current.visible = true;
+                      }
+                    }
+                  }, 150); // Wait 150ms for decoder to stabilize
+                } else {
+                  // No seek needed, but WAIT for video to actually render correct frame
+                  const expectedTime = targetTime;
+                  console.log(`👁️ [${playTimestamp}] No seek needed (at ${videoRef.current.currentTime.toFixed(2)}s), but waiting for texture to render...`);
+                  
+                  // Poll to ensure video has moved past frame 0 and texture has updated
+                  let renderAttempts = 0;
+                  const maxRenderAttempts = 25; // 500ms max
+                  
+                  const waitForRender = () => {
+                    renderAttempts++;
+                    
+                    if (!videoRef.current || !videoMeshRef.current) {
+                      return; // Aborted
+                    }
+                    
+                    const currentTime = videoRef.current.currentTime;
+                    const ts = new Date().toLocaleTimeString();
+                    
+                    // For first play (expectedTime = 0), just show after short delay
+                    // For resume, wait until currentTime is close to expected
+                    const isCloseEnough = expectedTime === 0 ? 
+                      renderAttempts >= 5 : // First play: just wait 100ms (5 * 20ms)
+                      Math.abs(currentTime - expectedTime) < 1.0; // Resume: within 1 second
+                    
+                    if (isCloseEnough || renderAttempts >= maxRenderAttempts) {
+                      const material = videoMeshRef.current.material;
+                      if (material && material.map) {
+                        for (let i = 0; i < 5; i++) {
+                          material.map.needsUpdate = true;
+                        }
+                      }
+                      videoMeshRef.current.visible = true;
+                      console.log(`👁️ [${ts}] Texture ready after ${renderAttempts * 20}ms - showing mesh at ${currentTime.toFixed(2)}s (expected: ${expectedTime.toFixed(2)}s)`);
+                    } else {
+                      // Not ready yet, check again
+                      setTimeout(waitForRender, 20);
+                    }
+                  };
+                  
+                  // Start checking after 50ms
+                  setTimeout(waitForRender, 50);
+                }
+                
                 // Track video view when video starts playing (using global deduplication)
                 if (trackAnalytics && !videoViewTrackedRef.current) {
                   console.log('🎬 Video playing, checking if should track...', {
@@ -720,6 +906,8 @@ export const useARLogic = ({
                   console.log('ℹ️ Video view already tracked (ref)');
                 }
               }).catch(e => {
+                // Clear resume flag even on error
+                isResuming.current = false;
                 console.log(`⚠️ [${timestamp}] Auto-play failed:`, e.message);
                 addDebugMessage('💡 Tap the screen to allow video playback', 'info');
               });
@@ -745,16 +933,59 @@ export const useARLogic = ({
               console.log(`👁️ [${timestamp}] Video mesh hidden`);
             }
             
-            // Pause video but preserve current time (don't reset to beginning)
-            if (videoRef.current && !videoRef.current.paused) {
-              videoRef.current.pause();
-              const timestamp = new Date().toLocaleTimeString();
-              console.log(`⏸️ [${timestamp}] Video paused (preserving time: ${videoRef.current.currentTime.toFixed(2)}s)`);
+            // Pause video and save current time for resume
+            // Only pause if we haven't already paused in this target-lost cycle
+            if (!hasBeenPausedThisCycle) {
+              // CRITICAL: Always pause via the texture's video element (most reliable)
+              let videoElement = null;
+              
+              // First, try to get from texture (most reliable source)
+              if (videoMeshRef.current && videoMeshRef.current.material && videoMeshRef.current.material.map) {
+                const texture = videoMeshRef.current.material.map;
+                if (texture.image && texture.image.tagName === 'VIDEO') {
+                  videoElement = texture.image;
+                  // Restore videoRef if it was lost
+                  if (!videoRef.current) {
+                    videoRef.current = videoElement;
+                    const timestamp = new Date().toLocaleTimeString();
+                    console.log(`🔧 [${timestamp}] Recovered video ref from texture before pausing`);
+                  }
+                }
+              }
+              
+              // Fallback to videoRef if texture doesn't have it
+              if (!videoElement && videoRef.current) {
+                videoElement = videoRef.current;
+              }
+              
+              // Pause the video ONCE if it's playing (this ensures the actual element is paused)
+              if (videoElement && !videoElement.paused) {
+                // Save current time before pausing
+                savedVideoTimeRef.current = videoElement.currentTime;
+                videoElement.pause();
+                hasBeenPausedThisCycle = true; // Mark as paused to prevent double-pause
+                
+                // Double-check the pause took effect
+                if (videoElement.paused) {
+                  const timestamp = new Date().toLocaleTimeString();
+                  console.log(`⏸️ [${timestamp}] Video paused successfully (saved time: ${savedVideoTimeRef.current.toFixed(2)}s)`);
+                  addDebugMessage(`⏸️ Video paused at ${savedVideoTimeRef.current.toFixed(1)}s`, 'info');
+                } else {
+                  const timestamp = new Date().toLocaleTimeString();
+                  console.warn(`⚠️ [${timestamp}] WARNING: Video pause failed! Forcing pause...`);
+                  // Force pause again
+                  videoElement.pause();
+                  console.log(`⏸️ [${timestamp}] Video force-paused (saved time: ${savedVideoTimeRef.current.toFixed(2)}s)`);
+                  addDebugMessage(`⏸️ Video paused at ${savedVideoTimeRef.current.toFixed(1)}s`, 'info');
+                }
+              }
             }
             
             // Only log when state CHANGES (not every frame)
             if (wasTargetVisible) {
               wasTargetVisible = false;
+              // Reset resume flag when target is lost
+              isResuming.current = false;
               const timestamp = new Date().toLocaleTimeString();
               console.log(`🔍 [${timestamp}] TARGET LOST`);
               addDebugMessage('🔍 Target lost', 'warning');

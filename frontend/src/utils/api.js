@@ -241,10 +241,10 @@ export const analyticsAPI = {
   // Analytics tracking (now with project support)
   trackScan: (userId, scanData, projectId = null) => 
     api.post('/analytics/scan', { userId, scanData, projectId }),
-  trackVideoView: (userId, videoProgress, videoDuration, projectId = null) => 
-    api.post('/analytics/video-view', { userId, videoProgress, videoDuration, projectId }),
-  trackLinkClick: (userId, linkType, linkUrl, projectId = null) => 
-    api.post('/analytics/link-click', { userId, linkType, linkUrl, projectId }),
+  trackVideoView: (userId, videoProgress, videoDuration, projectId = null, eventId = null) => 
+    api.post('/analytics/video-view', { userId, videoProgress, videoDuration, projectId, eventId }),
+  trackLinkClick: (userId, linkType, linkUrl, projectId = null, eventId = null) => 
+    api.post('/analytics/link-click', { userId, linkType, linkUrl, projectId, eventId }),
   trackPageView: (userId, projectId = null) => 
     api.post('/analytics/page-view', { userId, projectId }),
   getAnalytics: (userId, days = 30) => api.get(`/analytics/${userId}?days=${days}`),

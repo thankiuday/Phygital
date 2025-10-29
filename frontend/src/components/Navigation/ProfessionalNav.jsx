@@ -4,7 +4,7 @@
  * Responsive and accessible
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
@@ -29,6 +29,7 @@ const ProfessionalNav = () => {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
 
   const navigation = [
     { name: 'AI Video', href: '/ai-video', icon: Sparkles, public: true, showBoth: true, isNew: true },
@@ -52,11 +53,35 @@ const ProfessionalNav = () => {
 
   const isActive = (path) => location.pathname === path;
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = (e) => {
+    // Prevent event bubbling
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Close menus
     setIsMobileMenuOpen(false);
     setIsUserMenuOpen(false);
+    
+    // Execute logout
+    logout();
   };
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+
+    if (isUserMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isUserMenuOpen]);
 
   return (
     <nav className="bg-slate-900/95 backdrop-blur-sm shadow-dark-large border-b border-slate-700/50 sticky top-0 z-40">
@@ -101,10 +126,12 @@ const ProfessionalNav = () => {
           {/* User Menu */}
           {isAuthenticated && (
             <div className="hidden md:flex items-center space-x-4">
-              <div className="relative">
+              <div className="relative" ref={userMenuRef}>
                 <button
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center space-x-2 text-sm font-medium focus:outline-none"
+                  className="flex items-center space-x-2 text-sm font-medium focus:outline-none hover:opacity-80 transition-opacity"
+                  aria-expanded={isUserMenuOpen}
+                  aria-haspopup="true"
                 >
                   <div className="w-8 h-8 bg-gradient-to-br from-neon-blue to-neon-purple rounded-full flex items-center justify-center shadow-lg">
                     <span className="text-sm font-medium text-white">
@@ -112,14 +139,14 @@ const ProfessionalNav = () => {
                     </span>
                   </div>
                   <span className="text-gradient">{user?.username}</span>
-                  <ChevronDown className="w-4 h-4 text-slate-300" />
+                  <ChevronDown className={`w-4 h-4 text-slate-300 transition-transform duration-200 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {isUserMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-slate-800/95 backdrop-blur-sm rounded-md shadow-dark-large border border-slate-700/50 py-1">
+                  <div className="absolute right-0 mt-2 w-48 bg-slate-800/95 backdrop-blur-sm rounded-md shadow-dark-large border border-slate-700/50 py-1 z-50">
                     <Link
                       to="/profile"
-                      className="flex items-center px-4 py-2 text-sm text-slate-300 hover:bg-slate-700/50 hover:text-slate-100"
+                      className="flex items-center px-4 py-2 text-sm text-slate-300 hover:bg-slate-700/50 hover:text-slate-100 transition-colors"
                       onClick={() => setIsUserMenuOpen(false)}
                     >
                       <User className="w-4 h-4 mr-3" />
@@ -127,7 +154,7 @@ const ProfessionalNav = () => {
                     </Link>
                     <button
                       onClick={handleLogout}
-                      className="flex items-center w-full px-4 py-2 text-sm text-slate-300 hover:bg-slate-700/50 hover:text-slate-100"
+                      className="flex items-center w-full px-4 py-2 text-sm text-slate-300 hover:bg-slate-700/50 hover:text-slate-100 transition-colors"
                     >
                       <LogOut className="w-4 h-4 mr-3" />
                       Logout
@@ -214,9 +241,17 @@ const ProfessionalNav = () => {
                       {user?.username}
                     </span>
                   </div>
+                  <Link
+                    to="/profile"
+                    className="flex items-center w-full px-3 py-2 text-base text-slate-300 hover:text-slate-100 hover:bg-slate-800/50 rounded-md transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <User className="w-5 h-5 mr-3" />
+                    Profile
+                  </Link>
                   <button
                     onClick={handleLogout}
-                    className="flex items-center w-full px-3 py-2 text-base text-slate-300 hover:text-slate-100 hover:bg-slate-800/50 rounded-md"
+                    className="flex items-center w-full px-3 py-2 text-base text-slate-300 hover:text-slate-100 hover:bg-slate-800/50 rounded-md transition-colors"
                   >
                     <LogOut className="w-5 h-5 mr-3" />
                     Logout
@@ -247,5 +282,6 @@ const ProfessionalNav = () => {
 };
 
 export default ProfessionalNav;
+
 
 

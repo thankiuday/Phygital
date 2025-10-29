@@ -16,7 +16,7 @@ const { v4: uuidv4 } = require('uuid');
 // Image dimensions will be handled on the frontend
 const User = require('../models/User');
 const { authenticateToken } = require('../middleware/auth');
-const { uploadToCloudinary, uploadToCloudinaryBuffer, deleteFromCloudinary, checkCloudinaryConnection } = require('../config/cloudinary');
+const { uploadToCloudinary, uploadToCloudinaryBuffer, uploadVideoToCloudinary, deleteFromCloudinary, checkCloudinaryConnection } = require('../config/cloudinary');
 const os = require('os');
 const { generateFinalDesign, cleanupTempFile } = require('../services/qrOverlayService');
 const { 
@@ -982,11 +982,17 @@ router.post('/video', authenticateToken, upload.single('video'), async (req, res
       });
     }
     
-    // For now, we'll upload the video as-is
-    // In production, you would implement video compression here
-    // using ffmpeg or similar tools
+    // Get upload options from request (optional compression/optimization)
+    const uploadOptions = {
+      compress: req.body.compress === 'true' || req.body.compress === true,
+      quality: req.body.quality || 'auto', // auto, 80, 60, etc.
+      generatePreview: true // Generate preview thumbnail
+    };
     
-    const uploadResult = await uploadToCloudinary(req.file, req.user._id, 'video');
+    console.log('📹 Video upload options:', uploadOptions);
+    
+    // Use optimized stream-based upload (faster than base64)
+    const uploadResult = await uploadVideoToCloudinary(req.file, req.user._id, uploadOptions);
     
     // Get the current user with full data
     const user = await User.findById(req.user._id);
@@ -1270,8 +1276,17 @@ router.put('/project/:projectId/video', authenticateToken, upload.single('video'
       }
     }
     
-    // Upload new video to Cloudinary
-    const uploadResult = await uploadToCloudinary(req.file, userId, 'video');
+    // Get upload options from request (optional compression/optimization)
+    const uploadOptions = {
+      compress: req.body.compress === 'true' || req.body.compress === true,
+      quality: req.body.quality || 'auto',
+      generatePreview: true
+    };
+    
+    console.log('📹 Video upload options:', uploadOptions);
+    
+    // Use optimized stream-based upload
+    const uploadResult = await uploadVideoToCloudinary(req.file, userId, uploadOptions);
     
     // Update project's video
     project.uploadedFiles.video = {
@@ -2676,10 +2691,49 @@ router.delete('/project/:projectId', authenticateToken, async (req, res) => {
         
         // Use Cloudinary's destroy method with correct resource_type
         const cloudinary = require('cloudinary').v2;
-        const deleteResult = await cloudinary.uploader.destroy(publicId, {
+        
+        // Try deletion with the public_id as-is first
+        let deleteResult = await cloudinary.uploader.destroy(publicId, {
           resource_type: type, // 'image', 'video', or 'raw'
           invalidate: true
         });
+        
+        // If not found, try searching the folder to find the actual file
+        if (deleteResult.result === 'not found') {
+          console.log(`⚠️ Not found with public_id: ${publicId}, searching folder...`);
+          
+          try {
+            // Extract folder path from public_id
+            const folderPath = publicId.split('/').slice(0, -1).join('/');
+            
+            // Search for files in that folder
+            const searchResult = await cloudinary.api.resources({
+              type: 'upload',
+              prefix: folderPath,
+              resource_type: type,
+              max_results: 10
+            });
+            
+            // Find file that matches the base name
+            const baseName = publicId.split('/').pop();
+            const matchingFile = searchResult.resources?.find(r => 
+              r.public_id === publicId || 
+              r.public_id.startsWith(publicId) ||
+              r.public_id.includes(baseName)
+            );
+            
+            if (matchingFile) {
+              console.log(`✅ Found file with actual public_id: ${matchingFile.public_id}`);
+              // Try deleting with the actual public_id
+              deleteResult = await cloudinary.uploader.destroy(matchingFile.public_id, {
+                resource_type: type,
+                invalidate: true
+              });
+            }
+          } catch (searchError) {
+            console.log(`⚠️ Could not search folder: ${searchError.message}`);
+          }
+        }
         
         if (deleteResult.result === 'ok' || deleteResult.result === 'not found') {
           console.log(`✅ Successfully deleted ${name} from Cloudinary:`, deleteResult);

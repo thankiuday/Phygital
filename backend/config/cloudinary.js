@@ -265,11 +265,28 @@ const checkCloudinaryConnection = async () => {
         console.log('✅ Cloudinary connection successful:', result);
         return true;
       } catch (cloudinaryError) {
-        console.error('❌ Cloudinary connection failed:', cloudinaryError.message);
+        // Handle different error formats
+        const errorMessage = cloudinaryError?.message || 
+                           cloudinaryError?.error?.message || 
+                           JSON.stringify(cloudinaryError) || 
+                           'Unknown error';
+        const errorStatus = cloudinaryError?.http_code || 
+                          cloudinaryError?.statusCode || 
+                          cloudinaryError?.status || 
+                          'No status';
+        
+        console.error('❌ Cloudinary connection failed:', errorMessage);
         console.error('Cloudinary Error Details:', {
-          message: cloudinaryError.message,
-          status: cloudinaryError.http_code
+          message: errorMessage,
+          status: errorStatus,
+          fullError: cloudinaryError
         });
+        
+        // Check if it's an authentication error
+        if (errorStatus === 401 || errorMessage.includes('auth')) {
+          console.error('⚠️ Authentication failed - please check your Cloudinary credentials');
+        }
+        
         return false;
       }
     } else {
@@ -294,10 +311,139 @@ const checkCloudinaryConnection = async () => {
   }
 };
 
+/**
+ * Optimized video upload using stream (faster than base64)
+ * @param {Object} file - File object from multer
+ * @param {String} userId - User ID
+ * @param {Object} options - Upload options (compression, quality, etc.)
+ * @returns {Object} Upload result with URL and metadata
+ */
+const uploadVideoToCloudinary = async (file, userId, options = {}) => {
+  const streamifier = require('streamifier');
+  
+  try {
+    console.log('=== OPTIMIZED VIDEO UPLOAD ===');
+    console.log('File size:', (file.size / (1024 * 1024)).toFixed(2), 'MB');
+    console.log('Options:', options);
+    
+    // Generate unique filename
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const fileExtension = file.originalname.split('.').pop();
+    const fileName = `video-${uniqueSuffix}`;
+    
+    // Create folder path
+    const folderPath = `phygital-zone/users/${userId}/video`;
+    
+    console.log('📁 Folder:', folderPath);
+    console.log('📄 Filename:', fileName);
+    
+    // Configure upload options
+    const uploadOptions = {
+      folder: folderPath,
+      public_id: fileName,
+      resource_type: 'video',
+      type: 'upload',
+      
+      // Large file handling
+      chunk_size: 6000000, // 6MB chunks for better reliability
+      timeout: 600000, // 10 minutes timeout
+      
+      // Quality and compression settings
+      quality: options.quality || 'auto', // auto, 80, 60, etc.
+      
+      // Format and codec optimization
+      format: options.format || fileExtension, // Keep original or convert (mp4, webm)
+      
+      // Video transformation for faster loading
+      transformation: options.compress ? [
+        {
+          video_codec: 'h264', // H.264 codec for better compatibility
+          audio_codec: 'aac', // AAC audio
+          quality: options.quality || 'auto',
+          fetch_format: 'auto'
+        }
+      ] : undefined,
+      
+      // Enable streaming for better performance
+      resource_type: 'video',
+      
+      // Eager transformations for commonly used formats
+      eager: options.generatePreview ? [
+        { 
+          width: 640, 
+          height: 360, 
+          crop: 'limit', 
+          quality: 'auto',
+          video_codec: 'h264',
+          format: 'mp4'
+        }
+      ] : undefined,
+      
+      eager_async: true, // Generate previews in background
+      
+      // Notification URL for upload progress (optional)
+      notification_url: options.webhookUrl || undefined
+    };
+    
+    console.log('⚙️ Upload configuration:', {
+      folder: uploadOptions.folder,
+      chunk_size: '6MB',
+      timeout: '10 minutes',
+      quality: uploadOptions.quality,
+      compression: !!options.compress
+    });
+    
+    // Create upload stream
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        uploadOptions,
+        (error, result) => {
+          if (error) {
+            console.error('❌ Video upload failed:', error);
+            reject(error);
+          } else {
+            console.log('✅ Video uploaded successfully');
+            console.log('📊 Upload stats:', {
+              url: result.secure_url,
+              size: (result.bytes / (1024 * 1024)).toFixed(2) + 'MB',
+              duration: result.duration ? result.duration.toFixed(2) + 's' : 'N/A',
+              format: result.format
+            });
+            
+            resolve({
+              url: result.secure_url,
+              public_id: result.public_id,
+              asset_id: result.asset_id,
+              size: result.bytes,
+              format: result.format,
+              duration: result.duration,
+              width: result.width,
+              height: result.height,
+              folder: result.folder,
+              created_at: result.created_at,
+              resource_type: result.resource_type
+            });
+          }
+        }
+      );
+      
+      // Stream the file buffer to Cloudinary
+      streamifier.createReadStream(file.buffer).pipe(uploadStream);
+      
+      console.log('🔄 Streaming video to Cloudinary...');
+    });
+    
+  } catch (error) {
+    console.error('❌ Video upload error:', error);
+    throw new Error(`Video upload failed: ${error.message}`);
+  }
+};
+
 module.exports = {
   cloudinary,
   uploadToCloudinary,
   uploadToCloudinaryBuffer,
+  uploadVideoToCloudinary,
   deleteFromCloudinary,
   checkCloudinaryConnection
 };

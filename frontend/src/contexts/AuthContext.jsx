@@ -116,15 +116,6 @@ export const AuthProvider = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState)
   const navigate = useNavigate()
 
-  // Load user on app start
-  useEffect(() => {
-    if (state.token) {
-      loadUser()
-    } else {
-      dispatch({ type: AUTH_ACTIONS.LOAD_USER_FAILURE, payload: null })
-    }
-  }, [])
-
   // Load user function
   const loadUser = async () => {
     try {
@@ -144,6 +135,17 @@ export const AuthProvider = ({ children }) => {
       })
     }
   }
+
+  // Load user on app start
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (token) {
+      loadUser()
+    } else {
+      dispatch({ type: AUTH_ACTIONS.LOAD_USER_FAILURE, payload: null })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Login function
   const login = async (email, password) => {
@@ -211,16 +213,27 @@ export const AuthProvider = ({ children }) => {
 
   // Logout function
   const logout = () => {
-    // Dispatch logout first to update state and remove token
-    dispatch({ type: AUTH_ACTIONS.LOGOUT })
-    
-    // Show success message
-    toast.success('Logged out successfully')
-    
-    // Navigate to home page after a brief delay to ensure state is updated
-    setTimeout(() => {
-      navigate('/')
-    }, 100)
+    try {
+      // First, remove token from localStorage immediately
+      localStorage.removeItem('token')
+      
+      // Dispatch logout to update state
+      dispatch({ type: AUTH_ACTIONS.LOGOUT })
+      
+      // Show success message
+      toast.success('Logged out successfully')
+      
+      // Force immediate navigation to login page to clear auth state
+      // Using window.location to force a full page reload and clear all state
+      setTimeout(() => {
+        window.location.href = '/'
+      }, 100)
+    } catch (error) {
+      console.error('Logout error:', error)
+      // Fallback: force clear everything
+      localStorage.clear()
+      window.location.href = '/'
+    }
   }
 
   // Update user function - improved to handle nested objects properly

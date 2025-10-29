@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Mail, 
   Heart,
@@ -16,25 +16,54 @@ import Logo from '../UI/Logo';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Handle section navigation (for #features, #how-it-works, etc.)
+  const handleSectionClick = (e, href) => {
+    if (href.startsWith('/#')) {
+      e.preventDefault();
+      const sectionId = href.substring(2); // Remove /#
+      
+      // If not on home page, navigate to home first
+      if (location.pathname !== '/') {
+        navigate('/');
+        // Wait for navigation, then scroll
+        setTimeout(() => {
+          const element = document.getElementById(sectionId);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 100);
+      } else {
+        // Already on home page, just scroll
+        const element = document.getElementById(sectionId);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    }
+  };
 
   const footerLinks = {
-    product: [
-      { name: 'Features', href: '/#features' },
-      { name: 'Pricing', href: '/pricing' },
-      { name: 'How It Works', href: '/#how-it-works' },
-      { name: 'Dashboard', href: '/dashboard' }
-    ],
     company: [
-      { name: 'About Us', href: '/about' },
+      { name: 'About', href: '/about' },
       { name: 'Contact', href: '/contact' },
       { name: 'Blog', href: '/blog' },
-      { name: 'Careers', href: '/careers' }
+      { name: 'Careers', href: '/careers' },
+      { name: 'Privacy', href: '/privacy' }
+    ],
+    product: [
+      { name: 'How It Works', href: '/#how-it-works', isSection: true },
+      { name: 'Dashboard', href: '/dashboard' },
+      { name: 'Analytics', href: '/analytics' },
+      { name: 'Pricing', href: '/pricing' }
     ],
     resources: [
-      { name: 'Documentation', href: '/docs' },
       { name: 'Help Center', href: '/help' },
-      { name: 'Privacy Policy', href: '/privacy' },
-      { name: 'Terms of Service', href: '/terms' }
+      { name: 'Documentation', href: '/docs' },
+      { name: 'Terms of Service', href: '/terms' },
+      { name: 'AI Video', href: '/ai-video' }
     ]
   };
 
@@ -51,8 +80,11 @@ const Footer = () => {
               <Logo size="lg" showText={true} linkTo="/" />
             </div>
             <p className="text-slate-400 text-sm mb-4 max-w-sm">
-              Transform your physical designs into interactive digital experiences. 
-              Bridge the gap between physical and digital with innovative QR technology.
+              Where the Physical World Meets Digital Storytelling.
+              Join the Phygital Movement and transform how people connect with your creations.
+            </p>
+            <p className="text-slate-500 text-xs italic max-w-sm">
+              Your Vision. Our Innovation.
             </p>
           </div>
 
@@ -64,6 +96,7 @@ const Footer = () => {
                 <li key={index}>
                   <Link
                     to={link.href}
+                    onClick={(e) => link.isSection && handleSectionClick(e, link.href)}
                     className="text-slate-400 hover:text-neon-blue text-sm transition-colors duration-200"
                   >
                     {link.name}
@@ -97,16 +130,16 @@ const Footer = () => {
               <li className="flex items-start space-x-2">
                 <Mail className="w-4 h-4 text-neon-blue mt-0.5 flex-shrink-0" />
                 <a 
-                  href="mailto:phygital.zone@gmail.com"
+                  href="mailto:hello@phygital.zone"
                   className="text-slate-400 hover:text-neon-blue text-sm transition-colors duration-200 break-all"
                 >
-                  phygital.zone@gmail.com
+                  hello@phygital.zone
                 </a>
               </li>
               <li className="flex items-start space-x-2">
                 <MapPin className="w-4 h-4 text-neon-pink mt-0.5 flex-shrink-0" />
                 <div className="text-slate-400 text-sm">
-                  <p>South Carolina, United States</p>
+                  <p>South Carolina, USA</p>
                 </div>
               </li>
             </ul>
@@ -117,15 +150,16 @@ const Footer = () => {
         <div className="border-t border-slate-700/50 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             <div className="flex items-center space-x-1 text-slate-400 text-sm">
-              <span>&copy; {currentYear} MetaDigi Labs LLC. All rights reserved.</span>
+              <span>&copy; {currentYear} MetaDigi Labs LLC.</span>
+              <span className="hidden sm:inline text-slate-500 mx-2">•</span>
+              <span className="hidden sm:inline text-gradient bg-gradient-to-r from-neon-blue to-neon-purple bg-clip-text text-transparent font-semibold">
+                Your Vision. Our Innovation.
+              </span>
             </div>
             <div className="flex items-center space-x-1 text-slate-400 text-sm">
               <span>Made with</span>
               <Heart className="w-4 h-4 text-neon-pink fill-current animate-pulse" />
-              <span>by</span>
-              <span className="text-neon-blue font-semibold">
-                MetaDigi Labs LLC
-              </span>
+              <span>for the Phygital Movement</span>
             </div>
           </div>
         </div>

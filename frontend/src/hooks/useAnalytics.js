@@ -85,6 +85,7 @@ export const useAnalytics = (userId, projectId, addDebugMessage) => {
           projectId,
           videoProgress: data.videoProgress || 100,
           videoDuration: data.videoDuration || 0,
+          eventId: data.eventId, // Include eventId for deduplication
           userAgent: navigator.userAgent
         };
       } else if (event === 'linkClick') {
@@ -93,6 +94,7 @@ export const useAnalytics = (userId, projectId, addDebugMessage) => {
           projectId,
           linkType: data.linkType || 'unknown',
           linkUrl: data.linkUrl || '',
+          eventId: data.eventId, // Include eventId for deduplication
           userAgent: navigator.userAgent
         };
       }

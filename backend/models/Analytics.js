@@ -205,11 +205,22 @@ analyticsSchema.statics.trackEvent = async function(userId, eventType, eventData
     // If projectId is provided, update project-specific analytics
     if (projectId) {
       let fieldToUpdate = 'totalScans'; // default
-      if (eventType === 'scan') fieldToUpdate = 'analytics.totalScans';
-      else if (eventType === 'videoView') fieldToUpdate = 'analytics.videoViews';
-      else if (eventType === 'linkClick') fieldToUpdate = 'analytics.linkClicks';
-      else if (eventType === 'socialMediaClick') fieldToUpdate = 'analytics.socialMediaClicks';
-      else if (eventType === 'arExperienceStart') fieldToUpdate = 'analytics.arExperienceStarts';
+      let timestampField = null;
+      
+      if (eventType === 'scan') {
+        fieldToUpdate = 'analytics.totalScans';
+        timestampField = 'analytics.lastScanAt';
+      } else if (eventType === 'videoView') {
+        fieldToUpdate = 'analytics.videoViews';
+        timestampField = 'analytics.lastVideoViewAt';
+      } else if (eventType === 'linkClick') {
+        fieldToUpdate = 'analytics.linkClicks';
+      } else if (eventType === 'socialMediaClick') {
+        fieldToUpdate = 'analytics.socialMediaClicks';
+      } else if (eventType === 'arExperienceStart') {
+        fieldToUpdate = 'analytics.arExperienceStarts';
+        timestampField = 'analytics.lastArExperienceStartAt';
+      }
       
       console.log(`📊 Updating project analytics: userId=${userId}, projectId=${projectId}, field=${fieldToUpdate}, event=${eventType}`);
       
@@ -218,10 +229,21 @@ analyticsSchema.statics.trackEvent = async function(userId, eventType, eventData
         ? new mongoose.Types.ObjectId(userId)
         : userId;
       
+      // Build update object
+      const updateObj = {
+        $inc: { [`projects.$.${fieldToUpdate}`]: 1 },
+        $set: { 'projects.$.updatedAt': new Date() }
+      };
+      
+      // Add timestamp field if applicable
+      if (timestampField) {
+        updateObj.$set[`projects.$.${timestampField}`] = new Date();
+      }
+      
       // Update the specific project's analytics
       const updateResult = await User.findOneAndUpdate(
         { _id: userObjectId, 'projects.id': projectId },
-        { $inc: { [`projects.$.${fieldToUpdate}`]: 1 } },
+        updateObj,
         { new: true }
       );
       
@@ -246,15 +268,34 @@ analyticsSchema.statics.trackEvent = async function(userId, eventType, eventData
     
     // Also update global user analytics for backward compatibility
     let globalFieldToUpdate = 'analytics.totalScans'; // default
-    if (eventType === 'scan') globalFieldToUpdate = 'analytics.totalScans';
-    else if (eventType === 'videoView') globalFieldToUpdate = 'analytics.videoViews';
-    else if (eventType === 'linkClick') globalFieldToUpdate = 'analytics.linkClicks';
-    else if (eventType === 'socialMediaClick') globalFieldToUpdate = 'analytics.socialMediaClicks';
-    else if (eventType === 'arExperienceStart') globalFieldToUpdate = 'analytics.arExperienceStarts';
+    let globalTimestampField = null;
     
-    await User.findByIdAndUpdate(userId, {
+    if (eventType === 'scan') {
+      globalFieldToUpdate = 'analytics.totalScans';
+      globalTimestampField = 'analytics.lastScanAt';
+    } else if (eventType === 'videoView') {
+      globalFieldToUpdate = 'analytics.videoViews';
+      globalTimestampField = 'analytics.lastVideoViewAt';
+    } else if (eventType === 'linkClick') {
+      globalFieldToUpdate = 'analytics.linkClicks';
+    } else if (eventType === 'socialMediaClick') {
+      globalFieldToUpdate = 'analytics.socialMediaClicks';
+    } else if (eventType === 'arExperienceStart') {
+      globalFieldToUpdate = 'analytics.arExperienceStarts';
+      globalTimestampField = 'analytics.lastArExperienceStartAt';
+    }
+    
+    // Build global update object
+    const globalUpdateObj = {
       $inc: { [globalFieldToUpdate]: 1 }
-    });
+    };
+    
+    // Add timestamp field if applicable
+    if (globalTimestampField) {
+      globalUpdateObj.$set = { [globalTimestampField]: new Date() };
+    }
+    
+    await User.findByIdAndUpdate(userId, globalUpdateObj);
     
     return analytics;
   } catch (error) {

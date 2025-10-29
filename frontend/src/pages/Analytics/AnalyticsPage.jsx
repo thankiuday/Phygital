@@ -9,6 +9,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useDataRefresh } from '../../hooks/useDataRefresh'
 import { analyticsAPI } from '../../utils/api'
 import BackButton from '../../components/UI/BackButton'
+import LocationAnalytics from '../../components/Analytics/LocationAnalytics'
 import { 
   BarChart3, 
   Eye, 
@@ -23,7 +24,8 @@ import {
   Share2,
   Clock,
   CheckCircle,
-  ArrowRight
+  ArrowRight,
+  MapPin
 } from 'lucide-react'
 import LoadingSpinner from '../../components/UI/LoadingSpinner'
 
@@ -126,14 +128,11 @@ const AnalyticsPage = () => {
       })
     }
     
-    // Apply display transformations:
-    // 1. Combine AR starts + video views
-    // 2. Divide QR scans by 2
-    // 3. Divide link clicks by 2
+    // Return raw data directly - deduplication is now handled by backend
     return {
-      totalScans: Math.round(rawData.totalScans / 2),
-      totalVideoViews: rawData.totalVideoViews + rawData.totalARStarts,
-      totalLinkClicks: Math.round(rawData.totalLinkClicks / 2),
+      totalScans: rawData.totalScans,
+      totalVideoViews: rawData.totalVideoViews,
+      totalLinkClicks: rawData.totalLinkClicks,
       totalARStarts: rawData.totalARStarts
     }
   }
@@ -184,14 +183,11 @@ const AnalyticsPage = () => {
       arExperienceStarts: 0
     }
     
-    // Apply display transformations:
-    // 1. Combine AR starts + video views
-    // 2. Divide QR scans by 2
-    // 3. Divide link clicks by 2
+    // Return raw data directly - deduplication is now handled by backend
     const projectAnalytics = {
-      totalScans: Math.round(rawProjectAnalytics.totalScans / 2),
-      videoViews: rawProjectAnalytics.videoViews + rawProjectAnalytics.arExperienceStarts,
-      linkClicks: Math.round(rawProjectAnalytics.linkClicks / 2),
+      totalScans: rawProjectAnalytics.totalScans,
+      videoViews: rawProjectAnalytics.videoViews,
+      linkClicks: rawProjectAnalytics.linkClicks,
       arExperienceStarts: rawProjectAnalytics.arExperienceStarts
     }
     
@@ -414,6 +410,28 @@ const AnalyticsPage = () => {
                 <div className="text-sm text-slate-400">Total Projects</div>
               </div>
             </div>
+          </div>
+
+          {/* Geographic Analytics Section */}
+          <div className="card mb-8">
+            <div className="card-header">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-100 flex items-center">
+                    <MapPin className="h-6 w-6 mr-2 text-primary-400" />
+                    Geographic Distribution
+                  </h2>
+                  <p className="text-slate-300">
+                    See where your QR codes are being scanned around the world
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <LocationAnalytics 
+              userId={user._id} 
+              days={selectedPeriod === '7d' ? 7 : selectedPeriod === '30d' ? 30 : 90}
+            />
           </div>
 
           {/* Latest Project Analytics */}

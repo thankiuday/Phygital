@@ -829,8 +829,10 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           const compiler = new Compiler();
           console.log('[Level QR] Starting image compilation...');
           await compiler.compileImageTargets([img], (progress) => {
-            const percentage = (progress * 100).toFixed(0);
-            console.log(`[Level QR] .mind compilation progress: ${percentage}%`);
+            // Normalize progress to 0-1 range in case compiler returns values > 1
+            const normalizedProgress = Math.min(Math.max(progress, 0), 1);
+            const percentage = (normalizedProgress * 100).toFixed(0);
+            console.log(`[Level QR] .mind compilation progress: ${percentage}% (raw: ${progress})`);
             onLoadingStart(`Compiling AR data: ${percentage}%`);
           });
           console.log('[Level QR] Image compilation completed successfully');
