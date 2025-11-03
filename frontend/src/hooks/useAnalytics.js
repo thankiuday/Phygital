@@ -79,6 +79,17 @@ export const useAnalytics = (userId, projectId, addDebugMessage) => {
             ...data
           }
         };
+        
+        console.log('📊 Track scan request:', { 
+        userId: userId || projectId, 
+        projectId, 
+        hasLocation: !!locationData,
+        debug: {
+          userIdValue: userId,
+          projectIdValue: projectId,
+          fallbackUserId: userId || projectId
+        }
+      });
       } else if (event === 'videoView') {
         requestBody = {
           userId: userId || projectId,

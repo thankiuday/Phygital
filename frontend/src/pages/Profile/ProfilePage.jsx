@@ -190,11 +190,11 @@ const ProfilePage = () => {
                 </p>
               </div>
 
-              <div className="pt-4 border-t border-slate-700">
+              <div className="pt-4 border-t border-slate-700 flex justify-start">
                 <button
                   type="submit"
                   disabled={isUpdating}
-                  className="btn-primary w-full sm:w-auto flex items-center justify-center gap-2 py-3 px-6 text-base font-medium"
+                  className="btn-primary w-full sm:w-auto inline-flex items-center justify-center gap-2 py-3 px-6 text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isUpdating ? (
                     <LoadingSpinner size="sm" />
@@ -343,11 +343,11 @@ const ProfilePage = () => {
                 )}
               </div>
 
-              <div className="pt-4 border-t border-slate-700">
+              <div className="pt-4 border-t border-slate-700 flex justify-start">
                 <button
                   type="submit"
                   disabled={isChangingPassword}
-                  className="btn-primary w-full sm:w-auto flex items-center justify-center gap-2 py-3 px-6 text-base font-medium"
+                  className="btn-primary w-full sm:w-auto inline-flex items-center justify-center gap-2 py-3 px-6 text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isChangingPassword ? (
                     <LoadingSpinner size="sm" />
@@ -361,10 +361,10 @@ const ProfilePage = () => {
               </div>
             </form>
           </div>
-        </div>
+          </div>
 
-        {/* Account Information Sidebar */}
-        <div className="space-y-6 lg:space-y-8">
+          {/* Account Information Sidebar */}
+          <div className="xl:col-span-1 space-y-6 lg:space-y-8">
           <div className="card-elevated">
             <div className="card-header">
               <div className="flex items-center gap-3 mb-2">
@@ -430,8 +430,7 @@ const ProfilePage = () => {
               </div>
             </div>
           </div>
-
-        </div>
+          </div>
         </div>
       </div>
     </div>

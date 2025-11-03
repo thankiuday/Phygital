@@ -46,7 +46,8 @@ const ProfessionalNav = () => {
   const filteredNavigation = navigation.filter(item => {
     if (item.showBoth) return true;
     if (isAuthenticated) {
-      return item.authOnly;
+      // Exclude Profile from main nav since it's shown separately in user menu
+      return item.authOnly && item.name !== 'Profile';
     }
     return item.public;
   });

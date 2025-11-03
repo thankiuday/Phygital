@@ -62,6 +62,14 @@ const ContactPage = () => {
       gradient: 'from-neon-blue to-neon-cyan'
     },
     {
+      icon: Phone,
+      title: 'Call Us',
+      details: ['(704) 966-7158'],
+      description: 'Give us a call anytime',
+      gradient: 'from-neon-green to-neon-cyan',
+      link: 'tel:+17049667158'
+    },
+    {
       icon: MapPin,
       title: 'Our Location',
       details: ['South Carolina, United States'],
@@ -349,9 +357,19 @@ const ContactPage = () => {
                             {info.title}
                           </h4>
                           {info.details.map((detail, idx) => (
-                            <p key={idx} className="text-sm text-slate-300 mb-1">
-                              {detail}
-                            </p>
+                            info.link ? (
+                              <a
+                                key={idx}
+                                href={info.link}
+                                className="text-sm text-slate-300 mb-1 hover:text-neon-blue transition-colors duration-200 block"
+                              >
+                                {detail}
+                              </a>
+                            ) : (
+                              <p key={idx} className="text-sm text-slate-300 mb-1">
+                                {detail}
+                              </p>
+                            )
                           ))}
                           <p className="text-xs text-slate-400 mt-2">
                             {info.description}

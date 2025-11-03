@@ -137,6 +137,15 @@ const Footer = () => {
                 </a>
               </li>
               <li className="flex items-start space-x-2">
+                <Phone className="w-4 h-4 text-neon-green mt-0.5 flex-shrink-0" />
+                <a 
+                  href="tel:+17049667158"
+                  className="text-slate-400 hover:text-neon-green text-sm transition-colors duration-200"
+                >
+                  (704) 966-7158
+                </a>
+              </li>
+              <li className="flex items-start space-x-2">
                 <MapPin className="w-4 h-4 text-neon-pink mt-0.5 flex-shrink-0" />
                 <div className="text-slate-400 text-sm">
                   <p>South Carolina, USA</p>

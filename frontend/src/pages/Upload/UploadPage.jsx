@@ -25,6 +25,7 @@ import {
 import LoadingSpinner from '../../components/UI/LoadingSpinner'
 import QRPositioningOverlay from '../../components/QRPositioning/QRPositioningOverlay'
 import toast from 'react-hot-toast'
+import { getUserFriendlyError, getFileError } from '../../utils/userFriendlyErrors'
 
 const UploadPage = () => {
   const { user, updateUser } = useAuth()
@@ -59,17 +60,14 @@ const UploadPage = () => {
     const file = acceptedFiles[0]
     
     // Additional client-side validation for JPG/JPEG only
+    const maxSizeMB = 20;
+    const maxSize = maxSizeMB * 1024 * 1024;
     const allowedTypes = ['image/jpeg', 'image/jpg'];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error('Only JPG/JPEG files are supported. Please convert your image.');
-      return;
-    }
     
-    // Check file size (20MB limit)
-    const maxSize = 20 * 1024 * 1024; // 20MB
-    if (file.size > maxSize) {
-      const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
-      toast.error(`Design file size must be less than 20MB. Your file is ${fileSizeMB}MB. Please compress your image.`);
+    // Check for file errors
+    const fileError = getFileError(file, maxSizeMB, ['jpg', 'jpeg']);
+    if (fileError) {
+      toast.error(fileError.message, { duration: 5000 });
       return;
     }
     
@@ -114,7 +112,9 @@ const UploadPage = () => {
     } catch (error) {
       setUploadProgress(0)
       setIsUploading(false)
-      toast.error('Failed to upload design')
+      const friendlyMessage = getUserFriendlyError(error, 'upload');
+      toast.error(friendlyMessage);
+      console.error('Design upload error:', error);
     }
   }, [updateUser])
 
@@ -160,20 +160,15 @@ const UploadPage = () => {
       setIsUploading(true)
       setUploadProgress(0)
 
-      // Simulate progress
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval)
-            return 90
-          }
-          return prev + 5
-        })
-      }, 300)
-
-      const response = await uploadAPI.uploadVideo(formData)
+      const response = await uploadAPI.uploadVideo(formData, {
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total
+          )
+          setUploadProgress(percentCompleted)
+        }
+      })
       
-      clearInterval(progressInterval)
       setUploadProgress(100)
       
       updateUser(response.data.data.user)
@@ -186,7 +181,9 @@ const UploadPage = () => {
     } catch (error) {
       setUploadProgress(0)
       setIsUploading(false)
-      toast.error('Failed to upload video')
+      const friendlyMessage = getUserFriendlyError(error, 'upload');
+      toast.error(friendlyMessage);
+      console.error('Video upload error:', error);
     }
   }, [updateUser])
 
@@ -273,9 +270,10 @@ const UploadPage = () => {
       toast.dismiss(loadingToast);
       toast.success('Composite design saved successfully!');
     } catch (error) {
-      console.error('Save composite design error:', error);
       toast.dismiss(loadingToast);
-      toast.error(`Failed to save composite design: ${error.message}`);
+      const friendlyMessage = getUserFriendlyError(error, 'save');
+      toast.error(friendlyMessage);
+      console.error('Save composite design error:', error);
     }
   }
 
@@ -285,7 +283,9 @@ const UploadPage = () => {
       await uploadAPI.updateSocialLinks(socialLinks)
       toast.success('Social links updated!')
     } catch (error) {
-      toast.error('Failed to update social links')
+      const friendlyMessage = getUserFriendlyError(error, 'save');
+      toast.error(friendlyMessage);
+      console.error('Update social links error:', error);
     }
   }
 
@@ -297,7 +297,9 @@ const UploadPage = () => {
       setFinalDesignPreview(response.data.data.preview)
       toast.success('Preview generated!')
     } catch (error) {
-      toast.error('Failed to generate preview')
+      const friendlyMessage = getUserFriendlyError(error, 'load');
+      toast.error(friendlyMessage);
+      console.error('Generate preview error:', error);
     } finally {
       setIsGeneratingPreview(false)
     }
@@ -398,7 +400,8 @@ const UploadPage = () => {
       
     } catch (error) {
       console.error('Download preparation failed:', error);
-      toast.error(`Download failed: ${error.message}`);
+      const friendlyMessage = getUserFriendlyError(error, 'download');
+      toast.error(friendlyMessage);
       setIsDownloading(false);
     }
   }
@@ -432,7 +435,8 @@ const UploadPage = () => {
       
     } catch (error) {
       console.error('Create AR experience error:', error);
-      toast.error(`Failed to create AR experience: ${error.message}`);
+      const friendlyMessage = getUserFriendlyError(error, 'upload');
+      toast.error(friendlyMessage);
     } finally {
       setIsCreatingAR(false);
     }

@@ -55,17 +55,17 @@ const LoginPage = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-dark-mesh py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+    <div className="min-h-screen flex items-center justify-center bg-dark-mesh py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-6 sm:space-y-8">
         {/* Header */}
         <div className="text-center">
           <div className="mx-auto h-10 w-10 sm:h-12 sm:w-12 bg-button-gradient rounded-lg flex items-center justify-center shadow-glow">
             <Lock className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
           </div>
-          <h2 className="mt-6 text-3xl font-bold text-slate-100">
+          <h2 className="mt-4 sm:mt-6 text-2xl sm:text-3xl font-bold text-slate-100">
             Sign in to your account
           </h2>
-          <p className="mt-2 text-sm text-slate-300">
+          <p className="mt-2 text-xs sm:text-sm text-slate-300">
             Or{' '}
             <Link
               to="/register"
@@ -77,7 +77,7 @@ const LoginPage = () => {
         </div>
 
         {/* Form */}
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
+        <form className="mt-6 sm:mt-8 space-y-4 sm:space-y-6" onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-4">
             {/* Email Field */}
             <div>
@@ -98,12 +98,12 @@ const LoginPage = () => {
                   })}
                   type="email"
                   autoComplete="email"
-                  className={`input pl-11 sm:pl-12 ${errors.email ? 'input-error' : ''}`}
+                  className={`input pl-10 sm:pl-12 w-full ${errors.email ? 'input-error' : ''}`}
                   placeholder="Enter your email"
                 />
               </div>
               {errors.email && (
-                <p className="mt-1 text-sm text-neon-red">{errors.email.message}</p>
+                <p className="mt-1 text-xs sm:text-sm text-neon-red">{errors.email.message}</p>
               )}
             </div>
 
@@ -126,57 +126,57 @@ const LoginPage = () => {
                   })}
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
-                  className={`input pl-11 sm:pl-12 pr-11 sm:pr-12 ${errors.password ? 'input-error' : ''}`}
+                  className={`input pl-10 sm:pl-12 pr-10 sm:pr-12 w-full ${errors.password ? 'input-error' : ''}`}
                   placeholder="Enter your password"
                 />
                   <button
                     type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center z-20"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center z-20 hover:opacity-70 transition-opacity"
                     onClick={() => setShowPassword(!showPassword)}
                   >
                   {showPassword ? (
-                    <EyeOff className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-300" />
+                    <EyeOff className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400 hover:text-slate-300" />
                   ) : (
-                    <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-300" />
+                    <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400 hover:text-slate-300" />
                   )}
                 </button>
               </div>
               {errors.password && (
-                <p className="mt-1 text-sm text-neon-red">{errors.password.message}</p>
+                <p className="mt-1 text-xs sm:text-sm text-neon-red">{errors.password.message}</p>
               )}
             </div>
           </div>
 
           {/* Error Message */}
           {errors.root && (
-            <div className="bg-red-900/20 border border-neon-red/30 rounded-md p-4">
-              <p className="text-sm text-neon-red">{errors.root.message}</p>
+            <div className="bg-red-900/20 border border-neon-red/30 rounded-md p-3 sm:p-4">
+              <p className="text-xs sm:text-sm text-neon-red">{errors.root.message}</p>
             </div>
           )}
 
           {/* Submit Button */}
-          <div>
+          <div className="pt-2">
             <button
               type="submit"
               disabled={isLoading}
-              className="btn-primary w-full"
+              className="btn-primary w-full inline-flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <LoadingSpinner size="sm" />
               ) : (
                 <>
                   Sign in
-                  <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 group-hover:translate-x-1 transition-transform duration-200" />
+                  <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 transition-transform duration-200" />
                 </>
               )}
             </button>
           </div>
 
           {/* Forgot Password */}
-          <div className="text-center">
+          <div className="text-center pt-2">
             <Link
               to="/forgot-password"
-              className="text-sm text-neon-blue hover:text-neon-cyan transition-colors duration-200"
+              className="text-xs sm:text-sm text-neon-blue hover:text-neon-cyan transition-colors duration-200"
             >
               Forgot your password?
             </Link>

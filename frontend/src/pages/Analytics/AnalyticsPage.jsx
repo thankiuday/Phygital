@@ -29,6 +29,199 @@ import {
 } from 'lucide-react'
 import LoadingSpinner from '../../components/UI/LoadingSpinner'
 
+// Component to render individual project analytics
+const ProjectAnalyticsCard = ({ project, user, analytics, isLatest = false, selectedPeriod }) => {
+  const [showLocationAnalytics, setShowLocationAnalytics] = useState(false)
+  
+  // Get project-specific analytics
+  const projectId = project.id  // Use project.id (timestamp ID), not _id (MongoDB ObjectId)
+  const filteredProjectData = analytics?.projects?.find(p => p.projectId === projectId)
+  
+  const rawProjectAnalytics = filteredProjectData || project.analytics || {
+    totalScans: 0,
+    videoViews: 0,
+    linkClicks: 0,
+    arExperienceStarts: 0
+  }
+  
+  const projectAnalytics = {
+    totalScans: rawProjectAnalytics.totalScans,
+    videoViews: rawProjectAnalytics.videoViews,
+    linkClicks: rawProjectAnalytics.linkClicks,
+    arExperienceStarts: rawProjectAnalytics.arExperienceStarts
+  }
+
+  // Calculate project progress
+  const getProjectProgress = (project) => {
+    if (!project) return 0
+    let completedSteps = 0
+    const totalSteps = 4
+    const hasDesign = project.uploadedFiles?.design?.url
+    const hasVideo = project.uploadedFiles?.video?.url
+    const hasQR = project.uploadedFiles?.mindTarget?.generated || (project.qrPosition?.x !== 0 || project.qrPosition?.y !== 0)
+    const hasSocial = project.socialLinks ? Object.values(project.socialLinks).some(link => link && link.trim() !== '') : false
+    if (hasDesign) completedSteps++
+    if (hasVideo) completedSteps++
+    if (hasQR) completedSteps++
+    if (hasSocial) completedSteps++
+    return Math.round((completedSteps / totalSteps) * 100)
+  }
+
+  const isProjectComplete = (project) => {
+    if (!project) return false
+    const hasDesign = project.uploadedFiles?.design?.url
+    const hasVideo = project.uploadedFiles?.video?.url
+    const hasQR = project.uploadedFiles?.mindTarget?.generated || (project.qrPosition?.x !== 0 || project.qrPosition?.y !== 0)
+    const hasSocial = project.socialLinks ? Object.values(project.socialLinks).some(link => link && link.trim() !== '') : false
+    return hasDesign && hasVideo && hasQR && hasSocial
+  }
+
+  const projectProgress = getProjectProgress(project)
+  const isComplete = isProjectComplete(project)
+  
+  return (
+    <div className={`p-6 rounded-lg border-2 transition-all duration-200 ${
+      isComplete 
+        ? 'border-neon-green/30 bg-green-900/20' 
+        : 'border-slate-600/50 bg-slate-800/50'
+    } ${isLatest ? 'ring-2 ring-neon-blue/30' : ''}`}>
+      
+      {/* Project Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center">
+          <div className={`p-3 rounded-lg mr-4 ${
+            isComplete ? 'bg-green-900/30' : 'bg-slate-700'
+          }`}>
+            {isComplete ? (
+              <CheckCircle className="h-6 w-6 text-neon-green" />
+            ) : (
+              <Clock className="h-6 w-6 text-slate-300" />
+            )}
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-slate-100">
+              {project.name || `Project ${project.id}`}
+              {isLatest && <span className="ml-2 text-xs bg-neon-blue/20 text-neon-blue px-2 py-1 rounded">Latest</span>}
+              {filteredProjectData && <span className="ml-2 text-xs bg-neon-cyan/20 text-neon-cyan px-2 py-1 rounded">Filtered</span>}
+            </h3>
+            <p className="text-sm text-slate-400">
+              Created {new Date(project.createdAt).toLocaleDateString()}
+            </p>
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-sm font-medium text-slate-100">{projectProgress}%</div>
+          <div className="text-xs text-slate-400">
+            {isComplete ? 'Complete' : 'In Progress'}
+          </div>
+        </div>
+      </div>
+
+      {/* Progress Bar */}
+      <div className="mb-6">
+        <div className="progress-bar">
+          <div 
+            className={`progress-bar-fill ${
+              isComplete ? 'bg-neon-green' : 'bg-gradient-to-r from-neon-blue to-neon-purple'
+            }`}
+            style={{ width: `${projectProgress}%` }}
+          ></div>
+        </div>
+      </div>
+
+      {/* Analytics Metrics */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="text-center p-4 bg-slate-800/50 rounded-lg">
+          <div className="flex items-center justify-center mb-2">
+            <Eye className="h-5 w-5 text-neon-blue" />
+          </div>
+          <div className="text-2xl font-bold text-slate-100">{projectAnalytics.totalScans}</div>
+          <div className="text-xs text-slate-400">QR Scans</div>
+        </div>
+        
+        <div className="text-center p-4 bg-slate-800/50 rounded-lg">
+          <div className="flex items-center justify-center mb-2">
+            <Video className="h-5 w-5 text-neon-green" />
+          </div>
+          <div className="text-2xl font-bold text-slate-100">{projectAnalytics.videoViews}</div>
+          <div className="text-xs text-slate-400">Video Views</div>
+        </div>
+        
+        <div className="text-center p-4 bg-slate-800/50 rounded-lg">
+          <div className="flex items-center justify-center mb-2">
+            <Share2 className="h-5 w-5 text-neon-purple" />
+          </div>
+          <div className="text-2xl font-bold text-slate-100">{projectAnalytics.linkClicks}</div>
+          <div className="text-xs text-slate-400">Link Clicks</div>
+        </div>
+        
+        <div className="text-center p-4 bg-slate-800/50 rounded-lg">
+          <div className="flex items-center justify-center mb-2">
+            <QrCode className="h-5 w-5 text-neon-orange" />
+          </div>
+          <div className="text-2xl font-bold text-slate-100">{projectAnalytics.arExperienceStarts}</div>
+          <div className="text-xs text-slate-400">AR Starts</div>
+        </div>
+      </div>
+
+      {/* Conversion Rates */}
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="p-4 bg-blue-900/20 border border-blue-600/30 rounded-lg">
+          <h4 className="text-sm font-medium text-neon-blue mb-2">Scan to View Rate</h4>
+          <p className="text-xl font-bold text-neon-blue">
+            {projectAnalytics.totalScans > 0 
+              ? Math.round((projectAnalytics.videoViews / projectAnalytics.totalScans) * 100)
+              : 0}%
+          </p>
+          <p className="text-xs text-slate-300">Users who watched video after scanning</p>
+        </div>
+        
+        <div className="p-4 bg-green-900/20 border border-green-600/30 rounded-lg">
+          <h4 className="text-sm font-medium text-neon-green mb-2">Social Engagement</h4>
+          <p className="text-xl font-bold text-neon-green">
+            {projectAnalytics.videoViews > 0 
+              ? Math.round((projectAnalytics.linkClicks / projectAnalytics.videoViews) * 100)
+              : 0}%
+          </p>
+          <p className="text-xs text-slate-300">Users who clicked social links after viewing</p>
+        </div>
+      </div>
+
+      {/* Location Analytics Toggle */}
+      <div className="mt-6 border-t border-slate-600/30 pt-6">
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            setShowLocationAnalytics(!showLocationAnalytics);
+          }}
+          className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-neon-blue hover:text-neon-cyan transition-colors duration-200 rounded-lg hover:bg-slate-700/30"
+        >
+          <div className="flex items-center">
+            <MapPin className="w-5 h-5 mr-2" />
+            View Location Analytics
+          </div>
+          {showLocationAnalytics ? (
+            <ChevronUp className="w-5 h-5" />
+          ) : (
+            <ChevronDown className="w-5 h-5" />
+          )}
+        </button>
+      </div>
+
+      {/* Expandable Location Analytics */}
+      {showLocationAnalytics && (
+        <div className="mt-4">
+          <LocationAnalytics
+            userId={user._id}
+            projectId={String(projectId)}
+            days={selectedPeriod === '7d' ? 7 : selectedPeriod === '30d' ? 30 : 90}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
 const AnalyticsPage = () => {
   const { user, getProjectStats, isProjectComplete, loadUser } = useAuth()
   const [analytics, setAnalytics] = useState(null)
@@ -89,52 +282,36 @@ const AnalyticsPage = () => {
   // Get project statistics
   const projectStats = getProjectStats()
 
-  // Calculate aggregated analytics - USE FILTERED DATA FROM BACKEND
+  // Calculate aggregated analytics - ALWAYS SUM ALL PROJECTS (not filtered by period)
+  // The overall summary should show total counts across all projects regardless of time filter
   const getAggregatedAnalytics = () => {
-    let rawData;
-    
-    // Prioritize filtered analytics from backend API
-    if (analytics?.overview) {
-      rawData = {
-        totalScans: analytics.overview.totalScans || 0,
-        totalVideoViews: analytics.overview.totalVideoViews || 0,
-        totalLinkClicks: analytics.overview.totalLinkClicks || 0,
-        totalARStarts: analytics.overview.totalARStarts || 0
-      }
-    }
-    // Fallback to project totals only if no analytics data
-    else if (!user?.projects) {
-      rawData = {
+    // Always calculate from all user projects to get true totals
+    if (!user?.projects || user.projects.length === 0) {
+      return {
         totalScans: 0,
         totalVideoViews: 0,
         totalLinkClicks: 0,
         totalARStarts: 0
       }
     }
-    else {
-      rawData = user.projects.reduce((totals, project) => {
-        const projectAnalytics = project.analytics || {}
-        return {
-          totalScans: totals.totalScans + (projectAnalytics.totalScans || 0),
-          totalVideoViews: totals.totalVideoViews + (projectAnalytics.videoViews || 0),
-          totalLinkClicks: totals.totalLinkClicks + (projectAnalytics.linkClicks || 0),
-          totalARStarts: totals.totalARStarts + (projectAnalytics.arExperienceStarts || 0)
-        }
-      }, {
-        totalScans: 0,
-        totalVideoViews: 0,
-        totalLinkClicks: 0,
-        totalARStarts: 0
-      })
-    }
     
-    // Return raw data directly - deduplication is now handled by backend
-    return {
-      totalScans: rawData.totalScans,
-      totalVideoViews: rawData.totalVideoViews,
-      totalLinkClicks: rawData.totalLinkClicks,
-      totalARStarts: rawData.totalARStarts
-    }
+    // Sum analytics from all projects
+    const totals = user.projects.reduce((acc, project) => {
+      const projectAnalytics = project.analytics || {}
+      return {
+        totalScans: acc.totalScans + (projectAnalytics.totalScans || 0),
+        totalVideoViews: acc.totalVideoViews + (projectAnalytics.videoViews || 0),
+        totalLinkClicks: acc.totalLinkClicks + (projectAnalytics.linkClicks || 0),
+        totalARStarts: acc.totalARStarts + (projectAnalytics.arExperienceStarts || 0)
+      }
+    }, {
+      totalScans: 0,
+      totalVideoViews: 0,
+      totalLinkClicks: 0,
+      totalARStarts: 0
+    })
+    
+    return totals
   }
 
   const aggregatedAnalytics = getAggregatedAnalytics()
@@ -165,142 +342,6 @@ const AnalyticsPage = () => {
     { value: '30d', label: 'Last 30 days' },
     { value: '90d', label: 'Last 90 days' }
   ]
-
-  // Component to render individual project analytics
-  const ProjectAnalyticsCard = ({ project, isLatest = false }) => {
-    const projectProgress = getProjectProgress(project)
-    const isComplete = isProjectComplete(project)
-    
-    // Get project-specific analytics
-    // Try to get filtered data from analytics response first, then fall back to project data
-    const projectId = project._id || project.id
-    const filteredProjectData = analytics?.projects?.find(p => p.projectId === projectId)
-    
-    const rawProjectAnalytics = filteredProjectData || project.analytics || {
-      totalScans: 0,
-      videoViews: 0,
-      linkClicks: 0,
-      arExperienceStarts: 0
-    }
-    
-    // Return raw data directly - deduplication is now handled by backend
-    const projectAnalytics = {
-      totalScans: rawProjectAnalytics.totalScans,
-      videoViews: rawProjectAnalytics.videoViews,
-      linkClicks: rawProjectAnalytics.linkClicks,
-      arExperienceStarts: rawProjectAnalytics.arExperienceStarts
-    }
-    
-    return (
-      <div className={`p-6 rounded-lg border-2 transition-all duration-200 ${
-        isComplete 
-          ? 'border-neon-green/30 bg-green-900/20' 
-          : 'border-slate-600/50 bg-slate-800/50'
-      } ${isLatest ? 'ring-2 ring-neon-blue/30' : ''}`}>
-        
-        {/* Project Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center">
-            <div className={`p-3 rounded-lg mr-4 ${
-              isComplete ? 'bg-green-900/30' : 'bg-slate-700'
-            }`}>
-              {isComplete ? (
-                <CheckCircle className="h-6 w-6 text-neon-green" />
-              ) : (
-                <Clock className="h-6 w-6 text-slate-300" />
-              )}
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-slate-100">
-                {project.name || `Project ${project.id}`}
-                {isLatest && <span className="ml-2 text-xs bg-neon-blue/20 text-neon-blue px-2 py-1 rounded">Latest</span>}
-                {filteredProjectData && <span className="ml-2 text-xs bg-neon-cyan/20 text-neon-cyan px-2 py-1 rounded">Filtered</span>}
-              </h3>
-              <p className="text-sm text-slate-400">
-                Created {new Date(project.createdAt).toLocaleDateString()}
-              </p>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="text-sm font-medium text-slate-100">{projectProgress}%</div>
-            <div className="text-xs text-slate-400">
-              {isComplete ? 'Complete' : 'In Progress'}
-            </div>
-          </div>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="mb-6">
-          <div className="progress-bar">
-            <div 
-              className={`progress-bar-fill ${
-                isComplete ? 'bg-neon-green' : 'bg-gradient-to-r from-neon-blue to-neon-purple'
-              }`}
-              style={{ width: `${projectProgress}%` }}
-            ></div>
-          </div>
-        </div>
-
-        {/* Analytics Metrics */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="text-center p-4 bg-slate-800/50 rounded-lg">
-            <div className="flex items-center justify-center mb-2">
-              <Eye className="h-5 w-5 text-neon-blue" />
-            </div>
-            <div className="text-2xl font-bold text-slate-100">{projectAnalytics.totalScans}</div>
-            <div className="text-xs text-slate-400">QR Scans</div>
-          </div>
-          
-          <div className="text-center p-4 bg-slate-800/50 rounded-lg">
-            <div className="flex items-center justify-center mb-2">
-              <Video className="h-5 w-5 text-neon-green" />
-            </div>
-            <div className="text-2xl font-bold text-slate-100">{projectAnalytics.videoViews}</div>
-            <div className="text-xs text-slate-400">Video Views</div>
-          </div>
-          
-          <div className="text-center p-4 bg-slate-800/50 rounded-lg">
-            <div className="flex items-center justify-center mb-2">
-              <Share2 className="h-5 w-5 text-neon-purple" />
-            </div>
-            <div className="text-2xl font-bold text-slate-100">{projectAnalytics.linkClicks}</div>
-            <div className="text-xs text-slate-400">Link Clicks</div>
-          </div>
-          
-          <div className="text-center p-4 bg-slate-800/50 rounded-lg">
-            <div className="flex items-center justify-center mb-2">
-              <QrCode className="h-5 w-5 text-neon-orange" />
-            </div>
-            <div className="text-2xl font-bold text-slate-100">{projectAnalytics.arExperienceStarts}</div>
-            <div className="text-xs text-slate-400">AR Starts</div>
-          </div>
-        </div>
-
-        {/* Conversion Rates */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-4 bg-blue-900/20 border border-blue-600/30 rounded-lg">
-            <h4 className="text-sm font-medium text-neon-blue mb-2">Scan to View Rate</h4>
-            <p className="text-xl font-bold text-neon-blue">
-              {projectAnalytics.totalScans > 0 
-                ? Math.round((projectAnalytics.videoViews / projectAnalytics.totalScans) * 100)
-                : 0}%
-            </p>
-            <p className="text-xs text-slate-300">Users who watched video after scanning</p>
-          </div>
-          
-          <div className="p-4 bg-green-900/20 border border-green-600/30 rounded-lg">
-            <h4 className="text-sm font-medium text-neon-green mb-2">Social Engagement</h4>
-            <p className="text-xl font-bold text-neon-green">
-              {projectAnalytics.videoViews > 0 
-                ? Math.round((projectAnalytics.linkClicks / projectAnalytics.videoViews) * 100)
-                : 0}%
-            </p>
-            <p className="text-xs text-slate-300">Users who clicked social links after viewing</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   if (isLoading) {
     return (
@@ -440,6 +481,9 @@ const AnalyticsPage = () => {
               <h3 className="text-lg font-semibold text-slate-100 mb-6">Latest Project Analytics</h3>
               <ProjectAnalyticsCard 
                 project={user.projects[user.projects.length - 1]} 
+                user={user}
+                analytics={analytics}
+                selectedPeriod={selectedPeriod}
                 isLatest={true}
               />
             </div>
@@ -476,6 +520,9 @@ const AnalyticsPage = () => {
                   <ProjectAnalyticsCard 
                     key={project.id || index} 
                     project={project}
+                    user={user}
+                    analytics={analytics}
+                    selectedPeriod={selectedPeriod}
                   />
                 ))}
               </div>

@@ -31,9 +31,21 @@ import AIVideoPage from './pages/AIVideo/AIVideoPage'
 import ScanPage from './pages/ScanPage'
 import ComingSoonPage from './pages/ComingSoon/ComingSoonPage'
 import NotFoundPage from './pages/NotFoundPage'
+import MaintenancePage from './pages/Maintenance/MaintenancePage'
+
+// Maintenance mode check
+import { isMaintenanceModeEnabled } from './config/maintenance'
 
 function App() {
   const { isLoading, isAuthenticated } = useAuth()
+
+  // Check if maintenance mode is enabled
+  const maintenanceMode = isMaintenanceModeEnabled()
+
+  // Show maintenance page if enabled
+  if (maintenanceMode) {
+    return <MaintenancePage />
+  }
 
   // Show loading spinner while checking authentication
   if (isLoading) {

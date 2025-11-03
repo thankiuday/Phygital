@@ -23,9 +23,7 @@ import {
   MessageSquare,
   FileText,
   Loader2,
-  PartyPopper,
-  Linkedin,
-  Mail
+  PartyPopper
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
@@ -360,67 +358,6 @@ const AIVideoPage = () => {
                 </div>
               )
             })}
-          </div>
-        </div>
-      </section>
-
-      {/* Meet Our Team Section */}
-      <section className="py-16 sm:py-24 bg-slate-900/50 relative">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12 sm:mb-16">
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-100 mb-4">
-              Meet Our <span className="text-gradient">Team</span>
-            </h2>
-            <p className="text-lg sm:text-xl text-slate-300 max-w-2xl mx-auto">
-              The brilliant mind behind this innovative technology
-            </p>
-          </div>
-
-          <div className="max-w-md mx-auto">
-            <div className="card-elevated p-8 rounded-2xl border border-slate-600/50 hover:border-neon-blue/50 transition-all duration-300 hover:scale-105 group">
-              {/* Avatar */}
-              <div className="relative mb-6">
-                <div className="w-32 h-32 mx-auto rounded-2xl bg-gradient-to-br from-neon-blue to-neon-purple p-1 group-hover:scale-110 transition-transform duration-300">
-                  <div className="w-full h-full bg-slate-900 rounded-2xl flex items-center justify-center">
-                    <span className="text-6xl">🧑‍💻</span>
-                  </div>
-                </div>
-                {/* Decorative glow */}
-                <div className="absolute inset-0 bg-gradient-to-br from-neon-blue/20 to-neon-purple/20 rounded-2xl blur-2xl -z-10 group-hover:blur-3xl transition-all duration-300"></div>
-              </div>
-
-              {/* Name & Title */}
-              <div className="text-center mb-4">
-                <h3 className="text-2xl font-bold text-gradient mb-2">
-                  Uday Thanki
-                </h3>
-                <p className="text-neon-blue font-semibold mb-3">
-                  Full Stack Developer
-                </p>
-                <p className="text-sm text-slate-300 leading-relaxed">
-                  Innovative MERN stack developer passionate about building scalable web applications 
-                  and delivering seamless user experiences through modern technologies.
-                </p>
-              </div>
-
-              {/* Social Links */}
-              <div className="flex justify-center gap-4 pt-4 border-t border-slate-700/50">
-                <a
-                  href="https://www.linkedin.com/in/uday-thanki-b1491a272/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-10 h-10 rounded-lg bg-slate-800/50 hover:bg-neon-blue/20 border border-slate-600/50 hover:border-neon-blue/50 flex items-center justify-center transition-all duration-300 hover:scale-110 group/social"
-                >
-                  <Linkedin className="w-5 h-5 text-slate-400 group-hover/social:text-neon-blue transition-colors" />
-                </a>
-                <a
-                  href="mailto:udaythanki2@gmail.com"
-                  className="w-10 h-10 rounded-lg bg-slate-800/50 hover:bg-neon-pink/20 border border-slate-600/50 hover:border-neon-pink/50 flex items-center justify-center transition-all duration-300 hover:scale-110 group/social"
-                >
-                  <Mail className="w-5 h-5 text-slate-400 group-hover/social:text-neon-pink transition-colors" />
-                </a>
-              </div>
-            </div>
           </div>
         </div>
       </section>

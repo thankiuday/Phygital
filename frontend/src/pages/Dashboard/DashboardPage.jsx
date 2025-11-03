@@ -168,8 +168,8 @@ const DashboardPage = () => {
         
         {/* Project Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
-          <div className="flex items-center">
-            <div className={`p-2 rounded-lg mr-3 ${
+          <div className="flex items-center min-w-0 flex-1">
+            <div className={`p-2 rounded-lg mr-3 flex-shrink-0 ${
               isComplete ? 'bg-green-900/30' : 'bg-slate-700'
             }`}>
               {isComplete ? (
@@ -179,19 +179,21 @@ const DashboardPage = () => {
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <h3 className="font-medium text-slate-100 truncate">
+              <h3 className="font-medium text-slate-100 truncate text-sm sm:text-base">
                 {project.name || `Project ${project.id}`}
-                {isLatest && <span className="ml-2 text-xs bg-neon-blue/20 text-neon-blue px-2 py-1 rounded">Latest</span>}
+                {isLatest && <span className="ml-2 text-xs bg-neon-blue/20 text-neon-blue px-2 py-1 rounded whitespace-nowrap">Latest</span>}
               </h3>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-400 truncate">
                 Created {new Date(project.createdAt).toLocaleDateString()}
               </p>
             </div>
           </div>
-          <div className="text-center sm:text-right">
-            <div className="text-lg sm:text-sm font-medium text-slate-100">{projectProgress}%</div>
-            <div className="text-xs text-slate-400">
-              {isComplete ? 'Complete' : `${projectProgress}/100`}
+          <div className="flex items-center justify-start sm:justify-end sm:flex-shrink-0 gap-2">
+            <div className="text-right">
+              <div className="text-lg sm:text-xl font-bold text-slate-100">{projectProgress}%</div>
+              <div className="text-xs text-slate-400">
+                {isComplete ? 'Complete' : `${projectProgress}/100`}
+              </div>
             </div>
           </div>
         </div>
@@ -235,11 +237,11 @@ const DashboardPage = () => {
         </div>
 
         {/* Action Button */}
-        <div className="mt-4 pt-3 border-t border-slate-700/50">
+        <div className="mt-4 pt-3 border-t border-slate-700/50 flex justify-start">
           {isComplete ? (
             <Link
               to="/projects"
-              className="w-full sm:w-auto inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-neon-green hover:text-neon-cyan bg-green-900/20 hover:bg-green-900/30 border border-green-600/30 hover:border-green-500/50 rounded-lg transition-all duration-200"
+              className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-neon-green hover:text-neon-cyan bg-green-900/20 hover:bg-green-900/30 border border-green-600/30 hover:border-green-500/50 rounded-lg transition-all duration-200"
             >
               Manage Project
               <ArrowRight className="ml-2 h-4 w-4" />
@@ -247,7 +249,7 @@ const DashboardPage = () => {
           ) : (
             <Link
               to={`/projects?edit=${project._id || project.id}`}
-              className="w-full sm:w-auto inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-neon-blue hover:text-neon-cyan bg-blue-900/20 hover:bg-blue-900/30 border border-blue-600/30 hover:border-blue-500/50 rounded-lg transition-all duration-200"
+              className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-neon-blue hover:text-neon-cyan bg-blue-900/20 hover:bg-blue-900/30 border border-blue-600/30 hover:border-blue-500/50 rounded-lg transition-all duration-200"
             >
               Continue Project
               <ArrowRight className="ml-2 h-4 w-4" />
@@ -263,23 +265,25 @@ const DashboardPage = () => {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
       {/* Header */}
       <div className="mb-6 sm:mb-8">
-        {/* Mobile Back Button - Top Left */}
-        <div className="flex justify-start mb-4 sm:hidden">
-          <BackButton to="/" variant="ghost" text="Back" className="text-sm" />
-        </div>
-        
-        <div className="text-center sm:text-left mb-6">
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-100 mb-2">
-            Welcome back, {user?.username}!
-          </h1>
-          <p className="text-sm sm:text-base text-slate-300">
-            Here's an overview of your Phygital account
-          </p>
-        </div>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+          {/* Mobile Back Button - Top Left */}
+          <div className="flex justify-start sm:hidden">
+            <BackButton to="/" variant="ghost" text="Back" className="text-sm" />
+          </div>
+          
+          <div className="flex-1 text-center sm:text-left">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-100 mb-2">
+              Welcome back, {user?.username}!
+            </h1>
+            <p className="text-sm sm:text-base text-slate-300">
+              Here's an overview of your Phygital account
+            </p>
+          </div>
 
-        {/* Desktop Back Button - Right Aligned */}
-        <div className="hidden sm:flex justify-end mb-4">
-          <BackButton to="/" variant="ghost" />
+          {/* Desktop Back Button - Right Aligned */}
+          <div className="hidden sm:flex sm:items-start">
+            <BackButton to="/" variant="ghost" />
+          </div>
         </div>
       </div>
 
@@ -348,11 +352,11 @@ const DashboardPage = () => {
             )}
 
             {/* Action Buttons */}
-            <div className="mt-6 p-4 bg-green-900/20 border border-green-600/30 rounded-lg">
+            <div className="mt-6 p-4 sm:p-5 bg-green-900/20 border border-green-600/30 rounded-lg">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div className="flex items-center">
-                  <CheckCircle className="h-5 w-5 text-neon-green mr-3 flex-shrink-0" />
-                  <p className="text-sm text-neon-green">
+                <div className="flex items-start sm:items-center flex-1 min-w-0">
+                  <CheckCircle className="h-5 w-5 text-neon-green mr-3 flex-shrink-0 mt-0.5 sm:mt-0" />
+                  <p className="text-sm text-neon-green flex-1">
                     {projectStats.complete > 0
                       ? `Great! You have ${projectStats.complete} complete project${projectStats.complete !== 1 ? 's' : ''}. Ready to create more!`
                       : 'You have projects started. Complete them or create new ones.'
@@ -364,7 +368,7 @@ const DashboardPage = () => {
                     ? "/upload" 
                     : `/projects?edit=${user?.projects?.find(p => !isProjectComplete(p))?._id || user?.projects?.[user.projects.length - 1]?._id}`
                   }
-                  className="btn-primary text-sm px-4 py-2 w-full sm:w-auto"
+                  className="btn-primary text-sm px-4 py-2.5 w-full sm:w-auto inline-flex items-center justify-center whitespace-nowrap flex-shrink-0"
                 >
                   {projectStats.complete > 0 ? 'Create New Project' : 'Continue Project'}
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -434,17 +438,17 @@ const DashboardPage = () => {
               })}
             </div>
 
-            <div className="mt-6 p-4 bg-blue-900/20 border border-blue-600/30 rounded-lg">
+            <div className="mt-6 p-4 sm:p-5 bg-blue-900/20 border border-blue-600/30 rounded-lg">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div className="flex items-center">
-                  <Upload className="h-5 w-5 text-neon-blue mr-3 flex-shrink-0" />
-                  <p className="text-sm text-neon-blue">
+                <div className="flex items-start sm:items-center flex-1 min-w-0">
+                  <Upload className="h-5 w-5 text-neon-blue mr-3 flex-shrink-0 mt-0.5 sm:mt-0" />
+                  <p className="text-sm text-neon-blue flex-1">
                     Start creating your first Phygital project by completing the steps above.
                   </p>
                 </div>
                 <Link
                   to="/upload"
-                  className="btn-primary text-sm px-4 py-2 w-full sm:w-auto"
+                  className="btn-primary text-sm px-4 py-2.5 w-full sm:w-auto inline-flex items-center justify-center whitespace-nowrap flex-shrink-0"
                 >
                   Get Started
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -460,10 +464,10 @@ const DashboardPage = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <div className="card">
             <div className="flex items-center">
-              <div className="p-3 bg-blue-900/30 rounded-lg mr-4">
+              <div className="p-3 bg-blue-900/30 rounded-lg mr-4 flex-shrink-0">
                 <Eye className="h-6 w-6 text-neon-blue" />
               </div>
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-slate-300">Total Scans</p>
                 <p className="text-2xl font-bold text-slate-100">
                   {Math.round((user?.analytics?.totalScans || 0) / 2)}
@@ -474,10 +478,10 @@ const DashboardPage = () => {
 
           <div className="card">
             <div className="flex items-center">
-              <div className="p-3 bg-green-900/30 rounded-lg mr-4">
+              <div className="p-3 bg-green-900/30 rounded-lg mr-4 flex-shrink-0">
                 <BarChart3 className="h-6 w-6 text-neon-green" />
               </div>
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-slate-300">Video Views</p>
                 <p className="text-2xl font-bold text-slate-100">
                   {(user?.analytics?.videoViews || 0) + (user?.analytics?.arExperienceStarts || 0)}
@@ -488,10 +492,10 @@ const DashboardPage = () => {
 
           <div className="card">
             <div className="flex items-center">
-              <div className="p-3 bg-neon-purple/20 rounded-lg mr-4 shadow-glow-purple">
+              <div className="p-3 bg-neon-purple/20 rounded-lg mr-4 flex-shrink-0 shadow-glow-purple">
                 <MousePointer className="h-6 w-6 text-neon-purple" />
               </div>
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-slate-300">Link Clicks</p>
                 <p className="text-2xl font-bold text-slate-100">
                   {Math.round((user?.analytics?.linkClicks || 0) / 2)}
@@ -516,17 +520,18 @@ const DashboardPage = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {quickActions.map((action, index) => {
             const Icon = action.icon
+            const colorName = action.color.split('-')[1] || 'blue'
             return (
               <Link
                 key={index}
                 to={action.link}
                 className="p-4 sm:p-6 rounded-lg border border-slate-600/30 hover:border-neon-blue/30 hover:shadow-dark-large transition-all duration-200 group block"
               >
-                <div className="flex items-center mb-3">
-                  <div className={`p-2 rounded-lg mr-3 ${action.color} shadow-glow-${action.color.split('-')[1]}`}>
-                    <Icon className="h-5 w-5 text-slate-900" />
+                <div className="flex items-start sm:items-center mb-3">
+                  <div className={`p-2 rounded-lg mr-3 flex-shrink-0 ${action.color}`}>
+                    <Icon className="h-5 w-5 text-white" />
                   </div>
-                  <h3 className="font-medium text-slate-100 group-hover:text-neon-blue transition-colors duration-200 text-sm sm:text-base">
+                  <h3 className="font-medium text-slate-100 group-hover:text-neon-blue transition-colors duration-200 text-sm sm:text-base flex-1 min-w-0">
                     {action.title}
                   </h3>
                 </div>

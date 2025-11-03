@@ -71,7 +71,9 @@ export const useProjectData = (projectId, userId, setIsLoading, setProjectData, 
       
       // Track QR scan when accessing AR experience (prevents duplicates using global cache)
       try {
-        if (projectId && shouldTrackAnalytics('scan', userId, projectId)) {
+        // Use userId from projectData if not provided in params (for legacy /ar/project/:projectId route)
+        const effectiveUserId = userId || projectData.userId;
+        if (projectId && effectiveUserId && shouldTrackAnalytics('scan', effectiveUserId, projectId)) {
           addDebugMessage('📊 Tracking QR scan...', 'info');
           try {
             await trackAnalytics('scan', {
@@ -81,7 +83,7 @@ export const useProjectData = (projectId, userId, setIsLoading, setProjectData, 
             addDebugMessage('✅ QR scan tracked', 'success');
           } catch (trackError) {
             // Mark as failed so it can be retried
-            markAnalyticsFailed('scan', userId, projectId);
+            markAnalyticsFailed('scan', effectiveUserId, projectId);
             throw trackError;
           }
         }

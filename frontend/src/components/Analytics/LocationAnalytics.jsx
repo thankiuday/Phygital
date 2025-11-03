@@ -38,9 +38,7 @@ const LocationAnalytics = ({ userId, projectId = null, days = 30 }) => {
       }
 
       const result = await response.json();
-      console.log('📊 Location Analytics Response:', result);
-      console.log('📍 Total scans with location:', result.data?.totalScansWithLocation);
-      console.log('🌍 City/Country stats:', result.data?.cityCountryStats);
+      console.log('✅ Location analytics response:', result);
       setLocationData(result.data);
       setError(null);
     } catch (err) {

@@ -170,8 +170,9 @@ export const uploadAPI = {
   uploadDesign: (formData) => uploadApi.post('/upload/design', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
-  uploadVideo: (formData) => uploadApi.post('/upload/video', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+  uploadVideo: (formData, config = {}) => uploadApi.post('/upload/video', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress: config.onUploadProgress
   }),
   updateVideo: (userId, formData) => uploadApi.put(`/upload/video/${userId}`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' }

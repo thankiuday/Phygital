@@ -11,7 +11,10 @@ const PageTransitionLoader = ({ isLoading }) => {
   if (!isLoading) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center animate-fade-in">
+    <div className="fixed inset-0 z-[9999] bg-slate-900 flex items-center justify-center" style={{ backgroundColor: '#0f172a' }}>
+      {/* Dark mesh background */}
+      <div className="absolute inset-0 bg-dark-mesh opacity-100"></div>
+      
       {/* Animated background particles */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute w-96 h-96 -top-48 -left-48 bg-neon-purple/10 rounded-full blur-3xl animate-pulse"></div>

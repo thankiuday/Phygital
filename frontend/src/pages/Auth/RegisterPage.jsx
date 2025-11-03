@@ -92,17 +92,17 @@ const RegisterPage = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-dark-mesh py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+    <div className="min-h-screen flex items-center justify-center bg-dark-mesh py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-6 sm:space-y-8">
         {/* Header */}
         <div className="text-center">
           <div className="mx-auto h-10 w-10 sm:h-12 sm:w-12 bg-button-gradient rounded-lg flex items-center justify-center shadow-glow">
             <User className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
           </div>
-          <h2 className="mt-6 text-3xl font-bold text-slate-100">
+          <h2 className="mt-4 sm:mt-6 text-2xl sm:text-3xl font-bold text-slate-100">
             Create your account
           </h2>
-          <p className="mt-2 text-sm text-slate-300">
+          <p className="mt-2 text-xs sm:text-sm text-slate-300">
             Or{' '}
             <Link
               to="/login"
@@ -114,7 +114,7 @@ const RegisterPage = () => {
         </div>
 
         {/* Form */}
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
+        <form className="mt-6 sm:mt-8 space-y-4 sm:space-y-6" onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-4">
             {/* Username Field */}
             <div>
@@ -143,12 +143,12 @@ const RegisterPage = () => {
                   })}
                   type="text"
                   autoComplete="username"
-                  className={`input pl-11 sm:pl-12 ${errors.username ? 'input-error' : ''}`}
+                  className={`input pl-10 sm:pl-12 w-full ${errors.username ? 'input-error' : ''}`}
                   placeholder="Choose a username"
                 />
               </div>
               {errors.username && (
-                <p className="mt-1 text-sm text-neon-red">{errors.username.message}</p>
+                <p className="mt-1 text-xs sm:text-sm text-neon-red">{errors.username.message}</p>
               )}
             </div>
 
@@ -171,12 +171,12 @@ const RegisterPage = () => {
                   })}
                   type="email"
                   autoComplete="email"
-                  className={`input pl-11 sm:pl-12 ${errors.email ? 'input-error' : ''}`}
+                  className={`input pl-10 sm:pl-12 w-full ${errors.email ? 'input-error' : ''}`}
                   placeholder="Enter your email"
                 />
               </div>
               {errors.email && (
-                <p className="mt-1 text-sm text-neon-red">{errors.email.message}</p>
+                <p className="mt-1 text-xs sm:text-sm text-neon-red">{errors.email.message}</p>
               )}
             </div>
 
@@ -203,29 +203,29 @@ const RegisterPage = () => {
                   })}
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="new-password"
-                  className={`input pl-11 sm:pl-12 pr-11 sm:pr-12 ${errors.password ? 'input-error' : allRequirementsMet && password ? 'border-neon-green' : ''}`}
+                  className={`input pl-10 sm:pl-12 pr-10 sm:pr-12 w-full ${errors.password ? 'input-error' : allRequirementsMet && password ? 'border-neon-green' : ''}`}
                   placeholder="Create a password"
                   onFocus={() => setPasswordFocused(true)}
                   onBlur={() => setPasswordFocused(false)}
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center z-20"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center z-20 hover:opacity-70 transition-opacity"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <EyeOff className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-300" />
+                    <EyeOff className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400 hover:text-slate-300" />
                   ) : (
-                    <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-300" />
+                    <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400 hover:text-slate-300" />
                   )}
                 </button>
               </div>
               
               {/* Password Requirements Indicator */}
               {(passwordFocused || password) && !errors.password && (
-                <div className="mt-3 space-y-2">
+                <div className="mt-2 sm:mt-3 space-y-1.5 sm:space-y-2">
                   <p className="text-xs text-slate-400 font-medium">Password must contain:</p>
-                  <div className="space-y-1.5">
+                  <div className="space-y-1 sm:space-y-1.5">
                     {/* Minimum Length */}
                     <div className={`flex items-center text-xs transition-colors duration-200 ${
                       passwordRequirements.minLength ? 'text-neon-green' : 'text-slate-400'
@@ -305,7 +305,7 @@ const RegisterPage = () => {
 
               {/* Show error message only when there's an error and field is not focused */}
               {errors.password && !passwordFocused && (
-                <p className="mt-2 text-sm text-neon-red">{errors.password.message}</p>
+                <p className="mt-2 text-xs sm:text-sm text-neon-red">{errors.password.message}</p>
               )}
             </div>
 
@@ -325,75 +325,76 @@ const RegisterPage = () => {
                   })}
                   type={showConfirmPassword ? 'text' : 'password'}
                   autoComplete="new-password"
-                  className={`input pl-11 sm:pl-12 pr-11 sm:pr-12 ${errors.confirmPassword ? 'input-error' : ''}`}
+                  className={`input pl-10 sm:pl-12 pr-10 sm:pr-12 w-full ${errors.confirmPassword ? 'input-error' : ''}`}
                   placeholder="Confirm your password"
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center z-20"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center z-20 hover:opacity-70 transition-opacity"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
                   {showConfirmPassword ? (
-                    <EyeOff className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-300" />
+                    <EyeOff className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400 hover:text-slate-300" />
                   ) : (
-                    <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-300" />
+                    <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400 hover:text-slate-300" />
                   )}
                 </button>
               </div>
               {errors.confirmPassword && (
-                <p className="mt-1 text-sm text-neon-red">{errors.confirmPassword.message}</p>
+                <p className="mt-1 text-xs sm:text-sm text-neon-red">{errors.confirmPassword.message}</p>
               )}
             </div>
           </div>
 
           {/* Error Message */}
           {errors.root && (
-            <div className="bg-red-900/20 border border-neon-red/30 rounded-md p-4">
-              <p className="text-sm text-neon-red">{errors.root.message}</p>
+            <div className="bg-red-900/20 border border-neon-red/30 rounded-md p-3 sm:p-4">
+              <p className="text-xs sm:text-sm text-neon-red">{errors.root.message}</p>
             </div>
           )}
 
           {/* Terms and Conditions */}
-          <div className="flex items-start">
-            <div className="flex items-center h-5">
+          <div className="flex items-start gap-2 sm:gap-3">
+            <div className="flex items-center h-5 flex-shrink-0 mt-0.5">
               <input
                 {...register('terms', {
                   required: 'You must accept the terms and conditions'
                 })}
                 type="checkbox"
-                className="focus:ring-neon-blue h-4 w-4 text-neon-blue border-slate-600 rounded bg-slate-800"
+                id="terms"
+                className="focus:ring-neon-blue h-4 w-4 text-neon-blue border-slate-600 rounded bg-slate-800 cursor-pointer"
               />
             </div>
-            <div className="ml-3 text-sm">
-              <label htmlFor="terms" className="text-slate-300">
+            <div className="flex-1 min-w-0">
+              <label htmlFor="terms" className="text-xs sm:text-sm text-slate-300 cursor-pointer">
                 I agree to the{' '}
-                <Link to="/terms" className="text-neon-blue hover:text-neon-cyan" target="_blank">
+                <Link to="/terms" className="text-neon-blue hover:text-neon-cyan transition-colors duration-200" target="_blank">
                   Terms and Conditions
                 </Link>{' '}
                 and{' '}
-                <Link to="/privacy" className="text-neon-blue hover:text-neon-cyan" target="_blank">
+                <Link to="/privacy" className="text-neon-blue hover:text-neon-cyan transition-colors duration-200" target="_blank">
                   Privacy Policy
                 </Link>
               </label>
               {errors.terms && (
-                <p className="mt-1 text-sm text-neon-red">{errors.terms.message}</p>
+                <p className="mt-1 text-xs sm:text-sm text-neon-red">{errors.terms.message}</p>
               )}
             </div>
           </div>
 
           {/* Submit Button */}
-          <div>
+          <div className="pt-2">
             <button
               type="submit"
               disabled={isLoading}
-              className="btn-primary w-full"
+              className="btn-primary w-full inline-flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <LoadingSpinner size="sm" />
               ) : (
                 <>
                   Create account
-                  <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 group-hover:translate-x-1 transition-transform duration-200" />
+                  <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 transition-transform duration-200" />
                 </>
               )}
             </button>

@@ -38,11 +38,13 @@ import {
   Twitter,
   Linkedin,
   Globe,
-  AlertCircle
+  AlertCircle,
+  MapPin
 } from 'lucide-react'
 import LoadingSpinner from '../../components/UI/LoadingSpinner'
 import { useDropzone } from 'react-dropzone'
 import toast from 'react-hot-toast'
+import LocationAnalytics from '../../components/Analytics/LocationAnalytics'
 
 const ProjectsPage = () => {
   const { user, loadUser, updateUser, refreshUserData } = useAuth()
@@ -916,6 +918,7 @@ const ProjectCard = ({
   viewMode
 }) => {
   const personalizedUrl = `${window.location.origin}/user/${user?.username}?project=${project.id}`
+  const [showLocationAnalytics, setShowLocationAnalytics] = useState(false)
 
   return (
       <div className={`card-glass rounded-lg shadow-dark-large border transition-all duration-200 w-full ${
@@ -1032,6 +1035,41 @@ const ProjectCard = ({
             Delete
           </button>
         </div>
+
+        {/* Location Analytics Toggle */}
+        {project.analytics?.totalScans > 0 && (
+          <div className="border-t border-slate-700/50 pt-4">
+            <button
+              onClick={() => setShowLocationAnalytics(!showLocationAnalytics)}
+              className="w-full flex items-center justify-between px-4 py-2 text-sm font-medium text-neon-blue hover:text-neon-cyan transition-colors duration-200 rounded-lg hover:bg-slate-800/50"
+            >
+              <div className="flex items-center">
+                <MapPin className="w-4 h-4 mr-2" />
+                View Location Analytics
+              </div>
+              {showLocationAnalytics ? (
+                <ChevronUp className="w-4 h-4" />
+              ) : (
+                <ChevronDown className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Expandable Location Analytics */}
+        {showLocationAnalytics && project.analytics?.totalScans > 0 && (
+          <div className="border-t border-slate-700/50 pt-4 mt-2">
+            <h4 className="text-sm font-medium text-slate-100 mb-3 flex items-center">
+              <MapPin className="w-4 h-4 mr-2 text-neon-blue" />
+              Scan Locations for {project.name}
+            </h4>
+            <LocationAnalytics
+              userId={user?._id}
+              projectId={project.id}
+              days={30}
+            />
+          </div>
+        )}
       </div>
     </div>
   )

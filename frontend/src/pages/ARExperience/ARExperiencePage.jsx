@@ -83,6 +83,11 @@ const ARExperiencePage = () => {
   // Debug utilities
   const { addDebugMessage } = useDebug(setDebugMessages);
 
+  // Get effective userId from URL params or from projectData after it loads
+  const effectiveUserId = React.useMemo(() => {
+    return userId || projectData?.userId;
+  }, [userId, projectData?.userId]);
+
   // Preload composite image when project data is loaded
   React.useEffect(() => {
     if (projectData?.compositeDesignUrl || projectData?.designUrl) {
@@ -92,8 +97,8 @@ const ARExperiencePage = () => {
     }
   }, [projectData?.compositeDesignUrl, projectData?.designUrl, addDebugMessage]);
 
-  // Analytics
-  const { trackAnalytics } = useAnalytics(userId, projectId, addDebugMessage);
+  // Analytics - use effective userId which may come from projectData
+  const { trackAnalytics } = useAnalytics(effectiveUserId, projectId, addDebugMessage);
 
   // Project data
   const { fetchProjectData } = useProjectData(
@@ -112,7 +117,7 @@ const ARExperiencePage = () => {
   const arLogic = useARLogic({
     librariesLoaded,
     projectData,
-    userId,
+    userId: effectiveUserId,
     projectId,
     isInitialized,
     isScanning,

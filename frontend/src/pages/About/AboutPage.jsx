@@ -13,8 +13,6 @@ import {
   Heart,
   ArrowRight,
   Sparkles,
-  Linkedin,
-  Mail,
   Globe,
   Zap,
   Eye,
@@ -75,15 +73,6 @@ const AboutPage = () => {
     }
   ]
 
-  const team = [
-    {
-      name: 'Uday Thanki',
-      role: 'Full Stack Developer',
-      description: 'Visionary developer passionate about blending technology with emotion. Building the future of phygital experiences through innovative MERN stack solutions and human-centered design.',
-      image: '🧑‍💻',
-      quote: 'Technology should feel magical, not mechanical.'
-    }
-  ]
 
   return (
     <div className="min-h-screen">
@@ -273,87 +262,6 @@ const AboutPage = () => {
                 </div>
               )
             })}
-          </div>
-        </div>
-      </section>
-
-      {/* Team Section */}
-      <section className="py-20 bg-slate-900">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-100 mb-4">
-              Meet the <span className="text-gradient bg-gradient-to-r from-neon-blue to-neon-purple bg-clip-text text-transparent">Developer</span>
-            </h2>
-            <p className="text-xl text-slate-300">
-              Building the future of phygital experiences
-            </p>
-          </div>
-          
-          <div className="max-w-2xl mx-auto">
-            {team.map((member, index) => (
-              <div key={index} className="relative group">
-                <div className="card-elevated p-10 rounded-3xl border border-slate-600/50 hover:border-neon-blue/50 transition-all duration-500 hover:scale-105 overflow-hidden">
-                  {/* Background Gradient */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-neon-blue/5 via-neon-purple/5 to-neon-pink/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                  
-                  <div className="relative z-10">
-                    {/* Avatar */}
-                    <div className="relative mb-8">
-                      <div className="w-40 h-40 mx-auto rounded-3xl bg-gradient-to-br from-neon-blue to-neon-purple p-1 group-hover:scale-110 transition-transform duration-300">
-                        <div className="w-full h-full bg-slate-900 rounded-3xl flex items-center justify-center">
-                          <span className="text-7xl">{member.image}</span>
-                        </div>
-                      </div>
-                      {/* Decorative glow */}
-                      <div className="absolute inset-0 bg-gradient-to-br from-neon-blue/20 to-neon-purple/20 rounded-3xl blur-3xl -z-10 group-hover:blur-[60px] transition-all duration-500"></div>
-                    </div>
-
-                    {/* Name & Title */}
-                    <div className="text-center mb-8">
-                      <h3 className="text-2xl sm:text-3xl font-bold text-gradient bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink bg-clip-text text-transparent mb-2">
-                        {member.name}
-                      </h3>
-                      <p className="text-neon-blue font-semibold text-base sm:text-lg mb-4">
-                        {member.role}
-                      </p>
-                      <p className="text-sm sm:text-base text-slate-300 leading-relaxed mb-6">
-                        {member.description}
-                      </p>
-                      
-                      {/* Quote */}
-                      <div className="relative py-4 sm:py-6 px-4 sm:px-8 bg-slate-800/30 rounded-xl border border-slate-700/50">
-                        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                          <Quote className="w-5 h-5 sm:w-6 sm:h-6 text-neon-purple" />
-                        </div>
-                        <p className="text-slate-100 italic text-base sm:text-lg">
-                          "{member.quote}"
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Social Links */}
-                    <div className="flex justify-center gap-4 pt-6 border-t border-slate-700/50">
-                      <a
-                        href="https://www.linkedin.com/in/uday-thanki-b1491a272/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="group/social flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-800/50 hover:bg-neon-blue/20 border border-slate-600/50 hover:border-neon-blue/50 transition-all duration-300 hover:scale-110"
-                      >
-                        <Linkedin className="w-5 h-5 text-slate-400 group-hover/social:text-neon-blue transition-colors" />
-                        <span className="text-slate-400 group-hover/social:text-neon-blue transition-colors font-medium">LinkedIn</span>
-                      </a>
-                      <a
-                        href="mailto:udaythanki2@gmail.com"
-                        className="group/social flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-800/50 hover:bg-neon-pink/20 border border-slate-600/50 hover:border-neon-pink/50 transition-all duration-300 hover:scale-110"
-                      >
-                        <Mail className="w-5 h-5 text-slate-400 group-hover/social:text-neon-pink transition-colors" />
-                        <span className="text-slate-400 group-hover/social:text-neon-pink transition-colors font-medium">Email</span>
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       </section>
