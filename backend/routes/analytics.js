@@ -60,6 +60,7 @@ router.post('/scan',
     
     // Track detailed analytics with projectId
     // Note: Analytics.trackEvent() handles both user-level and project-level analytics updates
+    console.log(`📍 Storing scan with userId=${userId}, projectId=${projectId}, hasLocation=${!!scanData.location}`);
     await Analytics.trackEvent(userId, 'scan', {
       scanLocation: scanData.location || {},
       userAgent: req.headers['user-agent'],
@@ -357,20 +358,24 @@ router.get('/dashboard/:userId', authenticateToken, async (req, res) => {
       });
     }
     
-    // Get detailed analytics
+    // Get detailed analytics with time filter
     const detailedAnalytics = await Analytics.getUserAnalytics(userId, days);
     
-    // Calculate engagement metrics
-    const totalInteractions = user.analytics.totalScans + user.analytics.videoViews + user.analytics.linkClicks;
-    const engagementRate = user.analytics.totalScans > 0 ? 
-      ((user.analytics.videoViews + user.analytics.linkClicks) / user.analytics.totalScans * 100).toFixed(2) : 0;
+    // Calculate engagement metrics using filtered data
+    const filteredScans = detailedAnalytics.summary.find(s => s.eventType === 'scan')?.count || 0;
+    const filteredVideoViews = detailedAnalytics.summary.find(s => s.eventType === 'videoView')?.count || 0;
+    const filteredLinkClicks = detailedAnalytics.summary.find(s => s.eventType === 'linkClick')?.count || 0;
     
-    // Prepare dashboard data
+    const totalInteractions = filteredScans + filteredVideoViews + filteredLinkClicks;
+    const engagementRate = filteredScans > 0 ? 
+      ((filteredVideoViews + filteredLinkClicks) / filteredScans * 100).toFixed(2) : 0;
+    
+    // Prepare dashboard data with filtered analytics
     const dashboardData = {
       overview: {
-        totalScans: user.analytics.totalScans,
-        totalVideoViews: user.analytics.videoViews,
-        totalLinkClicks: user.analytics.linkClicks,
+        totalScans: filteredScans,
+        totalVideoViews: filteredVideoViews,
+        totalLinkClicks: filteredLinkClicks,
         totalInteractions,
         engagementRate: parseFloat(engagementRate)
       },
@@ -751,6 +756,7 @@ router.get('/project/:userId/:projectId/locations', authenticateToken, async (re
     startDate.setDate(startDate.getDate() - parseInt(days));
     
     // Get all scan events with location data for this project
+    console.log(`🔍 Querying location events: userId=${userId}, projectId=${projectId}, days=${days}`);
     const locationEvents = await Analytics.find({
       userId: new mongoose.Types.ObjectId(userId),
       projectId: projectId,
@@ -761,6 +767,8 @@ router.get('/project/:userId/:projectId/locations', authenticateToken, async (re
       .select('timestamp eventData.scanLocation')
       .sort({ timestamp: -1 });
     
+    console.log(`📊 Found ${locationEvents.length} location events for project ${projectId}`);
+    
     // Format response
     const locations = locationEvents.map(event => ({
       latitude: event.eventData.scanLocation.latitude,
@@ -770,12 +778,27 @@ router.get('/project/:userId/:projectId/locations', authenticateToken, async (re
       timestamp: event.timestamp
     }));
     
+    // Calculate city/country stats
+    const cityCountryStats = {};
+    locations.forEach(location => {
+      const key = `${location.city}, ${location.country}`;
+      if (!cityCountryStats[key]) {
+        cityCountryStats[key] = {
+          city: location.city,
+          country: location.country,
+          count: 0
+        };
+      }
+      cityCountryStats[key].count++;
+    });
+    
     res.status(200).json({
       status: 'success',
       data: {
         projectId,
         totalScansWithLocation: locations.length,
         locations,
+        cityCountryStats: Object.values(cityCountryStats).sort((a, b) => b.count - a.count),
         period: {
           days: parseInt(days),
           startDate,

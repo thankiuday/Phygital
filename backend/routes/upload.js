@@ -984,9 +984,9 @@ router.post('/video', authenticateToken, upload.single('video'), async (req, res
     
     // Get upload options from request (optional compression/optimization)
     const uploadOptions = {
-      compress: req.body.compress === 'true' || req.body.compress === true,
+      compress: false, // Don't compress during upload (slows down upload). Cloudinary handles on-demand compression.
       quality: req.body.quality || 'auto', // auto, 80, 60, etc.
-      generatePreview: true // Generate preview thumbnail
+      generatePreview: false // Disable preview generation to speed up upload
     };
     
     console.log('📹 Video upload options:', uploadOptions);

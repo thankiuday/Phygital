@@ -703,7 +703,7 @@ router.get('/project-data/:projectId', async (req, res) => {
     const projectData = {
       id: project.id,
       projectId: project.id,
-      userId: user._id,
+      userId: user._id.toString(),
       name: project.name,
       description: project.description,
       designUrl: user.uploadedFiles.design.url,
