@@ -42,16 +42,33 @@ router.get('/profile', authenticateToken, async (req, res) => {
 });
 
 /**
- * GET /api/user/:username
- * Get public profile by username
+ * GET /api/user/:identifier
+ * Get public profile by urlCode, username, or userId
  * Returns public user data for personalized pages
+ * Supports backward compatibility with username and userId
  */
-router.get('/:username', async (req, res) => {
+router.get('/:identifier', async (req, res) => {
   try {
-    const { username } = req.params;
+    const { identifier } = req.params;
     
-    // Find user by username
-    const user = await User.findOne({ username }).select('-password -email');
+    // Build query to support urlCode, username, or userId (ObjectId)
+    let query;
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(identifier);
+    const isValidUrlCode = /^[a-zA-Z0-9_-]{6,8}$/.test(identifier);
+    
+    if (isValidObjectId) {
+      // Check if it's a valid MongoDB ObjectId
+      query = { _id: identifier };
+    } else if (isValidUrlCode) {
+      // Check if it's a valid urlCode format
+      query = { urlCode: identifier };
+    } else {
+      // Fallback to username (backward compatibility)
+      query = { username: identifier };
+    }
+    
+    // Find user by identifier
+    const user = await User.findOne(query).select('-password -email');
     
     if (!user) {
       return res.status(404).json({

@@ -153,6 +153,16 @@ const ProjectsPage = () => {
     setShowEditModal(true)
   }, [user])
 
+  // Helper function to generate personalized URL using urlCode when available
+  const getPersonalizedUrl = (project) => {
+    const baseUrl = window.location.origin
+    // Prefer urlCode if available, fallback to username
+    const userIdentifier = user?.urlCode || user?.username
+    // Prefer project urlCode if available, fallback to project id
+    const projectIdentifier = project?.urlCode || project?.id
+    return `${baseUrl}/user/${userIdentifier}?project=${projectIdentifier}`
+  }
+
   // Sort projects based on selected criteria
   const getSortedProjects = () => {
     const sorted = [...projects]
@@ -298,7 +308,7 @@ const ProjectsPage = () => {
     try {
       setLoadingQR(prev => ({ ...prev, [projectId]: true }))
       
-      const personalizedUrl = `${window.location.origin}/user/${user?.username}?project=${projectId}`
+      const personalizedUrl = getPersonalizedUrl(project)
       
       // Generate QR code using the standalone function
       const qrCodeDataUrl = await generateQRCode(personalizedUrl, {
@@ -393,7 +403,7 @@ const ProjectsPage = () => {
 
   // Copy URL to clipboard
   const copyUrlToClipboard = async (project) => {
-    const personalizedUrl = `${window.location.origin}/user/${user?.username}?project=${project.id}`
+    const personalizedUrl = getPersonalizedUrl(project)
     
     try {
       await navigator.clipboard.writeText(personalizedUrl)
@@ -407,7 +417,7 @@ const ProjectsPage = () => {
 
   // Share URL
   const handleShareUrl = async (project) => {
-    const personalizedUrl = `${window.location.origin}/user/${user?.username}?project=${project.id}`
+    const personalizedUrl = getPersonalizedUrl(project)
     
     if (navigator.share) {
       try {

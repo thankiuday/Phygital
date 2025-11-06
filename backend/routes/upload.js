@@ -295,9 +295,29 @@ router.post('/project', authenticateToken, [
       });
     }
 
+    // Get user to generate unique project urlCode
+    const userForCode = await User.findById(userId);
+    if (!userForCode) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Generate unique urlCode for the project
+    const { generateUniqueProjectCode } = require('../utils/urlCodeGenerator');
+    let projectUrlCode;
+    try {
+      projectUrlCode = await generateUniqueProjectCode(userForCode);
+    } catch (error) {
+      console.error('Error generating project urlCode:', error);
+      // Continue without urlCode - migration script can handle it later
+    }
+
     // Create new project
     const newProject = {
       id: Date.now().toString(), // Simple ID generation
+      urlCode: projectUrlCode,
       name: name.trim(),
       description: description || `Phygital project: ${name.trim()}`,
       createdAt: new Date(),

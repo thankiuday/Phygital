@@ -63,8 +63,9 @@ const UserPage = () => {
       const user = response.data.data.user
       
       // If projectId is provided, check if that project is disabled
+      // Support both urlCode and id for project lookup
       if (projectId && user.projects) {
-        const project = user.projects.find(p => p.id === projectId)
+        const project = user.projects.find(p => p.id === projectId || p.urlCode === projectId)
         if (project && project.isEnabled === false) {
           console.log('🚫 Project is disabled:', project.name)
           setIsProjectDisabled(true)

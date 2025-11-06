@@ -5,10 +5,12 @@
  */
 
 import React from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout/Layout'
 import ProtectedRoute from './components/Auth/ProtectedRoute'
+import AdminProtectedRoute from './components/Admin/AdminProtectedRoute'
+import AdminLayout from './components/Admin/AdminLayout'
 import LoadingSpinner from './components/UI/LoadingSpinner'
 
 // Pages
@@ -20,11 +22,13 @@ import GameUploadPage from './pages/Upload/GameUploadPage'
 import QRCodePage from './pages/QRCode/QRCodePage'
 import QRScanPage from './pages/QRScan/QRScanPage'
 import ARExperiencePage from './pages/ARExperience/ARExperiencePage'
+import ARExperience3DPage from './pages/ARExperience/ARExperience3DPage'
 import AnalyticsPage from './pages/Analytics/AnalyticsPage'
 import ProfilePage from './pages/Profile/ProfilePage'
 import UserPage from './pages/User/UserPage'
 import HistoryPage from './pages/History/HistoryPage'
 import ProjectsPage from './pages/Projects/ProjectsPage' // New combined page
+import QRDesignsPage from './pages/QRDesigns/QRDesignsPage'
 import AboutPage from './pages/About/AboutPage'
 import ContactPage from './pages/Contact/ContactPage'
 import AIVideoPage from './pages/AIVideo/AIVideoPage'
@@ -33,17 +37,30 @@ import ComingSoonPage from './pages/ComingSoon/ComingSoonPage'
 import NotFoundPage from './pages/NotFoundPage'
 import MaintenancePage from './pages/Maintenance/MaintenancePage'
 
+// Admin Pages
+import AdminLoginPage from './pages/Admin/AdminLoginPage'
+import AdminDashboard from './pages/Admin/AdminDashboard'
+import UsersPage from './pages/Admin/UsersPage'
+import AdminProjectsPage from './pages/Admin/ProjectsPage'
+import AdminAnalyticsPage from './pages/Admin/AdminAnalyticsPage'
+import ContactsPage from './pages/Admin/ContactsPage'
+import SettingsPage from './pages/Admin/SettingsPage'
+
 // Maintenance mode check
 import { isMaintenanceModeEnabled } from './config/maintenance'
 
 function App() {
   const { isLoading, isAuthenticated } = useAuth()
+  const location = useLocation()
 
   // Check if maintenance mode is enabled
   const maintenanceMode = isMaintenanceModeEnabled()
+  
+  // Allow admin routes even during maintenance
+  const isAdminRoute = location.pathname.startsWith('/admin') || location.pathname.startsWith('#/admin')
 
-  // Show maintenance page if enabled
-  if (maintenanceMode) {
+  // Show maintenance page if enabled (but allow admin routes)
+  if (maintenanceMode && !isAdminRoute) {
     return <MaintenancePage />
   }
 
@@ -84,6 +101,9 @@ function App() {
           {/* Legacy routes for backward compatibility */}
           <Route path="ar/:userId" element={<ARExperiencePage />} />
           <Route path="ar/project/:projectId" element={<ARExperiencePage />} />
+          {/* 3D AR Experience with vertical video standee and popup animation */}
+          <Route path="ar-3d/user/:userId/project/:projectId" element={<ARExperience3DPage />} />
+          <Route path="ar-3d/:userId/:projectId" element={<ARExperience3DPage />} />
         </Route>
 
         {/* Protected Routes */}
@@ -122,6 +142,46 @@ function App() {
             <ProtectedRoute>
               <ProjectsPage />
             </ProtectedRoute>
+          } />
+          <Route path="qr-designs" element={
+            <ProtectedRoute>
+              <QRDesignsPage />
+            </ProtectedRoute>
+          } />
+        </Route>
+
+        {/* Admin Routes */}
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route path="login" element={<AdminLoginPage />} />
+          <Route path="dashboard" element={
+            <AdminProtectedRoute>
+              <AdminDashboard />
+            </AdminProtectedRoute>
+          } />
+          <Route path="users" element={
+            <AdminProtectedRoute>
+              <UsersPage />
+            </AdminProtectedRoute>
+          } />
+          <Route path="projects" element={
+            <AdminProtectedRoute>
+              <AdminProjectsPage />
+            </AdminProtectedRoute>
+          } />
+          <Route path="analytics" element={
+            <AdminProtectedRoute>
+              <AdminAnalyticsPage />
+            </AdminProtectedRoute>
+          } />
+          <Route path="contacts" element={
+            <AdminProtectedRoute>
+              <ContactsPage />
+            </AdminProtectedRoute>
+          } />
+          <Route path="settings" element={
+            <AdminProtectedRoute>
+              <SettingsPage />
+            </AdminProtectedRoute>
           } />
         </Route>
 

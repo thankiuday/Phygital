@@ -6,6 +6,7 @@
 
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const { generateUniqueUserCode } = require('../utils/urlCodeGenerator');
 
 const userSchema = new mongoose.Schema({
   // Basic user information
@@ -24,7 +25,7 @@ const userSchema = new mongoose.Schema({
     unique: true,
     lowercase: true,
     trim: true,
-    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
+    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,})+$/, 'Please enter a valid email']
   },
   
   password: {
@@ -105,6 +106,11 @@ const userSchema = new mongoose.Schema({
   // Project management - Each project has its own files and settings
   projects: [{
     id: { type: String, required: true },
+    urlCode: { 
+      type: String, 
+      trim: true,
+      match: [/^[a-zA-Z0-9_-]{6,8}$/, 'URL code must be 6-8 alphanumeric characters with hyphens or underscores']
+    },
     name: { type: String, required: true, trim: true },
     description: { type: String, trim: true },
     status: { type: String, enum: ['active', 'completed', 'archived'], default: 'active' },
@@ -188,6 +194,22 @@ const userSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true },
   isVerified: { type: Boolean, default: false },
   
+  // User role (admin or user)
+  role: {
+    type: String,
+    enum: ['user', 'admin'],
+    default: 'user'
+  },
+  
+  // URL code for encoded URLs (like Amazon/Flipkart style)
+  urlCode: {
+    type: String,
+    unique: true,
+    sparse: true,
+    trim: true,
+    match: [/^[a-zA-Z0-9_-]{6,8}$/, 'URL code must be 6-8 alphanumeric characters with hyphens or underscores']
+  },
+  
   // Timestamps
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
@@ -198,10 +220,21 @@ const userSchema = new mongoose.Schema({
 // Index for better query performance
 userSchema.index({ username: 1 });
 userSchema.index({ email: 1 });
+userSchema.index({ urlCode: 1 });
 
-// Hash password before saving
+// Hash password and generate urlCode before saving
 userSchema.pre('save', async function(next) {
   try {
+    // Generate urlCode if it doesn't exist (for new users)
+    if (this.isNew && !this.urlCode) {
+      try {
+        this.urlCode = await generateUniqueUserCode(this.constructor);
+      } catch (error) {
+        console.error('Error generating urlCode:', error);
+        // Continue without urlCode - migration script can handle it later
+      }
+    }
+    
     // Only hash the password if it has been modified (or is new)
     if (!this.isModified('password')) return next();
     
@@ -229,6 +262,11 @@ userSchema.methods.getPublicProfile = function() {
   delete userObject.password;
   delete userObject.__v;
   return userObject;
+};
+
+// Check if user is admin
+userSchema.methods.isAdmin = function() {
+  return this.role === 'admin';
 };
 
 // Update analytics method

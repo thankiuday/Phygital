@@ -17,6 +17,23 @@
     @apply text-slate-100;
     overflow-x: hidden;
   }
+  
+  /* Custom select dropdown styling for dark theme */
+  select {
+    color-scheme: dark;
+  }
+  
+  select option {
+    background-color: rgb(30 41 59);
+    color: rgb(241 245 249);
+  }
+  
+  select option:hover,
+  select option:checked,
+  select option:focus {
+    background-color: rgb(0 212 255 / 0.2);
+    color: rgb(0 212 255);
+  }
 }
 
 @layer components {
@@ -36,6 +53,7 @@
   .label { @apply block text-sm font-medium text-slate-200 mb-2; }
   select.input { @apply appearance-none cursor-pointer; background-image: url('data:image/svg+xml;charset=utf-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 fill=%22none%22 viewBox=%220 0 20 20%22%3E%3Cpath stroke=%22%2300d4ff%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 stroke-width=%221.5%22 d=%22m6 8 4 4 4-4%22/%3E%3C/svg%3E'); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; padding-right: 2.5rem; }
   select.input:focus { @apply border-neon-blue/50 shadow-glow-blue; }
+  select.input option { @apply bg-slate-800 text-slate-100; }
 }
 
 @layer utilities {
@@ -52,4 +70,20 @@
   .shadow-glow-indigo { box-shadow: 0 0 20px rgba(99, 102, 241, 0.4), 0 0 40px rgba(99, 102, 241, 0.2); }
   .shadow-glow-lg { box-shadow: 0 0 40px rgba(0, 212, 255, 0.4), 0 0 80px rgba(0, 212, 255, 0.2); }
   .shadow-glow { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
+  
+  /* Custom scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgb(30 41 59);
+    border-radius: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgb(71 85 105);
+    border-radius: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgb(100 116 139);
+  }
 }

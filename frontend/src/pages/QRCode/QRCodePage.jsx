@@ -40,9 +40,15 @@ const QRCodePage = () => {
   const [copied, setCopied] = useState(false)
   const [viewMode, setViewMode] = useState('list') // 'list' or 'grid'
 
+  // Helper function to get user identifier (urlCode or username)
+  const getUserIdentifier = () => user?.urlCode || user?.username
+  
+  // Helper function to get project identifier (urlCode or id)
+  const getProjectIdentifier = (project) => project?.urlCode || project?.id
+  
   const personalizedUrl = selectedProject 
-    ? `${window.location.origin}/user/${user?.username}?project=${selectedProject.id}`
-    : `${window.location.origin}/user/${user?.username}`
+    ? `${window.location.origin}/user/${getUserIdentifier()}?project=${getProjectIdentifier(selectedProject)}`
+    : `${window.location.origin}/user/${getUserIdentifier()}`
 
   // Load user's projects
   const loadProjects = async (showToast = false) => {

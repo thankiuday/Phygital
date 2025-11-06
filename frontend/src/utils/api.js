@@ -72,9 +72,14 @@ api.interceptors.response.use(
 
     // Handle authentication errors
     if (error.response.status === 401) {
-      localStorage.removeItem('token')
-      window.location.href = '/login'
-      toast.error('Session expired. Please login again.')
+      // Don't redirect for admin login routes - let AdminContext handle it
+      const isAdminRoute = error.config?.url?.includes('/auth/admin/login')
+      
+      if (!isAdminRoute) {
+        localStorage.removeItem('token')
+        window.location.href = '/login'
+        toast.error('Session expired. Please login again.')
+      }
       return Promise.reject(error)
     }
 

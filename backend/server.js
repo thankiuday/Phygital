@@ -21,6 +21,7 @@ const userRoutes = require('./routes/user');
 const historyRoutes = require('./routes/history');
 const arExperienceRoutes = require('./routes/arExperience');
 const contactRoutes = require('./routes/contact');
+const adminRoutes = require('./routes/admin');
 
 const app = express();
 
@@ -169,6 +170,7 @@ app.use('/api/user', userRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/ar-experience', arExperienceRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health check endpoint with detailed status
 app.get('/api/health', async (req, res) => {
@@ -252,7 +254,9 @@ const startServer = async () => {
         '/api/analytics',
         '/api/user',
         '/api/history',
-        '/api/ar-experience'
+        '/api/ar-experience',
+        '/api/contact',
+        '/api/admin'
       ]);
     });
 

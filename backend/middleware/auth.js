@@ -149,9 +149,10 @@ const optionalAuth = async (req, res, next) => {
 /**
  * Generate JWT token for user
  * @param {String} userId - User ID
+ * @param {Boolean} isAdmin - Whether the user is an admin (shorter expiration)
  * @returns {String} JWT token
  */
-const generateToken = (userId) => {
+const generateToken = (userId, isAdmin = false) => {
   try {
     if (!userId) {
       throw new Error('User ID is required to generate token');
@@ -161,10 +162,20 @@ const generateToken = (userId) => {
       throw new Error('JWT_SECRET environment variable is not set');
     }
     
+    // Admin tokens have shorter expiration for security (2 hours)
+    // Regular user tokens expire in 7 days
+    const expiresIn = isAdmin 
+      ? (process.env.ADMIN_JWT_EXPIRE || '2h')
+      : (process.env.JWT_EXPIRE || '7d');
+    
     const token = jwt.sign(
-      { userId },
+      { 
+        userId,
+        role: isAdmin ? 'admin' : 'user', // Include role in token payload
+        isAdmin // Additional flag for quick checks
+      },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRE || '7d' }
+      { expiresIn }
     );
     
     return token;

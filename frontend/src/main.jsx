@@ -10,6 +10,7 @@ import { QueryClient, QueryClientProvider } from 'react-query'
 import { Toaster } from 'react-hot-toast'
 import App from './App.jsx'
 import { AuthProvider } from './contexts/AuthContext.jsx'
+import { AdminProvider } from './contexts/AdminContext.jsx'
 import './index.css'
 
 // Create a client for React Query
@@ -97,8 +98,9 @@ const AppWrapper = import.meta.env.DEV ? (
     <QueryClientProvider client={queryClient}>
       <HashRouter>
         <AuthProvider>
-          <App />
-          <Toaster
+          <AdminProvider>
+            <App />
+            <Toaster
             position="top-right"
             toastOptions={{
               duration: 4000,
@@ -122,6 +124,7 @@ const AppWrapper = import.meta.env.DEV ? (
               },
             }}
           />
+          </AdminProvider>
         </AuthProvider>
       </HashRouter>
     </QueryClientProvider>
@@ -130,8 +133,9 @@ const AppWrapper = import.meta.env.DEV ? (
   <QueryClientProvider client={queryClient}>
     <HashRouter>
       <AuthProvider>
-        <App />
-        <Toaster
+        <AdminProvider>
+          <App />
+          <Toaster
           position="top-right"
           toastOptions={{
             duration: 4000,
@@ -154,7 +158,8 @@ const AppWrapper = import.meta.env.DEV ? (
               },
             },
           }}
-        />
+          />
+        </AdminProvider>
       </AuthProvider>
     </HashRouter>
   </QueryClientProvider>

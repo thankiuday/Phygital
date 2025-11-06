@@ -276,27 +276,42 @@ router.get('/project-data/:projectId', validateProject, async (req, res) => {
 });
 
 /**
- * GET /api/qr/user/:userId/project/:projectId
+ * GET /api/qr/user/:userIdentifier/project/:projectIdentifier
  * Returns project-specific data for a user's project
- * This is the new endpoint that matches the URL structure: /ar/user/{userId}/project/{projectId}
+ * Supports urlCode, userId (ObjectId), or username for user identifier
+ * Supports urlCode or projectId for project identifier
+ * This is the new endpoint that matches the URL structure: /ar/user/{urlCode}/project/{projectUrlCode}
  */
-router.get('/user/:userId/project/:projectId', async (req, res) => {
+router.get('/user/:userIdentifier/project/:projectIdentifier', async (req, res) => {
   try {
-    const { userId, projectId } = req.params;
-    console.log(`🔍 Looking for project ${projectId} belonging to user ${userId}`);
+    const { userIdentifier, projectIdentifier } = req.params;
+    console.log(`🔍 Looking for project ${projectIdentifier} belonging to user ${userIdentifier}`);
+    
+    // Build query to support urlCode, userId (ObjectId), or username
+    let userQuery;
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userIdentifier);
+    const isValidUrlCode = /^[a-zA-Z0-9_-]{6,8}$/.test(userIdentifier);
+    
+    if (isValidObjectId) {
+      userQuery = { _id: userIdentifier };
+    } else if (isValidUrlCode) {
+      userQuery = { urlCode: userIdentifier };
+    } else {
+      userQuery = { username: userIdentifier };
+    }
     
     // Find user
-    const user = await User.findById(userId).select('-password');
+    const user = await User.findOne(userQuery).select('-password');
     
     if (!user) {
-      console.log(`❌ User ${userId} not found`);
+      console.log(`❌ User ${userIdentifier} not found`);
       return res.status(404).json({
         status: 'error',
         message: 'User not found'
       });
     }
     
-    console.log(`✅ User ${userId} found: ${user.username}`);
+    console.log(`✅ User ${userIdentifier} found: ${user.username}`);
     console.log(`📊 User has ${user.projects?.length || 0} projects`);
     console.log(`📁 User has uploadedFiles:`, {
       design: !!user.uploadedFiles?.design?.url,
@@ -304,25 +319,27 @@ router.get('/user/:userId/project/:projectId', async (req, res) => {
       composite: !!user.uploadedFiles?.compositeDesign?.url
     });
     
-    // Find the specific project
-    let project = user.projects?.find(p => p.id === projectId);
+    // Find the specific project by urlCode or id
+    let project = user.projects?.find(p => 
+      p.id === projectIdentifier || p.urlCode === projectIdentifier
+    );
     
     console.log(`🔍 Project lookup result:`, {
       projectFound: !!project,
-      projectId: projectId,
-      availableProjects: user.projects?.map(p => ({ id: p.id, name: p.name })) || []
+      projectIdentifier: projectIdentifier,
+      availableProjects: user.projects?.map(p => ({ id: p.id, urlCode: p.urlCode, name: p.name })) || []
     });
     
     // BACKWARD COMPATIBILITY: If project not found, use root-level uploadedFiles
     // This handles both 'default' and timestamp-based project IDs for existing users
     if (!project) {
-      console.log(`📦 Project ${projectId} not found in projects array - using root-level data for backward compatibility`);
+      console.log(`📦 Project ${projectIdentifier} not found in projects array - using root-level data for backward compatibility`);
       
       // Check if user has root-level data
       if (user.uploadedFiles?.design?.url || user.uploadedFiles?.video?.url) {
         console.log('✅ Found root-level uploadedFiles - creating virtual project');
         project = {
-          id: projectId, // Use the requested project ID
+          id: projectIdentifier, // Use the requested project identifier
           name: user.uploadedFiles?.design?.originalName || 'Default Project',
           uploadedFiles: user.uploadedFiles,
           qrPosition: user.qrPosition,
@@ -340,7 +357,7 @@ router.get('/user/:userId/project/:projectId', async (req, res) => {
     
     // Check if project is enabled
     if (project.isEnabled === false) {
-      console.log(`🚫 Project ${projectId} is disabled by owner`);
+      console.log(`🚫 Project ${projectIdentifier} is disabled by owner`);
       return res.status(403).json({
         status: 'error',
         message: 'This project has been disabled by its owner',
@@ -410,7 +427,8 @@ router.get('/user/:userId/project/:projectId', async (req, res) => {
     
     const data = {
       userId: user._id.toString(),
-      projectId,
+      projectId: project.id,
+      projectUrlCode: project.urlCode,
       projectName: project.name,
       name: user.username,
       designUrl: project.uploadedFiles.compositeDesign?.url || project.uploadedFiles.design.url,
@@ -532,26 +550,32 @@ router.get('/my-qr', authenticateToken, async (req, res) => {
 });
 
 /**
- * GET /api/qr/info/:userId
+ * GET /api/qr/info/:identifier
  * Get QR code information and user data
  * Used by the personalized page to display user content
+ * Supports urlCode, userId (ObjectId), or username for backward compatibility
  */
-router.get('/info/:userId', optionalAuth, async (req, res) => {
+router.get('/info/:identifier', optionalAuth, async (req, res) => {
   try {
-    const { userId } = req.params;
+    const { identifier } = req.params;
     
-    // Validate if userId is a valid ObjectId format (24 hex characters)
-    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
-    
-    // Build query based on whether userId is a valid ObjectId or username
+    // Build query to support urlCode, userId (ObjectId), or username
     let query;
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(identifier);
+    const isValidUrlCode = /^[a-zA-Z0-9_-]{6,8}$/.test(identifier);
+    
     if (isValidObjectId) {
-      query = { _id: userId };
+      // Check if it's a valid MongoDB ObjectId
+      query = { _id: identifier };
+    } else if (isValidUrlCode) {
+      // Check if it's a valid urlCode format
+      query = { urlCode: identifier };
     } else {
-      query = { username: userId };
+      // Fallback to username (backward compatibility)
+      query = { username: identifier };
     }
     
-    // Find user by ID or username
+    // Find user by identifier
     const user = await User.findOne(query).select('-password -email');
     
     if (!user) {

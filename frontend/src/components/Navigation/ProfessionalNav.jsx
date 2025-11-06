@@ -19,7 +19,8 @@ import {
   Menu,
   X,
   ChevronDown,
-  Sparkles
+  Sparkles,
+  QrCode
 } from 'lucide-react';
 import ProfessionalButton from '../UI/ProfessionalButton';
 import Logo from '../UI/Logo';
@@ -39,6 +40,7 @@ const ProfessionalNav = () => {
     { name: 'Dashboard', href: '/dashboard', icon: BarChart3, authOnly: true },
     { name: 'Upload', href: '/upload', icon: Upload, authOnly: true },
     { name: 'Projects', href: '/projects', icon: FolderKanban, authOnly: true },
+    { name: 'QR Designs', href: '/qr-designs', icon: QrCode, authOnly: true },
     { name: 'Analytics', href: '/analytics', icon: BarChart3, authOnly: true },
     { name: 'Profile', href: '/profile', icon: User, authOnly: true },
   ];

@@ -41,98 +41,115 @@
     <!-- HammerJS (for gestures) -->
     <script src="https://hammerjs.github.io/dist/hammer.min.js"></script>
     
-    <!-- MindAR Loader -->
+    <!-- MindAR Loader - Skip loading only on admin routes -->
     <script type="module">
-      // Load Three.js first, then MindAR
-      async function loadLibraries() {
-        try {
-          // Step 1: Load Three.js explicitly
-          console.log("🔄 Loading Three.js...");
-          const THREE = await import("https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js");
-          window.THREE = THREE;
-          console.log("✅ Three.js loaded and exposed globally", window.THREE);
-          
-          // Step 2: Load MindAR after Three.js is ready
-          console.log("🔄 Loading MindAR...");
-          await loadMindAR();
-          
-        } catch (e) {
-          console.error("❌ Failed to load AR libraries:", e);
-          // Try fallback UMD approach
-          loadUMDFallback();
-        }
-      }
+      // Check if we need to skip loading AR libraries
+      // Only skip on admin routes, load on all other pages
+      const currentPath = window.location.pathname || window.location.hash.replace('#', '');
+      const isAdminRoute = currentPath.includes('/admin');
       
-      async function loadMindAR() {
-        try {
-          // Attempt ESM import
-          const module = await import("https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js");
-          window.MindARThree = module.MindARThree ? { MindARThree: module.MindARThree } : { MindARThree: module.default.MindARThree };
-          
-          console.log("✅ MindAR loaded via ESM import");
-          
-          // Debug MindAR structure
-          console.log('🔍 MindAR structure debug:', {
-            'window.MindARThree': window.MindARThree,
-            'window.MindARThree.MindARThree': window.MindARThree?.MindARThree,
-            'typeof window.MindARThree.MindARThree': typeof window.MindARThree?.MindARThree,
-            'isConstructor': window.MindARThree?.MindARThree && typeof window.MindARThree.MindARThree === 'function'
-          });
-          
-        } catch (e) {
-          console.warn("⚠️ ESM import failed, trying UMD fallback...");
-          throw e;
+      if (isAdminRoute) {
+        console.log("⏭️ Skipping AR library loading for admin route:", currentPath);
+        // Create stubs to prevent errors if something tries to use them
+        if (!window.THREE) {
+          window.THREE = {};
         }
-      }
-      
-      function loadUMDFallback() {
-        console.warn("⚠️ Loading UMD fallback versions...");
-        
-        // Load Three.js UMD
-        const threeScript = document.createElement('script');
-        threeScript.src = "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js";
-        threeScript.onload = () => {
-          console.log("✅ Three.js loaded via UMD");
-          
-          // Then load MindAR UMD
-          const script = document.createElement('script');
-          script.src = "https://unpkg.com/mind-ar@1.2.5/dist/mindar-image-three.prod.js";
-          script.onload = () => {
-            console.log("✅ MindAR loaded via UMD fallback");
-            // Ensure proper structure for UMD
-            if (window.MindARThree && !window.MindARThree.MindARThree) {
-              window.MindARThree = { MindARThree: window.MindARThree };
+        if (!window.MindARThree) {
+          window.MindARThree = {
+            MindARThree: function() {
+              console.warn("MindAR not loaded on admin pages");
+              return null;
             }
           };
-          script.onerror = () => {
-            console.error("❌ MindAR failed to load, using stub");
+        }
+      } else {
+        // Load Three.js first, then MindAR
+        async function loadLibraries() {
+          try {
+            // Step 1: Load Three.js explicitly
+            console.log("🔄 Loading Three.js...");
+            const THREE = await import("https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js");
+            window.THREE = THREE;
+            console.log("✅ Three.js loaded and exposed globally", window.THREE);
+            
+            // Step 2: Load MindAR after Three.js is ready
+            console.log("🔄 Loading MindAR...");
+            await loadMindAR();
+            
+          } catch (e) {
+            console.warn("⚠️ Failed to load AR libraries:", e.message);
+            // Try fallback UMD approach
+            loadUMDFallback();
+          }
+        }
+        
+        async function loadMindAR() {
+          try {
+            // Attempt ESM import
+            const module = await import("https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js");
+            window.MindARThree = module.MindARThree ? { MindARThree: module.MindARThree } : { MindARThree: module.default.MindARThree };
+            
+            console.log("✅ MindAR loaded via ESM import");
+            
+          } catch (e) {
+            console.warn("⚠️ ESM import failed, trying UMD fallback...");
+            throw e;
+          }
+        }
+        
+        function loadUMDFallback() {
+          console.warn("⚠️ Loading UMD fallback versions...");
+          
+          // Load Three.js UMD
+          const threeScript = document.createElement('script');
+          threeScript.src = "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js";
+          threeScript.onload = () => {
+            console.log("✅ Three.js loaded via UMD");
+            
+            // Then load MindAR UMD
+            const script = document.createElement('script');
+            script.src = "https://unpkg.com/mind-ar@1.2.5/dist/mindar-image-three.prod.js";
+            script.onload = () => {
+              console.log("✅ MindAR loaded via UMD fallback");
+              // Ensure proper structure for UMD
+              if (window.MindARThree && !window.MindARThree.MindARThree) {
+                window.MindARThree = { MindARThree: window.MindARThree };
+              }
+            };
+            script.onerror = () => {
+              console.warn("⚠️ MindAR failed to load, using stub");
+              createMindARStub();
+            };
+            document.head.appendChild(script);
+          };
+          threeScript.onerror = () => {
+            console.warn("⚠️ Three.js failed to load, using stub");
             createMindARStub();
           };
-          document.head.appendChild(script);
-        };
-        threeScript.onerror = () => {
-          console.error("❌ Three.js failed to load");
-        };
-        document.head.appendChild(threeScript);
-      }
+          document.head.appendChild(threeScript);
+        }
 
-      function createMindARStub() {
-        window.MindARThree = {
-          MindARThree: function(config) {
-            console.log("🧪 MindAR stub initialized", config);
-            return {
-              start: async () => console.log("Stub start"),
-              stop: async () => console.log("Stub stop"),
-              addAnchor: () => ({ group: { add: () => {} } }),
-              renderer: { domElement: document.createElement("canvas") },
-              scene: new window.THREE.Scene(),
-              camera: new window.THREE.PerspectiveCamera()
-            };
+        function createMindARStub() {
+          if (!window.THREE) {
+            window.THREE = { Scene: function() {}, PerspectiveCamera: function() {} };
           }
-        };
-      }
+          window.MindARThree = {
+            MindARThree: function(config) {
+              console.log("🧪 MindAR stub initialized", config);
+              return {
+                start: async () => console.log("Stub start"),
+                stop: async () => console.log("Stub stop"),
+                addAnchor: () => ({ group: { add: () => {} } }),
+                renderer: { domElement: document.createElement("canvas") },
+                scene: window.THREE.Scene ? new window.THREE.Scene() : {},
+                camera: window.THREE.PerspectiveCamera ? new window.THREE.PerspectiveCamera() : {}
+              };
+            }
+          };
+        }
 
-      loadLibraries();
+        loadLibraries();
+      }
     </script>
   </head>
   <body>

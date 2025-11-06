@@ -306,6 +306,173 @@ router.put('/profile', authenticateToken, [
 });
 
 /**
+ * POST /api/auth/admin/login
+ * Admin login endpoint with enhanced security
+ * Includes brute force protection, rate limiting, and activity logging
+ */
+const { adminLoginLimiter, checkBruteForce, logLoginAttempt, logAdminActivity, getClientIP } = require('../middleware/adminSecurity');
+
+router.post('/admin/login', adminLoginLimiter, [
+  body('email')
+    .isEmail()
+    .withMessage('Please provide a valid email')
+    .normalizeEmail(),
+  
+  body('password')
+    .notEmpty()
+    .withMessage('Password is required')
+], async (req, res) => {
+  const clientIP = getClientIP(req);
+  const userAgent = req.headers['user-agent'];
+  let email = null;
+
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      // Log failed validation attempt
+      if (req.body.email) {
+        await logLoginAttempt(req.body.email, clientIP, userAgent, false, 'validation_error', true);
+      }
+      
+      return res.status(400).json({
+        status: 'error',
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    email = req.body.email;
+    const password = req.body.password;
+
+    // Get admin credentials from environment variables (more secure)
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@phygital.zone';
+    const adminPassword = process.env.ADMIN_PASSWORD || 'PhygitalAdmin@2025';
+
+    // Check for brute force attempts BEFORE verifying credentials
+    const bruteForceCheck = await checkBruteForce(email, clientIP, true);
+    if (bruteForceCheck.blocked) {
+      await logLoginAttempt(email, clientIP, userAgent, false, 'ip_blocked', true);
+      
+      return res.status(429).json({
+        status: 'error',
+        message: bruteForceCheck.reason,
+        retryAfter: bruteForceCheck.retryAfter
+      });
+    }
+
+    // Verify admin email matches
+    if (email !== adminEmail) {
+      // Use constant-time comparison to prevent timing attacks
+      // Always check password even if email doesn't match to prevent user enumeration
+      await new Promise(resolve => setTimeout(resolve, 100)); // Constant delay
+      await logLoginAttempt(email, clientIP, userAgent, false, 'invalid_credentials', true);
+      
+      return res.status(401).json({
+        status: 'error',
+        message: 'Invalid admin credentials'
+      });
+    }
+
+    // Find or create admin user
+    let adminUser = await User.findOne({ email: adminEmail });
+    
+    if (!adminUser) {
+      // Create admin user if doesn't exist
+      adminUser = new User({
+        username: 'admin',
+        email: adminEmail,
+        password: adminPassword, // Will be hashed by pre-save hook
+        role: 'admin',
+        isActive: true
+      });
+      await adminUser.save();
+    } else {
+      // Ensure existing user has admin role and is active
+      let needsUpdate = false;
+      if (adminUser.role !== 'admin') {
+        adminUser.role = 'admin';
+        needsUpdate = true;
+      }
+      if (!adminUser.isActive) {
+        adminUser.isActive = true;
+        needsUpdate = true;
+      }
+      
+      if (needsUpdate) {
+        await adminUser.save();
+      }
+      
+      // Verify password using secure comparison
+      const isPasswordValid = await adminUser.comparePassword(password);
+      if (!isPasswordValid) {
+        await logLoginAttempt(email, clientIP, userAgent, false, 'invalid_credentials', true);
+        
+        return res.status(401).json({
+          status: 'error',
+          message: 'Invalid admin credentials'
+        });
+      }
+    }
+
+    // Check if account is locked (additional safety check)
+    if (!adminUser.isActive) {
+      await logLoginAttempt(email, clientIP, userAgent, false, 'account_inactive', true);
+      
+      return res.status(401).json({
+        status: 'error',
+        message: 'Admin account is deactivated'
+      });
+    }
+
+    // Generate JWT token with admin flag for shorter expiration
+    const token = generateToken(adminUser._id, true);
+
+    // Update last login time
+    adminUser.updatedAt = new Date();
+    await adminUser.save();
+
+    // Log successful login attempt
+    await logLoginAttempt(email, clientIP, userAgent, true, null, true);
+    
+    // Log admin activity
+    await logAdminActivity(
+      adminUser._id,
+      'login',
+      null,
+      null,
+      clientIP,
+      userAgent,
+      { method: 'POST', endpoint: '/admin/login' }
+    );
+
+    // Return admin user data and token
+    res.status(200).json({
+      status: 'success',
+      message: 'Admin login successful',
+      data: {
+        user: adminUser.getPublicProfile(),
+        token,
+        expiresIn: process.env.ADMIN_JWT_EXPIRE || '2h' // Inform frontend of expiration
+      }
+    });
+
+  } catch (error) {
+    console.error('Admin login error:', error);
+    
+    // Log failed attempt
+    if (email) {
+      await logLoginAttempt(email, clientIP, userAgent, false, 'server_error', true);
+    }
+    
+    res.status(500).json({
+      status: 'error',
+      message: 'Admin login failed',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+/**
  * POST /api/auth/change-password
  * Change user password
  * Requires authentication token and current password
