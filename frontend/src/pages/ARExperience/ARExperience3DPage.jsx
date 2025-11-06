@@ -207,23 +207,27 @@ const ARExperience3DPage = () => {
     prevDetectedRef.current = targetDetected;
   }, [targetDetected, setVideoPlaying]);
 
-  // Show composite image when loaded - delayed to ensure camera is visible first
+  // Show composite image briefly at start, then hide to show live camera
   useEffect(() => {
-    if (projectData && !targetDetected && !hasShownInitialGuide && !isLoading && cameraActive) {
+    if (projectData && !targetDetected && !hasShownInitialGuide && !isLoading) {
       if (projectData?.compositeDesignUrl || projectData?.designUrl) {
-        // Delay showing composite to let camera view show first
+        // Show composite for 3 seconds, then hide to reveal live camera
+        setShowCompositeImage(true);
+        setShowScannerAnimation(true);
+        setHasShownInitialGuide(true);
+        addDebugMessage('📱 Showing composite image guide (will hide to show camera)', 'info');
+        
+        // Auto-hide after 3 seconds to show live camera feed
         const timer = setTimeout(() => {
-          setShowCompositeImage(true);
-          setShowScannerAnimation(true);
-          setHasShownInitialGuide(true);
-          setContainerHeight(getContainerHeight());
-          addDebugMessage('📱 Showing composite image guide', 'info');
-        }, 1000); // 1 second delay to show camera first
+          setShowCompositeImage(false);
+          setShowScannerAnimation(false);
+          addDebugMessage('📷 Composite hidden - live camera feed now visible', 'info');
+        }, 3000);
         
         return () => clearTimeout(timer);
       }
     }
-  }, [projectData, targetDetected, hasShownInitialGuide, isLoading, cameraActive, addDebugMessage]);
+  }, [projectData, targetDetected, hasShownInitialGuide, isLoading, addDebugMessage]);
 
   // Update container height
   useEffect(() => {
@@ -277,19 +281,8 @@ const ARExperience3DPage = () => {
     }
   }, [targetDetected, showCompositeImage]);
 
-  // Show composite when target lost
-  useEffect(() => {
-    if (!targetDetected && hasShownInitialGuide && (projectData?.compositeDesignUrl || projectData?.designUrl)) {
-      const timeoutId = setTimeout(() => {
-        setShowCompositeImage(true);
-        setShowScannerAnimation(true);
-        setContainerHeight(getContainerHeight());
-        addDebugMessage('🔄 Target lost, showing guide again', 'info');
-      }, 500);
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [targetDetected, hasShownInitialGuide, projectData, addDebugMessage]);
+  // Don't re-show composite when target lost - keep camera view visible
+  // This allows users to keep scanning without the overlay blocking the view
 
   // Ensure AR elements fit container
   useEffect(() => {
@@ -518,32 +511,26 @@ const ARExperience3DPage = () => {
               </div>
             )}
             
-            {/* Composite Image Overlay */}
-            {showCompositeImage && !targetDetected && (
+            {/* Composite Image Overlay - Only show briefly at start, then hide to show camera */}
+            {showCompositeImage && !targetDetected && !cameraActive && (
               <CompositeImageOverlay
                 projectData={projectData}
                 isVisible={showCompositeImage}
                 onAnimationComplete={() => {
-                  setTimeout(() => {
-                    if (!targetDetected && showCompositeImage) {
-                      setShowScannerAnimation(true);
-                    }
-                  }, 2000);
+                  // Hide composite image after animation to show live camera
+                  setShowCompositeImage(false);
+                  setShowScannerAnimation(false);
                 }}
               />
             )}
             
-            {/* Scanner Animation */}
-            {showCompositeImage && showScannerAnimation && !targetDetected && (
+            {/* Scanner Animation - Only with composite image */}
+            {showCompositeImage && showScannerAnimation && !targetDetected && !cameraActive && (
               <ScannerAnimation
                 isActive={showScannerAnimation}
                 duration={2000}
                 onComplete={() => {
-                  setTimeout(() => {
-                    if (!targetDetected && showCompositeImage) {
-                      setShowScannerAnimation(true);
-                    }
-                  }, 1000);
+                  // Animation complete - composite will auto-hide
                 }}
                 className="absolute inset-0 z-40"
               />
