@@ -207,18 +207,23 @@ const ARExperience3DPage = () => {
     prevDetectedRef.current = targetDetected;
   }, [targetDetected, setVideoPlaying]);
 
-  // Show composite image when loaded
+  // Show composite image when loaded - delayed to ensure camera is visible first
   useEffect(() => {
-    if (projectData && !targetDetected && !hasShownInitialGuide && !isLoading) {
+    if (projectData && !targetDetected && !hasShownInitialGuide && !isLoading && cameraActive) {
       if (projectData?.compositeDesignUrl || projectData?.designUrl) {
-        setShowCompositeImage(true);
-        setShowScannerAnimation(true);
-        setHasShownInitialGuide(true);
-        setContainerHeight(getContainerHeight());
-        addDebugMessage('📱 Showing composite image guide', 'info');
+        // Delay showing composite to let camera view show first
+        const timer = setTimeout(() => {
+          setShowCompositeImage(true);
+          setShowScannerAnimation(true);
+          setHasShownInitialGuide(true);
+          setContainerHeight(getContainerHeight());
+          addDebugMessage('📱 Showing composite image guide', 'info');
+        }, 1000); // 1 second delay to show camera first
+        
+        return () => clearTimeout(timer);
       }
     }
-  }, [projectData, targetDetected, hasShownInitialGuide, isLoading, addDebugMessage]);
+  }, [projectData, targetDetected, hasShownInitialGuide, isLoading, cameraActive, addDebugMessage]);
 
   // Update container height
   useEffect(() => {
@@ -414,29 +419,35 @@ const ARExperience3DPage = () => {
           <div
             className="relative bg-slate-800/80 rounded-xl md:rounded-2xl overflow-hidden shadow-dark-large w-full"
             style={{ 
-              minHeight: containerHeight,
+              minHeight: '500px',
               maxHeight: '85vh',
-              height: showCompositeImage ? containerHeight : 'auto',
+              height: showCompositeImage ? containerHeight : '500px',
               width: '100%',
               margin: '0 auto',
-              boxSizing: 'border-box'
+              boxSizing: 'border-box',
+              position: 'relative'
             }}
           >
-            {/* AR Container */}
+            {/* AR Container - Camera View */}
             <div
               ref={containerRef}
               className="absolute inset-0 w-full h-full"
               style={{
                 width: '100%',
                 height: '100%',
+                minHeight: '400px',
                 touchAction: 'none',
-                background: 'transparent',
+                background: '#000',
                 overflow: 'hidden',
                 position: 'absolute',
                 top: 0,
                 left: 0,
+                right: 0,
+                bottom: 0,
                 zIndex: 1,
-                borderRadius: 'inherit'
+                borderRadius: 'inherit',
+                display: 'block',
+                visibility: 'visible'
               }}
             />
             
@@ -538,14 +549,24 @@ const ARExperience3DPage = () => {
               />
             )}
             
+            {/* Camera Active Indicator - Shows immediately */}
+            {cameraActive && !targetDetected && !showCompositeImage && (
+              <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 bg-black/70 backdrop-blur-sm px-4 py-2 rounded-full">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  <p className="text-white text-xs font-medium">Camera Active - Point at marker</p>
+                </div>
+              </div>
+            )}
+            
             {/* Scanning Indicator */}
             {isScanning && !targetDetected && !showCompositeImage && (
               <div className="absolute inset-0 flex items-center justify-center z-20">
-                <div className="text-white text-center">
-                  <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                  <p className="text-sm font-medium text-slate-100">Scanning for target...</p>
-                  <p className="text-xs text-slate-300 mt-1">Point at QR code</p>
-                  <p className="text-xs text-blue-400 mt-2">3D popup animation ready</p>
+                <div className="text-white text-center bg-black/50 backdrop-blur-sm p-6 rounded-xl">
+                  <div className="w-12 h-12 border-3 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                  <p className="text-base font-semibold text-slate-100">Scanning for target...</p>
+                  <p className="text-sm text-slate-300 mt-2">Point camera at the image</p>
+                  <p className="text-xs text-blue-400 mt-2">✨ 3D popup ready</p>
                 </div>
               </div>
             )}
