@@ -160,15 +160,24 @@ export const useARLogic3D = ({
       
       texture.colorSpace = window.THREE.SRGBColorSpace || window.THREE.sRGBEncoding;
 
-      // Calculate dimensions for vertical standee
+      // Calculate dimensions for VERTICAL (portrait) standee display
       const videoAspect = video.videoWidth / video.videoHeight;
       
-      // For vertical standee, we want reasonable proportions
-      // Width will be based on marker size, height will maintain aspect ratio
-      const standeeWidth = 1.2; // Slightly larger than marker for visibility
-      const standeeHeight = standeeWidth / videoAspect;
+      // For vertical portrait display, height should be greater than width
+      // Swap dimensions to make video stand tall (portrait orientation)
+      let standeeWidth, standeeHeight;
       
-      addDebugMessage(`📐 Standee dimensions: ${standeeWidth.toFixed(2)}w x ${standeeHeight.toFixed(2)}h`, 'info');
+      if (videoAspect > 1) {
+        // Video is landscape (wider than tall) - make it portrait by swapping
+        standeeHeight = 1.2; // Taller dimension
+        standeeWidth = standeeHeight / videoAspect; // Narrower dimension
+      } else {
+        // Video is already portrait (taller than wide) - keep natural proportions
+        standeeHeight = 1.2; // Taller dimension
+        standeeWidth = standeeHeight * videoAspect; // Narrower dimension
+      }
+      
+      addDebugMessage(`📐 Vertical standee dimensions: ${standeeWidth.toFixed(2)}w x ${standeeHeight.toFixed(2)}h (portrait)`, 'info');
       
       const geometry = new window.THREE.PlaneGeometry(standeeWidth, standeeHeight);
       
@@ -184,11 +193,18 @@ export const useARLogic3D = ({
 
       const videoMesh = new window.THREE.Mesh(geometry, material);
       
-      // 🎯 CRITICAL: Set up for 3D POP-OUT effect
+      // 🎯 CRITICAL: Set up for 3D POP-OUT effect with VERTICAL (portrait) orientation
       // Initial state: flat on marker, tiny, invisible (will pop out toward viewer)
       videoMesh.position.set(0, 0.1, 0); // Start just above marker surface
       videoMesh.rotation.x = -Math.PI / 2; // Start flat on marker
       videoMesh.rotation.y = 0; // Face forward
+      
+      // For landscape videos, rotate 90° on Z-axis to make them display vertically
+      if (videoAspect > 1) {
+        videoMesh.rotation.z = Math.PI / 2; // Rotate 90° to make landscape video vertical
+        addDebugMessage('🔄 Rotating landscape video 90° for vertical display', 'info');
+      }
+      
       videoMesh.scale.set(0.01, 0.01, 0.01); // Start tiny for scale animation
       
       addDebugMessage(`🎭 3D Pop-Out Setup: will emerge ${popOutDistance} units toward camera`, 'info');
