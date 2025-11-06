@@ -392,15 +392,15 @@ export const useARLogic3D = ({
       renderer.setClearColor(0x000000, 0); // Transparent background
       renderer.autoClear = false; // Don't auto-clear (preserve camera feed)
       
-      // Ensure canvas is properly positioned on top of video
-      const canvas = renderer.domElement;
-      canvas.style.position = 'absolute';
-      canvas.style.top = '0';
-      canvas.style.left = '0';
-      canvas.style.width = '100%';
-      canvas.style.height = '100%';
-      canvas.style.zIndex = '10';
-      canvas.style.pointerEvents = 'auto';
+      // Ensure renderer canvas is properly positioned on top of video
+      const rendererCanvas = renderer.domElement;
+      rendererCanvas.style.position = 'absolute';
+      rendererCanvas.style.top = '0';
+      rendererCanvas.style.left = '0';
+      rendererCanvas.style.width = '100%';
+      rendererCanvas.style.height = '100%';
+      rendererCanvas.style.zIndex = '10';
+      rendererCanvas.style.pointerEvents = 'auto';
       
       addDebugMessage(`🎨 Renderer pixel ratio: ${renderer.getPixelRatio()}x`, 'info');
       addDebugMessage('🎨 Renderer configured for transparent AR overlay', 'success');
