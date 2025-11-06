@@ -319,7 +319,15 @@ const ARExperience3DPage = () => {
         el.style.display = 'block';
         el.style.visibility = 'visible';
         el.style.opacity = '1';
-        el.style.zIndex = index === 0 ? '1' : '2'; // Video behind canvas
+        el.style.pointerEvents = 'none';
+        
+        // Layering: video (camera feed) = 1, canvas (3D scene) = 10
+        if (el.tagName.toLowerCase() === 'video') {
+          el.style.zIndex = '1'; // Camera feed at back
+        } else if (el.tagName.toLowerCase() === 'canvas') {
+          el.style.zIndex = '10'; // 3D scene on top
+          el.style.pointerEvents = 'auto'; // Canvas can receive events
+        }
         
         if (el.tagName.toLowerCase() === 'video') {
           el.setAttribute('playsinline', '');

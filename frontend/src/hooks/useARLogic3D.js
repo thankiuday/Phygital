@@ -65,10 +65,10 @@ export const useARLogic3D = ({
   const animationCompleteRef = useRef(false);
   const animationDuration = 1500; // 1.5 seconds for dramatic pop-out effect
   
-  // Pop-out effect configuration
-  const popOutDistance = 0.6; // Distance toward camera (Z-axis) - reduced for stability
-  const heightAboveMarker = 0.4; // Lift from surface for better viewing
-  const viewerAngle = 0; // Face camera directly (0° = perpendicular to marker, faces viewer)
+  // Vertical standee configuration - video stands ON TOP of marker
+  const popOutDistance = 0; // No forward pop-out - stays centered on marker
+  const heightAboveMarker = 0.6; // Height above marker surface (stands tall vertically)
+  const viewerAngle = 0; // Perfectly vertical (0° = perpendicular to marker surface)
 
   // Throttled state updates
   const throttledSetTargetDetected = useCallback(
@@ -207,8 +207,8 @@ export const useARLogic3D = ({
       
       videoMesh.scale.set(0.01, 0.01, 0.01); // Start tiny for scale animation
       
-      addDebugMessage(`🎭 3D Pop-Out Setup: will emerge ${popOutDistance} units toward camera`, 'info');
-      addDebugMessage(`🎬 Animation: scale (0.01→1) + pop-out (Z:0→${popOutDistance}) + stand up (flat→facing camera) + fade (0→1)`, 'info');
+      addDebugMessage(`🎭 Vertical Standee Setup: will rise ${heightAboveMarker} units above marker`, 'info');
+      addDebugMessage(`🎬 Animation: scale (0.01→1) + rise (Y:0.1→${heightAboveMarker}) + stand up (flat→vertical) + fade (0→1)`, 'info');
       
       videoMeshRef.current = videoMesh;
       anchor.group.add(videoMesh);
@@ -384,11 +384,26 @@ export const useARLogic3D = ({
       }
       renderer.outputColorSpace = window.THREE.SRGBColorSpace;
       
-      // High quality renderer settings
+      // High quality renderer settings for AR overlay
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.sortObjects = true;
       
+      // Enable transparency and proper depth testing for 3D video overlay
+      renderer.setClearColor(0x000000, 0); // Transparent background
+      renderer.autoClear = false; // Don't auto-clear (preserve camera feed)
+      
+      // Ensure canvas is properly positioned on top of video
+      const canvas = renderer.domElement;
+      canvas.style.position = 'absolute';
+      canvas.style.top = '0';
+      canvas.style.left = '0';
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
+      canvas.style.zIndex = '10';
+      canvas.style.pointerEvents = 'auto';
+      
       addDebugMessage(`🎨 Renderer pixel ratio: ${renderer.getPixelRatio()}x`, 'info');
+      addDebugMessage('🎨 Renderer configured for transparent AR overlay', 'success');
       
       rendererRef.current = renderer;
       sceneRef.current = scene;
@@ -487,6 +502,21 @@ export const useARLogic3D = ({
               // Show mesh (will be animated from invisible to visible)
               if (videoMeshRef.current) {
                 videoMeshRef.current.visible = true;
+                console.log('🎬 Video mesh initial state:', {
+                  visible: videoMeshRef.current.visible,
+                  position: {
+                    x: videoMeshRef.current.position.x.toFixed(2),
+                    y: videoMeshRef.current.position.y.toFixed(2),
+                    z: videoMeshRef.current.position.z.toFixed(2)
+                  },
+                  rotation: {
+                    x: `${(videoMeshRef.current.rotation.x * 180 / Math.PI).toFixed(0)}°`,
+                    y: `${(videoMeshRef.current.rotation.y * 180 / Math.PI).toFixed(0)}°`,
+                    z: `${(videoMeshRef.current.rotation.z * 180 / Math.PI).toFixed(0)}°`
+                  },
+                  scale: videoMeshRef.current.scale.x.toFixed(2),
+                  opacity: videoMeshRef.current.material?.opacity.toFixed(2)
+                });
               }
             }
             
@@ -500,17 +530,19 @@ export const useARLogic3D = ({
                 const scale = easeOutBack(progress);
                 videoMeshRef.current.scale.set(scale, scale, scale);
                 
-                // 🎯 POP-OUT Animation: Move toward camera (Z-axis)
-                const zPosition = easeOutCubic(progress) * popOutDistance;
-                videoMeshRef.current.position.z = zPosition;
+                // 🎯 Z-axis: Keep centered on marker (no forward movement)
+                videoMeshRef.current.position.z = popOutDistance; // Always 0
                 
-                // 🎯 Lift Animation: Slight upward movement (Y-axis)
+                // 🎯 Y-axis: Rise up vertically above marker
                 const yPosition = 0.1 + (easeOutCubic(progress) * (heightAboveMarker - 0.1));
                 videoMeshRef.current.position.y = yPosition;
                 
-                // 🎯 Rotation animation: from flat (-90°) to angled toward viewer (e.g., -60°)
-                const startRotation = -Math.PI / 2; // Flat on marker
-                const endRotation = viewerAngle; // Angled toward viewer
+                // 🎯 X-axis: Keep centered on marker
+                videoMeshRef.current.position.x = 0;
+                
+                // 🎯 Rotation: from flat on marker to standing vertical
+                const startRotation = -Math.PI / 2; // -90° = Flat on marker surface
+                const endRotation = viewerAngle; // 0° = Standing vertical (perpendicular to marker)
                 const rotation = startRotation + (easeOutCubic(progress) * (endRotation - startRotation));
                 videoMeshRef.current.rotation.x = rotation;
                 
@@ -523,14 +555,31 @@ export const useARLogic3D = ({
                 // Log progress at key milestones
                 if (progress === 0.25 || progress === 0.5 || progress === 0.75) {
                   const percent = Math.round(progress * 100);
-                  addDebugMessage(`🎬 Pop-out animation ${percent}% complete`, 'info');
+                  addDebugMessage(`🎬 Vertical rise animation ${percent}% complete`, 'info');
                 }
               }
               
               // Animation complete
               if (progress >= 1) {
                 animationCompleteRef.current = true;
-                addDebugMessage('✨ 3D pop-out animation complete! Video emerged toward viewer', 'success');
+                addDebugMessage('✨ Vertical standee animation complete! Video standing on marker', 'success');
+                
+                // Log final position
+                if (videoMeshRef.current) {
+                  console.log('✅ Video mesh final state:', {
+                    position: {
+                      x: videoMeshRef.current.position.x.toFixed(2),
+                      y: videoMeshRef.current.position.y.toFixed(2),
+                      z: videoMeshRef.current.position.z.toFixed(2)
+                    },
+                    rotation: {
+                      x: `${(videoMeshRef.current.rotation.x * 180 / Math.PI).toFixed(0)}°`,
+                      y: `${(videoMeshRef.current.rotation.y * 180 / Math.PI).toFixed(0)}°`,
+                      z: `${(videoMeshRef.current.rotation.z * 180 / Math.PI).toFixed(0)}°`
+                    },
+                    scale: videoMeshRef.current.scale.x.toFixed(2)
+                  });
+                }
                 
                 // Start video playback after animation
                 if (videoRef.current && videoRef.current.paused) {
@@ -570,10 +619,10 @@ export const useARLogic3D = ({
               animationStartTimeRef.current = null;
               animationCompleteRef.current = false;
               
-              // Reset mesh to initial state for next pop-out
+              // Reset mesh to initial state for next vertical rise
               videoMeshRef.current.scale.set(0.01, 0.01, 0.01);
-              videoMeshRef.current.position.set(0, 0.1, 0); // Reset to flat on marker
-              videoMeshRef.current.rotation.x = -Math.PI / 2; // Reset to flat
+              videoMeshRef.current.position.set(0, 0.1, 0); // Reset centered on marker
+              videoMeshRef.current.rotation.x = -Math.PI / 2; // Reset to flat on marker
               if (videoMeshRef.current.material) {
                 videoMeshRef.current.material.opacity = 0;
               }
@@ -610,12 +659,13 @@ export const useARLogic3D = ({
             }
           }
           
-          // Render scene
-          renderer.render(scene, camera);
+          // Clear and render scene on top of camera feed
+          renderer.clear(); // Clear canvas (transparent)
+          renderer.render(scene, camera); // Render 3D scene
         });
         
-        addDebugMessage('🔄 3D animation render loop started', 'success');
-        addDebugMessage('🎯 Point camera at the target image to see 3D popup!', 'info');
+        addDebugMessage('🔄 Vertical standee render loop started', 'success');
+        addDebugMessage('🎯 Point camera at the target image - video will stand vertically on marker!', 'info');
       
       } catch (startError) {
         addDebugMessage(`❌ MindAR failed to start: ${startError.message}`, 'error');
