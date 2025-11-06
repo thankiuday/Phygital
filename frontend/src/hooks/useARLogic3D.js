@@ -65,10 +65,11 @@ export const useARLogic3D = ({
   const animationCompleteRef = useRef(false);
   const animationDuration = 1500; // 1.5 seconds for dramatic pop-out effect
   
-  // Vertical standee configuration - video stands ON TOP of marker
+  // Vertical standee configuration - video stands ON TOP of marker facing camera
   const popOutDistance = 0; // No forward pop-out - stays centered on marker
   const heightAboveMarker = 0.6; // Height above marker surface (stands tall vertically)
-  const viewerAngle = 0; // Perfectly vertical (0° = perpendicular to marker surface)
+  const verticalAngle = 0; // Stand up to 0° (perpendicular to marker)
+  const facingAngle = 0; // Y-axis rotation to face camera (try: 0, Math.PI/2, Math.PI, -Math.PI/2)
 
   // Throttled state updates
   const throttledSetTargetDetected = useCallback(
@@ -193,11 +194,11 @@ export const useARLogic3D = ({
 
       const videoMesh = new window.THREE.Mesh(geometry, material);
       
-      // 🎯 CRITICAL: Set up for 3D POP-OUT effect with VERTICAL (portrait) orientation
-      // Initial state: flat on marker, tiny, invisible (will pop out toward viewer)
+      // 🎯 CRITICAL: Set up for VERTICAL standee that faces camera
+      // Initial state: flat on marker, tiny, invisible (will rise and face viewer)
       videoMesh.position.set(0, 0.1, 0); // Start just above marker surface
       videoMesh.rotation.x = -Math.PI / 2; // Start flat on marker
-      videoMesh.rotation.y = 0; // Face forward
+      videoMesh.rotation.y = facingAngle; // Pre-rotate to face camera direction
       
       // For landscape videos, rotate 90° on Z-axis to make them display vertically
       if (videoAspect > 1) {
@@ -207,8 +208,14 @@ export const useARLogic3D = ({
       
       videoMesh.scale.set(0.01, 0.01, 0.01); // Start tiny for scale animation
       
+      const facingDegrees = (facingAngle * 180 / Math.PI).toFixed(0);
       addDebugMessage(`🎭 Vertical Standee Setup: will rise ${heightAboveMarker} units above marker`, 'info');
-      addDebugMessage(`🎬 Animation: scale (0.01→1) + rise (Y:0.1→${heightAboveMarker}) + stand up (flat→vertical) + fade (0→1)`, 'info');
+      addDebugMessage(`🎬 Animation: scale (0.01→1) + rise (Y:0.1→${heightAboveMarker}) + stand up (X:-90°→0°) + Y-rotation:${facingDegrees}° + fade (0→1)`, 'info');
+      console.log('🎯 Vertical standee configuration:', {
+        heightAboveMarker,
+        verticalAngle: `${(verticalAngle * 180 / Math.PI).toFixed(0)}°`,
+        facingAngle: `${facingDegrees}°`
+      });
       
       videoMeshRef.current = videoMesh;
       anchor.group.add(videoMesh);
@@ -239,7 +246,7 @@ export const useARLogic3D = ({
     } catch (error) {
       addDebugMessage(`❌ Video setup failed: ${error.message}`, 'error');
     }
-  }, [projectData, addDebugMessage, setVideoPlaying, videoMuted, popOutDistance, heightAboveMarker, viewerAngle]);
+  }, [projectData, addDebugMessage, setVideoPlaying, videoMuted, popOutDistance, heightAboveMarker, verticalAngle, facingAngle]);
 
   // Initialize MindAR
   const initializeMindAR = useCallback(async (retryCount = 0, maxRetries = 3) => {
@@ -540,11 +547,14 @@ export const useARLogic3D = ({
                 // 🎯 X-axis: Keep centered on marker
                 videoMeshRef.current.position.x = 0;
                 
-                // 🎯 Rotation: from flat on marker to standing vertical
-                const startRotation = -Math.PI / 2; // -90° = Flat on marker surface
-                const endRotation = viewerAngle; // 0° = Standing vertical (perpendicular to marker)
-                const rotation = startRotation + (easeOutCubic(progress) * (endRotation - startRotation));
-                videoMeshRef.current.rotation.x = rotation;
+                // 🎯 X-Rotation: from flat on marker to standing vertical
+                const startRotationX = -Math.PI / 2; // -90° = Flat on marker surface
+                const endRotationX = verticalAngle; // 0° = Standing vertical (perpendicular to marker)
+                const rotationX = startRotationX + (easeOutCubic(progress) * (endRotationX - startRotationX));
+                videoMeshRef.current.rotation.x = rotationX;
+                
+                // 🎯 Y-Rotation: Keep constant to face camera throughout animation
+                videoMeshRef.current.rotation.y = facingAngle; // Always face camera
                 
                 // Fade animation (opacity 0 to 1)
                 const opacity = easeInOut(progress);
@@ -623,6 +633,7 @@ export const useARLogic3D = ({
               videoMeshRef.current.scale.set(0.01, 0.01, 0.01);
               videoMeshRef.current.position.set(0, 0.1, 0); // Reset centered on marker
               videoMeshRef.current.rotation.x = -Math.PI / 2; // Reset to flat on marker
+              videoMeshRef.current.rotation.y = facingAngle; // Keep facing camera
               if (videoMeshRef.current.material) {
                 videoMeshRef.current.material.opacity = 0;
               }
@@ -741,7 +752,7 @@ export const useARLogic3D = ({
       setError(`AR initialization failed: ${error.message}`);
       return false;
     }
-  }, [librariesLoaded, projectData, isInitialized, addDebugMessage, setError, setCameraActive, setArReady, setIsInitialized, setTargetDetected, setVideoPlaying, setupVideo, trackAnalytics, userId, projectId, animationDuration, popOutDistance, heightAboveMarker, viewerAngle]);
+  }, [librariesLoaded, projectData, isInitialized, addDebugMessage, setError, setCameraActive, setArReady, setIsInitialized, setTargetDetected, setVideoPlaying, setupVideo, trackAnalytics, userId, projectId, animationDuration, popOutDistance, heightAboveMarker, verticalAngle, facingAngle]);
 
   // Start AR scanning
   const startScanning = useCallback(async () => {
