@@ -291,33 +291,77 @@ const ARExperience3DPage = () => {
     
     const applySizing = () => {
       const elems = container.querySelectorAll('video, canvas');
-      elems.forEach((el) => {
+      console.log(`🎥 Found ${elems.length} AR elements (video/canvas)`, elems);
+      
+      elems.forEach((el, index) => {
+        console.log(`📺 Element ${index}:`, {
+          tag: el.tagName,
+          width: el.offsetWidth,
+          height: el.offsetHeight,
+          display: el.style.display,
+          visibility: el.style.visibility,
+          zIndex: el.style.zIndex
+        });
+        
         el.style.position = 'absolute';
         el.style.top = '0';
         el.style.left = '0';
+        el.style.right = '0';
+        el.style.bottom = '0';
         el.style.width = '100%';
         el.style.height = '100%';
         el.style.maxWidth = '100%';
         el.style.maxHeight = '100%';
+        el.style.minWidth = '100%';
+        el.style.minHeight = '100%';
         el.style.overflow = 'hidden';
         el.style.objectFit = 'cover';
+        el.style.display = 'block';
+        el.style.visibility = 'visible';
+        el.style.opacity = '1';
+        el.style.zIndex = index === 0 ? '1' : '2'; // Video behind canvas
         
         if (el.tagName.toLowerCase() === 'video') {
           el.setAttribute('playsinline', '');
           el.setAttribute('webkit-playsinline', '');
           el.setAttribute('muted', 'true');
+          el.setAttribute('autoplay', 'true');
+          el.autoplay = true;
+          el.muted = true;
+          
+          // Force play the video stream
+          if (el.paused && el.srcObject) {
+            el.play().then(() => {
+              console.log('✅ Camera video playing');
+            }).catch(err => {
+              console.log('⚠️ Video play failed:', err);
+            });
+          }
         }
       });
     };
 
+    // Apply immediately
     applySizing();
-    const id = setTimeout(applySizing, 300);
+    
+    // Apply multiple times to catch delayed element creation
+    const timers = [
+      setTimeout(applySizing, 100),
+      setTimeout(applySizing, 300),
+      setTimeout(applySizing, 500),
+      setTimeout(applySizing, 1000),
+      setTimeout(applySizing, 2000)
+    ];
 
-    const observer = new MutationObserver(applySizing);
+    // Watch for new elements being added
+    const observer = new MutationObserver(() => {
+      console.log('🔄 AR container DOM changed, re-applying styles');
+      applySizing();
+    });
     observer.observe(container, { childList: true, subtree: true });
 
     return () => {
-      clearTimeout(id);
+      timers.forEach(t => clearTimeout(t));
       observer.disconnect();
     };
   }, [containerRef, arReady, cameraActive]);
@@ -541,8 +585,15 @@ const ARExperience3DPage = () => {
               <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 bg-black/70 backdrop-blur-sm px-4 py-2 rounded-full">
                 <div className="flex items-center space-x-2">
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                  <p className="text-white text-xs font-medium">Camera Active - Point at marker</p>
+                  <p className="text-white text-xs font-medium">Camera Active - Check console for debug info</p>
                 </div>
+              </div>
+            )}
+            
+            {/* Debug: Show if AR Ready */}
+            {arReady && !targetDetected && (
+              <div className="absolute bottom-4 left-4 z-50 bg-green-500/80 backdrop-blur-sm px-3 py-1 rounded text-white text-xs">
+                AR Ready ✓
               </div>
             )}
             
