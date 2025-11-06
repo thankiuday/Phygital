@@ -66,9 +66,9 @@ export const useARLogic3D = ({
   const animationDuration = 1500; // 1.5 seconds for dramatic pop-out effect
   
   // Pop-out effect configuration
-  const popOutDistance = 0.8; // Distance toward camera (Z-axis) - adjustable: 0.5-1.5
-  const heightAboveMarker = 0.3; // Slight lift from surface - adjustable: 0.1-0.5
-  const viewerAngle = -Math.PI / 3; // 60° tilt toward viewer - adjustable: -Math.PI/4 to -Math.PI/2.5
+  const popOutDistance = 0.6; // Distance toward camera (Z-axis) - reduced for stability
+  const heightAboveMarker = 0.4; // Lift from surface for better viewing
+  const viewerAngle = 0; // Face camera directly (0° = perpendicular to marker, faces viewer)
 
   // Throttled state updates
   const throttledSetTargetDetected = useCallback(
@@ -192,7 +192,7 @@ export const useARLogic3D = ({
       videoMesh.scale.set(0.01, 0.01, 0.01); // Start tiny for scale animation
       
       addDebugMessage(`🎭 3D Pop-Out Setup: will emerge ${popOutDistance} units toward camera`, 'info');
-      addDebugMessage(`🎬 Animation: scale (0.01→1) + pop-out (Z:0→${popOutDistance}) + tilt (flat→60°) + fade (0→1)`, 'info');
+      addDebugMessage(`🎬 Animation: scale (0.01→1) + pop-out (Z:0→${popOutDistance}) + stand up (flat→facing camera) + fade (0→1)`, 'info');
       
       videoMeshRef.current = videoMesh;
       anchor.group.add(videoMesh);
