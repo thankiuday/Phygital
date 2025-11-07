@@ -149,7 +149,28 @@ const GameUploadPage = () => {
         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-100 mb-4">
           🎮 Phygital Creator
         </h1>
-        <p className="text-xl text-slate-300 mb-8">
+        
+        {/* Animated Tagline */}
+        <div className="mb-4 relative inline-block">
+          <div className="absolute inset-0 bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink blur-lg opacity-40 animate-pulse"></div>
+          <div className="relative px-6 py-3 bg-gradient-to-r from-slate-800/90 via-slate-900/90 to-slate-800/90 backdrop-blur-sm border border-neon-purple/30 rounded-xl overflow-hidden group hover:scale-105 transition-all duration-300">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+            <p className="text-lg sm:text-xl font-bold relative">
+              <span className="text-gradient bg-gradient-to-r from-neon-blue to-neon-cyan bg-clip-text text-transparent">
+                Your Vision
+              </span>
+              <span className="mx-2 text-slate-400">•</span>
+              <span className="text-gradient bg-gradient-to-r from-neon-purple to-neon-pink bg-clip-text text-transparent">
+                Our Innovation
+              </span>
+            </p>
+          </div>
+        </div>
+        
+        <p className="text-xl text-slate-300 mb-2">
+          Upload your design → Add your story → Publish to the world → Watch your audience connect.
+        </p>
+        <p className="text-base text-slate-400 mb-8">
           Transform your designs into interactive experiences with QR codes!
         </p>
         
@@ -257,7 +278,7 @@ const GameUploadPage = () => {
             className="btn-primary inline-flex items-center px-8 py-4 font-semibold rounded-xl transform hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl"
           >
             <Gamepad2 className="w-6 h-6 mr-3" />
-            {currentProject ? 'Continue Project' : 'Start New Project'}
+            {currentProject ? 'Continue Campaign' : 'Start New Campaign'}
             <Sparkles className="w-6 h-6 ml-3" />
           </button>
           

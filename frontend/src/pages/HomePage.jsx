@@ -172,6 +172,29 @@ const HomePage = () => {
             Meets <span className="text-gradient bg-gradient-to-r from-neon-pink via-neon-orange to-neon-yellow bg-clip-text text-transparent">Digital Storytelling</span>
           </h1>
           
+          {/* Animated Tagline */}
+          <div className="mb-8 relative inline-block">
+            <div className="absolute inset-0 bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink blur-xl opacity-50 animate-pulse"></div>
+            <div className="relative px-8 py-4 bg-gradient-to-r from-slate-800/90 via-slate-900/90 to-slate-800/90 backdrop-blur-sm border-2 border-transparent rounded-2xl overflow-hidden group hover:scale-105 transition-all duration-500">
+              {/* Animated Border Gradient */}
+              <div className="absolute inset-0 bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10"></div>
+              <div className="absolute inset-0.5 bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 rounded-2xl -z-10"></div>
+              
+              {/* Sliding Shine Effect */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+              
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold relative">
+                <span className="inline-block animate-fade-in-up text-gradient bg-gradient-to-r from-neon-blue to-neon-cyan bg-clip-text text-transparent">
+                  Your Vision
+                </span>
+                <span className="mx-3 text-slate-400 animate-pulse">•</span>
+                <span className="inline-block animate-fade-in-up text-gradient bg-gradient-to-r from-neon-purple to-neon-pink bg-clip-text text-transparent" style={{ animationDelay: '0.2s' }}>
+                  Our Innovation
+                </span>
+              </h2>
+            </div>
+          </div>
+          
           <p className="text-xl sm:text-2xl text-slate-300 mb-12 max-w-4xl mx-auto leading-relaxed">
             Phygital Zone helps you turn your designs, products, and ideas into <span className="text-neon-blue font-semibold">interactive experiences</span> that connect people emotionally.
           </p>
@@ -273,7 +296,7 @@ const HomePage = () => {
               How It Works
             </h2>
             <p className="text-xl text-slate-300">
-              Four simple steps to bring your vision to life
+              Upload your design → Add your story → Publish to the world → Watch your audience connect.
             </p>
           </div>
 

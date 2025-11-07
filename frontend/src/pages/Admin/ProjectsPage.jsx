@@ -1,6 +1,6 @@
 /**
- * Admin Projects Page
- * View all projects across all users with comprehensive analytics
+ * Admin Campaigns Page
+ * View all campaigns across all users with comprehensive analytics
  */
 
 import React, { useState, useEffect } from 'react'
@@ -102,8 +102,8 @@ const ProjectsPage = () => {
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 mb-1 sm:mb-2">All Projects</h1>
-        <p className="text-sm sm:text-base text-slate-300">View all projects across all users with comprehensive analytics</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 mb-1 sm:mb-2">All Campaigns</h1>
+        <p className="text-sm sm:text-base text-slate-300">View all campaigns across all users with comprehensive analytics</p>
       </div>
 
       {/* Search, Filters and Sort */}
@@ -114,7 +114,7 @@ const ProjectsPage = () => {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-slate-400" />
             <input
               type="text"
-              placeholder="Search projects, users, or emails..."
+              placeholder="Search campaigns, users, or emails..."
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value)
@@ -162,7 +162,7 @@ const ProjectsPage = () => {
               }}
               className="input w-full text-sm sm:text-base"
             >
-              <option value="">All Projects</option>
+              <option value="">All Campaigns</option>
               <option value="true">Enabled Only</option>
               <option value="false">Disabled Only</option>
             </select>
@@ -191,7 +191,7 @@ const ProjectsPage = () => {
                   <option value="conversion">Conversion Rate</option>
                   <option value="lastActivity">Last Activity</option>
                   <option value="date">Creation Date</option>
-                  <option value="name">Project Name</option>
+                  <option value="name">Campaign Name</option>
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
               </div>
@@ -225,7 +225,7 @@ const ProjectsPage = () => {
         ) : projects.length === 0 ? (
           <div className="text-center py-12">
             <FolderKanban className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-            <p className="text-slate-300">No projects found</p>
+            <p className="text-slate-300">No campaigns found</p>
           </div>
         ) : (
           <>

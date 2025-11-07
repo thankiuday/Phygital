@@ -207,11 +207,11 @@ const AdminDashboard = () => {
           </div>
         </Link>
 
-        {/* Total Projects */}
+        {/* Total Campaigns */}
         <Link to="/admin/projects" className="card hover:border-neon-purple/50 transition-all duration-200 cursor-pointer">
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <p className="text-sm font-medium text-slate-400 mb-1">Total Projects</p>
+              <p className="text-sm font-medium text-slate-400 mb-1">Total Campaigns</p>
               <p className="text-2xl sm:text-3xl font-bold text-slate-100 mb-2">
                 {(overview?.projects?.total || 0).toLocaleString()}
               </p>
@@ -559,14 +559,14 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* Top Projects & Users */}
+      {/* Top Campaigns & Users */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Projects */}
+        {/* Top Campaigns */}
         {stats?.topProjects?.length > 0 && (
           <div className="card">
             <div className="card-header">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-slate-100">Top Projects</h2>
+                <h2 className="text-xl font-semibold text-slate-100">Top Campaigns</h2>
                 <Link
                   to="/admin/projects"
                   className="text-sm text-neon-blue hover:underline flex items-center gap-1"
@@ -585,7 +585,7 @@ const AdminDashboard = () => {
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-sm font-medium text-neon-blue">#{index + 1}</span>
                       <p className="text-sm font-medium text-slate-100 truncate">
-                        {project.projectName || `Project ${project.projectId}`}
+                        {project.projectName || `Campaign ${project.projectId}`}
                       </p>
                     </div>
                     <p className="text-xs text-slate-400 truncate">by {project.username}</p>

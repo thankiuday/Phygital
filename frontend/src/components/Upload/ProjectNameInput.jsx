@@ -30,7 +30,7 @@ const ProjectNameInput = ({ onProjectCreated, onCancel }) => {
     e.preventDefault();
     
     if (!isValid) {
-      toast.error('Please enter a valid project name (2-50 characters, letters, numbers, spaces, hyphens, and underscores only)');
+      toast.error('Please enter a valid campaign name (2-50 characters, letters, numbers, spaces, hyphens, and underscores only)');
       return;
     }
 
@@ -74,7 +74,7 @@ const ProjectNameInput = ({ onProjectCreated, onCancel }) => {
             <FolderPlus className="w-10 h-10 lg:w-12 lg:h-12 text-slate-100" />
           </div>
           <h1 className="text-3xl lg:text-4xl font-bold text-slate-100 mb-3">
-            🚀 Start Your Project
+            🚀 Start Your Campaign
           </h1>
           <p className="text-slate-300 text-base lg:text-lg">
             Give your Phygital creation a name to get started
@@ -86,7 +86,7 @@ const ProjectNameInput = ({ onProjectCreated, onCancel }) => {
           <form onSubmit={handleSubmit} className="space-y-6 lg:space-y-8">
             <div>
               <label htmlFor="projectName" className="block text-sm lg:text-base font-semibold text-slate-300 mb-3">
-                Project Name
+                Campaign Name
               </label>
               <div className="relative">
                 <input
@@ -119,7 +119,7 @@ const ProjectNameInput = ({ onProjectCreated, onCancel }) => {
                 </p>
                 {projectName && !isValid && (
                   <p className="text-xs text-neon-red">
-                    Invalid project name
+                    Invalid campaign name
                   </p>
                 )}
               </div>
@@ -162,7 +162,7 @@ const ProjectNameInput = ({ onProjectCreated, onCancel }) => {
                 ) : (
                   <>
                     <Sparkles className="w-5 h-5 mr-2" />
-                    Create Project
+                    Create Campaign
                     <ArrowRight className="w-5 h-5 ml-2" />
                   </>
                 )}
@@ -175,7 +175,7 @@ const ProjectNameInput = ({ onProjectCreated, onCancel }) => {
         {user?.projects && user.projects.length > 0 && (
           <div className="mt-8 lg:mt-10 card-glass rounded-xl shadow-dark-large p-6 lg:p-8 border border-slate-600/30">
             <h3 className="text-lg lg:text-xl font-semibold text-slate-100 mb-4 lg:mb-6">
-              📁 Recent Projects
+              📁 Recent Campaigns
             </h3>
             <div className="space-y-3 lg:space-y-4">
               {user.projects.slice(0, 3).map((project) => (

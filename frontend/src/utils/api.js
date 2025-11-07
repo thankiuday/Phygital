@@ -29,9 +29,12 @@ const uploadApi = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+    // Don't overwrite Authorization header if it's already set (e.g., for admin requests)
+    if (!config.headers.Authorization) {
+      const token = localStorage.getItem('token')
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`
+      }
     }
     return config
   },
@@ -43,9 +46,12 @@ api.interceptors.request.use(
 // Request interceptor for upload API
 uploadApi.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+    // Don't overwrite Authorization header if it's already set (e.g., for admin requests)
+    if (!config.headers.Authorization) {
+      const token = localStorage.getItem('token')
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`
+      }
     }
     return config
   },

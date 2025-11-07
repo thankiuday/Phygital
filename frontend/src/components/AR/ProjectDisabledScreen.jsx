@@ -39,7 +39,7 @@ const ProjectDisabledScreen = ({ projectName }) => {
             
             {projectName && (
               <p className="text-slate-300 mb-4">
-                The project <strong className="text-neon-blue">"{projectName}"</strong> has been temporarily disabled by its owner.
+                The campaign <strong className="text-neon-blue">"{projectName}"</strong> has been temporarily disabled by its owner.
               </p>
             )}
             

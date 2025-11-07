@@ -36,14 +36,19 @@ const HorizontalLevelProgress = ({ currentLevel, completedLevels, totalLevels = 
   return (
     <div className="bg-slate-800/60 backdrop-blur-sm rounded-xl p-4 mb-6 border border-slate-600/30">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center space-x-3">
-          <span className="text-base font-semibold text-slate-100">Creator Journey</span>
-          <span className="text-sm text-slate-400">Level {currentLevel}</span>
+      <div className="mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center space-x-3">
+            <span className="text-base font-semibold text-slate-100">Creator Journey</span>
+            <span className="text-sm text-slate-400">Level {currentLevel}</span>
+          </div>
+          <div className="text-sm text-slate-300 font-medium">
+            {completedLevels.length}/{totalLevels}
+          </div>
         </div>
-        <div className="text-sm text-slate-300 font-medium">
-          {completedLevels.length}/{totalLevels}
-        </div>
+        <p className="text-xs text-slate-400 italic">
+          Upload your design → Add your story → Publish to the world → Watch your audience connect.
+        </p>
       </div>
 
       {/* Progress Bar */}

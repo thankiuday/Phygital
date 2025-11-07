@@ -129,8 +129,8 @@ const DashboardPage = () => {
       color: 'bg-neon-blue'
     },
     {
-      title: 'Manage Projects',
-      description: 'View QR codes, update videos, manage projects',
+      title: 'Manage Campaigns',
+      description: 'View QR codes, update videos, manage campaigns',
       icon: QrCode,
       link: '/projects',
       color: 'bg-neon-green'

@@ -386,23 +386,10 @@ router.post('/admin/login', adminLoginLimiter, [
         isActive: true
       });
       await adminUser.save();
+      
+      console.log('✅ Admin user created successfully with role:', adminUser.role);
     } else {
-      // Ensure existing user has admin role and is active
-      let needsUpdate = false;
-      if (adminUser.role !== 'admin') {
-        adminUser.role = 'admin';
-        needsUpdate = true;
-      }
-      if (!adminUser.isActive) {
-        adminUser.isActive = true;
-        needsUpdate = true;
-      }
-      
-      if (needsUpdate) {
-        await adminUser.save();
-      }
-      
-      // Verify password using secure comparison
+      // Verify password using secure comparison FIRST
       const isPasswordValid = await adminUser.comparePassword(password);
       if (!isPasswordValid) {
         await logLoginAttempt(email, clientIP, userAgent, false, 'invalid_credentials', true);
@@ -411,6 +398,24 @@ router.post('/admin/login', adminLoginLimiter, [
           status: 'error',
           message: 'Invalid admin credentials'
         });
+      }
+      
+      // After successful password verification, ensure user has admin role and is active
+      let needsUpdate = false;
+      if (adminUser.role !== 'admin') {
+        console.log('⚠️  Updating user role from', adminUser.role, 'to admin');
+        adminUser.role = 'admin';
+        needsUpdate = true;
+      }
+      if (!adminUser.isActive) {
+        console.log('⚠️  Activating admin account');
+        adminUser.isActive = true;
+        needsUpdate = true;
+      }
+      
+      if (needsUpdate) {
+        await adminUser.save();
+        console.log('✅ Admin user updated successfully with role:', adminUser.role);
       }
     }
 
@@ -427,9 +432,13 @@ router.post('/admin/login', adminLoginLimiter, [
     // Generate JWT token with admin flag for shorter expiration
     const token = generateToken(adminUser._id, true);
 
-    // Update last login time
+    // Update last login time and ensure role is admin (extra safety)
+    adminUser.role = 'admin'; // Ensure role is always admin
+    adminUser.isActive = true; // Ensure account is always active
     adminUser.updatedAt = new Date();
     await adminUser.save();
+    
+    console.log('✅ Admin login successful - role:', adminUser.role, 'isActive:', adminUser.isActive);
 
     // Log successful login attempt
     await logLoginAttempt(email, clientIP, userAgent, true, null, true);

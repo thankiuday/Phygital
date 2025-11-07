@@ -39,7 +39,7 @@ const ProfessionalNav = () => {
     { name: 'Contact', href: '/contact', icon: Mail, public: true },
     { name: 'Dashboard', href: '/dashboard', icon: BarChart3, authOnly: true },
     { name: 'Upload', href: '/upload', icon: Upload, authOnly: true },
-    { name: 'Projects', href: '/projects', icon: FolderKanban, authOnly: true },
+    { name: 'Campaigns', href: '/projects', icon: FolderKanban, authOnly: true },
     { name: 'QR Designs', href: '/qr-designs', icon: QrCode, authOnly: true },
     { name: 'Analytics', href: '/analytics', icon: BarChart3, authOnly: true },
     { name: 'Profile', href: '/profile', icon: User, authOnly: true },

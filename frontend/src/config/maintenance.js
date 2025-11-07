@@ -9,7 +9,7 @@
 
 export const MAINTENANCE_CONFIG = {
   // Set to true to enable maintenance mode
-  ENABLED: false,
+  ENABLED: true,
   
   // Expected return time (ISO 8601 format)
   // Example: new Date('2024-12-31T15:00:00').toISOString()

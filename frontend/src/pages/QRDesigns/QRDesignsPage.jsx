@@ -38,6 +38,7 @@ const QRDesignsPage = () => {
   const [qrCodeSize, setQrCodeSize] = useState(300);
   const [iconSearch, setIconSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [urlError, setUrlError] = useState('');
 
   // Default icon library with categories
   const iconLibrary = [
@@ -265,15 +266,57 @@ const QRDesignsPage = () => {
     }
   };
 
+  // Real-time URL validation
+  const validateUrlInput = (url) => {
+    if (!url.trim()) {
+      setUrlError('URL is required');
+      return false;
+    }
+
+    // Check if it looks like a URL (basic pattern)
+    const urlPattern = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/i;
+    const hasProtocol = /^https?:\/\//i.test(url);
+    const testUrl = hasProtocol ? url : 'https://' + url;
+
+    if (!urlPattern.test(url) && !validateUrl(url)) {
+      setUrlError('Please enter a valid URL (e.g., example.com or https://example.com)');
+      return false;
+    }
+
+    setUrlError('');
+    return true;
+  };
+
+  // Handle URL input change
+  const handleUrlChange = (e) => {
+    const value = e.target.value;
+    setRedirectUrl(value);
+    
+    // Only show error if user has typed something
+    if (value.trim()) {
+      validateUrlInput(value);
+    } else {
+      setUrlError('');
+    }
+  };
+
   // Generate QR code preview
   const generatePreview = async () => {
+    // Validate URL before generating
     if (!redirectUrl.trim()) {
+      setUrlError('Please enter a redirect URL');
       toast.error('Please enter a redirect URL');
+      return;
+    }
+
+    if (!validateUrlInput(redirectUrl.trim())) {
+      toast.error('Please enter a valid URL');
       return;
     }
 
     const validUrl = validateUrl(redirectUrl.trim());
     if (!validUrl) {
+      setUrlError('Please enter a valid URL (e.g., example.com or https://example.com)');
       toast.error('Please enter a valid URL');
       return;
     }
@@ -352,6 +395,7 @@ const QRDesignsPage = () => {
     setUploadedIcon(null);
     setRedirectUrl('');
     setQrCodePreview(null);
+    setUrlError('');
   };
 
   return (
@@ -652,31 +696,60 @@ const QRDesignsPage = () => {
           <div className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
-                Redirect URL
+                Redirect URL <span className="text-neon-red">*</span>
               </label>
               <div className="flex space-x-2">
-                <input
-                  type="text"
-                  value={redirectUrl}
-                  onChange={(e) => setRedirectUrl(e.target.value)}
-                  placeholder="https://example.com or example.com"
-                  className="flex-1 px-4 py-3 bg-slate-800 border border-slate-600 rounded-lg text-slate-100 placeholder-slate-400 focus:outline-none focus:border-neon-blue"
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      generatePreview();
-                    }
-                  }}
-                />
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={redirectUrl}
+                    onChange={handleUrlChange}
+                    placeholder="https://example.com or example.com"
+                    className={`w-full px-4 py-3 bg-slate-800 border rounded-lg text-slate-100 placeholder-slate-400 focus:outline-none transition-colors ${
+                      urlError 
+                        ? 'border-neon-red focus:border-neon-red bg-red-900/10' 
+                        : redirectUrl.trim() && !urlError
+                        ? 'border-neon-green focus:border-neon-green'
+                        : 'border-slate-600 focus:border-neon-blue'
+                    }`}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && !urlError && redirectUrl.trim()) {
+                        generatePreview();
+                      }
+                    }}
+                    onBlur={() => {
+                      if (redirectUrl.trim()) {
+                        validateUrlInput(redirectUrl.trim());
+                      }
+                    }}
+                  />
+                  {urlError && (
+                    <div className="mt-2 flex items-start space-x-2">
+                      <div className="flex-shrink-0 mt-0.5">
+                        <svg className="w-4 h-4 text-neon-red" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <p className="text-sm text-neon-red">{urlError}</p>
+                    </div>
+                  )}
+                  {redirectUrl.trim() && !urlError && (
+                    <div className="mt-2 flex items-center space-x-2">
+                      <CheckCircle className="w-4 h-4 text-neon-green" />
+                      <p className="text-sm text-neon-green">Valid URL</p>
+                    </div>
+                  )}
+                </div>
                 <button
                   onClick={pasteUrl}
-                  className="px-4 py-3 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors"
+                  className="px-4 py-3 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors flex-shrink-0"
                   title="Paste from clipboard"
                 >
                   <Copy className="w-5 h-5" />
                 </button>
               </div>
               <p className="text-sm text-slate-400 mt-2">
-                Protocol (https://) will be added automatically if missing
+                <strong>Tip:</strong> Protocol (https://) will be added automatically if missing
               </p>
             </div>
 
@@ -712,8 +785,15 @@ const QRDesignsPage = () => {
               </button>
               <button
                 onClick={generatePreview}
-                disabled={isGenerating || !redirectUrl.trim()}
-                className="btn-primary flex items-center"
+                disabled={isGenerating || !redirectUrl.trim() || !!urlError}
+                className="btn-primary flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                title={
+                  !redirectUrl.trim() 
+                    ? 'Please enter a URL first' 
+                    : urlError 
+                    ? 'Please enter a valid URL' 
+                    : 'Generate your custom QR code'
+                }
               >
                 {isGenerating ? (
                   <>
@@ -722,6 +802,7 @@ const QRDesignsPage = () => {
                   </>
                 ) : (
                   <>
+                    <QrCode className="w-5 h-5 mr-2" />
                     Generate QR Code
                     <ArrowRight className="w-5 h-5 ml-2" />
                   </>

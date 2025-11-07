@@ -124,3 +124,4 @@ export const downloadQRCode = (dataUrl, filename = 'qr-code.png') => {
 
 
 
+

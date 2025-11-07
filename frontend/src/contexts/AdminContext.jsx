@@ -212,8 +212,11 @@ export const AdminProvider = ({ children }) => {
       const token = localStorage.getItem('adminToken') || state.token
       
       if (!token) {
+        console.error('❌ No admin token available in localStorage or state')
         throw new Error('No admin token available')
       }
+
+      console.log('🔑 Using admin token for request:', method, endpoint)
 
       const config = {
         headers: {

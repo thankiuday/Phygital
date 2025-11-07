@@ -68,6 +68,7 @@ const requireAdmin = async (req, res, next) => {
     // STRICT: Verify admin role in both JWT payload and database
     // Check database role first (most authoritative)
     if (user.role !== 'admin') {
+      console.error('❌ Admin auth failed - User role:', user.role, 'Email:', user.email);
       return res.status(403).json({
         status: 'error',
         message: 'Admin privileges required'
@@ -78,6 +79,7 @@ const requireAdmin = async (req, res, next) => {
     // This provides defense in depth
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@phygital.zone';
     if (user.email !== adminEmail && user.role !== 'admin') {
+      console.error('❌ Admin auth failed - Email mismatch:', user.email, 'Expected:', adminEmail);
       return res.status(403).json({
         status: 'error',
         message: 'Admin access denied'
@@ -88,6 +90,8 @@ const requireAdmin = async (req, res, next) => {
     req.user = user;
     req.adminId = user._id;
 
+    console.log('✅ Admin auth successful - User:', user.email, 'Role:', user.role);
+    
     // Continue to next middleware
     next();
 

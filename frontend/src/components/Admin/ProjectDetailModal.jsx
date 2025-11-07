@@ -1,6 +1,6 @@
 /**
- * Project Detail Modal Component
- * Comprehensive project analytics and details view
+ * Campaign Detail Modal Component
+ * Comprehensive campaign analytics and details view
  */
 
 import React, { useState, useEffect, useMemo } from 'react'
@@ -50,7 +50,7 @@ const ProjectDetailModal = ({ project, isOpen, onClose }) => {
       const data = await adminApi('get', `/projects/${project.userId}/${project.id}/detailed?days=${days}`)
       setDetailedData(data.data)
     } catch (error) {
-      console.error('Failed to fetch project details:', error)
+      console.error('Failed to fetch campaign details:', error)
     } finally {
       setIsLoading(false)
     }
@@ -241,7 +241,7 @@ const ProjectDetailModal = ({ project, isOpen, onClose }) => {
                     {/* Project Info */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700/50">
-                        <h3 className="text-lg font-semibold text-slate-100 mb-4">Project Information</h3>
+                        <h3 className="text-lg font-semibold text-slate-100 mb-4">Campaign Information</h3>
                         <div className="space-y-3">
                           <div className="flex justify-between">
                             <span className="text-slate-400">Status</span>

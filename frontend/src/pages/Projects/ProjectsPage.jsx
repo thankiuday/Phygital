@@ -1,7 +1,7 @@
 /**
- * Projects Page Component
- * Comprehensive project management interface
- * Combines project list, QR code generation, video updates, and deletion
+ * Campaigns Page Component
+ * Comprehensive campaign management interface
+ * Combines campaign list, QR code generation, video updates, and deletion
  */
 
 import React, { useState, useCallback, useEffect, useRef } from 'react'
@@ -795,10 +795,10 @@ const ProjectsPage = () => {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 mb-1 sm:mb-2">
-              Project Management
+              Campaign Management
             </h1>
             <p className="text-sm sm:text-base text-slate-300">
-              Manage your projects, QR codes, and videos all in one place
+              Manage your campaigns, QR codes, and videos all in one place
             </p>
           </div>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
@@ -855,9 +855,9 @@ const ProjectsPage = () => {
       {projects.length === 0 ? (
         <div className="text-center py-12">
           <FolderOpen className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-slate-100 mb-2">No projects found</h3>
+          <h3 className="text-lg font-medium text-slate-100 mb-2">No campaigns found</h3>
           <p className="text-slate-300">
-            Start creating your first Phygital project!
+            Start creating your first Phygital campaign!
           </p>
         </div>
       ) : (
@@ -974,8 +974,8 @@ const ProjectCard = ({
                 </p>
                 <p className="text-xs text-slate-400 mt-0.5">
                   {project.isEnabled 
-                    ? 'Users can scan and view this project' 
-                    : 'Scanning is disabled for this project'
+                    ? 'Users can scan and view this campaign' 
+                    : 'Scanning is disabled for this campaign'
                   }
                 </p>
               </div>
@@ -1170,7 +1170,7 @@ const DeleteConfirmationModal = ({ project, isDeleting, onConfirm, onClose }) =>
       <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-b border-slate-600/30">
         <div className="flex items-center justify-between">
           <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-slate-100 pr-2">
-            Delete Project
+            Delete Campaign
           </h3>
           <button
             onClick={onClose}
@@ -1193,10 +1193,10 @@ const DeleteConfirmationModal = ({ project, isDeleting, onConfirm, onClose }) =>
             <ul className="text-xs sm:text-sm text-slate-300 mt-2 list-disc list-inside">
               <li>Your design image and video</li>
               <li>QR code and AR experience</li>
-              <li>Project settings and configuration</li>
+              <li>Campaign settings and configuration</li>
               <li>All analytics and scan data</li>
               <li>Generated composite designs</li>
-              <li>Project history and timeline</li>
+              <li>Campaign history and timeline</li>
             </ul>
           </div>
           <p className="text-xs sm:text-sm text-neon-red mt-2 sm:mt-3 font-medium">
@@ -1226,7 +1226,7 @@ const DeleteConfirmationModal = ({ project, isDeleting, onConfirm, onClose }) =>
           ) : (
             <>
               <Trash2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-              Delete Project
+              Delete Campaign
             </>
           )}
         </button>
@@ -1264,9 +1264,9 @@ const EditProjectModal = ({
         {/* Header */}
         <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-b border-slate-600/30">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-slate-100 pr-2">
-              Edit Project: {project?.name}
-            </h3>
+          <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-slate-100 pr-2">
+              Edit Campaign: {project?.name}
+          </h3>
             <button
               onClick={onClose}
               className="text-slate-400 hover:text-slate-200 flex-shrink-0 touch-manipulation p-1"
