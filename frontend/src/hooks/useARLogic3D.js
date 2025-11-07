@@ -64,6 +64,7 @@ export const useARLogic3D = ({
   const animationStartTimeRef = useRef(null);
   const animationCompleteRef = useRef(false);
   const animationDuration = 1500; // 1.5 seconds for dramatic pop-out effect
+  const lastBillboardLogRef = useRef(0); // Track last billboard log time
   
   // Vertical standee configuration - video stands ON TOP of marker facing camera
   const popOutDistance = 0; // No forward pop-out - stays centered on marker
@@ -210,7 +211,8 @@ export const useARLogic3D = ({
       
       const facingDegrees = (facingAngle * 180 / Math.PI).toFixed(0);
       addDebugMessage(`🎭 Vertical Standee Setup: will rise ${heightAboveMarker} units above marker`, 'info');
-      addDebugMessage(`🎬 Animation: scale (0.01→1) + rise (Y:0.1→${heightAboveMarker}) + stand up (X:-90°→0°) + Y-rotation:${facingDegrees}° + fade (0→1)`, 'info');
+      addDebugMessage(`🎬 Animation: scale (0.01→1) + rise (Y:0.1→${heightAboveMarker}) + stand up (X:-90°→0°) + billboard Y-rotation + fade (0→1)`, 'info');
+      addDebugMessage(`🔄 Billboard mode: Y-axis camera-facing active throughout experience`, 'info');
       console.log('🎯 Vertical standee configuration:', {
         heightAboveMarker,
         verticalAngle: `${(verticalAngle * 180 / Math.PI).toFixed(0)}°`,
@@ -504,6 +506,7 @@ export const useARLogic3D = ({
               const timestamp = new Date().toLocaleTimeString();
               console.log(`🎯 [${timestamp}] TARGET DETECTED - Starting 3D animation`);
               addDebugMessage('🎯 Target detected! Starting 3D popup animation...', 'success');
+              addDebugMessage('🎭 Billboard mode: Y-axis camera-facing enabled', 'info');
               setTargetDetected(true);
               
               // Show mesh (will be animated from invisible to visible)
@@ -524,6 +527,31 @@ export const useARLogic3D = ({
                   scale: videoMeshRef.current.scale.x.toFixed(2),
                   opacity: videoMeshRef.current.material?.opacity.toFixed(2)
                 });
+              }
+            }
+            
+            // 🎭 BILLBOARD EFFECT: Calculate Y-axis rotation to face camera
+            // This runs every frame to keep video facing the camera as user moves
+            let angleToCamera = facingAngle; // Default fallback
+            
+            if (videoMeshRef.current && cameraRef.current && anchorRef.current && window.THREE) {
+              try {
+                // Get camera position in world space
+                const cameraPosition = new window.THREE.Vector3();
+                cameraRef.current.getWorldPosition(cameraPosition);
+                
+                // Get anchor position in world space
+                const anchorPosition = new window.THREE.Vector3();
+                anchorRef.current.group.getWorldPosition(anchorPosition);
+                
+                // Calculate angle from anchor to camera (Y-axis rotation only)
+                const dx = cameraPosition.x - anchorPosition.x;
+                const dz = cameraPosition.z - anchorPosition.z;
+                angleToCamera = Math.atan2(dx, dz);
+                
+              } catch (billboardError) {
+                // Silently fall back to default angle if calculation fails
+                console.warn('Billboard calculation failed:', billboardError);
               }
             }
             
@@ -553,8 +581,8 @@ export const useARLogic3D = ({
                 const rotationX = startRotationX + (easeOutCubic(progress) * (endRotationX - startRotationX));
                 videoMeshRef.current.rotation.x = rotationX;
                 
-                // 🎯 Y-Rotation: Keep constant to face camera throughout animation
-                videoMeshRef.current.rotation.y = facingAngle; // Always face camera
+                // 🎯 Y-Rotation: Billboard effect - dynamically face camera
+                videoMeshRef.current.rotation.y = angleToCamera; // Real-time camera-facing
                 
                 // Fade animation (opacity 0 to 1)
                 const opacity = easeInOut(progress);
@@ -572,7 +600,7 @@ export const useARLogic3D = ({
               // Animation complete
               if (progress >= 1) {
                 animationCompleteRef.current = true;
-                addDebugMessage('✨ Vertical standee animation complete! Video standing on marker', 'success');
+                addDebugMessage('✨ Vertical standee animation complete! Billboard mode active', 'success');
                 
                 // Log final position
                 if (videoMeshRef.current) {
@@ -616,6 +644,18 @@ export const useARLogic3D = ({
                     addDebugMessage('💡 Tap to allow video playback', 'info');
                   });
                 }
+              }
+            } else if (animationCompleteRef.current && videoMeshRef.current) {
+              // 🎭 Animation complete - continue billboard effect
+              // Keep the video facing the camera as user moves around
+              videoMeshRef.current.rotation.y = angleToCamera;
+              
+              // Log camera-facing angle periodically (every 2 seconds)
+              const now = Date.now();
+              if (now - lastBillboardLogRef.current > 2000) {
+                const angleDegrees = (angleToCamera * 180 / Math.PI).toFixed(0);
+                console.log(`🎭 Billboard active - Y-rotation: ${angleDegrees}° (facing camera)`);
+                lastBillboardLogRef.current = now;
               }
             }
             
@@ -676,7 +716,7 @@ export const useARLogic3D = ({
         });
         
         addDebugMessage('🔄 Vertical standee render loop started', 'success');
-        addDebugMessage('🎯 Point camera at the target image - video will stand vertically on marker!', 'info');
+        addDebugMessage('🎯 Point camera at the target image - video will face you in 3D!', 'info');
       
       } catch (startError) {
         addDebugMessage(`❌ MindAR failed to start: ${startError.message}`, 'error');
