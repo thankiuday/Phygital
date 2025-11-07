@@ -195,35 +195,44 @@ export const useARLogic3D = ({
 
       const videoMesh = new window.THREE.Mesh(geometry, material);
       
-      // 🎯 CRITICAL: Set up for VERTICAL standee that faces camera
-      // Initial state: flat on marker, tiny, invisible (will rise and face viewer)
-      videoMesh.position.set(0, 0.1, 0); // Start just above marker surface
-      videoMesh.rotation.x = -Math.PI / 2; // Start flat on marker
-      videoMesh.rotation.y = facingAngle; // Pre-rotate to face camera direction
+      // 🎯 ROBUST SOLUTION: Use a container group for proper rotation hierarchy
+      // This allows independent control of: vertical orientation, landscape rotation, and billboard
+      const videoContainer = new window.THREE.Group();
       
-      // For landscape videos, rotate 90° on Z-axis to make them display vertically
+      // For landscape videos, rotate the mesh 90° on Z-axis to make them display vertically
+      // This rotation happens in the mesh's local space
       if (videoAspect > 1) {
         videoMesh.rotation.z = Math.PI / 2; // Rotate 90° to make landscape video vertical
         addDebugMessage('🔄 Rotating landscape video 90° for vertical display', 'info');
       }
       
-      videoMesh.scale.set(0.01, 0.01, 0.01); // Start tiny for scale animation
+      // Add mesh to container
+      videoContainer.add(videoMesh);
+      
+      // 🎯 CRITICAL: Set up container for VERTICAL standee that faces camera
+      // Initial state: flat on marker, tiny, invisible (will rise and face viewer)
+      videoContainer.position.set(0, 0.1, 0); // Start just above marker surface
+      videoContainer.rotation.x = -Math.PI / 2; // Start flat on marker
+      videoContainer.rotation.y = 0; // Will be set by billboard
+      videoContainer.scale.set(0.01, 0.01, 0.01); // Start tiny for scale animation
       
       const facingDegrees = (facingAngle * 180 / Math.PI).toFixed(0);
       addDebugMessage(`🎭 Vertical Standee Setup: will rise ${heightAboveMarker} units above marker`, 'info');
       addDebugMessage(`🎬 Animation: scale (0.01→1) + rise (Y:0.1→${heightAboveMarker}) + stand up (X:-90°→0°) + billboard Y-rotation + fade (0→1)`, 'info');
       addDebugMessage(`🔄 Billboard mode: Y-axis camera-facing active throughout experience`, 'info');
+      addDebugMessage(`📦 Using Group container for robust rotation hierarchy`, 'info');
       console.log('🎯 Vertical standee configuration:', {
         heightAboveMarker,
         verticalAngle: `${(verticalAngle * 180 / Math.PI).toFixed(0)}°`,
-        facingAngle: `${facingDegrees}°`
+        usingContainer: true
       });
       
-      videoMeshRef.current = videoMesh;
-      anchor.group.add(videoMesh);
+      // Store both the container and mesh for easy access
+      videoMeshRef.current = { container: videoContainer, mesh: videoMesh };
+      anchor.group.add(videoContainer);
       
       // Initially hidden
-      videoMesh.visible = false;
+      videoContainer.visible = false;
       
       addDebugMessage('✅ 3D vertical video standee created', 'success');
       addDebugMessage('📏 Video will pop up vertically above the marker', 'success');
@@ -489,8 +498,9 @@ export const useARLogic3D = ({
           
           // Update video texture every frame when playing
           if (videoMeshRef.current && videoRef.current && !videoRef.current.paused) {
-            if (videoMeshRef.current.material && videoMeshRef.current.material.map) {
-              videoMeshRef.current.material.map.needsUpdate = true;
+            const mesh = videoMeshRef.current.mesh;
+            if (mesh && mesh.material && mesh.material.map) {
+              mesh.material.map.needsUpdate = true;
             }
           }
           
@@ -509,44 +519,51 @@ export const useARLogic3D = ({
               addDebugMessage('🎭 Billboard mode: Y-axis camera-facing enabled', 'info');
               setTargetDetected(true);
               
-              // Show mesh (will be animated from invisible to visible)
+              // Show container (will be animated from invisible to visible)
               if (videoMeshRef.current) {
-                videoMeshRef.current.visible = true;
-                console.log('🎬 Video mesh initial state:', {
-                  visible: videoMeshRef.current.visible,
+                const container = videoMeshRef.current.container;
+                const mesh = videoMeshRef.current.mesh;
+                container.visible = true;
+                console.log('🎬 Video container initial state:', {
+                  visible: container.visible,
                   position: {
-                    x: videoMeshRef.current.position.x.toFixed(2),
-                    y: videoMeshRef.current.position.y.toFixed(2),
-                    z: videoMeshRef.current.position.z.toFixed(2)
+                    x: container.position.x.toFixed(2),
+                    y: container.position.y.toFixed(2),
+                    z: container.position.z.toFixed(2)
                   },
                   rotation: {
-                    x: `${(videoMeshRef.current.rotation.x * 180 / Math.PI).toFixed(0)}°`,
-                    y: `${(videoMeshRef.current.rotation.y * 180 / Math.PI).toFixed(0)}°`,
-                    z: `${(videoMeshRef.current.rotation.z * 180 / Math.PI).toFixed(0)}°`
+                    x: `${(container.rotation.x * 180 / Math.PI).toFixed(0)}°`,
+                    y: `${(container.rotation.y * 180 / Math.PI).toFixed(0)}°`,
+                    z: `${(container.rotation.z * 180 / Math.PI).toFixed(0)}°`
                   },
-                  scale: videoMeshRef.current.scale.x.toFixed(2),
-                  opacity: videoMeshRef.current.material?.opacity.toFixed(2)
+                  scale: container.scale.x.toFixed(2),
+                  opacity: mesh.material?.opacity.toFixed(2)
                 });
               }
             }
             
-            // 🎭 BILLBOARD EFFECT: Calculate Y-axis rotation to face camera
+            // 🎭 ROBUST BILLBOARD EFFECT: Calculate Y-axis rotation to face camera
             // This runs every frame to keep video facing the camera as user moves
-            let angleToCamera = facingAngle; // Default fallback
+            let angleToCamera = 0; // Default to face forward
             
             if (videoMeshRef.current && cameraRef.current && anchorRef.current && window.THREE) {
               try {
+                const container = videoMeshRef.current.container;
+                
                 // Get camera position in world space
                 const cameraPosition = new window.THREE.Vector3();
                 cameraRef.current.getWorldPosition(cameraPosition);
                 
-                // Get anchor position in world space
-                const anchorPosition = new window.THREE.Vector3();
-                anchorRef.current.group.getWorldPosition(anchorPosition);
+                // Get container position in world space
+                const containerPosition = new window.THREE.Vector3();
+                container.getWorldPosition(containerPosition);
                 
-                // Calculate angle from anchor to camera (Y-axis rotation only)
-                const dx = cameraPosition.x - anchorPosition.x;
-                const dz = cameraPosition.z - anchorPosition.z;
+                // Calculate direction vector from container to camera (on XZ plane only)
+                const dx = cameraPosition.x - containerPosition.x;
+                const dz = cameraPosition.z - containerPosition.z;
+                
+                // Calculate Y-axis rotation angle to face camera
+                // atan2 gives us the angle in radians
                 angleToCamera = Math.atan2(dx, dz);
                 
               } catch (billboardError) {
@@ -561,33 +578,36 @@ export const useARLogic3D = ({
               const progress = Math.min(elapsed / animationDuration, 1);
               
               if (videoMeshRef.current) {
+                const container = videoMeshRef.current.container;
+                const mesh = videoMeshRef.current.mesh;
+                
                 // Scale animation with bounce (easeOutBack)
                 const scale = easeOutBack(progress);
-                videoMeshRef.current.scale.set(scale, scale, scale);
+                container.scale.set(scale, scale, scale);
                 
                 // 🎯 Z-axis: Keep centered on marker (no forward movement)
-                videoMeshRef.current.position.z = popOutDistance; // Always 0
+                container.position.z = popOutDistance; // Always 0
                 
                 // 🎯 Y-axis: Rise up vertically above marker
                 const yPosition = 0.1 + (easeOutCubic(progress) * (heightAboveMarker - 0.1));
-                videoMeshRef.current.position.y = yPosition;
+                container.position.y = yPosition;
                 
                 // 🎯 X-axis: Keep centered on marker
-                videoMeshRef.current.position.x = 0;
+                container.position.x = 0;
                 
                 // 🎯 X-Rotation: from flat on marker to standing vertical
                 const startRotationX = -Math.PI / 2; // -90° = Flat on marker surface
                 const endRotationX = verticalAngle; // 0° = Standing vertical (perpendicular to marker)
                 const rotationX = startRotationX + (easeOutCubic(progress) * (endRotationX - startRotationX));
-                videoMeshRef.current.rotation.x = rotationX;
+                container.rotation.x = rotationX;
                 
                 // 🎯 Y-Rotation: Billboard effect - dynamically face camera
-                videoMeshRef.current.rotation.y = angleToCamera; // Real-time camera-facing
+                container.rotation.y = angleToCamera; // Real-time camera-facing
                 
                 // Fade animation (opacity 0 to 1)
                 const opacity = easeInOut(progress);
-                if (videoMeshRef.current.material) {
-                  videoMeshRef.current.material.opacity = opacity;
+                if (mesh.material) {
+                  mesh.material.opacity = opacity;
                 }
                 
                 // Log progress at key milestones
@@ -604,18 +624,19 @@ export const useARLogic3D = ({
                 
                 // Log final position
                 if (videoMeshRef.current) {
-                  console.log('✅ Video mesh final state:', {
+                  const container = videoMeshRef.current.container;
+                  console.log('✅ Video container final state:', {
                     position: {
-                      x: videoMeshRef.current.position.x.toFixed(2),
-                      y: videoMeshRef.current.position.y.toFixed(2),
-                      z: videoMeshRef.current.position.z.toFixed(2)
+                      x: container.position.x.toFixed(2),
+                      y: container.position.y.toFixed(2),
+                      z: container.position.z.toFixed(2)
                     },
                     rotation: {
-                      x: `${(videoMeshRef.current.rotation.x * 180 / Math.PI).toFixed(0)}°`,
-                      y: `${(videoMeshRef.current.rotation.y * 180 / Math.PI).toFixed(0)}°`,
-                      z: `${(videoMeshRef.current.rotation.z * 180 / Math.PI).toFixed(0)}°`
+                      x: `${(container.rotation.x * 180 / Math.PI).toFixed(0)}°`,
+                      y: `${(container.rotation.y * 180 / Math.PI).toFixed(0)}°`,
+                      z: `${(container.rotation.z * 180 / Math.PI).toFixed(0)}°`
                     },
-                    scale: videoMeshRef.current.scale.x.toFixed(2)
+                    scale: container.scale.x.toFixed(2)
                   });
                 }
                 
@@ -648,7 +669,8 @@ export const useARLogic3D = ({
             } else if (animationCompleteRef.current && videoMeshRef.current) {
               // 🎭 Animation complete - continue billboard effect
               // Keep the video facing the camera as user moves around
-              videoMeshRef.current.rotation.y = angleToCamera;
+              const container = videoMeshRef.current.container;
+              container.rotation.y = angleToCamera;
               
               // Log camera-facing angle periodically (every 2 seconds)
               const now = Date.now();
@@ -660,22 +682,24 @@ export const useARLogic3D = ({
             }
             
           } else {
-            // 🔍 Target lost - hide mesh and reset animation
+            // 🔍 Target lost - hide container and reset animation
             
-            if (videoMeshRef.current && videoMeshRef.current.visible) {
-              videoMeshRef.current.visible = false;
+            if (videoMeshRef.current && videoMeshRef.current.container.visible) {
+              const container = videoMeshRef.current.container;
+              const mesh = videoMeshRef.current.mesh;
+              container.visible = false;
               
               // Reset animation state for next detection
               animationStartTimeRef.current = null;
               animationCompleteRef.current = false;
               
-              // Reset mesh to initial state for next vertical rise
-              videoMeshRef.current.scale.set(0.01, 0.01, 0.01);
-              videoMeshRef.current.position.set(0, 0.1, 0); // Reset centered on marker
-              videoMeshRef.current.rotation.x = -Math.PI / 2; // Reset to flat on marker
-              videoMeshRef.current.rotation.y = facingAngle; // Keep facing camera
-              if (videoMeshRef.current.material) {
-                videoMeshRef.current.material.opacity = 0;
+              // Reset container to initial state for next vertical rise
+              container.scale.set(0.01, 0.01, 0.01);
+              container.position.set(0, 0.1, 0); // Reset centered on marker
+              container.rotation.x = -Math.PI / 2; // Reset to flat on marker
+              container.rotation.y = 0; // Reset Y rotation for billboard
+              if (mesh.material) {
+                mesh.material.opacity = 0;
               }
             }
             
@@ -704,9 +728,9 @@ export const useARLogic3D = ({
           
           // Update video texture
           if (videoMeshRef.current && videoRef.current && !videoRef.current.paused) {
-            const material = videoMeshRef.current.material;
-            if (material && material.map) {
-              material.map.needsUpdate = true;
+            const mesh = videoMeshRef.current.mesh;
+            if (mesh && mesh.material && mesh.material.map) {
+              mesh.material.map.needsUpdate = true;
             }
           }
           
@@ -879,14 +903,25 @@ export const useARLogic3D = ({
       
       if (videoMeshRef.current) {
         try {
-          if (videoMeshRef.current.material && videoMeshRef.current.material.map) {
-            videoMeshRef.current.material.map.dispose();
+          const mesh = videoMeshRef.current.mesh;
+          const container = videoMeshRef.current.container;
+          
+          // Dispose mesh resources
+          if (mesh) {
+            if (mesh.material && mesh.material.map) {
+              mesh.material.map.dispose();
+            }
+            if (mesh.material) {
+              mesh.material.dispose();
+            }
+            if (mesh.geometry) {
+              mesh.geometry.dispose();
+            }
           }
-          if (videoMeshRef.current.material) {
-            videoMeshRef.current.material.dispose();
-          }
-          if (videoMeshRef.current.geometry) {
-            videoMeshRef.current.geometry.dispose();
+          
+          // Remove container from scene
+          if (container && container.parent) {
+            container.parent.remove(container);
           }
         } catch (error) {
           console.warn('Error disposing video mesh:', error);
