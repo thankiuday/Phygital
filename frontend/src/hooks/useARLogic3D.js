@@ -241,12 +241,14 @@ export const useARLogic3D = ({
         alreadyPerpendicular: true
       });
       
-      // Store groups and mesh for easy access
+      // Store groups, mesh, and dimensions for easy access
       videoMeshRef.current = { 
         container: outerGroup,  // Backwards compatibility
         outerGroup: outerGroup, 
         innerGroup: innerGroup, 
-        mesh: videoMesh 
+        mesh: videoMesh,
+        standeeHeight: standeeHeight, // Store height for animation
+        standeeWidth: standeeWidth
       };
       anchor.group.add(outerGroup);
       
@@ -542,9 +544,11 @@ export const useARLogic3D = ({
               if (videoMeshRef.current) {
                 const container = videoMeshRef.current.container;
                 const mesh = videoMeshRef.current.mesh;
+                const videoHeight = videoMeshRef.current.standeeHeight;
                 container.visible = true;
                 console.log('🎬 Video container initial state:', {
                   visible: container.visible,
+                  videoHeight: videoHeight,
                   position: {
                     x: container.position.x.toFixed(2),
                     y: container.position.y.toFixed(2),
@@ -556,8 +560,11 @@ export const useARLogic3D = ({
                     z: `${(container.rotation.z * 180 / Math.PI).toFixed(0)}°`
                   },
                   scale: container.scale.x.toFixed(2),
-                  opacity: mesh.material?.opacity.toFixed(2)
+                  opacity: mesh.material?.opacity.toFixed(2),
+                  materialVisible: mesh.material?.visible,
+                  meshVisible: mesh.visible
                 });
+                addDebugMessage(`📏 Video height: ${videoHeight}, Starting Y: ${container.position.y.toFixed(2)}`, 'info');
               }
             }
             
@@ -599,16 +606,17 @@ export const useARLogic3D = ({
               if (videoMeshRef.current) {
                 const container = videoMeshRef.current.container;
                 const mesh = videoMeshRef.current.mesh;
+                const videoHeight = videoMeshRef.current.standeeHeight;
                 
                 // Scale animation with bounce (easeOutBack)
                 const scale = easeOutBack(progress);
                 container.scale.set(scale, scale, scale);
                 
                 // 🎯 RISE FROM BOTTOM ANIMATION
-                // Start: video bottom at marker (Y = standeeHeight/2 puts center at half height, bottom at 0)
+                // Start: video bottom at marker (Y = videoHeight/2 puts center at half height, bottom at 0)
                 // End: video rises up so bottom is at heightAboveMarker
-                const startY = standeeHeight / 2; // Bottom edge at marker surface
-                const endY = heightAboveMarker + (standeeHeight / 2); // Bottom edge at heightAboveMarker
+                const startY = videoHeight / 2; // Bottom edge at marker surface
+                const endY = heightAboveMarker + (videoHeight / 2); // Bottom edge at heightAboveMarker
                 const currentY = startY + (easeOutCubic(progress) * (endY - startY));
                 
                 container.position.x = 0; // Centered horizontally
@@ -633,7 +641,7 @@ export const useARLogic3D = ({
                 // Log progress at key milestones
                 if (progress === 0.25 || progress === 0.5 || progress === 0.75) {
                   const percent = Math.round(progress * 100);
-                  addDebugMessage(`🎬 Rising from marker ${percent}% complete`, 'info');
+                  addDebugMessage(`🎬 Rising from marker ${percent}% - Y:${currentY.toFixed(2)}, Scale:${scale.toFixed(2)}, Opacity:${opacity.toFixed(2)}`, 'info');
                 }
               }
               
@@ -645,6 +653,7 @@ export const useARLogic3D = ({
                 // Log final position
                 if (videoMeshRef.current) {
                   const container = videoMeshRef.current.container;
+                  const mesh = videoMeshRef.current.mesh;
                   console.log('✅ Video container final state:', {
                     position: {
                       x: container.position.x.toFixed(2),
@@ -656,7 +665,11 @@ export const useARLogic3D = ({
                       y: `${(container.rotation.y * 180 / Math.PI).toFixed(0)}°`,
                       z: `${(container.rotation.z * 180 / Math.PI).toFixed(0)}°`
                     },
-                    scale: container.scale.x.toFixed(2)
+                    scale: container.scale.x.toFixed(2),
+                    opacity: mesh.material?.opacity.toFixed(2),
+                    materialVisible: mesh.material?.visible,
+                    containerVisible: container.visible,
+                    meshVisible: mesh.visible
                   });
                 }
                 
@@ -707,6 +720,7 @@ export const useARLogic3D = ({
             if (videoMeshRef.current && videoMeshRef.current.container.visible) {
               const container = videoMeshRef.current.container;
               const mesh = videoMeshRef.current.mesh;
+              const videoHeight = videoMeshRef.current.standeeHeight;
               container.visible = false;
               
               // Reset animation state for next detection
@@ -715,7 +729,7 @@ export const useARLogic3D = ({
               
               // Reset container to initial state for next rise animation
               container.scale.set(0.01, 0.01, 0.01);
-              container.position.set(0, standeeHeight / 2, 0); // Reset to start position
+              container.position.set(0, videoHeight / 2, 0); // Reset to start position
               container.rotation.x = 0; // Keep perpendicular
               container.rotation.y = 0; // Reset Y rotation for billboard
               container.rotation.z = 0; // No tilt
