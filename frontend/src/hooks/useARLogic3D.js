@@ -195,44 +195,55 @@ export const useARLogic3D = ({
 
       const videoMesh = new window.THREE.Mesh(geometry, material);
       
-      // 🎯 ROBUST SOLUTION: Use a container group for proper rotation hierarchy
-      // This allows independent control of: vertical orientation, landscape rotation, and billboard
-      const videoContainer = new window.THREE.Group();
+      // 🎯 ROBUST SOLUTION: Double-nested groups for independent rotation control
+      // Group 1 (innerGroup): Handles landscape video rotation (Z-axis)
+      // Group 2 (outerGroup): Handles vertical standing (X-axis) and billboard (Y-axis)
       
-      // For landscape videos, rotate the mesh 90° on Z-axis to make them display vertically
-      // This rotation happens in the mesh's local space
+      const innerGroup = new window.THREE.Group();
+      const outerGroup = new window.THREE.Group();
+      
+      // For landscape videos, rotate the entire inner group on Z-axis
+      // This makes the video display vertically
       if (videoAspect > 1) {
-        videoMesh.rotation.z = Math.PI / 2; // Rotate 90° to make landscape video vertical
+        innerGroup.rotation.z = Math.PI / 2; // Rotate 90° for vertical display
         addDebugMessage('🔄 Rotating landscape video 90° for vertical display', 'info');
       }
       
-      // Add mesh to container
-      videoContainer.add(videoMesh);
+      // Build hierarchy: mesh → innerGroup → outerGroup → anchor
+      innerGroup.add(videoMesh);
+      outerGroup.add(innerGroup);
       
-      // 🎯 CRITICAL: Set up container for VERTICAL standee that faces camera
+      // 🎯 CRITICAL: Set up outerGroup for VERTICAL standee that faces camera
       // Initial state: flat on marker, tiny, invisible (will rise and face viewer)
-      videoContainer.position.set(0, 0.1, 0); // Start just above marker surface
-      videoContainer.rotation.x = -Math.PI / 2; // Start flat on marker
-      videoContainer.rotation.y = 0; // Will be set by billboard
-      videoContainer.scale.set(0.01, 0.01, 0.01); // Start tiny for scale animation
+      outerGroup.position.set(0, 0.1, 0); // Start just above marker surface
+      outerGroup.rotation.x = -Math.PI / 2; // Start flat on marker (will animate to 0)
+      outerGroup.rotation.y = 0; // Will be set by billboard
+      outerGroup.scale.set(0.01, 0.01, 0.01); // Start tiny for scale animation
+      outerGroup.rotation.order = 'YXZ'; // Set rotation order: Y (billboard) first, then X (standing)
       
       const facingDegrees = (facingAngle * 180 / Math.PI).toFixed(0);
       addDebugMessage(`🎭 Vertical Standee Setup: will rise ${heightAboveMarker} units above marker`, 'info');
       addDebugMessage(`🎬 Animation: scale (0.01→1) + rise (Y:0.1→${heightAboveMarker}) + stand up (X:-90°→0°) + billboard Y-rotation + fade (0→1)`, 'info');
       addDebugMessage(`🔄 Billboard mode: Y-axis camera-facing active throughout experience`, 'info');
-      addDebugMessage(`📦 Using Group container for robust rotation hierarchy`, 'info');
+      addDebugMessage(`📦 Using double-nested groups for robust rotation (YXZ order)`, 'info');
       console.log('🎯 Vertical standee configuration:', {
         heightAboveMarker,
         verticalAngle: `${(verticalAngle * 180 / Math.PI).toFixed(0)}°`,
-        usingContainer: true
+        rotationOrder: 'YXZ',
+        doubleNested: true
       });
       
-      // Store both the container and mesh for easy access
-      videoMeshRef.current = { container: videoContainer, mesh: videoMesh };
-      anchor.group.add(videoContainer);
+      // Store groups and mesh for easy access
+      videoMeshRef.current = { 
+        container: outerGroup,  // Backwards compatibility
+        outerGroup: outerGroup, 
+        innerGroup: innerGroup, 
+        mesh: videoMesh 
+      };
+      anchor.group.add(outerGroup);
       
       // Initially hidden
-      videoContainer.visible = false;
+      outerGroup.visible = false;
       
       addDebugMessage('✅ 3D vertical video standee created', 'success');
       addDebugMessage('📏 Video will pop up vertically above the marker', 'success');
