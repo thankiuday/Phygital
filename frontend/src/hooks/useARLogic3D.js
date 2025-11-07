@@ -214,23 +214,31 @@ export const useARLogic3D = ({
       outerGroup.add(innerGroup);
       
       // 🎯 CRITICAL: Set up outerGroup for VERTICAL standee that faces camera
-      // Initial state: flat on marker, tiny, invisible (will rise and face viewer)
-      outerGroup.position.set(0, 0.1, 0); // Start just above marker surface
-      outerGroup.rotation.x = -Math.PI / 2; // Start flat on marker (will animate to 0)
-      outerGroup.rotation.y = 0; // Will be set by billboard
+      // The video should stand PERPENDICULAR to marker, with bottom toward marker
+      
+      // Initial position: center the video at half its height above marker
+      // This makes the bottom edge sit on the marker surface
+      outerGroup.position.set(0, standeeHeight / 2, 0); // Center video vertically
+      
+      // Video starts already perpendicular (standing upright)
+      // No X-rotation animation needed
+      outerGroup.rotation.x = 0; // Already perpendicular to marker
+      outerGroup.rotation.y = 0; // Will be set by billboard to face camera  
+      outerGroup.rotation.z = 0; // No tilt
+      
       outerGroup.scale.set(0.01, 0.01, 0.01); // Start tiny for scale animation
-      outerGroup.rotation.order = 'YXZ'; // Set rotation order: Y (billboard) first, then X (standing)
+      outerGroup.rotation.order = 'YXZ'; // Rotation order: Y (billboard) then X
       
       const facingDegrees = (facingAngle * 180 / Math.PI).toFixed(0);
-      addDebugMessage(`🎭 Vertical Standee Setup: will rise ${heightAboveMarker} units above marker`, 'info');
-      addDebugMessage(`🎬 Animation: scale (0.01→1) + rise (Y:0.1→${heightAboveMarker}) + stand up (X:-90°→0°) + billboard Y-rotation + fade (0→1)`, 'info');
-      addDebugMessage(`🔄 Billboard mode: Y-axis camera-facing active throughout experience`, 'info');
+      addDebugMessage(`🎭 Vertical Standee Setup: height ${standeeHeight} units`, 'info');
+      addDebugMessage(`🎬 Animation: scale (0.01→1) + billboard Y-rotation + fade (0→1)`, 'info');
+      addDebugMessage(`🔄 Billboard mode: Y-axis camera-facing active (video perpendicular to marker)`, 'info');
       addDebugMessage(`📦 Using double-nested groups for robust rotation (YXZ order)`, 'info');
       console.log('🎯 Vertical standee configuration:', {
-        heightAboveMarker,
-        verticalAngle: `${(verticalAngle * 180 / Math.PI).toFixed(0)}°`,
+        standeeHeight,
         rotationOrder: 'YXZ',
-        doubleNested: true
+        doubleNested: true,
+        alreadyPerpendicular: true
       });
       
       // Store groups and mesh for easy access
@@ -596,24 +604,25 @@ export const useARLogic3D = ({
                 const scale = easeOutBack(progress);
                 container.scale.set(scale, scale, scale);
                 
-                // 🎯 Z-axis: Keep centered on marker (no forward movement)
-                container.position.z = popOutDistance; // Always 0
+                // 🎯 RISE FROM BOTTOM ANIMATION
+                // Start: video bottom at marker (Y = standeeHeight/2 puts center at half height, bottom at 0)
+                // End: video rises up so bottom is at heightAboveMarker
+                const startY = standeeHeight / 2; // Bottom edge at marker surface
+                const endY = heightAboveMarker + (standeeHeight / 2); // Bottom edge at heightAboveMarker
+                const currentY = startY + (easeOutCubic(progress) * (endY - startY));
                 
-                // 🎯 Y-axis: Rise up vertically above marker
-                const yPosition = 0.1 + (easeOutCubic(progress) * (heightAboveMarker - 0.1));
-                container.position.y = yPosition;
+                container.position.x = 0; // Centered horizontally
+                container.position.y = currentY; // Rising animation
+                container.position.z = 0; // No forward/back movement
                 
-                // 🎯 X-axis: Keep centered on marker
-                container.position.x = 0;
-                
-                // 🎯 X-Rotation: from flat on marker to standing vertical
-                const startRotationX = -Math.PI / 2; // -90° = Flat on marker surface
-                const endRotationX = verticalAngle; // 0° = Standing vertical (perpendicular to marker)
-                const rotationX = startRotationX + (easeOutCubic(progress) * (endRotationX - startRotationX));
-                container.rotation.x = rotationX;
+                // 🎯 X-Rotation: Keep at 0° (perpendicular to marker - standing upright)
+                container.rotation.x = 0;
                 
                 // 🎯 Y-Rotation: Billboard effect - dynamically face camera
                 container.rotation.y = angleToCamera; // Real-time camera-facing
+                
+                // 🎯 Z-Rotation: Keep at 0 (no tilt)
+                container.rotation.z = 0;
                 
                 // Fade animation (opacity 0 to 1)
                 const opacity = easeInOut(progress);
@@ -624,14 +633,14 @@ export const useARLogic3D = ({
                 // Log progress at key milestones
                 if (progress === 0.25 || progress === 0.5 || progress === 0.75) {
                   const percent = Math.round(progress * 100);
-                  addDebugMessage(`🎬 Vertical rise animation ${percent}% complete`, 'info');
+                  addDebugMessage(`🎬 Rising from marker ${percent}% complete`, 'info');
                 }
               }
               
               // Animation complete
               if (progress >= 1) {
                 animationCompleteRef.current = true;
-                addDebugMessage('✨ Vertical standee animation complete! Billboard mode active', 'success');
+                addDebugMessage('✨ Video risen and facing camera! Billboard mode active', 'success');
                 
                 // Log final position
                 if (videoMeshRef.current) {
@@ -704,11 +713,12 @@ export const useARLogic3D = ({
               animationStartTimeRef.current = null;
               animationCompleteRef.current = false;
               
-              // Reset container to initial state for next vertical rise
+              // Reset container to initial state for next rise animation
               container.scale.set(0.01, 0.01, 0.01);
-              container.position.set(0, 0.1, 0); // Reset centered on marker
-              container.rotation.x = -Math.PI / 2; // Reset to flat on marker
+              container.position.set(0, standeeHeight / 2, 0); // Reset to start position
+              container.rotation.x = 0; // Keep perpendicular
               container.rotation.y = 0; // Reset Y rotation for billboard
+              container.rotation.z = 0; // No tilt
               if (mesh.material) {
                 mesh.material.opacity = 0;
               }
