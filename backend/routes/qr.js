@@ -444,7 +444,8 @@ router.get('/user/:userIdentifier/project/:projectIdentifier', async (req, res) 
       hasCompositeDesign: !!hasCompositeDesign,
       needsCompositeGeneration: !hasCompositeDesign && hasOriginalDesign,
       projectStatus: project.status,
-      projectDescription: project.description
+      projectDescription: project.description,
+      requiresTargetImage: project.requiresTargetImage !== undefined ? project.requiresTargetImage : true
     };
     
     console.log('📤 Sending response with mindTargetUrl:', data.mindTargetUrl || 'null');
@@ -741,7 +742,8 @@ router.get('/project-data/:projectId', async (req, res) => {
       username: user.username,
       status: project.status,
       createdAt: project.createdAt,
-      updatedAt: project.updatedAt
+      updatedAt: project.updatedAt,
+      requiresTargetImage: project.requiresTargetImage !== undefined ? project.requiresTargetImage : true
     };
     
     res.status(200).json({

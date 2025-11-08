@@ -8,7 +8,6 @@ import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useDataRefresh } from '../../hooks/useDataRefresh'
 import { analyticsAPI } from '../../utils/api'
-import BackButton from '../../components/UI/BackButton'
 import LocationAnalytics from '../../components/Analytics/LocationAnalytics'
 import { 
   BarChart3, 
@@ -357,17 +356,13 @@ const AnalyticsPage = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
-        {/* Mobile Back Button - Top Left */}
-        <div className="flex justify-start mb-4 sm:hidden">
-          <BackButton to="/dashboard" variant="ghost" text="Back" className="text-sm" />
-        </div>
         
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-100">
+          <div className="text-center sm:text-left">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gradient bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink bg-clip-text text-transparent">
               Project Analytics
             </h1>
-            <p className="text-sm sm:text-base text-slate-300 mt-2">
+            <p className="text-sm sm:text-base text-neon-cyan mt-2">
               Track performance and engagement for each of your projects
             </p>
           </div>
@@ -383,8 +378,6 @@ const AnalyticsPage = () => {
                 </option>
               ))}
             </select>
-            {/* Desktop Back Button */}
-            <BackButton to="/dashboard" variant="ghost" text="Back" className="text-sm sm:text-base hidden sm:flex" />
           </div>
         </div>
       </div>

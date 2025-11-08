@@ -6,7 +6,6 @@
 
 import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import BackButton from '../../components/UI/BackButton';
 import { analyticsAPI } from '../../utils/api';
 
 // Hooks
@@ -27,6 +26,7 @@ import ErrorScreen from '../../components/AR/ErrorScreen';
 import ProjectDisabledScreen from '../../components/AR/ProjectDisabledScreen';
 import CompositeImageOverlay from '../../components/AR/CompositeImageOverlay';
 import ScannerAnimation from '../../components/AR/ScannerAnimation';
+import DirectVideoPlayer from '../../components/AR/DirectVideoPlayer';
 
 const ARExperience3DPage = () => {
   const { userId, projectId } = useParams();
@@ -207,10 +207,14 @@ const ARExperience3DPage = () => {
     prevDetectedRef.current = targetDetected;
   }, [targetDetected, setVideoPlaying]);
 
-  // Show composite image briefly at start, then hide to show live camera
+  // Show composite image briefly at start, then hide to show live camera (only if target tracking is required)
   useEffect(() => {
     if (projectData && !targetDetected && !hasShownInitialGuide && !isLoading) {
-      if (projectData?.compositeDesignUrl || projectData?.designUrl) {
+      // Skip composite image if target tracking is not required
+      if (projectData.requiresTargetImage === false) {
+        setHasShownInitialGuide(true);
+        addDebugMessage('📹 Direct video mode - no target guide needed', 'info');
+      } else if (projectData?.compositeDesignUrl || projectData?.designUrl) {
         // Show composite for 3 seconds, then hide to reveal live camera
         setShowCompositeImage(true);
         setShowScannerAnimation(true);
@@ -395,18 +399,41 @@ const ARExperience3DPage = () => {
   // Initialize AR
   useEffect(() => {
     if (librariesLoaded && projectData && !isInitialized) {
-      addDebugMessage('⏳ Initializing 3D MindAR...', 'info');
-      setTimeout(() => {
-        arLogic.initializeMindAR().then(success => {
-          if (success) {
-            setTimeout(() => {
-              startScanning();
-            }, 50);
+      // Skip MindAR initialization if target image is not required
+      if (projectData.requiresTargetImage === false) {
+        addDebugMessage('📹 Direct video mode - skipping target tracking', 'info');
+        setIsInitialized(true);
+        setCameraActive(true);
+        setArReady(true);
+        setTargetDetected(true); // Mark as detected to show video
+        
+        // Auto-play video after short delay
+        setTimeout(() => {
+          if (videoRef.current) {
+            videoRef.current.muted = true;
+            videoRef.current.play().then(() => {
+              setVideoPlaying(true);
+              addDebugMessage('▶️ Video auto-playing', 'success');
+            }).catch(error => {
+              console.error('Auto-play failed:', error);
+              addDebugMessage('⚠️ Auto-play blocked - tap to play', 'warning');
+            });
           }
-        });
-      }, 500);
+        }, 1000);
+      } else {
+        addDebugMessage('⏳ Initializing 3D MindAR...', 'info');
+        setTimeout(() => {
+          arLogic.initializeMindAR().then(success => {
+            if (success) {
+              setTimeout(() => {
+                startScanning();
+              }, 50);
+            }
+          });
+        }, 500);
+      }
     }
-  }, [librariesLoaded, projectData, isInitialized, addDebugMessage]);
+  }, [librariesLoaded, projectData, isInitialized, addDebugMessage, videoRef, setIsInitialized, setCameraActive, setArReady, setTargetDetected, setVideoPlaying]);
 
   // Show disabled screen
   if (isProjectDisabled) {
@@ -452,10 +479,6 @@ const ARExperience3DPage = () => {
 
   return (
     <div className="min-h-screen bg-dark-mesh">
-      {/* Floating Back Button */}
-      {!videoPlaying && (
-        <BackButton variant="floating" floating iconOnlyOnMobile className="sm:ml-4 sm:mt-4" />
-      )}
       
       {/* Main Content */}
       <main className="w-full max-w-md md:max-w-2xl lg:max-w-4xl xl:max-w-5xl mx-auto bg-slate-900/95 backdrop-blur-sm min-h-screen px-4 md:px-6 lg:px-8 py-6 md:py-8 lg:py-12">

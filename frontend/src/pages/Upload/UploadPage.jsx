@@ -8,7 +8,6 @@ import React, { useState, useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useAuth } from '../../contexts/AuthContext'
 import { uploadAPI, qrAPI, downloadFile, arExperienceAPI } from '../../utils/api'
-import BackButton from '../../components/UI/BackButton'
 import { 
   Upload, 
   Image, 
@@ -455,11 +454,6 @@ const UploadPage = () => {
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
-        {/* Mobile Back Button - Top Left */}
-        <div className="flex justify-start mb-4 sm:hidden">
-          <BackButton to="/dashboard" variant="ghost" text="Back" className="text-sm" />
-        </div>
-        
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
@@ -469,8 +463,6 @@ const UploadPage = () => {
               Upload your design, video, and configure your QR code settings
             </p>
           </div>
-          {/* Desktop Back Button */}
-          <BackButton to="/dashboard" variant="ghost" className="hidden sm:flex" />
         </div>
       </div>
 

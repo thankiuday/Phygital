@@ -3070,4 +3070,67 @@ router.patch('/project/:projectId/toggle-status', authenticateToken, async (req,
   }
 });
 
+/**
+ * PATCH /api/upload/project/:projectId/toggle-target-image
+ * Toggle project target image requirement
+ * Allows users to enable or disable target image requirement for AR experience
+ */
+router.patch('/project/:projectId/toggle-target-image', authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = req.user.id;
+    const { requiresTargetImage } = req.body;
+    
+    // Validate requiresTargetImage parameter
+    if (typeof requiresTargetImage !== 'boolean') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'requiresTargetImage must be a boolean value'
+      });
+    }
+    
+    // Find user and project
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'User not found'
+      });
+    }
+    
+    const projectIndex = user.projects.findIndex(p => p.id === projectId);
+    if (projectIndex === -1) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Project not found'
+      });
+    }
+    
+    // Update project target image requirement
+    user.projects[projectIndex].requiresTargetImage = requiresTargetImage;
+    user.projects[projectIndex].updatedAt = new Date();
+    await user.save();
+    
+    console.log(`✅ Project ${projectId} target image ${requiresTargetImage ? 'required' : 'not required'} for user ${userId}`);
+    
+    res.status(200).json({
+      status: 'success',
+      message: `Target image ${requiresTargetImage ? 'required' : 'not required'} successfully`,
+      data: {
+        projectId,
+        requiresTargetImage,
+        project: user.projects[projectIndex]
+      }
+    });
+    
+  } catch (error) {
+    console.error('Toggle target image requirement error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to toggle target image requirement',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 module.exports = router;

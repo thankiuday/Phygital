@@ -151,15 +151,15 @@ const GameUploadPage = () => {
         </h1>
         
         {/* Animated Tagline */}
-        <div className="mb-4 relative inline-block">
+        <div className="mb-4 relative inline-block max-w-full px-2">
           <div className="absolute inset-0 bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink blur-lg opacity-40 animate-pulse"></div>
-          <div className="relative px-6 py-3 bg-gradient-to-r from-slate-800/90 via-slate-900/90 to-slate-800/90 backdrop-blur-sm border border-neon-purple/30 rounded-xl overflow-hidden group hover:scale-105 transition-all duration-300">
+          <div className="relative px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-slate-800/90 via-slate-900/90 to-slate-800/90 backdrop-blur-sm border border-neon-purple/30 rounded-lg sm:rounded-xl overflow-hidden group hover:scale-105 transition-all duration-300">
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
-            <p className="text-lg sm:text-xl font-bold relative">
+            <p className="text-base sm:text-lg md:text-xl font-bold relative whitespace-nowrap">
               <span className="text-gradient bg-gradient-to-r from-neon-blue to-neon-cyan bg-clip-text text-transparent">
                 Your Vision
               </span>
-              <span className="mx-2 text-slate-400">•</span>
+              <span className="mx-1.5 sm:mx-2 text-slate-400">•</span>
               <span className="text-gradient bg-gradient-to-r from-neon-purple to-neon-pink bg-clip-text text-transparent">
                 Our Innovation
               </span>

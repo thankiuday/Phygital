@@ -173,9 +173,9 @@ const HomePage = () => {
           </h1>
           
           {/* Animated Tagline */}
-          <div className="mb-8 relative inline-block">
+          <div className="mb-8 relative inline-block max-w-full px-2">
             <div className="absolute inset-0 bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink blur-xl opacity-50 animate-pulse"></div>
-            <div className="relative px-8 py-4 bg-gradient-to-r from-slate-800/90 via-slate-900/90 to-slate-800/90 backdrop-blur-sm border-2 border-transparent rounded-2xl overflow-hidden group hover:scale-105 transition-all duration-500">
+            <div className="relative px-4 sm:px-6 md:px-8 py-3 sm:py-4 bg-gradient-to-r from-slate-800/90 via-slate-900/90 to-slate-800/90 backdrop-blur-sm border-2 border-transparent rounded-xl sm:rounded-2xl overflow-hidden group hover:scale-105 transition-all duration-500">
               {/* Animated Border Gradient */}
               <div className="absolute inset-0 bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10"></div>
               <div className="absolute inset-0.5 bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 rounded-2xl -z-10"></div>
@@ -183,11 +183,11 @@ const HomePage = () => {
               {/* Sliding Shine Effect */}
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
               
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold relative">
+              <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold relative whitespace-nowrap">
                 <span className="inline-block animate-fade-in-up text-gradient bg-gradient-to-r from-neon-blue to-neon-cyan bg-clip-text text-transparent">
                   Your Vision
                 </span>
-                <span className="mx-3 text-slate-400 animate-pulse">•</span>
+                <span className="mx-2 sm:mx-3 text-slate-400 animate-pulse">•</span>
                 <span className="inline-block animate-fade-in-up text-gradient bg-gradient-to-r from-neon-purple to-neon-pink bg-clip-text text-transparent" style={{ animationDelay: '0.2s' }}>
                   Our Innovation
                 </span>

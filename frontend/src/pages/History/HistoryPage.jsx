@@ -6,7 +6,6 @@
 import React, { useState, useEffect } from 'react'
 import { historyAPI, uploadAPI } from '../../utils/api'
 import { useAuth } from '../../contexts/AuthContext'
-import BackButton from '../../components/UI/BackButton'
 import { 
   Video, 
   Calendar,
@@ -249,10 +248,6 @@ const HistoryPage = () => {
     <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-6 sm:mb-8">
-        {/* Mobile Back Button - Top Left */}
-        <div className="flex justify-start mb-4 sm:hidden">
-          <BackButton to="/dashboard" variant="ghost" text="Back" className="text-sm" />
-        </div>
         
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -273,8 +268,6 @@ const HistoryPage = () => {
                 <span>Refresh</span>
               </button>
             )}
-            {/* Desktop Back Button */}
-            <BackButton to="/dashboard" variant="ghost" text="Back" className="text-sm sm:text-base hidden sm:flex" />
           </div>
         </div>
       </div>

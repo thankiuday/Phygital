@@ -197,6 +197,7 @@ export const uploadAPI = {
   // Health check for backend connectivity
   healthCheck: () => api.get('/health'),
   toggleProjectStatus: (projectId, isEnabled) => api.patch(`/upload/project/${projectId}/toggle-status`, { isEnabled }),
+  toggleTargetImageRequirement: (projectId, requiresTargetImage) => api.patch(`/upload/project/${projectId}/toggle-target-image`, { requiresTargetImage }),
   setQRPosition: (position) => api.post('/upload/qr-position', position),
   saveCompositeDesign: (compositeImage, qrPosition) => api.post('/upload/save-composite-design', {
     compositeImage,

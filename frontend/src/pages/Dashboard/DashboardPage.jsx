@@ -8,7 +8,6 @@ import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useDataRefresh } from '../../hooks/useDataRefresh'
-import BackButton from '../../components/UI/BackButton'
 import ProfessionalButton from '../../components/UI/ProfessionalButton'
 import ProfessionalCard from '../../components/UI/ProfessionalCard'
 import { 
@@ -266,24 +265,15 @@ const DashboardPage = () => {
       {/* Header */}
       <div className="mb-6 sm:mb-8">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
-          {/* Mobile Back Button - Top Left */}
-          <div className="flex justify-start sm:hidden">
-            <BackButton to="/" variant="ghost" text="Back" className="text-sm" />
-          </div>
-          
           <div className="flex-1 text-center sm:text-left">
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-100 mb-2">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gradient bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink bg-clip-text text-transparent mb-2">
               Welcome back, {user?.username}!
             </h1>
-            <p className="text-sm sm:text-base text-slate-300">
+            <p className="text-sm sm:text-base text-neon-cyan">
               Here's an overview of your Phygital account
             </p>
           </div>
 
-          {/* Desktop Back Button - Right Aligned */}
-          <div className="hidden sm:flex sm:items-start">
-            <BackButton to="/" variant="ghost" />
-          </div>
         </div>
       </div>
 

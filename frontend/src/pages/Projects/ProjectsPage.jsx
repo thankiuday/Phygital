@@ -8,7 +8,6 @@ import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useSearchParams, useLocation } from 'react-router-dom'
 import { uploadAPI, generateQRCode, downloadFile, api } from '../../utils/api'
-import BackButton from '../../components/UI/BackButton'
 import { countryCodes, validatePhoneNumber as validatePhone, parsePhoneNumber, filterPhoneInput as filterPhone, formatPhoneNumber } from '../../utils/countryCodes'
 import { 
   Video, 
@@ -74,6 +73,7 @@ const ProjectsPage = () => {
   
   // Toggle status state
   const [togglingStatus, setTogglingStatus] = useState({}) // Map of projectId -> boolean
+  const [togglingTargetImage, setTogglingTargetImage] = useState({}) // Map of projectId -> boolean
   
   // Edit modal state
   const [showEditModal, setShowEditModal] = useState(false)
@@ -774,6 +774,60 @@ const ProjectsPage = () => {
     }
   }
 
+  // Toggle project target image requirement
+  const handleToggleTargetImage = async (project) => {
+    const projectId = project.id
+    const newRequirement = !project.requiresTargetImage
+    
+    // Optimistically update UI immediately
+    setProjects(prevProjects => 
+      prevProjects.map(p => 
+        p.id === projectId 
+          ? { ...p, requiresTargetImage: newRequirement }
+          : p
+      )
+    )
+    
+    try {
+      setTogglingTargetImage(prev => ({ ...prev, [projectId]: true }))
+      
+      const response = await uploadAPI.toggleTargetImageRequirement(projectId, newRequirement)
+      
+      console.log('Toggle target image response:', response.data)
+      
+      // Check for both success formats
+      if (response.data.success || response.data.status === 'success') {
+        toast.success(`Target image ${newRequirement ? 'required' : 'not required'} successfully`)
+        // Refresh user data first, then reload projects to get updated state
+        await loadUser()
+        await loadProjects()
+      } else {
+        // Revert optimistic update on failure
+        setProjects(prevProjects => 
+          prevProjects.map(p => 
+            p.id === projectId 
+              ? { ...p, requiresTargetImage: !newRequirement }
+              : p
+          )
+        )
+        toast.error('Failed to toggle target image requirement')
+      }
+    } catch (error) {
+      console.error('Toggle target image error:', error)
+      // Revert optimistic update on error
+      setProjects(prevProjects => 
+        prevProjects.map(p => 
+          p.id === projectId 
+            ? { ...p, requiresTargetImage: !newRequirement }
+            : p
+        )
+      )
+      toast.error(error.response?.data?.message || 'Failed to toggle target image requirement')
+    } finally {
+      setTogglingTargetImage(prev => ({ ...prev, [projectId]: false }))
+    }
+  }
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -788,16 +842,12 @@ const ProjectsPage = () => {
     <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-6 sm:mb-8">
-        <div className="flex justify-start mb-4 sm:hidden">
-          <BackButton to="/dashboard" variant="ghost" text="Back" className="text-sm" />
-        </div>
-        
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 mb-1 sm:mb-2">
+          <div className="text-center sm:text-left">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gradient bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink bg-clip-text text-transparent mb-1 sm:mb-2">
               Campaign Management
             </h1>
-            <p className="text-sm sm:text-base text-slate-300">
+            <p className="text-sm sm:text-base text-neon-cyan">
               Manage your campaigns, QR codes, and videos all in one place
             </p>
           </div>
@@ -846,7 +896,6 @@ const ProjectsPage = () => {
                 </button>
               </div>
             )}
-            <BackButton to="/dashboard" variant="ghost" text="Back" className="text-sm sm:text-base hidden sm:flex" />
           </div>
         </div>
       </div>
@@ -871,11 +920,13 @@ const ProjectsPage = () => {
               project={project}
               user={user}
               isTogglingStatus={togglingStatus[project.id]}
+              isTogglingTargetImage={togglingTargetImage[project.id]}
               onDownloadComposite={() => handleDownloadComposite(project)}
               onShare={() => handleShareUrl(project)}
               onEdit={() => handleEditProject(project)}
               onDelete={() => handleDeleteProject(project)}
               onToggleStatus={() => handleToggleProjectStatus(project)}
+              onToggleTargetImage={() => handleToggleTargetImage(project)}
               formatDate={formatDate}
               viewMode={viewMode}
             />
@@ -919,11 +970,13 @@ const ProjectCard = ({
   project,
   user,
   isTogglingStatus,
+  isTogglingTargetImage,
   onDownloadComposite,
   onShare,
   onEdit,
   onDelete,
   onToggleStatus,
+  onToggleTargetImage,
   formatDate,
   viewMode
 }) => {
@@ -996,6 +1049,39 @@ const ProjectCard = ({
                 />
               </button>
             </div>
+
+            {/* Target Image Requirement Toggle - Only show when AR Scanning is enabled */}
+            {project.isEnabled && (
+              <div className="mt-3 flex items-center gap-2 p-3 bg-slate-800/50 rounded-lg border border-slate-600/30">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-slate-100">
+                    Require Target Image: {project.requiresTargetImage !== false ? 'Yes' : 'No'}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {project.requiresTargetImage !== false
+                      ? 'Users must point camera at target image' 
+                      : 'Video plays automatically without target scanning'
+                    }
+                  </p>
+                </div>
+                <button
+                  onClick={onToggleTargetImage}
+                  disabled={isTogglingTargetImage}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 ${
+                    project.requiresTargetImage !== false
+                      ? 'bg-neon-cyan focus:ring-neon-cyan' 
+                      : 'bg-slate-600 focus:ring-slate-500'
+                  } ${isTogglingTargetImage ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  title={project.requiresTargetImage !== false ? 'Click to disable target requirement' : 'Click to enable target requirement'}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+                      project.requiresTargetImage !== false ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            )}
 
             {/* Project Stats */}
             <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-3">

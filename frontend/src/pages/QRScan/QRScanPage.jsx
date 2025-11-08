@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { analyticsAPI } from '../../utils/api';
-import BackButton from '../../components/UI/BackButton';
 
 const QRScanPage = () => {
   const { userId, projectId } = useParams();
@@ -180,7 +179,6 @@ const QRScanPage = () => {
       <header className="bg-gray-800 text-white py-3 px-4 sm:py-4 sm:px-6 shadow-lg">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <h1 className="text-lg sm:text-2xl font-bold">Phygital</h1>
-          <BackButton to="/" variant="ghost" />
         </div>
       </header>
 

@@ -8,7 +8,6 @@ import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useAuth } from '../../contexts/AuthContext';
 import { generateQRCodeWithIcon, downloadQRCode } from '../../utils/qrGenerator';
-import BackButton from '../../components/UI/BackButton';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
 import toast from 'react-hot-toast';
 import {
@@ -43,7 +42,6 @@ const QRDesignsPage = () => {
   // Default icon library with categories
   const iconLibrary = [
     // Popular
-    { id: 'logo', name: 'Logo', url: '/icons/PhygitalLogo.png', category: 'popular' },
     { id: 'star', name: 'Star', url: null, category: 'popular' },
     { id: 'heart', name: 'Heart', url: null, category: 'popular' },
     { id: 'checkmark', name: 'Checkmark', url: null, category: 'popular' },
@@ -65,7 +63,6 @@ const QRDesignsPage = () => {
     { id: 'download', name: 'Download', url: null, category: 'actions' },
     { id: 'upload', name: 'Upload', url: null, category: 'actions' },
     { id: 'search', name: 'Search', url: null, category: 'actions' },
-    { id: 'filter', name: 'Filter', url: null, category: 'actions' },
     { id: 'arrow', name: 'Arrow', url: null, category: 'actions' },
     { id: 'plus', name: 'Plus', url: null, category: 'actions' },
     { id: 'minus', name: 'Minus', url: null, category: 'actions' },
@@ -399,54 +396,53 @@ const QRDesignsPage = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-6xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-100 flex items-center">
-              <Sparkles className="w-8 h-8 mr-3 text-neon-purple" />
+      <div className="mb-6 sm:mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div className="text-center sm:text-left">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gradient bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink bg-clip-text text-transparent flex items-center justify-center sm:justify-start">
+              <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 mr-2 sm:mr-3 text-neon-purple" />
               QR Designs
             </h1>
-            <p className="text-slate-300 mt-2">
-              Create customized QR codes with icon overlays and redirect URLs
+            <p className="text-sm sm:text-base text-neon-cyan mt-1 sm:mt-2">
+              Create customized QR codes with icon overlays
             </p>
           </div>
-          <BackButton to="/dashboard" variant="ghost" className="hidden sm:flex" />
         </div>
       </div>
 
-      {/* Progress Steps */}
-      <div className="mb-8">
-        <div className="flex items-center justify-center space-x-4">
+      {/* Progress Steps - Mobile Responsive */}
+      <div className="mb-6 sm:mb-8">
+        <div className="flex items-center justify-between sm:justify-center sm:space-x-4 overflow-x-auto pb-2 sm:pb-0">
           {[1, 2, 3].map((stepNum) => (
             <React.Fragment key={stepNum}>
-              <div className="flex items-center">
+              <div className="flex items-center flex-shrink-0">
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-colors ${
+                  className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm sm:text-base font-semibold transition-colors ${
                     step >= stepNum
-                      ? 'bg-neon-blue text-white'
+                      ? 'bg-neon-blue text-white shadow-glow-blue'
                       : 'bg-slate-700 text-slate-400'
                   }`}
                 >
                   {step > stepNum ? (
-                    <CheckCircle className="w-6 h-6" />
+                    <CheckCircle className="w-4 h-4 sm:w-6 sm:h-6" />
                   ) : (
                     stepNum
                   )}
                 </div>
                 <span
-                  className={`ml-2 text-sm font-medium ${
+                  className={`ml-1 sm:ml-2 text-xs sm:text-sm font-medium whitespace-nowrap ${
                     step >= stepNum ? 'text-slate-100' : 'text-slate-400'
                   }`}
                 >
-                  {stepNum === 1 && 'Choose Icon'}
-                  {stepNum === 2 && 'Enter URL'}
+                  {stepNum === 1 && 'Icon'}
+                  {stepNum === 2 && 'URL'}
                   {stepNum === 3 && 'Download'}
                 </span>
               </div>
               {stepNum < 3 && (
-                <ArrowRight className="w-5 h-5 text-slate-600" />
+                <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600 mx-1 sm:mx-0" />
               )}
             </React.Fragment>
           ))}
@@ -466,25 +462,25 @@ const QRDesignsPage = () => {
             </p>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Icon Library with Search and Categories */}
             <div>
-              <div className="flex flex-col sm:flex-row gap-4 mb-6">
-                <h3 className="text-lg font-semibold text-slate-100 flex items-center">
-                  <Palette className="w-5 h-5 mr-2" />
+              <div className="flex flex-col gap-3 sm:gap-4 mb-4 sm:mb-6">
+                <h3 className="text-base sm:text-lg font-semibold text-slate-100 flex items-center">
+                  <Palette className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                   Select from Library
                 </h3>
                 
                 {/* Search Bar */}
-                <div className="flex-1 max-w-md">
+                <div className="w-full">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
                     <input
                       type="text"
                       placeholder="Search icons..."
                       value={iconSearch}
                       onChange={(e) => setIconSearch(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-slate-100 placeholder-slate-400 focus:outline-none focus:border-neon-blue"
+                      className="w-full pl-9 sm:pl-10 pr-10 py-2 sm:py-2.5 bg-slate-800 border border-slate-600 rounded-lg text-sm sm:text-base text-slate-100 placeholder-slate-400 focus:outline-none focus:border-neon-blue"
                     />
                     {iconSearch && (
                       <button
@@ -498,9 +494,9 @@ const QRDesignsPage = () => {
                 </div>
               </div>
 
-              {/* Category Tabs */}
-              <div className="mb-6">
-                <div className="flex flex-wrap gap-2">
+              {/* Category Tabs - Horizontal Scroll on Mobile */}
+              <div className="mb-4 sm:mb-6">
+                <div className="flex gap-2 overflow-x-auto pb-2 -mx-3 px-3 sm:mx-0 sm:px-0 sm:flex-wrap">
                   {categories.map((category) => {
                     const isActive = selectedCategory === category.id;
                     const categoryIcon = generateSVGIcon(category.icon, isActive ? '#ffffff' : '#94a3b8');
@@ -510,9 +506,9 @@ const QRDesignsPage = () => {
                         key={category.id}
                         onClick={() => {
                           setSelectedCategory(category.id);
-                          setIconSearch(''); // Clear search when changing category
+                          setIconSearch('');
                         }}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-2 ${
+                        className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center space-x-1.5 sm:space-x-2 whitespace-nowrap flex-shrink-0 ${
                           isActive
                             ? 'bg-neon-blue text-white shadow-lg shadow-neon-blue/50'
                             : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-slate-100'
@@ -522,11 +518,12 @@ const QRDesignsPage = () => {
                           <img
                             src={categoryIcon}
                             alt=""
-                            className="w-4 h-4"
+                            className="w-3 h-3 sm:w-4 sm:h-4"
                             style={{ filter: isActive ? 'brightness(0) invert(1)' : 'none' }}
                           />
                         )}
-                        <span>{category.name}</span>
+                        <span className="hidden sm:inline">{category.name}</span>
+                        <span className="sm:hidden">{category.name.split(' ')[0]}</span>
                         {isActive && (
                           <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded text-xs">
                             {filteredIcons.length}
@@ -538,9 +535,9 @@ const QRDesignsPage = () => {
                 </div>
               </div>
 
-              {/* Icon Grid */}
+              {/* Icon Grid - Responsive */}
               {filteredIcons.length > 0 ? (
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
+                <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-2 sm:gap-3 max-h-64 sm:max-h-96 overflow-y-auto pr-2 custom-scrollbar">
                   {filteredIcons.map((icon) => {
                     const iconUrl = icon.url || generateSVGIcon(icon.id);
                     const isSelected = selectedIcon === iconUrl && iconSource === 'library';
@@ -549,14 +546,14 @@ const QRDesignsPage = () => {
                       <button
                         key={icon.id}
                         onClick={() => handleIconSelect(icon)}
-                        className={`p-3 rounded-lg border-2 transition-all relative group ${
+                        className={`p-2 sm:p-3 rounded-lg border-2 transition-all relative group ${
                           isSelected
                             ? 'border-neon-blue bg-neon-blue/20 shadow-lg shadow-neon-blue/30'
                             : 'border-slate-600 bg-slate-800/50 hover:border-neon-blue/50 hover:bg-slate-700/50'
                         }`}
                         title={icon.name}
                       >
-                        <div className="w-12 h-12 mx-auto mb-1 flex items-center justify-center">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 mx-auto mb-1 flex items-center justify-center">
                           {iconUrl ? (
                             <img
                               src={iconUrl}
@@ -564,13 +561,13 @@ const QRDesignsPage = () => {
                               className="max-w-full max-h-full object-contain"
                             />
                           ) : (
-                            <ImageIcon className="w-8 h-8 text-slate-400" />
+                            <ImageIcon className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-slate-400" />
                           )}
                         </div>
-                        <p className="text-xs text-slate-300 truncate w-full">{icon.name}</p>
+                        <p className="text-xs text-slate-300 truncate w-full hidden sm:block">{icon.name}</p>
                         {isSelected && (
-                          <div className="absolute top-1 right-1">
-                            <CheckCircle className="w-5 h-5 text-neon-blue" />
+                          <div className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1">
+                            <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-neon-blue" />
                           </div>
                         )}
                       </button>
@@ -607,12 +604,12 @@ const QRDesignsPage = () => {
 
             {/* Upload Custom Icon */}
             <div>
-              <h3 className="text-lg font-semibold text-slate-100 mb-4">
+              <h3 className="text-base sm:text-lg font-semibold text-slate-100 mb-3 sm:mb-4">
                 Upload Your Own Design
               </h3>
               <div
                 {...getRootProps()}
-                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                className={`border-2 border-dashed rounded-lg p-4 sm:p-6 md:p-8 text-center cursor-pointer transition-colors ${
                   isDragActive
                     ? 'border-neon-blue bg-neon-blue/10'
                     : 'border-slate-600 bg-slate-800/30 hover:border-slate-500'
@@ -620,37 +617,39 @@ const QRDesignsPage = () => {
               >
                 <input {...getInputProps()} />
                 {uploadedIcon ? (
-                  <div className="space-y-4">
-                    <div className="w-32 h-32 mx-auto">
+                  <div className="space-y-3 sm:space-y-4">
+                    <div className="w-24 h-24 sm:w-32 sm:h-32 mx-auto">
                       <img
                         src={uploadedIcon}
                         alt="Uploaded icon"
                         className="w-full h-full object-contain"
                       />
                     </div>
-                    <div className="flex items-center justify-center space-x-2">
-                      <CheckCircle className="w-5 h-5 text-neon-green" />
-                      <p className="text-slate-300">Icon uploaded successfully</p>
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-2 sm:space-x-2">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-neon-green" />
+                        <p className="text-sm sm:text-base text-slate-300">Icon uploaded</p>
+                      </div>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           setUploadedIcon(null);
                           setIconSource(null);
                         }}
-                        className="ml-2 p-1 text-slate-400 hover:text-slate-200"
+                        className="p-1 text-slate-400 hover:text-slate-200"
                       >
                         <X className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    <Upload className="w-12 h-12 text-slate-400 mx-auto" />
+                  <div className="space-y-3 sm:space-y-4">
+                    <Upload className="w-10 h-10 sm:w-12 sm:h-12 text-slate-400 mx-auto" />
                     <div>
-                      <p className="text-slate-300 mb-1">
+                      <p className="text-sm sm:text-base text-slate-300 mb-1">
                         {isDragActive ? 'Drop PNG here' : 'Drag & drop PNG file'}
                       </p>
-                      <p className="text-sm text-slate-400">
+                      <p className="text-xs sm:text-sm text-slate-400">
                         or click to browse (max 2MB)
                       </p>
                     </div>
@@ -660,7 +659,7 @@ const QRDesignsPage = () => {
             </div>
 
             {/* Continue Button */}
-            <div className="flex justify-end">
+            <div className="flex justify-end pt-2">
               <button
                 onClick={() => {
                   if (selectedIcon || uploadedIcon) {
@@ -669,11 +668,12 @@ const QRDesignsPage = () => {
                     toast.error('Please select or upload an icon');
                   }
                 }}
-                className="btn-primary flex items-center"
+                className="btn-primary flex items-center text-sm sm:text-base px-4 sm:px-6 py-2 sm:py-3"
                 disabled={!selectedIcon && !uploadedIcon}
               >
-                Continue to URL
-                <ArrowRight className="w-5 h-5 ml-2" />
+                <span className="hidden sm:inline">Continue to URL</span>
+                <span className="sm:hidden">Next</span>
+                <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />
               </button>
             </div>
           </div>
@@ -693,19 +693,19 @@ const QRDesignsPage = () => {
             </p>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-2">
                 Redirect URL <span className="text-neon-red">*</span>
               </label>
-              <div className="flex space-x-2">
+              <div className="flex flex-col sm:flex-row gap-2 sm:space-x-2 sm:gap-0">
                 <div className="flex-1">
                   <input
                     type="text"
                     value={redirectUrl}
                     onChange={handleUrlChange}
-                    placeholder="https://example.com or example.com"
-                    className={`w-full px-4 py-3 bg-slate-800 border rounded-lg text-slate-100 placeholder-slate-400 focus:outline-none transition-colors ${
+                    placeholder="example.com"
+                    className={`w-full px-3 sm:px-4 py-2 sm:py-3 bg-slate-800 border rounded-lg text-sm sm:text-base text-slate-100 placeholder-slate-400 focus:outline-none transition-colors ${
                       urlError 
                         ? 'border-neon-red focus:border-neon-red bg-red-900/10' 
                         : redirectUrl.trim() && !urlError
@@ -742,20 +742,21 @@ const QRDesignsPage = () => {
                 </div>
                 <button
                   onClick={pasteUrl}
-                  className="px-4 py-3 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors flex-shrink-0"
+                  className="w-full sm:w-auto px-4 py-2 sm:py-3 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors flex items-center justify-center gap-2 flex-shrink-0"
                   title="Paste from clipboard"
                 >
-                  <Copy className="w-5 h-5" />
+                  <Copy className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="text-sm sm:text-base">Paste</span>
                 </button>
               </div>
-              <p className="text-sm text-slate-400 mt-2">
-                <strong>Tip:</strong> Protocol (https://) will be added automatically if missing
+              <p className="text-xs sm:text-sm text-slate-400 mt-2">
+                <strong>Tip:</strong> Protocol (https://) will be added automatically
               </p>
             </div>
 
             {/* QR Code Size */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-2">
                 QR Code Size: {qrCodeSize}px
               </label>
               <input
@@ -775,18 +776,18 @@ const QRDesignsPage = () => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex justify-between">
+            <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-0 pt-2">
               <button
                 onClick={() => setStep(1)}
-                className="btn-secondary flex items-center"
+                className="btn-secondary flex items-center justify-center text-sm sm:text-base px-4 sm:px-6 py-2 sm:py-3 order-2 sm:order-1"
               >
-                <ArrowRight className="w-5 h-5 mr-2 rotate-180" />
+                <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 mr-2 rotate-180" />
                 Back
               </button>
               <button
                 onClick={generatePreview}
                 disabled={isGenerating || !redirectUrl.trim() || !!urlError}
-                className="btn-primary flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-primary flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base px-4 sm:px-6 py-2 sm:py-3 order-1 sm:order-2"
                 title={
                   !redirectUrl.trim() 
                     ? 'Please enter a URL first' 
@@ -798,13 +799,14 @@ const QRDesignsPage = () => {
                 {isGenerating ? (
                   <>
                     <LoadingSpinner size="sm" className="mr-2" />
-                    Generating...
+                    <span>Generating...</span>
                   </>
                 ) : (
                   <>
-                    <QrCode className="w-5 h-5 mr-2" />
-                    Generate QR Code
-                    <ArrowRight className="w-5 h-5 ml-2" />
+                    <QrCode className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                    <span className="hidden sm:inline">Generate QR Code</span>
+                    <span className="sm:hidden">Generate</span>
+                    <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />
                   </>
                 )}
               </button>
@@ -826,50 +828,53 @@ const QRDesignsPage = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
             {/* QR Code Preview */}
-            <div className="space-y-4">
-              <div className="bg-slate-800/50 rounded-lg p-8 flex items-center justify-center border border-slate-600">
+            <div className="space-y-3 sm:space-y-4">
+              <div className="bg-slate-800/50 rounded-lg p-4 sm:p-6 md:p-8 flex items-center justify-center border border-slate-600">
                 <img
                   src={qrCodePreview}
                   alt="QR Code Preview"
                   className="max-w-full h-auto"
+                  style={{ maxWidth: '280px' }}
                 />
               </div>
-              <div className="bg-slate-800/30 rounded-lg p-4 border border-slate-600">
-                <p className="text-sm text-slate-400 mb-2">Redirect URL:</p>
-                <p className="text-slate-200 break-all font-mono text-sm">
+              <div className="bg-slate-800/30 rounded-lg p-3 sm:p-4 border border-slate-600">
+                <p className="text-xs sm:text-sm text-slate-400 mb-2">Redirect URL:</p>
+                <p className="text-sm sm:text-base text-slate-200 break-all font-mono">
                   {validateUrl(redirectUrl.trim()) || redirectUrl.trim()}
                 </p>
               </div>
             </div>
 
             {/* Download Options */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-slate-100">
+            <div className="space-y-3 sm:space-y-4">
+              <h3 className="text-base sm:text-lg font-semibold text-slate-100">
                 Download Options
               </h3>
               
               <button
                 onClick={() => handleDownload(300)}
-                className="w-full btn-primary flex items-center justify-center"
+                className="w-full btn-primary flex items-center justify-center text-sm sm:text-base px-4 py-2 sm:py-3"
               >
-                <Download className="w-5 h-5 mr-2" />
-                Download Standard (300x300)
+                <Download className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                <span className="hidden sm:inline">Download Standard (300x300)</span>
+                <span className="sm:hidden">Download (300x300)</span>
               </button>
 
               <button
                 onClick={() => handleDownload(600)}
-                className="w-full btn-secondary flex items-center justify-center"
+                className="w-full btn-secondary flex items-center justify-center text-sm sm:text-base px-4 py-2 sm:py-3"
               >
-                <Download className="w-5 h-5 mr-2" />
-                Download High-Res (600x600)
+                <Download className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                <span className="hidden sm:inline">Download High-Res (600x600)</span>
+                <span className="sm:hidden">High-Res (600x600)</span>
               </button>
 
-              <div className="pt-4 border-t border-slate-600">
+              <div className="pt-3 sm:pt-4 border-t border-slate-600">
                 <button
                   onClick={resetForm}
-                  className="w-full bg-slate-700 text-slate-200 py-3 rounded-lg hover:bg-slate-600 transition-colors"
+                  className="w-full bg-slate-700 text-slate-200 py-2 sm:py-3 rounded-lg hover:bg-slate-600 transition-colors text-sm sm:text-base"
                 >
                   Create Another QR Code
                 </button>
