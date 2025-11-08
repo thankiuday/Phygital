@@ -403,23 +403,51 @@ const ARExperience3DPage = () => {
       if (projectData.requiresTargetImage === false) {
         addDebugMessage('📹 Direct video mode - skipping target tracking', 'info');
         setIsInitialized(true);
-        setCameraActive(true);
+        setCameraActive(false); // No camera needed in direct mode
         setArReady(true);
         setTargetDetected(true); // Mark as detected to show video
+        setVideoMuted(true); // Ensure video is muted for autoplay
         
-        // Auto-play video after short delay
-        setTimeout(() => {
+        // Auto-play video after ensuring DOM is ready
+        const attemptAutoPlay = () => {
           if (videoRef.current) {
             videoRef.current.muted = true;
-            videoRef.current.play().then(() => {
-              setVideoPlaying(true);
-              addDebugMessage('▶️ Video auto-playing', 'success');
-            }).catch(error => {
-              console.error('Auto-play failed:', error);
-              addDebugMessage('⚠️ Auto-play blocked - tap to play', 'warning');
-            });
+            videoRef.current.setAttribute('muted', 'true');
+            videoRef.current.setAttribute('playsinline', 'true');
+            
+            // Try to play
+            const playPromise = videoRef.current.play();
+            
+            if (playPromise !== undefined) {
+              playPromise.then(() => {
+                setVideoPlaying(true);
+                addDebugMessage('▶️ Video auto-playing', 'success');
+                console.log('✅ Video is playing automatically');
+              }).catch(error => {
+                console.error('❌ Auto-play failed:', error.message);
+                addDebugMessage('⚠️ Tap video to play', 'warning');
+                setVideoPlaying(false);
+                
+                // Add click-to-play listener
+                if (videoRef.current) {
+                  videoRef.current.addEventListener('click', () => {
+                    videoRef.current.play().then(() => {
+                      setVideoPlaying(true);
+                      addDebugMessage('▶️ Video playing', 'success');
+                    });
+                  }, { once: true });
+                }
+              });
+            }
+          } else {
+            // Video ref not ready, try again
+            console.log('⏳ Video ref not ready, retrying...');
+            setTimeout(attemptAutoPlay, 500);
           }
-        }, 1000);
+        };
+        
+        // Wait for video element to be mounted
+        setTimeout(attemptAutoPlay, 500);
       } else {
         addDebugMessage('⏳ Initializing 3D MindAR...', 'info');
         setTimeout(() => {
@@ -433,7 +461,7 @@ const ARExperience3DPage = () => {
         }, 500);
       }
     }
-  }, [librariesLoaded, projectData, isInitialized, addDebugMessage, videoRef, setIsInitialized, setCameraActive, setArReady, setTargetDetected, setVideoPlaying]);
+  }, [librariesLoaded, projectData, isInitialized, addDebugMessage, videoRef, setIsInitialized, setCameraActive, setArReady, setTargetDetected, setVideoPlaying, setVideoMuted]);
 
   // Show disabled screen
   if (isProjectDisabled) {
@@ -609,6 +637,27 @@ const ARExperience3DPage = () => {
                 }}
                 className="absolute inset-0 z-40"
               />
+            )}
+            
+            {/* Play Button - Shows when video is ready but not playing (direct mode or paused) */}
+            {targetDetected && !videoPlaying && projectData?.requiresTargetImage === false && (
+              <div 
+                className="absolute inset-0 flex flex-col items-center justify-center z-30 bg-black/40 cursor-pointer"
+                onClick={() => {
+                  if (videoRef.current) {
+                    videoRef.current.play().then(() => {
+                      setVideoPlaying(true);
+                    }).catch(err => console.error('Play failed:', err));
+                  }
+                }}
+              >
+                <div className="w-20 h-20 bg-gradient-to-r from-neon-blue to-neon-purple rounded-full flex items-center justify-center shadow-glow-blue hover:scale-110 transition-transform">
+                  <svg className="w-10 h-10 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"/>
+                  </svg>
+                </div>
+                <p className="text-white text-lg font-semibold mt-4">Tap to Play</p>
+              </div>
             )}
             
             {/* Camera Active Indicator - Shows immediately */}
