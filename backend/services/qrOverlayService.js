@@ -175,32 +175,32 @@ const overlayQRCode = async (designImagePath, qrData, position, outputPath) => {
       console.log('🏷️ Adding Phygital.zone watermark to QR code...');
       const watermarkText = 'Phygital.zone';
       
-      // Calculate proportional font size - visible but not too large
+      // Calculate proportional font size - small and subtle to not interfere with scanning
       const qrWidth = normalizedPosition.width;
       const qrHeight = normalizedPosition.height;
       
-      // Use medium-sized fonts for good visibility
+      // Use smaller fonts for subtle watermark (won't affect QR scannability)
       let font;
       if (qrWidth < 200) {
-        font = await Jimp.loadFont(Jimp.FONT_SANS_16_WHITE);
+        font = await Jimp.loadFont(Jimp.FONT_SANS_8_WHITE);
       } else if (qrWidth < 350) {
-        font = await Jimp.loadFont(Jimp.FONT_SANS_32_WHITE);
+        font = await Jimp.loadFont(Jimp.FONT_SANS_16_WHITE);
       } else {
-        font = await Jimp.loadFont(Jimp.FONT_SANS_32_WHITE);
+        font = await Jimp.loadFont(Jimp.FONT_SANS_16_WHITE);
       }
       
       // Measure text dimensions
       const textWidth = Jimp.measureText(font, watermarkText);
       const textHeight = Jimp.measureTextHeight(font, watermarkText, textWidth);
       
-      // Create background rectangle for text with good padding
-      const bgPadding = 8;
+      // Create background rectangle for text with minimal padding
+      const bgPadding = 4; // Smaller padding for subtle appearance
       const bgWidth = textWidth + (bgPadding * 2);
       const bgHeight = textHeight + (bgPadding * 2);
       const bgImage = new Jimp(bgWidth, bgHeight, 0x00000000);
       
-      // Create white background with good opacity
-      const bgOpacity = 240; // ~94% opacity
+      // Create white background with lower opacity for subtlety
+      const bgOpacity = 200; // ~78% opacity - more transparent
       bgImage.scan(0, 0, bgWidth, bgHeight, function(x, y, idx) {
         this.bitmap.data[idx] = 255;     // R
         this.bitmap.data[idx + 1] = 255; // G
@@ -233,14 +233,14 @@ const overlayQRCode = async (designImagePath, qrData, position, outputPath) => {
         { r: 236, g: 72, b: 153 }    // Neon pink
       ];
       
-      // Load white font first to get text mask
+      // Load white font first to get text mask (must match the font size above)
       let whiteFont;
       if (qrWidth < 200) {
-        whiteFont = await Jimp.loadFont(Jimp.FONT_SANS_16_WHITE);
+        whiteFont = await Jimp.loadFont(Jimp.FONT_SANS_8_WHITE);
       } else if (qrWidth < 350) {
-        whiteFont = await Jimp.loadFont(Jimp.FONT_SANS_32_WHITE);
+        whiteFont = await Jimp.loadFont(Jimp.FONT_SANS_16_WHITE);
       } else {
-        whiteFont = await Jimp.loadFont(Jimp.FONT_SANS_32_WHITE);
+        whiteFont = await Jimp.loadFont(Jimp.FONT_SANS_16_WHITE);
       }
       
       // Create text layer
@@ -282,18 +282,19 @@ const overlayQRCode = async (designImagePath, qrData, position, outputPath) => {
         opacityDest: 1.0
       });
       
-      // Calculate center position on QR code
-      const centerX = Math.floor((qrWidth - bgWidth) / 2);
-      const centerY = Math.floor((qrHeight - bgHeight) / 2);
+      // Calculate bottom-right position on QR code (with small margin from edges)
+      const margin = 8; // Small margin from the edges
+      const bottomRightX = qrWidth - bgWidth - margin;
+      const bottomRightY = qrHeight - bgHeight - margin;
       
-      // Composite watermark onto QR code
-      qrCodeImage.composite(bgImage, centerX, centerY, {
+      // Composite watermark onto QR code at bottom-right corner
+      qrCodeImage.composite(bgImage, bottomRightX, bottomRightY, {
         mode: Jimp.BLEND_SOURCE_OVER,
         opacitySource: 1.0,
         opacityDest: 1.0
       });
       
-      console.log('✅ Watermark added successfully with gradient effect');
+      console.log('✅ Watermark added successfully at bottom-right corner with gradient effect');
     } catch (watermarkError) {
       console.warn('⚠️ Failed to add watermark, continuing without it:', watermarkError.message);
       // Continue without watermark if it fails - QR code functionality is more important
