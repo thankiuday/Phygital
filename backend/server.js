@@ -282,6 +282,7 @@ const startServer = async () => {
         '/api/auth',
         '/api/upload',
         '/api/qr',
+        '/api/qr-design',
         '/api/analytics',
         '/api/user',
         '/api/history',

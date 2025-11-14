@@ -25,7 +25,7 @@ const analyticsSchema = new mongoose.Schema({
   eventType: {
     type: String,
     required: true,
-    enum: ['scan', 'videoView', 'linkClick', 'pageView', 'videoComplete', 'arExperienceStart', 'socialMediaClick']
+    enum: ['scan', 'videoView', 'linkClick', 'pageView', 'videoComplete', 'arExperienceStart', 'arExperienceError', 'socialMediaClick']
   },
   
   // Event details
