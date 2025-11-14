@@ -74,7 +74,7 @@ const ProjectNameInput = ({ onProjectCreated, onCancel }) => {
             <FolderPlus className="w-10 h-10 lg:w-12 lg:h-12 text-slate-100" />
           </div>
           <h1 className="text-3xl lg:text-4xl font-bold text-slate-100 mb-3">
-            🚀 Start Your Campaign
+            Start Your Campaign
           </h1>
           <p className="text-slate-300 text-base lg:text-lg">
             Give your Phygital creation a name to get started

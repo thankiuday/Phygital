@@ -110,7 +110,7 @@ export const formatPhoneNumber = (phoneNumber, countryCode) => {
  */
 export const parsePhoneNumber = (fullNumber) => {
   if (!fullNumber || typeof fullNumber !== 'string') {
-    return { countryCode: '+91', phoneNumber: '' }; // Default to India
+    return { countryCode: '+1', phoneNumber: '' }; // Default to USA
   }
 
   // Find matching country code
@@ -130,7 +130,7 @@ export const parsePhoneNumber = (fullNumber) => {
   }
 
   // Default return
-  return { countryCode: '+91', phoneNumber: fullNumber };
+  return { countryCode: '+1', phoneNumber: fullNumber };
 };
 
 /**

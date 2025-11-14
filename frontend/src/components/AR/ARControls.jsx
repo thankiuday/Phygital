@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Play, Pause, Volume2, VolumeX, RefreshCw, Instagram, Facebook, Twitter, Linkedin, Globe, ExternalLink } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, RefreshCw, Instagram, Facebook, Twitter, Linkedin, Globe, ExternalLink, Music2 } from 'lucide-react';
 
 const ARControls = ({
   isScanning,
@@ -197,6 +197,12 @@ const ARControls = ({
                           color: 'from-green-500/30 to-green-600/30 hover:from-green-500/50 hover:to-green-600/50',
                           glow: 'shadow-green-500/30 hover:shadow-green-500/50',
                           label: 'Website'
+                        },
+                        tiktok: {
+                          icon: Music2,
+                          color: 'from-slate-700/30 to-slate-900/30 hover:from-slate-700/50 hover:to-slate-900/50',
+                          glow: 'shadow-slate-600/30 hover:shadow-slate-500/50',
+                          label: 'TikTok'
                         }
                       };
 

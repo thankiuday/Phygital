@@ -159,7 +159,7 @@ const Footer = () => {
         <div className="border-t border-slate-700/50 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             <div className="flex items-center space-x-1 text-slate-400 text-sm">
-              <span>&copy; {currentYear} MetaDigi Labs LLC.</span>
+              <span>&copy; {currentYear} Phygital.</span>
               <span className="hidden sm:inline text-slate-500 mx-2">•</span>
               <span className="hidden sm:inline text-gradient bg-gradient-to-r from-neon-blue to-neon-purple bg-clip-text text-transparent font-semibold">
                 Your Vision. Our Innovation.

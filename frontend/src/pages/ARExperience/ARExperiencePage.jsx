@@ -63,7 +63,13 @@ const ARExperiencePage = () => {
     setIsScanning,
     setShowDebug,
     setDebugMessages,
-    resetARState
+    resetARState,
+    cameraPermissionRequired,
+    cameraPermissionBlocked,
+    cameraPermissionDismissed,
+    setCameraPermissionRequired,
+    setCameraPermissionBlocked,
+    setCameraPermissionDismissed
   } = arState;
 
   // Check if project is disabled
@@ -79,6 +85,31 @@ const ARExperiencePage = () => {
   // Video controls overlay state
   const [showVideoControls, setShowVideoControls] = React.useState(false);
   const [controlsTimeout, setControlsTimeout] = React.useState(null);
+  const permissionPromptedRef = React.useRef(false);
+
+  const attemptCameraPermission = React.useCallback(async () => {
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      return false;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' },
+        audio: false
+      });
+      stream.getTracks().forEach((track) => track.stop());
+      setCameraPermissionRequired(false);
+      setCameraPermissionBlocked(false);
+      setCameraPermissionDismissed(false);
+      return true;
+    } catch (err) {
+      const message = (err?.message || '').toLowerCase();
+      const dismissed = message.includes('dismissed');
+      setCameraPermissionRequired(true);
+      setCameraPermissionBlocked(!dismissed);
+      setCameraPermissionDismissed(dismissed);
+      return false;
+    }
+  }, [setCameraPermissionRequired, setCameraPermissionBlocked, setCameraPermissionDismissed]);
 
   // Debug utilities
   const { addDebugMessage } = useDebug(setDebugMessages);
@@ -134,7 +165,10 @@ const ARExperiencePage = () => {
     setIsScanning,
     addDebugMessage,
     resetARState,
-    trackAnalytics  // Pass analytics tracking to AR logic
+    trackAnalytics,  // Pass analytics tracking to AR logic
+    setCameraPermissionRequired,
+    setCameraPermissionBlocked,
+    setCameraPermissionDismissed
   });
 
   const {
@@ -302,6 +336,18 @@ const ARExperiencePage = () => {
     }
   }, [targetDetected, showCompositeImage]);
 
+  useEffect(() => {
+    if (!projectData || projectData.requiresTargetImage === false) {
+      permissionPromptedRef.current = false;
+      return;
+    }
+    if (permissionPromptedRef.current) {
+      return;
+    }
+    permissionPromptedRef.current = true;
+    attemptCameraPermission();
+  }, [projectData, attemptCameraPermission]);
+
   // Show composite image again when target is lost
   useEffect(() => {
     if (!targetDetected && hasShownInitialGuide && (projectData?.compositeDesignUrl || projectData?.designUrl)) {
@@ -394,6 +440,9 @@ const ARExperiencePage = () => {
 
   // Initialize AR when data is ready
   useEffect(() => {
+    if (isLoading) {
+      return;
+    }
     if (librariesLoaded && projectData && !isInitialized) {
       // Skip MindAR initialization if target image is not required
       if (projectData.requiresTargetImage === false) {
@@ -457,7 +506,7 @@ const ARExperiencePage = () => {
         }, 500);
       }
     }
-  }, [librariesLoaded, projectData, isInitialized, addDebugMessage, videoRef, setIsInitialized, setCameraActive, setArReady, setTargetDetected, setVideoPlaying, setVideoMuted]);
+  }, [librariesLoaded, projectData, isInitialized, isLoading, addDebugMessage, videoRef, setIsInitialized, setCameraActive, setArReady, setTargetDetected, setVideoPlaying, setVideoMuted]);
 
   // Show disabled screen if project is disabled
   if (isProjectDisabled) {
@@ -671,6 +720,45 @@ const ARExperiencePage = () => {
                   }, 2000);
                 }}
               />
+            )}
+
+            {cameraPermissionRequired && projectData && projectData.requiresTargetImage !== false && (
+              <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/85 text-center px-6 py-8 space-y-4">
+                <X className="text-red-400 w-12 h-12 mb-2" />
+                <h3 className="text-white text-xl font-semibold">
+                  {cameraPermissionBlocked ? 'Enable Camera Access' : 'Allow Camera to Continue'}
+                </h3>
+                {cameraPermissionBlocked ? (
+                  <>
+                    <p className="text-slate-200 text-sm">
+                      Camera access is currently blocked for this site. Follow these steps to enable it, then tap the button below.
+                    </p>
+                    <ul className="text-left text-slate-200 text-xs space-y-1 list-decimal list-inside">
+                      <li>Tap the padlock icon in your browser address bar.</li>
+                      <li>Set Camera to Allow (or Ask every time).</li>
+                      <li>Return to this page and tap “I enabled the camera”.</li>
+                    </ul>
+                    <button
+                      onClick={restartAR}
+                      className="px-6 py-3 rounded-lg bg-primary-600 hover:bg-primary-500 text-white font-semibold transition-colors"
+                    >
+                      I enabled the camera
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-slate-200 text-sm">
+                      We didn’t get camera access. When the browser prompt appears, choose Allow so we can detect your target image.
+                    </p>
+                    <button
+                      onClick={attemptCameraPermission}
+                      className="px-6 py-3 rounded-lg bg-primary-600 hover:bg-primary-500 text-white font-semibold transition-colors"
+                    >
+                      Show camera prompt
+                    </button>
+                  </>
+                )}
+              </div>
             )}
             
             {/* Scanner Animation on Composite Image */}

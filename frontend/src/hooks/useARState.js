@@ -24,6 +24,9 @@ export const useARState = () => {
   // Debug states
   const [showDebug, setShowDebug] = useState(false);
   const [debugMessages, setDebugMessages] = useState([]);
+  const [cameraPermissionRequired, setCameraPermissionRequired] = useState(false);
+  const [cameraPermissionBlocked, setCameraPermissionBlocked] = useState(false);
+  const [cameraPermissionDismissed, setCameraPermissionDismissed] = useState(false);
 
   // State update functions
   const resetARState = useCallback(() => {
@@ -33,6 +36,9 @@ export const useARState = () => {
     setCameraActive(false);
     setTargetDetected(false);
     setVideoPlaying(false);
+    setCameraPermissionRequired(false);
+    setCameraPermissionBlocked(false);
+    setCameraPermissionDismissed(false);
     setError(null);
   }, []);
 
@@ -80,8 +86,14 @@ export const useARState = () => {
     setVideoMuted,
     setShowDebug,
     setDebugMessages,
+    setCameraPermissionRequired,
+    setCameraPermissionBlocked,
+    setCameraPermissionDismissed,
     
     // Utility functions
-    resetARState
+    resetARState,
+    cameraPermissionRequired,
+    cameraPermissionBlocked,
+    cameraPermissionDismissed
   };
 };

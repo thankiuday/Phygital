@@ -60,17 +60,18 @@ export const getUserLocation = () => {
 };
 
 /**
- * Get approximate city and country from coordinates using reverse geocoding
- * Note: This is a basic implementation. For production, consider using a proper geocoding API
+ * Get approximate location details from coordinates using reverse geocoding
+ * Captures village/area, city, state, and country with fallback to "Anonymous"
  * @param {number} latitude 
  * @param {number} longitude 
- * @returns {Promise<{city: string, country: string}>}
+ * @param {number} retries - Number of retry attempts
+ * @returns {Promise<{village: string|null, city: string, state: string, country: string}>}
  */
-export const reverseGeocode = async (latitude, longitude) => {
+export const reverseGeocode = async (latitude, longitude, retries = 2) => {
   try {
     // Using OpenStreetMap's Nominatim API (free, but rate-limited)
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+      `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`,
       {
         headers: {
           'User-Agent': 'PhygitalARApp/1.0'
@@ -79,29 +80,65 @@ export const reverseGeocode = async (latitude, longitude) => {
     );
 
     if (!response.ok) {
-      throw new Error('Geocoding failed');
+      throw new Error(`Geocoding failed with status: ${response.status}`);
     }
 
     const data = await response.json();
     
+    // Extract village/area with priority order: village > suburb > neighbourhood > hamlet
+    const village = data.address?.village || 
+                   data.address?.suburb || 
+                   data.address?.neighbourhood || 
+                   data.address?.hamlet || 
+                   null;
+    
+    // Extract city with fallbacks
+    const city = data.address?.city || 
+                data.address?.town || 
+                data.address?.municipality ||
+                'Anonymous';
+    
+    // Extract state/region
+    const state = data.address?.state || 
+                 data.address?.region || 
+                 data.address?.province ||
+                 '';
+    
+    // Extract country
+    const country = data.address?.country || 'Anonymous';
+    
+    console.log('🌍 Geocoding result:', { village, city, state, country });
+    
     return {
-      city: data.address?.city || data.address?.town || data.address?.village || 'Unknown',
-      country: data.address?.country || 'Unknown',
-      state: data.address?.state || ''
+      village,
+      city,
+      state,
+      country
     };
   } catch (error) {
     console.warn('⚠️ Reverse geocoding failed:', error);
+    
+    // Retry with exponential backoff
+    if (retries > 0) {
+      const delay = (3 - retries) * 1000; // 1s, 2s delays
+      console.log(`🔄 Retrying geocoding in ${delay}ms... (${retries} attempts left)`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return reverseGeocode(latitude, longitude, retries - 1);
+    }
+    
+    // Return "Anonymous" for all fields if all retries fail
     return {
-      city: 'Unknown',
-      country: 'Unknown',
-      state: ''
+      village: null,
+      city: 'Anonymous',
+      state: '',
+      country: 'Anonymous'
     };
   }
 };
 
 /**
  * Get complete location data including coordinates and address
- * @returns {Promise<{latitude: number, longitude: number, city: string, country: string} | null>}
+ * @returns {Promise<{latitude: number, longitude: number, village: string|null, city: string, state: string, country: string} | null>}
  */
 export const getCompleteLocation = async () => {
   try {
@@ -119,9 +156,10 @@ export const getCompleteLocation = async () => {
     return {
       latitude: coords.latitude,
       longitude: coords.longitude,
+      village: address.village,
       city: address.city,
-      country: address.country,
       state: address.state,
+      country: address.country,
       accuracy: coords.accuracy
     };
   } catch (error) {

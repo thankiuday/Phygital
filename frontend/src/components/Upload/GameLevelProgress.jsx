@@ -27,7 +27,7 @@ const GameLevelProgress = ({ currentLevel, completedLevels, totalLevels = 5 }) =
   return (
     <div className="card-glass rounded-xl p-4 md:p-6 mb-6 md:mb-8 border border-slate-600/30">
       <div className="text-center mb-4 md:mb-6">
-        <h2 className="text-xl md:text-2xl font-bold text-slate-100 mb-2">🎮 Phygital Creator Journey</h2>
+        <h2 className="text-xl md:text-2xl font-bold text-slate-100 mb-2">Phygital Creator Journey</h2>
         <p className="text-sm md:text-base text-slate-300">Complete each level to unlock your final design!</p>
       </div>
       

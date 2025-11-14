@@ -73,7 +73,7 @@ const ContactPage = () => {
       icon: MapPin,
       title: 'Our Location',
       details: ['South Carolina, United States'],
-      description: 'MetaDigi Labs LLC',
+      description: 'Phygital',
       gradient: 'from-neon-purple to-neon-pink'
     },
     {

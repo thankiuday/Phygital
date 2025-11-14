@@ -605,7 +605,7 @@ const ProjectDetailModal = ({ project, isOpen, onClose }) => {
                       <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700/50">
                         <h3 className="text-lg font-semibold text-slate-100 mb-4">Social Links</h3>
                         <div className="space-y-2">
-                          {['instagram', 'facebook', 'twitter', 'linkedin', 'website'].map(platform => (
+                          {['instagram', 'facebook', 'twitter', 'linkedin', 'website', 'tiktok'].map(platform => (
                             <div key={platform} className="flex justify-between">
                               <span className="text-slate-400 capitalize">{platform}</span>
                               {project.socialLinks?.[platform] ? (

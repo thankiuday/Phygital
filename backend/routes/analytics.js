@@ -689,8 +689,10 @@ router.get('/locations/:userId', authenticateToken, async (req, res) => {
         locationGroups[key] = {
           latitude: location.latitude,
           longitude: location.longitude,
-          city: location.city || 'Unknown',
-          country: location.country || 'Unknown',
+          village: location.village || null,
+          city: location.city || 'Anonymous',
+          state: location.state || '',
+          country: location.country || 'Anonymous',
           count: 0,
           lastScanAt: event.timestamp
         };
@@ -698,12 +700,19 @@ router.get('/locations/:userId', authenticateToken, async (req, res) => {
       
       locationGroups[key].count++;
       
-      // Track city/country stats
-      const cityCountryKey = `${location.city || 'Unknown'}, ${location.country || 'Unknown'}`;
+      // Track city/country stats with village hierarchy
+      const locationParts = [];
+      if (location.village) locationParts.push(location.village);
+      locationParts.push(location.city || 'Anonymous');
+      locationParts.push(location.country || 'Anonymous');
+      const cityCountryKey = locationParts.join(', ');
+      
       if (!cityCountryStats[cityCountryKey]) {
         cityCountryStats[cityCountryKey] = {
-          city: location.city || 'Unknown',
-          country: location.country || 'Unknown',
+          village: location.village || null,
+          city: location.city || 'Anonymous',
+          state: location.state || '',
+          country: location.country || 'Anonymous',
           count: 0
         };
       }
@@ -769,22 +778,31 @@ router.get('/project/:userId/:projectId/locations', authenticateToken, async (re
     
     console.log(`📊 Found ${locationEvents.length} location events for project ${projectId}`);
     
-    // Format response
+    // Format response with village hierarchy
     const locations = locationEvents.map(event => ({
       latitude: event.eventData.scanLocation.latitude,
       longitude: event.eventData.scanLocation.longitude,
-      city: event.eventData.scanLocation.city || 'Unknown',
-      country: event.eventData.scanLocation.country || 'Unknown',
+      village: event.eventData.scanLocation.village || null,
+      city: event.eventData.scanLocation.city || 'Anonymous',
+      state: event.eventData.scanLocation.state || '',
+      country: event.eventData.scanLocation.country || 'Anonymous',
       timestamp: event.timestamp
     }));
     
-    // Calculate city/country stats
+    // Calculate city/country stats with village hierarchy
     const cityCountryStats = {};
     locations.forEach(location => {
-      const key = `${location.city}, ${location.country}`;
+      const locationParts = [];
+      if (location.village) locationParts.push(location.village);
+      locationParts.push(location.city);
+      locationParts.push(location.country);
+      const key = locationParts.join(', ');
+      
       if (!cityCountryStats[key]) {
         cityCountryStats[key] = {
+          village: location.village,
           city: location.city,
+          state: location.state,
           country: location.country,
           count: 0
         };

@@ -147,7 +147,7 @@ const GameUploadPage = () => {
           <Gamepad2 className="w-10 h-10 text-slate-100" />
         </div>
         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-100 mb-4">
-          🎮 Phygital Creator
+          Phygital Creator
         </h1>
         
         {/* Animated Tagline */}
@@ -194,7 +194,7 @@ const GameUploadPage = () => {
       <div className="card-glass rounded-2xl shadow-dark-large p-8 mb-8 border border-slate-600/30">
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-slate-100 mb-4">
-            🚀 Ready to Start Your Journey?
+            Ready to Start Your Journey?
           </h2>
           <p className="text-slate-300 text-lg">
             Complete 5 exciting levels to create your masterpiece!

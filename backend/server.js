@@ -16,6 +16,7 @@ require('dotenv').config();
 const authRoutes = require('./routes/auth');
 const uploadRoutes = require('./routes/upload');
 const qrRoutes = require('./routes/qr');
+const qrDesignRoutes = require('./routes/qrDesign');
 const analyticsRoutes = require('./routes/analytics');
 const userRoutes = require('./routes/user');
 const historyRoutes = require('./routes/history');
@@ -145,11 +146,40 @@ const connectDB = async () => {
     const conn = await mongoose.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 30000, // 30 seconds for server selection
+      socketTimeoutMS: 75000, // 75 seconds for socket operations
+      connectTimeoutMS: 30000, // 30 seconds for initial connection
+      family: 4, // Use IPv4, skip trying IPv6
+      maxPoolSize: 10, // Maintain up to 10 socket connections
+      minPoolSize: 2, // Maintain at least 2 socket connections
+      maxIdleTimeMS: 60000, // Close idle connections after 60 seconds
+      retryWrites: true, // Retry write operations
+      retryReads: true, // Retry read operations
+      w: 'majority', // Write concern
     });
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
+    
+    // Handle connection events
+    mongoose.connection.on('error', (err) => {
+      console.error('❌ MongoDB connection error:', err.message);
+    });
+    
+    mongoose.connection.on('disconnected', () => {
+      console.warn('⚠️ MongoDB disconnected. Will attempt to reconnect...');
+    });
+    
+    mongoose.connection.on('reconnected', () => {
+      console.log('✅ MongoDB reconnected successfully');
+    });
+    
   } catch (error) {
     console.error('❌ Database connection error:', error.message);
     console.error('❌ Full error details:', error);
+    console.error('💡 Troubleshooting tips:');
+    console.error('   1. Check your internet connection');
+    console.error('   2. Verify MongoDB Atlas IP whitelist includes your IP');
+    console.error('   3. Ensure your cluster is not paused');
+    console.error('   4. Check if firewall is blocking port 27017');
     // Retry connection after 5 seconds
     setTimeout(() => {
       console.log('🔄 Retrying database connection...');
@@ -165,6 +195,7 @@ connectDB();
 app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/qr', qrRoutes);
+app.use('/api/qr-design', qrDesignRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/history', historyRoutes);

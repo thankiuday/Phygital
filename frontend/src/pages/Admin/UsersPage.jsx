@@ -174,7 +174,7 @@ const UsersPage = () => {
                   {/* User Details */}
                   <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-700/50">
                     <div>
-                      <p className="text-xs text-slate-400 mb-1">Projects</p>
+                      <p className="text-xs text-slate-400 mb-1">Campaigns</p>
                       <p className="text-sm font-medium text-slate-100">{user.projects?.length || 0}</p>
                     </div>
                     <div>
@@ -225,7 +225,7 @@ const UsersPage = () => {
                   <tr className="border-b border-slate-700/50">
                     <th className="text-left py-3 px-4 text-sm font-medium text-slate-300">User</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-slate-300">Email</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-slate-300">Projects</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-slate-300">Campaigns</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-slate-300">Joined</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-slate-300">Status</th>
                     <th className="text-right py-3 px-4 text-sm font-medium text-slate-300">Actions</th>

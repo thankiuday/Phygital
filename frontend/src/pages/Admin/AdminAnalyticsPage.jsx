@@ -7,6 +7,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useAdmin } from '../../contexts/AdminContext'
 import LoadingSpinner from '../../components/UI/LoadingSpinner'
 import AnalyticsChart from '../../components/Admin/AnalyticsChart'
+import { SkeletonCard, SkeletonStatCard, SkeletonChart, SkeletonListItem, Skeleton } from '../../components/UI/Skeleton'
 import {
   BarChart3,
   TrendingUp,
@@ -30,22 +31,142 @@ import {
   Zap
 } from 'lucide-react'
 
+// Skeleton Loading Component for Admin Analytics
+const AdminAnalyticsSkeleton = () => {
+  return (
+    <div className="space-y-6">
+      {/* Header Skeleton */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="space-y-2">
+          <Skeleton width="200px" height="2rem" />
+          <Skeleton width="300px" height="1rem" />
+        </div>
+        <div className="flex items-center gap-3">
+          <Skeleton width="150px" height="2.5rem" />
+          <Skeleton width="48px" height="2.5rem" />
+        </div>
+      </div>
+
+      {/* Location Filters Skeleton */}
+      <SkeletonCard>
+        <div className="flex items-center justify-between mb-4">
+          <Skeleton width="150px" height="1.5rem" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <Skeleton width="80px" height="1rem" className="mb-2" />
+            <Skeleton width="100%" height="2.5rem" />
+          </div>
+          <div>
+            <Skeleton width="80px" height="1rem" className="mb-2" />
+            <Skeleton width="100%" height="2.5rem" />
+          </div>
+          <div>
+            <Skeleton width="100px" height="1rem" className="mb-2" />
+            <Skeleton width="100%" height="2.5rem" />
+          </div>
+        </div>
+      </SkeletonCard>
+
+      {/* Overview Stats Cards Skeleton */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        {[1, 2, 3, 4].map((i) => (
+          <SkeletonStatCard key={i} />
+        ))}
+      </div>
+
+      {/* Charts Skeleton */}
+      <div className="grid grid-cols-1 gap-6">
+        <SkeletonChart height="350px" />
+        <SkeletonChart height="300px" />
+        <SkeletonChart height="300px" />
+      </div>
+
+      {/* Geographic Analytics Skeleton */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <SkeletonChart height="350px" />
+        <SkeletonCard>
+          <Skeleton width="120px" height="1.5rem" className="mb-4" />
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <SkeletonListItem key={i} />
+            ))}
+          </div>
+        </SkeletonCard>
+      </div>
+
+      {/* Villages Skeleton */}
+      <SkeletonCard>
+        <Skeleton width="180px" height="1.5rem" className="mb-4" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <SkeletonListItem key={i} />
+          ))}
+        </div>
+      </SkeletonCard>
+
+      {/* Device Analytics Skeleton */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {[1, 2, 3].map((i) => (
+          <SkeletonChart key={i} height="300px" />
+        ))}
+      </div>
+
+      {/* Top Users Skeleton */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <SkeletonCard>
+          <Skeleton width="150px" height="1.5rem" className="mb-4" />
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <SkeletonListItem key={i} />
+            ))}
+          </div>
+        </SkeletonCard>
+        <SkeletonCard>
+          <Skeleton width="150px" height="1.5rem" className="mb-4" />
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <SkeletonListItem key={i} />
+            ))}
+          </div>
+        </SkeletonCard>
+      </div>
+    </div>
+  )
+}
+
 const AdminAnalyticsPage = () => {
   const { adminApi } = useAdmin()
   const [analytics, setAnalytics] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
   const [days, setDays] = useState(30)
+  const [locationFilter, setLocationFilter] = useState({
+    country: '',
+    city: '',
+    village: ''
+  })
 
   useEffect(() => {
     fetchAnalytics()
-  }, [days])
+  }, [days, locationFilter])
 
   const fetchAnalytics = async () => {
     try {
       setIsLoading(true)
       setError(null)
-      const data = await adminApi('get', `/analytics?days=${days}`)
+      
+      // Build query params
+      const params = new URLSearchParams({ days: days.toString() })
+      if (locationFilter.country) params.append('country', locationFilter.country)
+      if (locationFilter.city) params.append('city', locationFilter.city)
+      if (locationFilter.village) params.append('village', locationFilter.village)
+      
+      const data = await adminApi('get', `/analytics?${params.toString()}`)
+      
+      // Debug: Log received data
+      console.log('🔍 Frontend received geography data:', data.data?.geography)
+      
       setAnalytics(data.data)
     } catch (err) {
       console.error('Failed to fetch analytics:', err)
@@ -53,6 +174,26 @@ const AdminAnalyticsPage = () => {
     } finally {
       setIsLoading(false)
     }
+  }
+  
+  const clearFilters = () => {
+    setLocationFilter({ country: '', city: '', village: '' })
+  }
+  
+  // Get unique values for filters
+  const getUniqueCountries = () => {
+    if (!analytics?.geography?.countries) return []
+    return [...new Set(analytics.geography.countries.map(c => c._id).filter(Boolean))]
+  }
+  
+  const getUniqueCities = () => {
+    if (!analytics?.geography?.cities) return []
+    return [...new Set(analytics.geography.cities.map(c => c._id.city).filter(Boolean))]
+  }
+  
+  const getUniqueVillages = () => {
+    if (!analytics?.geography?.villages) return []
+    return [...new Set(analytics.geography.villages.map(v => v._id.village).filter(Boolean))]
   }
 
   // Helper function to get event count
@@ -151,11 +292,7 @@ const AdminAnalyticsPage = () => {
   }, [analytics?.weeklyPattern])
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner size="lg" />
-      </div>
-    )
+    return <AdminAnalyticsSkeleton />
   }
 
   if (error) {
@@ -234,6 +371,67 @@ const AdminAnalyticsPage = () => {
           >
             <RefreshCw className="h-5 w-5" />
           </button>
+        </div>
+      </div>
+
+      {/* Location Filters */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-neon-blue" />
+            Location Filters
+          </h3>
+          {(locationFilter.country || locationFilter.city || locationFilter.village) && (
+            <button
+              onClick={clearFilters}
+              className="text-sm text-slate-400 hover:text-slate-200 transition-colors"
+            >
+              Clear Filters
+            </button>
+          )}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm text-slate-300 mb-2">Country</label>
+            <select
+              value={locationFilter.country}
+              onChange={(e) => setLocationFilter(prev => ({ ...prev, country: e.target.value, city: '', village: '' }))}
+              className="input w-full"
+            >
+              <option value="">All Countries</option>
+              {getUniqueCountries().map(country => (
+                <option key={country} value={country}>{country}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm text-slate-300 mb-2">City</label>
+            <select
+              value={locationFilter.city}
+              onChange={(e) => setLocationFilter(prev => ({ ...prev, city: e.target.value, village: '' }))}
+              className="input w-full"
+              disabled={!locationFilter.country}
+            >
+              <option value="">All Cities</option>
+              {getUniqueCities().map(city => (
+                <option key={city} value={city}>{city}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm text-slate-300 mb-2">Village/Area</label>
+            <select
+              value={locationFilter.village}
+              onChange={(e) => setLocationFilter(prev => ({ ...prev, village: e.target.value }))}
+              className="input w-full"
+              disabled={!locationFilter.city}
+            >
+              <option value="">All Villages/Areas</option>
+              {getUniqueVillages().map(village => (
+                <option key={village} value={village}>{village}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -323,7 +521,7 @@ const AdminAnalyticsPage = () => {
       />
 
       {/* Geographic Analytics */}
-      {(analytics.geography?.countries?.length > 0 || analytics.geography?.cities?.length > 0) && (
+      {(analytics.geography?.countries?.length > 0 || analytics.geography?.cities?.length > 0 || analytics.geography?.villages?.length > 0) && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Top Countries */}
           {analytics.geography.countries?.length > 0 && (
@@ -362,6 +560,9 @@ const AdminAnalyticsPage = () => {
                           <span className="text-sm text-slate-400 ml-2">({city._id.country})</span>
                         )}
                       </p>
+                      {city._id.state && (
+                        <p className="text-xs text-slate-500">{city._id.state}</p>
+                      )}
                     </div>
                     <span className="text-lg font-bold text-neon-blue">{city.count.toLocaleString()}</span>
                   </div>
@@ -369,6 +570,35 @@ const AdminAnalyticsPage = () => {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Villages/Areas Analytics */}
+      {analytics.geography?.villages?.length > 0 && (
+        <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Globe className="h-5 w-5 text-slate-400" />
+            <h2 className="text-xl font-semibold text-slate-100">Top Villages/Areas</h2>
+            <span className="text-sm text-slate-400">({analytics.geography.villages.length})</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {analytics.geography.villages.slice(0, 12).map((village, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-slate-100 truncate">
+                    {village._id.village}
+                  </p>
+                  <p className="text-xs text-slate-400 truncate">
+                    {village._id.city}, {village._id.country}
+                  </p>
+                </div>
+                <span className="ml-2 text-sm font-bold text-neon-green">{village.count}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -382,7 +612,7 @@ const AdminAnalyticsPage = () => {
               title="Device Types"
               series={analytics.devices.types.map(d => d.count)}
               options={{
-                labels: analytics.devices.types.map(d => d._id || 'Unknown'),
+                labels: analytics.devices.types.map(d => d._id || 'Anonymous'),
                 legend: {
                   position: 'bottom'
                 }
@@ -398,7 +628,7 @@ const AdminAnalyticsPage = () => {
               title="Browser Distribution"
               series={analytics.devices.browsers.map(b => b.count)}
               options={{
-                labels: analytics.devices.browsers.map(b => b._id || 'Unknown'),
+                labels: analytics.devices.browsers.map(b => b._id || 'Anonymous'),
                 legend: {
                   position: 'bottom'
                 }
@@ -414,7 +644,7 @@ const AdminAnalyticsPage = () => {
               title="Operating Systems"
               series={analytics.devices.operatingSystems.map(os => os.count)}
               options={{
-                labels: analytics.devices.operatingSystems.map(os => os._id || 'Unknown'),
+                labels: analytics.devices.operatingSystems.map(os => os._id || 'Anonymous'),
                 legend: {
                   position: 'bottom'
                 }
@@ -565,7 +795,7 @@ const AdminAnalyticsPage = () => {
           ]}
           options={{
             xaxis: {
-              categories: analytics.socialMedia.map(sm => sm._id || 'Unknown')
+              categories: analytics.socialMedia.map(sm => sm._id || 'Anonymous')
             },
             plotOptions: {
               bar: {
@@ -581,18 +811,18 @@ const AdminAnalyticsPage = () => {
         />
       )}
 
-      {/* Top Projects */}
+      {/* Top Campaigns */}
       {analytics.topProjects?.length > 0 && (
         <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 p-6">
           <div className="flex items-center gap-2 mb-6">
             <Activity className="h-5 w-5 text-slate-400" />
-            <h2 className="text-xl font-semibold text-slate-100">Top Projects by Engagement</h2>
+            <h2 className="text-xl font-semibold text-slate-100">Top Campaigns by Engagement</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-700/50">
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-slate-300">Project</th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-slate-300">Campaign</th>
                   <th className="text-right py-3 px-4 text-sm font-semibold text-slate-300">Scans</th>
                   <th className="text-right py-3 px-4 text-sm font-semibold text-slate-300">Video Views</th>
                   <th className="text-right py-3 px-4 text-sm font-semibold text-slate-300">Link Clicks</th>
@@ -605,7 +835,7 @@ const AdminAnalyticsPage = () => {
                   <tr key={index} className="border-b border-slate-700/30 hover:bg-slate-800/50">
                     <td className="py-3 px-4">
                       <div>
-                        <p className="font-medium text-slate-100">{project.projectName || 'Unnamed Project'}</p>
+                        <p className="font-medium text-slate-100">{project.projectName || 'Unnamed Campaign'}</p>
                         <p className="text-sm text-slate-400">{project.username}</p>
                       </div>
                     </td>

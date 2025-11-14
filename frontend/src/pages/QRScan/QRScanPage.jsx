@@ -301,7 +301,7 @@ const QRScanPage = () => {
           </div>
           <div className="text-center mt-2 sm:mt-3">
             <p className="text-xs sm:text-sm text-gray-300 font-light">
-              Developed By MetaDigi Labs LLC
+              Developed By Phygital
             </p>
           </div>
         </div>

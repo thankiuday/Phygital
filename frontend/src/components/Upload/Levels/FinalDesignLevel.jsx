@@ -152,7 +152,7 @@ const FinalDesignLevel = ({ onComplete, levelData, onStartNewJourney, forceStart
             }}
             className="btn-primary px-6 py-3"
           >
-            🚀 Start New Journey
+            Start New Journey
           </button>
         </div>
       </div>

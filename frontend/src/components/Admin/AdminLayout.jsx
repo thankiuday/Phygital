@@ -28,7 +28,7 @@ const AdminLayout = () => {
   const navigation = [
     { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'Users', href: '/admin/users', icon: Users },
-    { name: 'Projects', href: '/admin/projects', icon: FolderKanban },
+    { name: 'Campaigns', href: '/admin/projects', icon: FolderKanban },
     { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
     { name: 'Contacts', href: '/admin/contacts', icon: Mail },
     { name: 'Settings', href: '/admin/settings', icon: Settings },

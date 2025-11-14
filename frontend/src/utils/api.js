@@ -286,6 +286,14 @@ export const historyAPI = {
   getActivityHistory: (activityType, params = {}) => api.get(`/history/activity/${activityType}`, { params }),
 }
 
+export const qrDesignAPI = {
+  // QR Design operations
+  save: (designData) => api.post('/qr-design/save', designData),
+  getHistory: () => api.get('/qr-design/history'),
+  delete: (designId) => api.delete(`/qr-design/${designId}`),
+  download: (designId) => api.get(`/qr-design/download/${designId}`)
+}
+
 // Utility functions
 export const downloadFile = (blob, filename) => {
   const url = window.URL.createObjectURL(blob)

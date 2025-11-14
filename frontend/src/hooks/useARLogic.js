@@ -38,7 +38,10 @@ export const useARLogic = ({
   setIsScanning,
   addDebugMessage,
   resetARState,
-  trackAnalytics  // Add analytics tracking
+  trackAnalytics,  // Add analytics tracking
+  setCameraPermissionRequired,
+  setCameraPermissionBlocked,
+  setCameraPermissionDismissed
 }) => {
   // Ensure setVideoMuted is available
   const safeSetVideoMuted = setVideoMuted || (() => {
@@ -594,7 +597,9 @@ export const useARLogic = ({
           video: videoConstraints,
           audio: false
         });
-        
+        setCameraPermissionRequired?.(false);
+        setCameraPermissionBlocked?.(false);
+        setCameraPermissionDismissed?.(false);
         addDebugMessage('✅ Camera permission granted', 'success');
         addDebugMessage(`📹 Camera stream: ${stream.getVideoTracks().length} video track(s)`, 'info');
         
@@ -608,6 +613,17 @@ export const useARLogic = ({
         addDebugMessage('✅ Test stream stopped, MindAR will now initialize camera', 'success');
       } catch (permissionError) {
         addDebugMessage(`❌ Camera permission denied: ${permissionError.message}`, 'error');
+        setCameraPermissionRequired?.(true);
+        setError(null);
+        const message = (permissionError?.message || '').toLowerCase();
+        const dismissed = message.includes('dismissed');
+        if (dismissed) {
+          setCameraPermissionDismissed?.(true);
+          setCameraPermissionBlocked?.(false);
+        } else {
+          setCameraPermissionBlocked?.(true);
+          setCameraPermissionDismissed?.(false);
+        }
         
         // If exact back camera fails on mobile, try with ideal constraint
         if (permissionError.name === 'OverconstrainedError') {
@@ -620,13 +636,19 @@ export const useARLogic = ({
               audio: false
             });
             stream.getTracks().forEach(track => track.stop());
+            setCameraPermissionRequired?.(false);
+            setCameraPermissionBlocked?.(false);
+            setCameraPermissionDismissed?.(false);
             addDebugMessage('✅ Camera permission granted with relaxed constraints', 'success');
           } catch (retryError) {
             addDebugMessage(`❌ Retry failed: ${retryError.message}`, 'error');
-            throw new Error(`Camera access denied: ${retryError.message}`);
+            setCameraPermissionRequired?.(true);
+            setCameraPermissionBlocked?.(true);
+            setCameraPermissionDismissed?.(false);
+            return false;
           }
         } else {
-          throw new Error(`Camera access denied: ${permissionError.message}`);
+          return false;
         }
       }
       

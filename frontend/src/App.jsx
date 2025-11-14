@@ -29,6 +29,7 @@ import UserPage from './pages/User/UserPage'
 import HistoryPage from './pages/History/HistoryPage'
 import ProjectsPage from './pages/Projects/ProjectsPage' // New combined page
 import QRDesignsPage from './pages/QRDesigns/QRDesignsPage'
+import QRDesignHistoryPage from './pages/QRDesigns/QRDesignHistoryPage'
 import AboutPage from './pages/About/AboutPage'
 import ContactPage from './pages/Contact/ContactPage'
 import AIVideoPage from './pages/AIVideo/AIVideoPage'
@@ -146,6 +147,11 @@ function App() {
           <Route path="qr-designs" element={
             <ProtectedRoute>
               <QRDesignsPage />
+            </ProtectedRoute>
+          } />
+          <Route path="qr-designs/history" element={
+            <ProtectedRoute>
+              <QRDesignHistoryPage />
             </ProtectedRoute>
           } />
         </Route>

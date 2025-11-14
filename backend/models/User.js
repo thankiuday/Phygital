@@ -92,6 +92,24 @@ const userSchema = new mongoose.Schema({
     whatsappNumber: { type: String, default: '' }
   },
   
+  // QR Design History - Custom QR codes created by user
+  qrDesignHistory: [{
+    id: { type: String, required: true },
+    name: { type: String, required: true },
+    redirectUrl: { type: String, required: true },
+    iconType: { 
+      type: String, 
+      enum: ['library', 'upload', 'none'], 
+      default: 'none' 
+    },
+    iconId: { type: String, default: null },
+    iconUrl: { type: String, default: null },
+    qrCodeUrl: { type: String, required: true },
+    size: { type: Number, default: 300 },
+    createdAt: { type: Date, default: Date.now },
+    downloadCount: { type: Number, default: 0 }
+  }],
+  
   // Analytics data
   analytics: {
     totalScans: { type: Number, default: 0 },

@@ -6,8 +6,10 @@
 
 import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { generateQRCodeWithIcon, downloadQRCode } from '../../utils/qrGenerator';
+import { qrDesignAPI } from '../../utils/api';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
 import toast from 'react-hot-toast';
 import {
@@ -22,11 +24,13 @@ import {
   Sparkles,
   Copy,
   Palette,
-  Search
+  Search,
+  History
 } from 'lucide-react';
 
 const QRDesignsPage = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [step, setStep] = useState(1); // 1: Icon selection, 2: URL input, 3: Preview
   const [iconSource, setIconSource] = useState(null); // 'library' or 'upload'
   const [selectedIcon, setSelectedIcon] = useState(null);
@@ -38,6 +42,7 @@ const QRDesignsPage = () => {
   const [iconSearch, setIconSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [urlError, setUrlError] = useState('');
+  const [selectedIconId, setSelectedIconId] = useState(null); // Track icon ID from library
 
   // Default icon library with categories
   const iconLibrary = [
@@ -244,6 +249,7 @@ const QRDesignsPage = () => {
         setSelectedIcon(svgUrl);
       }
     }
+    setSelectedIconId(icon.id); // Store icon ID for saving
     setUploadedIcon(null);
     setIconSource('library');
     toast.success(`${icon.name} icon selected!`);
@@ -330,6 +336,9 @@ const QRDesignsPage = () => {
       setQrCodePreview(qrDataUrl);
       setStep(3);
       toast.success('QR code generated!');
+      
+      // Auto-save to history after successful generation
+      await autoSaveQRDesign(qrDataUrl, validUrl, iconToUse);
     } catch (error) {
       console.error('QR generation error:', error);
       toast.error('Failed to generate QR code');
@@ -384,12 +393,42 @@ const QRDesignsPage = () => {
     }
   };
 
+  // Auto-save QR design to history (background save)
+  const autoSaveQRDesign = async (qrDataUrl, validUrl, iconToUse) => {
+    try {
+      const designData = {
+        redirectUrl: validUrl,
+        iconType: iconSource || 'none',
+        iconId: iconSource === 'library' ? selectedIconId : null,
+        iconUrl: iconSource === 'upload' ? uploadedIcon : null,
+        size: qrCodeSize,
+        qrCodeDataUrl: qrDataUrl
+      };
+
+      await qrDesignAPI.save(designData);
+      console.log('✅ QR design auto-saved to history');
+      
+      // Show subtle success message
+      setTimeout(() => {
+        toast.success('QR design saved to history', {
+          duration: 2000,
+          icon: '💾'
+        });
+      }, 500);
+      
+    } catch (error) {
+      console.error('❌ Auto-save QR design error:', error);
+      // Silent fail - don't interrupt user experience with save errors
+    }
+  };
+
   // Reset form
   const resetForm = () => {
     setStep(1);
     setIconSource(null);
     setSelectedIcon(null);
     setUploadedIcon(null);
+    setSelectedIconId(null);
     setRedirectUrl('');
     setQrCodePreview(null);
     setUrlError('');
@@ -409,6 +448,13 @@ const QRDesignsPage = () => {
               Create customized QR codes with icon overlays
             </p>
           </div>
+          <button
+            onClick={() => navigate('/qr-designs/history')}
+            className="bg-slate-700 text-slate-200 px-4 py-2 rounded-lg hover:bg-slate-600 transition-colors flex items-center justify-center gap-2"
+          >
+            <History className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="text-sm sm:text-base">View History</span>
+          </button>
         </div>
       </div>
 
@@ -832,12 +878,20 @@ const QRDesignsPage = () => {
             {/* QR Code Preview */}
             <div className="space-y-3 sm:space-y-4">
               <div className="bg-slate-800/50 rounded-lg p-4 sm:p-6 md:p-8 flex items-center justify-center border border-slate-600">
-                <img
-                  src={qrCodePreview}
-                  alt="QR Code Preview"
-                  className="max-w-full h-auto"
-                  style={{ maxWidth: '280px' }}
-                />
+                <div className="relative inline-block">
+                  <img
+                    src={qrCodePreview}
+                    alt="QR Code Preview"
+                    className="max-w-full h-auto"
+                    style={{ maxWidth: '280px' }}
+                  />
+                  {/* Phygital.zone Watermark - Bottom Right of QR Code */}
+                  <div className="absolute bottom-1 right-1 sm:bottom-2 sm:right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-md shadow-sm">
+                    <div className="text-gradient bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink bg-clip-text text-transparent font-bold text-[10px] sm:text-xs whitespace-nowrap">
+                      Phygital.zone
+                    </div>
+                  </div>
+                </div>
               </div>
               <div className="bg-slate-800/30 rounded-lg p-3 sm:p-4 border border-slate-600">
                 <p className="text-xs sm:text-sm text-slate-400 mb-2">Redirect URL:</p>

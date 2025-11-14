@@ -34,7 +34,9 @@ const analyticsSchema = new mongoose.Schema({
     scanLocation: {
       latitude: Number,
       longitude: Number,
+      village: String,      // Village/neighborhood/area name
       city: String,
+      state: String,        // State/region
       country: String
     },
     

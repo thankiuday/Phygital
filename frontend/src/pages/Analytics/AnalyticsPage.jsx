@@ -441,7 +441,7 @@ const AnalyticsPage = () => {
                 <div className="text-2xl font-bold text-slate-100">
                   {projectStats.total}
                 </div>
-                <div className="text-sm text-slate-400">Total Projects</div>
+                <div className="text-sm text-slate-400">Total Campaigns</div>
               </div>
             </div>
           </div>
@@ -468,10 +468,10 @@ const AnalyticsPage = () => {
             />
           </div>
 
-          {/* Latest Project Analytics */}
+          {/* Latest Campaign Analytics */}
           {user?.projects && user.projects.length > 0 && (
             <div className="mb-8">
-              <h3 className="text-lg font-semibold text-slate-100 mb-6">Latest Project Analytics</h3>
+              <h3 className="text-lg font-semibold text-slate-100 mb-6">Latest Campaign Analytics</h3>
               <ProjectAnalyticsCard 
                 project={user.projects[user.projects.length - 1]} 
                 user={user}
@@ -482,7 +482,7 @@ const AnalyticsPage = () => {
             </div>
           )}
 
-          {/* View All Projects Toggle */}
+          {/* View All Campaigns Toggle */}
           {user?.projects && user.projects.length > 1 && (
             <div className="mb-6">
               <button
@@ -492,22 +492,22 @@ const AnalyticsPage = () => {
                 {showAllProjects ? (
                   <>
                     <ChevronUp className="h-4 w-4 mr-1" />
-                    Hide All Project Analytics
+                    Hide All Campaign Analytics
                   </>
                 ) : (
                   <>
                     <ChevronDown className="h-4 w-4 mr-1" />
-                    View All Project Analytics ({user.projects.length})
+                    View All Campaign Analytics ({user.projects.length})
                   </>
                 )}
               </button>
             </div>
           )}
 
-          {/* All Projects Analytics (Expandable) */}
+          {/* All Campaign Analytics (Expandable) */}
           {showAllProjects && user?.projects && user.projects.length > 1 && (
             <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-slate-100">All Project Analytics</h3>
+              <h3 className="text-lg font-semibold text-slate-100">All Campaign Analytics</h3>
               <div className="grid grid-cols-1 gap-6">
                 {user.projects.slice(0, -1).map((project, index) => (
                   <ProjectAnalyticsCard 
@@ -523,19 +523,19 @@ const AnalyticsPage = () => {
           )}
         </>
       ) : (
-        /* No Projects State */
+        /* No Campaigns State */
         <div className="card">
           <div className="text-center py-12">
             <BarChart3 className="mx-auto h-16 w-16 text-slate-400 mb-4" />
-            <h3 className="text-xl font-semibold text-slate-100 mb-2">No Projects Yet</h3>
+            <h3 className="text-xl font-semibold text-slate-100 mb-2">No Campaigns Yet</h3>
             <p className="text-slate-300 mb-6">
-              Create your first Phygital project to start tracking analytics
+              Create your first Phygital campaign to start tracking analytics
             </p>
             <a
               href="/upload"
               className="btn-primary inline-flex items-center"
             >
-              Create Your First Project
+              Create Your First Campaign
               <ArrowRight className="ml-2 h-4 w-4" />
             </a>
           </div>

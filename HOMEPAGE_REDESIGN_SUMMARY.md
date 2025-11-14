@@ -76,7 +76,7 @@
 - Animated background with floating gradients
 
 #### 9. **Footer** 📋
-- Updated company info: "© 2025 MetaDigi Labs LLC. Your Vision. Our Innovation."
+- Updated company info: "© 2025 Phygital. Your Vision. Our Innovation."
 - Links reorganized:
   - **Company**: About | Contact | Blog | Careers | Privacy
   - **Product**: How It Works | Dashboard | Analytics | Pricing
@@ -239,6 +239,9 @@ This redesign positions Phygital Zone as:
 
 **Date**: October 29, 2025  
 **Version**: v7.0 - The Phygital Movement Homepage
+
+
+
 
 
 

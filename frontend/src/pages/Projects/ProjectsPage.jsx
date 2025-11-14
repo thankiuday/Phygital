@@ -97,8 +97,8 @@ const ProjectsPage = () => {
     whatsappNumber: ''
   })
   const [countryCodes_state, setCountryCodesState] = useState({
-    contactNumber: '+91',
-    whatsappNumber: '+91'
+    contactNumber: '+1',
+    whatsappNumber: '+1'
   })
 
   // Handle country code change

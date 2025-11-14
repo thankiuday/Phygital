@@ -45,17 +45,25 @@ export const useAnalytics = (userId, projectId, addDebugMessage) => {
             console.log('✅ Location captured:', coords);
             addDebugMessage(`📍 Location: ${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`, 'info');
             
-            // Try to get city/country (non-blocking)
+            // Try to get village/city/country (non-blocking)
             try {
               const address = await reverseGeocode(coords.latitude, coords.longitude);
               locationData = {
                 latitude: coords.latitude,
                 longitude: coords.longitude,
+                village: address.village,
                 city: address.city,
+                state: address.state,
                 country: address.country
               };
               console.log('🌍 Location with address:', locationData);
-              addDebugMessage(`🌍 Location: ${address.city}, ${address.country}`, 'success');
+              
+              // Build display message
+              const locationParts = [];
+              if (address.village) locationParts.push(address.village);
+              locationParts.push(address.city);
+              locationParts.push(address.country);
+              addDebugMessage(`🌍 Location: ${locationParts.join(', ')}`, 'success');
             } catch (geocodeError) {
               // If reverse geocoding fails, still send coordinates
               locationData = {

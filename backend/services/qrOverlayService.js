@@ -170,6 +170,135 @@ const overlayQRCode = async (designImagePath, qrData, position, outputPath) => {
     console.log('📏 Resizing QR code to:', normalizedPosition.width, 'x', normalizedPosition.height);
     qrCodeImage.resize(normalizedPosition.width, normalizedPosition.height);
     
+    // Add "Phygital.zone" watermark to center of QR code
+    try {
+      console.log('🏷️ Adding Phygital.zone watermark to QR code...');
+      const watermarkText = 'Phygital.zone';
+      
+      // Calculate proportional font size - visible but not too large
+      const qrWidth = normalizedPosition.width;
+      const qrHeight = normalizedPosition.height;
+      
+      // Use medium-sized fonts for good visibility
+      let font;
+      if (qrWidth < 200) {
+        font = await Jimp.loadFont(Jimp.FONT_SANS_16_WHITE);
+      } else if (qrWidth < 350) {
+        font = await Jimp.loadFont(Jimp.FONT_SANS_32_WHITE);
+      } else {
+        font = await Jimp.loadFont(Jimp.FONT_SANS_32_WHITE);
+      }
+      
+      // Measure text dimensions
+      const textWidth = Jimp.measureText(font, watermarkText);
+      const textHeight = Jimp.measureTextHeight(font, watermarkText, textWidth);
+      
+      // Create background rectangle for text with good padding
+      const bgPadding = 8;
+      const bgWidth = textWidth + (bgPadding * 2);
+      const bgHeight = textHeight + (bgPadding * 2);
+      const bgImage = new Jimp(bgWidth, bgHeight, 0x00000000);
+      
+      // Create white background with good opacity
+      const bgOpacity = 240; // ~94% opacity
+      bgImage.scan(0, 0, bgWidth, bgHeight, function(x, y, idx) {
+        this.bitmap.data[idx] = 255;     // R
+        this.bitmap.data[idx + 1] = 255; // G
+        this.bitmap.data[idx + 2] = 255; // B
+        this.bitmap.data[idx + 3] = bgOpacity; // Alpha
+      });
+      
+      // Add rounded corners
+      const cornerRadius = 6;
+      bgImage.scan(0, 0, bgWidth, bgHeight, function(x, y, idx) {
+        const inTopLeft = x < cornerRadius && y < cornerRadius && 
+                          Math.sqrt(Math.pow(cornerRadius - x, 2) + Math.pow(cornerRadius - y, 2)) > cornerRadius;
+        const inTopRight = x > bgWidth - cornerRadius && y < cornerRadius && 
+                           Math.sqrt(Math.pow(x - (bgWidth - cornerRadius), 2) + Math.pow(cornerRadius - y, 2)) > cornerRadius;
+        const inBottomLeft = x < cornerRadius && y > bgHeight - cornerRadius && 
+                             Math.sqrt(Math.pow(cornerRadius - x, 2) + Math.pow(y - (bgHeight - cornerRadius), 2)) > cornerRadius;
+        const inBottomRight = x > bgWidth - cornerRadius && y > bgHeight - cornerRadius && 
+                              Math.sqrt(Math.pow(x - (bgWidth - cornerRadius), 2) + Math.pow(y - (bgHeight - cornerRadius), 2)) > cornerRadius;
+        
+        if (inTopLeft || inTopRight || inBottomLeft || inBottomRight) {
+          this.bitmap.data[idx + 3] = 0;
+        }
+      });
+      
+      // Create gradient text effect by applying gradient colors to text pixels
+      // Gradient colors: blue (#00d4ff) -> purple (#a855f7) -> pink (#ec4899)
+      const gradientColors = [
+        { r: 0, g: 212, b: 255 },    // Neon blue
+        { r: 168, g: 85, b: 247 },   // Neon purple
+        { r: 236, g: 72, b: 153 }    // Neon pink
+      ];
+      
+      // Load white font first to get text mask
+      let whiteFont;
+      if (qrWidth < 200) {
+        whiteFont = await Jimp.loadFont(Jimp.FONT_SANS_16_WHITE);
+      } else if (qrWidth < 350) {
+        whiteFont = await Jimp.loadFont(Jimp.FONT_SANS_32_WHITE);
+      } else {
+        whiteFont = await Jimp.loadFont(Jimp.FONT_SANS_32_WHITE);
+      }
+      
+      // Create text layer
+      const textLayer = new Jimp(bgWidth, bgHeight, 0x00000000);
+      textLayer.print(whiteFont, bgPadding, bgPadding, watermarkText);
+      
+      // Apply gradient to text pixels
+      textLayer.scan(0, 0, bgWidth, bgHeight, function(x, y, idx) {
+        const alpha = this.bitmap.data[idx + 3];
+        if (alpha > 0) {
+          // Calculate position in gradient (0 to 1 from left to right)
+          const gradientPos = x / bgWidth;
+          
+          // Determine which two colors to interpolate between
+          let color1, color2, localPos;
+          if (gradientPos < 0.5) {
+            // Blue to Purple
+            color1 = gradientColors[0];
+            color2 = gradientColors[1];
+            localPos = gradientPos * 2;
+          } else {
+            // Purple to Pink
+            color1 = gradientColors[1];
+            color2 = gradientColors[2];
+            localPos = (gradientPos - 0.5) * 2;
+          }
+          
+          // Interpolate between colors
+          this.bitmap.data[idx] = Math.round(color1.r + (color2.r - color1.r) * localPos);
+          this.bitmap.data[idx + 1] = Math.round(color1.g + (color2.g - color1.g) * localPos);
+          this.bitmap.data[idx + 2] = Math.round(color1.b + (color2.b - color1.b) * localPos);
+        }
+      });
+      
+      // Composite gradient text onto white background
+      bgImage.composite(textLayer, 0, 0, {
+        mode: Jimp.BLEND_SOURCE_OVER,
+        opacitySource: 1.0,
+        opacityDest: 1.0
+      });
+      
+      // Calculate center position on QR code
+      const centerX = Math.floor((qrWidth - bgWidth) / 2);
+      const centerY = Math.floor((qrHeight - bgHeight) / 2);
+      
+      // Composite watermark onto QR code
+      qrCodeImage.composite(bgImage, centerX, centerY, {
+        mode: Jimp.BLEND_SOURCE_OVER,
+        opacitySource: 1.0,
+        opacityDest: 1.0
+      });
+      
+      console.log('✅ Watermark added successfully with gradient effect');
+    } catch (watermarkError) {
+      console.warn('⚠️ Failed to add watermark, continuing without it:', watermarkError.message);
+      // Continue without watermark if it fails - QR code functionality is more important
+    }
+    
     // Composite the QR code onto the design image
     console.log('🎨 Compositing QR code onto design...');
     designImage.composite(qrCodeImage, normalizedPosition.x, normalizedPosition.y, {

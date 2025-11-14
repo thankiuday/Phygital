@@ -103,7 +103,7 @@ const AboutPage = () => {
 
           <div className="inline-block px-6 py-3 bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-600/50">
             <p className="text-neon-blue font-semibold">
-              A Product by MetaDigi Labs LLC
+              A Product by Phygital
             </p>
           </div>
         </div>

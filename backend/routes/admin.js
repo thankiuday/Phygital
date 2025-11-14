@@ -151,7 +151,7 @@ router.get('/stats', [
       { $sort: { '_id.hour': 1 } }
     ]);
 
-    // Geographic analytics - Countries
+    // Geographic analytics - Countries (replace Unknown with Anonymous)
     const countriesBreakdown = await Analytics.aggregate([
       {
         $match: {
@@ -161,7 +161,18 @@ router.get('/stats', [
       },
       {
         $group: {
-          _id: '$eventData.scanLocation.country',
+          _id: {
+            $cond: {
+              if: { 
+                $or: [
+                  { $eq: ['$eventData.scanLocation.country', 'Unknown'] },
+                  { $eq: ['$eventData.scanLocation.country', 'unknown'] }
+                ]
+              },
+              then: 'Anonymous',
+              else: { $ifNull: ['$eventData.scanLocation.country', 'Anonymous'] }
+            }
+          },
           count: { $sum: 1 }
         }
       },
@@ -169,7 +180,7 @@ router.get('/stats', [
       { $limit: 10 }
     ]);
 
-    // Geographic analytics - Cities
+    // Geographic analytics - Cities (replace Unknown with Anonymous)
     const citiesBreakdown = await Analytics.aggregate([
       {
         $match: {
@@ -180,8 +191,30 @@ router.get('/stats', [
       {
         $group: {
           _id: {
-            city: '$eventData.scanLocation.city',
-            country: '$eventData.scanLocation.country'
+            city: {
+              $cond: {
+                if: { 
+                  $or: [
+                    { $eq: ['$eventData.scanLocation.city', 'Unknown'] },
+                    { $eq: ['$eventData.scanLocation.city', 'unknown'] }
+                  ]
+                },
+                then: 'Anonymous',
+                else: { $ifNull: ['$eventData.scanLocation.city', 'Anonymous'] }
+              }
+            },
+            country: {
+              $cond: {
+                if: { 
+                  $or: [
+                    { $eq: ['$eventData.scanLocation.country', 'Unknown'] },
+                    { $eq: ['$eventData.scanLocation.country', 'unknown'] }
+                  ]
+                },
+                then: 'Anonymous',
+                else: { $ifNull: ['$eventData.scanLocation.country', 'Anonymous'] }
+              }
+            }
           },
           count: { $sum: 1 }
         }
@@ -362,6 +395,32 @@ router.get('/stats', [
     const linkToArConversion = linkClicks > 0 ? (arStarts / linkClicks * 100).toFixed(2) : 0;
     const overallConversion = scans > 0 ? ((videoViews + linkClicks + arStarts) / scans * 100).toFixed(2) : 0;
 
+    // Post-process: Replace any remaining "Unknown" with "Anonymous" (safety net)
+    const replaceUnknown = (value) => {
+      if (typeof value === 'string' && (value === 'Unknown' || value === 'unknown')) {
+        return 'Anonymous';
+      }
+      return value;
+    };
+
+    // Clean countries data
+    const cleanedCountries = countriesBreakdown.map(item => ({
+      ...item,
+      _id: replaceUnknown(item._id)
+    }));
+
+    // Clean cities data
+    const cleanedCities = citiesBreakdown.map(item => ({
+      ...item,
+      _id: {
+        city: replaceUnknown(item._id.city),
+        country: replaceUnknown(item._id.country)
+      }
+    }));
+
+    console.log('📊 Dashboard Overview - Countries:', JSON.stringify(cleanedCountries.slice(0, 3), null, 2));
+    console.log('📊 Dashboard Overview - Cities:', JSON.stringify(cleanedCities.slice(0, 3), null, 2));
+
     res.status(200).json({
       status: 'success',
       data: {
@@ -405,8 +464,8 @@ router.get('/stats', [
         dailyBreakdown,
         hourlyBreakdown,
         geography: {
-          countries: countriesBreakdown,
-          cities: citiesBreakdown
+          countries: cleanedCountries,
+          cities: cleanedCities
         },
         devices: {
           types: deviceBreakdown,
@@ -1345,6 +1404,9 @@ router.get('/projects/:userId/:projectId/detailed', [
  */
 router.get('/analytics', [
   query('days').optional().isInt({ min: 1, max: 365 }).withMessage('Days must be between 1 and 365'),
+  query('country').optional().isString(),
+  query('city').optional().isString(),
+  query('village').optional().isString(),
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -1357,6 +1419,8 @@ router.get('/analytics', [
     }
 
     const days = parseInt(req.query.days) || 30;
+    const { country, city, village } = req.query;
+    
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
     
@@ -1364,8 +1428,19 @@ router.get('/analytics', [
     const prevStartDate = new Date(startDate);
     prevStartDate.setDate(prevStartDate.getDate() - days);
 
-    // Base match for current period
+    // Base match for current period with location filters
     const currentPeriodMatch = { timestamp: { $gte: startDate } };
+    
+    // Add location filters if provided
+    if (country) {
+      currentPeriodMatch['eventData.scanLocation.country'] = country;
+    }
+    if (city) {
+      currentPeriodMatch['eventData.scanLocation.city'] = city;
+    }
+    if (village) {
+      currentPeriodMatch['eventData.scanLocation.village'] = village;
+    }
     
     // Get analytics by event type
     const analyticsByType = await Analytics.aggregate([
@@ -1445,7 +1520,7 @@ router.get('/analytics', [
       { $sort: { '_id.dayOfWeek': 1 } }
     ]);
 
-    // Geographic analytics - Countries
+    // Geographic analytics - Countries (replace Unknown with Anonymous)
     const countriesBreakdown = await Analytics.aggregate([
       {
         $match: {
@@ -1455,7 +1530,18 @@ router.get('/analytics', [
       },
       {
         $group: {
-          _id: '$eventData.scanLocation.country',
+          _id: {
+            $cond: {
+              if: { 
+                $or: [
+                  { $eq: ['$eventData.scanLocation.country', 'Unknown'] },
+                  { $eq: ['$eventData.scanLocation.country', 'unknown'] }
+                ]
+              },
+              then: 'Anonymous',
+              else: { $ifNull: ['$eventData.scanLocation.country', 'Anonymous'] }
+            }
+          },
           count: { $sum: 1 }
         }
       },
@@ -1463,7 +1549,7 @@ router.get('/analytics', [
       { $limit: 20 }
     ]);
 
-    // Geographic analytics - Cities
+    // Geographic analytics - Cities (replace Unknown with Anonymous)
     const citiesBreakdown = await Analytics.aggregate([
       {
         $match: {
@@ -1474,14 +1560,82 @@ router.get('/analytics', [
       {
         $group: {
           _id: {
-            city: '$eventData.scanLocation.city',
-            country: '$eventData.scanLocation.country'
+            city: {
+              $cond: {
+                if: { 
+                  $or: [
+                    { $eq: ['$eventData.scanLocation.city', 'Unknown'] },
+                    { $eq: ['$eventData.scanLocation.city', 'unknown'] }
+                  ]
+                },
+                then: 'Anonymous',
+                else: { $ifNull: ['$eventData.scanLocation.city', 'Anonymous'] }
+              }
+            },
+            country: {
+              $cond: {
+                if: { 
+                  $or: [
+                    { $eq: ['$eventData.scanLocation.country', 'Unknown'] },
+                    { $eq: ['$eventData.scanLocation.country', 'unknown'] }
+                  ]
+                },
+                then: 'Anonymous',
+                else: { $ifNull: ['$eventData.scanLocation.country', 'Anonymous'] }
+              }
+            },
+            state: { $ifNull: ['$eventData.scanLocation.state', ''] }
           },
           count: { $sum: 1 }
         }
       },
       { $sort: { count: -1 } },
       { $limit: 20 }
+    ]);
+
+    // Geographic analytics - Villages/Areas
+    const villagesBreakdown = await Analytics.aggregate([
+      {
+        $match: {
+          ...currentPeriodMatch,
+          'eventData.scanLocation.village': { $exists: true, $ne: null }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            village: '$eventData.scanLocation.village',
+            city: {
+              $cond: {
+                if: { 
+                  $or: [
+                    { $eq: ['$eventData.scanLocation.city', 'Unknown'] },
+                    { $eq: ['$eventData.scanLocation.city', 'unknown'] }
+                  ]
+                },
+                then: 'Anonymous',
+                else: { $ifNull: ['$eventData.scanLocation.city', 'Anonymous'] }
+              }
+            },
+            state: { $ifNull: ['$eventData.scanLocation.state', ''] },
+            country: {
+              $cond: {
+                if: { 
+                  $or: [
+                    { $eq: ['$eventData.scanLocation.country', 'Unknown'] },
+                    { $eq: ['$eventData.scanLocation.country', 'unknown'] }
+                  ]
+                },
+                then: 'Anonymous',
+                else: { $ifNull: ['$eventData.scanLocation.country', 'Anonymous'] }
+              }
+            }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } },
+      { $limit: 30 }
     ]);
 
     // Device type breakdown
@@ -1802,6 +1956,50 @@ router.get('/analytics', [
     const currentArStarts = getEventCount(analyticsByType, 'arExperienceStart');
     const prevArStarts = getEventCount(prevAnalyticsByType, 'arExperienceStart');
 
+    // Post-process: Replace any remaining "Unknown" with "Anonymous" (safety net)
+    const replaceUnknown = (value) => {
+      if (typeof value === 'string' && (value === 'Unknown' || value === 'unknown')) {
+        return 'Anonymous';
+      }
+      return value;
+    };
+
+    // Clean countries data
+    const cleanedCountries = countriesBreakdown.map(item => ({
+      ...item,
+      _id: replaceUnknown(item._id)
+    }));
+
+    // Clean cities data
+    const cleanedCities = citiesBreakdown.map(item => ({
+      ...item,
+      _id: {
+        city: replaceUnknown(item._id.city),
+        country: replaceUnknown(item._id.country),
+        state: item._id.state
+      }
+    }));
+
+    // Clean villages data
+    const cleanedVillages = villagesBreakdown.map(item => ({
+      ...item,
+      _id: {
+        village: item._id.village,
+        city: replaceUnknown(item._id.city),
+        country: replaceUnknown(item._id.country),
+        state: item._id.state
+      }
+    }));
+
+    // Debug: Log geography data to verify Unknown is replaced
+    console.log('📊 Countries breakdown:', JSON.stringify(cleanedCountries.slice(0, 3), null, 2));
+    console.log('📊 Cities breakdown:', JSON.stringify(cleanedCities.slice(0, 3), null, 2));
+
+    // Set no-cache headers to prevent browser caching
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+
     res.status(200).json({
       status: 'success',
       data: {
@@ -1812,8 +2010,9 @@ router.get('/analytics', [
         topUsers,
         // Geographic data
         geography: {
-          countries: countriesBreakdown,
-          cities: citiesBreakdown
+          countries: cleanedCountries,
+          cities: cleanedCities,
+          villages: cleanedVillages
         },
         // Device data
         devices: {

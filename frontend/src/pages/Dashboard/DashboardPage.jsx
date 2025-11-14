@@ -152,7 +152,14 @@ const DashboardPage = () => {
 
   const progress = getSetupProgress()
 
-  // Component to render individual project progress
+  // Component to render individual project progress - Anti-flicker button styles
+  const actionButtonBase =
+    'group w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-900';
+
+  const continueButtonClasses = `${actionButtonBase} text-white bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink shadow-glow-blue transition-all duration-200 hover:shadow-glow-lg hover:scale-[1.02]`;
+  const manageButtonClasses = `${actionButtonBase} text-neon-green border-2 border-green-500 bg-transparent hover:opacity-80 transition-opacity duration-200`;
+  const actionArrowClasses = 'h-4 w-4 transition-transform duration-200 group-hover:translate-x-1';
+
   const ProjectProgressCard = ({ project, isLatest = false }) => {
     const projectProgress = getProjectProgress(project)
     const projectStepCompletion = getProjectStepCompletion(project)
@@ -165,7 +172,7 @@ const DashboardPage = () => {
           : 'border-slate-600/50 bg-slate-800/50'
       } ${isLatest ? 'ring-2 ring-neon-blue/30' : ''}`}>
         
-        {/* Project Header */}
+        {/* Campaign Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
           <div className="flex items-center min-w-0 flex-1">
             <div className={`p-2 rounded-lg mr-3 flex-shrink-0 ${
@@ -179,7 +186,7 @@ const DashboardPage = () => {
             </div>
             <div className="min-w-0 flex-1">
               <h3 className="font-medium text-slate-100 truncate text-sm sm:text-base">
-                {project.name || `Project ${project.id}`}
+                {project.name || `Campaign ${project.id}`}
                 {isLatest && <span className="ml-2 text-xs bg-neon-blue/20 text-neon-blue px-2 py-1 rounded whitespace-nowrap">Latest</span>}
               </h3>
               <p className="text-xs text-slate-400 truncate">
@@ -209,7 +216,7 @@ const DashboardPage = () => {
           </div>
         </div>
 
-        {/* Project Steps */}
+        {/* Campaign Steps */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {setupSteps.map((step) => {
             const Icon = step.icon
@@ -238,20 +245,17 @@ const DashboardPage = () => {
         {/* Action Button */}
         <div className="mt-4 pt-3 border-t border-slate-700/50 flex justify-start">
           {isComplete ? (
-            <Link
-              to="/projects"
-              className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-neon-green hover:text-neon-cyan bg-green-900/20 hover:bg-green-900/30 border border-green-600/30 hover:border-green-500/50 rounded-lg transition-all duration-200"
-            >
-              Manage Project
-              <ArrowRight className="ml-2 h-4 w-4" />
+            <Link to="/projects" className={manageButtonClasses}>
+              Manage Campaign
+              <ArrowRight className={actionArrowClasses} />
             </Link>
           ) : (
             <Link
               to={`/projects?edit=${project._id || project.id}`}
-              className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-neon-blue hover:text-neon-cyan bg-blue-900/20 hover:bg-blue-900/30 border border-blue-600/30 hover:border-blue-500/50 rounded-lg transition-all duration-200"
+              className={continueButtonClasses}
             >
-              Continue Project
-              <ArrowRight className="ml-2 h-4 w-4" />
+              Continue Campaign
+              <ArrowRight className={actionArrowClasses} />
             </Link>
           )}
         </div>
@@ -277,26 +281,26 @@ const DashboardPage = () => {
         </div>
       </div>
 
-      {/* Projects Section */}
+      {/* Campaigns Section */}
       <div className="card mb-8">
         <div className="card-header">
           <h2 className="text-xl font-semibold text-slate-100">
-            {projectStats.total > 0 ? 'Your Projects' : 'Create Your First Project'}
+            {projectStats.total > 0 ? 'Your Campaigns' : 'Create Your First Campaign'}
           </h2>
           <p className="text-slate-300">
             {projectStats.total > 0 
-              ? `You have ${projectStats.total} project${projectStats.total !== 1 ? 's' : ''} (${projectStats.complete} complete). Create new projects or continue working on existing ones.`
-              : 'Complete these steps to create your first Phygital project'
+              ? `You have ${projectStats.total} campaign${projectStats.total !== 1 ? 's' : ''} (${projectStats.complete} complete). Create new campaigns or continue working on existing ones.`
+              : 'Complete these steps to create your first Phygital campaign'
             }
           </p>
         </div>
 
         {projectStats.total > 0 ? (
           <>
-            {/* Latest Project (Always Visible) */}
+            {/* Latest Campaign (Always Visible) */}
             {user?.projects && user.projects.length > 0 && (
               <div className="mb-6">
-                <h3 className="text-lg font-medium text-slate-100 mb-4">Latest Project</h3>
+                <h3 className="text-lg font-medium text-slate-100 mb-4">Latest Campaign</h3>
                 <ProjectProgressCard 
                   project={user.projects[user.projects.length - 1]} 
                   isLatest={true}
@@ -304,7 +308,7 @@ const DashboardPage = () => {
               </div>
             )}
 
-            {/* View All Projects Toggle */}
+            {/* View All Campaigns Toggle */}
             {user?.projects && user.projects.length > 1 && (
               <div className="mb-4">
                 <button
@@ -314,22 +318,22 @@ const DashboardPage = () => {
                   {showAllProjects ? (
                     <>
                       <ChevronUp className="h-4 w-4 mr-1" />
-                      Hide All Projects
+                      Hide All Campaigns
                     </>
                   ) : (
                     <>
                       <ChevronDown className="h-4 w-4 mr-1" />
-                      View All Projects ({user.projects.length})
+                      View All Campaigns ({user.projects.length})
                     </>
                   )}
                 </button>
               </div>
             )}
 
-            {/* All Projects (Expandable) */}
+            {/* All Campaigns (Expandable) */}
             {showAllProjects && user?.projects && user.projects.length > 1 && (
               <div className="space-y-4">
-                <h3 className="text-lg font-medium text-slate-100">All Projects</h3>
+                <h3 className="text-lg font-medium text-slate-100">All Campaigns</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {user.projects.slice(0, -1).map((project, index) => (
                     <ProjectProgressCard 
@@ -348,8 +352,8 @@ const DashboardPage = () => {
                   <CheckCircle className="h-5 w-5 text-neon-green mr-3 flex-shrink-0 mt-0.5 sm:mt-0" />
                   <p className="text-sm text-neon-green flex-1">
                     {projectStats.complete > 0
-                      ? `Great! You have ${projectStats.complete} complete project${projectStats.complete !== 1 ? 's' : ''}. Ready to create more!`
-                      : 'You have projects started. Complete them or create new ones.'
+                      ? `Great! You have ${projectStats.complete} complete campaign${projectStats.complete !== 1 ? 's' : ''}. Ready to create more!`
+                      : 'You have campaigns started. Complete them or create new ones.'
                     }
                   </p>
                 </div>
@@ -360,20 +364,20 @@ const DashboardPage = () => {
                   }
                   className="btn-primary text-sm px-4 py-2.5 w-full sm:w-auto inline-flex items-center justify-center whitespace-nowrap flex-shrink-0"
                 >
-                  {projectStats.complete > 0 ? 'Create New Project' : 'Continue Project'}
+                  {projectStats.complete > 0 ? 'Create New Campaign' : 'Continue Campaign'}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </div>
             </div>
           </>
         ) : (
-          /* First Project Setup */
+          /* First Campaign Setup */
           <>
-            {/* Show progress bar for first project */}
+            {/* Show progress bar for first campaign */}
             {progress > 0 && (
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-slate-300">Project Progress</span>
+                  <span className="text-sm font-medium text-slate-300">Campaign Progress</span>
                   <span className="text-sm font-medium text-slate-300">{progress}%</span>
                 </div>
                 <div className="progress-bar">
@@ -534,15 +538,15 @@ const DashboardPage = () => {
         </div>
       </div>
 
-      {/* Recent Projects */}
+      {/* Recent Campaigns */}
       {isSetupComplete() && user?.projects && user.projects.length > 0 && (
         <div className="card mb-8">
           <div className="card-header">
             <h2 className="text-xl font-semibold text-slate-100">
-              Recent Projects
+              Recent Campaigns
             </h2>
             <p className="text-slate-300">
-              Your latest project creations
+              Your latest campaign creations
             </p>
           </div>
           
@@ -554,7 +558,7 @@ const DashboardPage = () => {
                     <QrCode className="h-4 w-4 text-neon-blue" />
                   </div>
                   <h3 className="font-medium text-slate-100">
-                    {project.name || `Project ${index + 1}`}
+                    {project.name || `Campaign ${index + 1}`}
                   </h3>
                 </div>
                 <p className="text-sm text-slate-400 mb-2">
@@ -564,7 +568,7 @@ const DashboardPage = () => {
                   to="/projects"
                   className="text-sm text-neon-blue hover:text-neon-cyan transition-colors duration-200"
                 >
-                  Manage Project →
+                  Manage Campaign →
                 </Link>
               </div>
             ))}
@@ -576,7 +580,7 @@ const DashboardPage = () => {
                 to="/projects"
                 className="text-sm text-slate-400 hover:text-neon-blue transition-colors duration-200"
               >
-                View all {user.projects.length} projects →
+                View all {user.projects.length} campaigns →
               </Link>
             </div>
           )}

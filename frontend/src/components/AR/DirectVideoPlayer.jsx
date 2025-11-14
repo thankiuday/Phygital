@@ -18,6 +18,7 @@ import {
   Globe,
   Phone,
   MessageCircle,
+  Music2,
   X
 } from 'lucide-react';
 
@@ -94,6 +95,7 @@ const DirectVideoPlayer = ({ projectData, onClose }) => {
       case 'website': return <Globe className="w-5 h-5" />;
       case 'contactNumber': return <Phone className="w-5 h-5" />;
       case 'whatsappNumber': return <MessageCircle className="w-5 h-5" />;
+      case 'tiktok': return <Music2 className="w-5 h-5" />;
       default: return <ExternalLink className="w-5 h-5" />;
     }
   };
@@ -117,6 +119,8 @@ const DirectVideoPlayer = ({ projectData, onClose }) => {
         return `tel:${value}`;
       case 'whatsappNumber':
         return `https://wa.me/${value.replace(/[^0-9]/g, '')}`;
+      case 'tiktok':
+        return value.startsWith('http') ? value : `https://www.tiktok.com/@${value.replace('@', '')}`;
       default:
         return value;
     }
@@ -132,6 +136,7 @@ const DirectVideoPlayer = ({ projectData, onClose }) => {
       case 'website': return 'Website';
       case 'contactNumber': return 'Call';
       case 'whatsappNumber': return 'WhatsApp';
+      case 'tiktok': return 'TikTok';
       default: return type;
     }
   };

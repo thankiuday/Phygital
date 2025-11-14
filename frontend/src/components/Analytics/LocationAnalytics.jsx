@@ -127,16 +127,29 @@ const LocationAnalytics = ({ userId, projectId = null, days = 30 }) => {
           <div className="space-y-3">
             {topLocations.map((location, index) => {
               const percentage = ((location.count / totalScansWithLocation) * 100).toFixed(1);
+              
+              // Build location display with village hierarchy
+              const locationParts = [];
+              if (location.village) locationParts.push(location.village);
+              locationParts.push(location.city || 'Anonymous');
+              locationParts.push(location.country || 'Anonymous');
+              const locationDisplay = locationParts.join(', ');
+              
               return (
                 <div key={index} className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 flex-1 min-w-0">
                       <MapPin className="w-4 h-4 text-primary-400 flex-shrink-0" />
-                      <span className="text-slate-200 font-medium">
-                        {location.city}, {location.country}
-                      </span>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-slate-200 font-medium block truncate">
+                          {locationDisplay}
+                        </span>
+                        {location.state && (
+                          <span className="text-slate-500 text-xs">{location.state}</span>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right ml-2">
                       <span className="text-white font-semibold">{location.count}</span>
                       <span className="text-slate-500 text-sm ml-2">({percentage}%)</span>
                     </div>
@@ -172,22 +185,32 @@ const LocationAnalytics = ({ userId, projectId = null, days = 30 }) => {
                 </tr>
               </thead>
               <tbody className="text-slate-300">
-                {locations.map((location, index) => (
-                  <tr key={index} className="border-b border-slate-700/50 hover:bg-slate-700/30">
-                    <td className="py-2">
-                      <div>
-                        <div className="font-medium">{location.city}, {location.country}</div>
-                        <div className="text-xs text-slate-500">
-                          {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
+                {locations.map((location, index) => {
+                  // Build location display with village hierarchy
+                  const locationParts = [];
+                  if (location.village) locationParts.push(location.village);
+                  locationParts.push(location.city || 'Anonymous');
+                  locationParts.push(location.country || 'Anonymous');
+                  const locationDisplay = locationParts.join(', ');
+                  
+                  return (
+                    <tr key={index} className="border-b border-slate-700/50 hover:bg-slate-700/30">
+                      <td className="py-2">
+                        <div>
+                          <div className="font-medium">{locationDisplay}</div>
+                          <div className="text-xs text-slate-500">
+                            {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
+                            {location.state && ` • ${location.state}`}
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="py-2 text-right font-semibold">{location.count}</td>
-                    <td className="py-2 text-right text-xs">
-                      {new Date(location.lastScanAt).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="py-2 text-right font-semibold">{location.count}</td>
+                      <td className="py-2 text-right text-xs">
+                        {new Date(location.lastScanAt).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

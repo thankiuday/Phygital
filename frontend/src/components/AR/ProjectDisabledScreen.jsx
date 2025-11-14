@@ -34,7 +34,7 @@ const ProjectDisabledScreen = ({ projectName }) => {
             
             {/* Message */}
             <h2 className="text-xl font-bold text-slate-100 mb-3">
-              Project Currently Unavailable
+              Campaign Currently Unavailable
             </h2>
             
             {projectName && (
@@ -51,8 +51,8 @@ const ProjectDisabledScreen = ({ projectName }) => {
                     <strong>Why am I seeing this?</strong>
                   </p>
                   <p className="text-xs text-slate-400">
-                    The creator has chosen to disable AR scanning for this project. 
-                    This could be temporary maintenance, content updates, or the project may have been archived.
+                    The creator has chosen to disable AR scanning for this campaign. 
+                    This could be temporary maintenance, content updates, or the campaign may have been archived.
                   </p>
                 </div>
               </div>
@@ -63,7 +63,7 @@ const ProjectDisabledScreen = ({ projectName }) => {
         {/* Info Card */}
         <div className="bg-slate-800/30 rounded-lg p-4 border border-slate-600/20">
           <p className="text-xs text-slate-400 text-center mb-3">
-            If you're the project owner, you can re-enable this project from your Projects page.
+            If you're the campaign owner, you can re-enable this campaign from your Campaigns page.
           </p>
           <div className="flex justify-center gap-2">
             <a

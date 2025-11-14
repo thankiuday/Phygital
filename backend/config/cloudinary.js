@@ -168,8 +168,9 @@ const uploadToCloudinaryBuffer = async (buffer, userId, type, filename, contentT
       folder: folderPath,
       public_id: finalFilename,
       resource_type: resourceType,
-      timeout: type === 'video' ? 600000 : 120000, // 10 minutes for videos, 2 minutes for others
+      timeout: type === 'video' ? 600000 : 300000, // 10 minutes for videos, 5 minutes for others (increased)
       chunk_size: type === 'video' ? 6000000 : undefined, // 6MB chunks for videos
+      eager_async: true, // Process transformations asynchronously to speed up upload
     };
     
     // Only add quality and fetch_format for images (not for videos or raw files)
@@ -184,28 +185,58 @@ const uploadToCloudinaryBuffer = async (buffer, userId, type, filename, contentT
     console.log('Upload options:', uploadOptions);
     console.log('📦 Resource type:', resourceType, '(for .mind files, this should be "raw")');
 
-    // Upload to Cloudinary
-    const result = await cloudinary.uploader.upload(
-      `data:${contentType};base64,${buffer.toString('base64')}`,
-      uploadOptions
-    );
+    // Upload to Cloudinary with retry logic for timeout errors
+    const maxRetries = 3;
+    let lastError;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🔄 Upload attempt ${attempt}/${maxRetries}`);
+        
+        const result = await cloudinary.uploader.upload(
+          `data:${contentType};base64,${buffer.toString('base64')}`,
+          uploadOptions
+        );
 
-    console.log('✅ Cloudinary buffer upload successful:', result.secure_url);
+        console.log('✅ Cloudinary buffer upload successful:', result.secure_url);
 
-    return {
-      url: result.secure_url,
-      public_id: result.public_id,
-      asset_id: result.asset_id,
-      size: result.bytes,
-      format: result.format,
-      width: result.width,
-      height: result.height,
-      folder: result.folder,
-      created_at: result.created_at
-    };
+        return {
+          url: result.secure_url,
+          public_id: result.public_id,
+          asset_id: result.asset_id,
+          size: result.bytes,
+          format: result.format,
+          width: result.width,
+          height: result.height,
+          folder: result.folder,
+          created_at: result.created_at
+        };
+      } catch (uploadError) {
+        lastError = uploadError;
+        const isTimeout = uploadError.message?.includes('Timeout') || uploadError.http_code === 499;
+        
+        console.warn(`⚠️ Upload attempt ${attempt} failed:`, uploadError.message);
+        
+        // If it's a timeout and we have retries left, wait and retry
+        if (isTimeout && attempt < maxRetries) {
+          const delay = attempt * 2000; // 2s, 4s exponential backoff
+          console.log(`⏳ Waiting ${delay}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
+        // If not a timeout or no retries left, throw immediately
+        if (!isTimeout || attempt === maxRetries) {
+          break;
+        }
+      }
+    }
+    
+    // If we get here, all retries failed
+    throw lastError;
 
   } catch (error) {
-    console.error('❌ Cloudinary buffer upload failed:', error);
+    console.error('❌ Cloudinary buffer upload failed after all retries:', error);
     console.error('Buffer upload error details:', {
       message: error.message,
       stack: error.stack,
@@ -439,11 +470,93 @@ const uploadVideoToCloudinary = async (file, userId, options = {}) => {
   }
 };
 
+/**
+ * Upload QR Design to Cloudinary
+ * @param {Buffer} buffer - QR code image buffer
+ * @param {String} userId - User ID
+ * @param {String} designId - Unique design ID
+ * @returns {Promise<Object>} Upload result with URL and metadata
+ */
+const uploadQRDesign = async (buffer, userId, designId) => {
+  try {
+    console.log('=== QR DESIGN UPLOAD ===');
+    console.log('User ID:', userId);
+    console.log('Design ID:', designId);
+    console.log('Buffer size:', buffer ? buffer.length : 'null');
+
+    // Validate inputs
+    if (!buffer || !Buffer.isBuffer(buffer)) {
+      throw new Error('Invalid buffer provided for QR design');
+    }
+    
+    if (!userId) {
+      throw new Error('User ID is required for QR design upload');
+    }
+    
+    if (!designId) {
+      throw new Error('Design ID is required for QR design upload');
+    }
+
+    // Generate filename
+    const filename = `qr-design-${designId}`;
+    
+    // Create folder path: phygital-zone/users/{userId}/qr-designs/
+    const folderPath = `phygital-zone/users/${userId}/qr-designs`;
+    
+    console.log('Uploading QR design to folder:', folderPath);
+    console.log('Filename:', filename);
+
+    // Upload options for QR design (PNG image)
+    const uploadOptions = {
+      folder: folderPath,
+      public_id: filename,
+      resource_type: 'image',
+      timeout: 120000, // 2 minutes
+      quality: 'auto',
+      fetch_format: 'auto'
+    };
+
+    console.log('Upload options:', uploadOptions);
+
+    // Upload to Cloudinary
+    const result = await cloudinary.uploader.upload(
+      `data:image/png;base64,${buffer.toString('base64')}`,
+      uploadOptions
+    );
+
+    console.log('✅ QR design uploaded successfully:', result.secure_url);
+
+    return {
+      url: result.secure_url,
+      public_id: result.public_id,
+      asset_id: result.asset_id,
+      size: result.bytes,
+      format: result.format,
+      width: result.width,
+      height: result.height,
+      folder: result.folder,
+      created_at: result.created_at
+    };
+
+  } catch (error) {
+    console.error('❌ QR design upload failed:', error);
+    console.error('QR design upload error details:', {
+      message: error.message,
+      stack: error.stack,
+      userId: userId,
+      designId: designId,
+      bufferSize: buffer?.length
+    });
+    throw new Error(`QR design upload failed: ${error.message}`);
+  }
+};
+
 module.exports = {
   cloudinary,
   uploadToCloudinary,
   uploadToCloudinaryBuffer,
   uploadVideoToCloudinary,
+  uploadQRDesign,
   deleteFromCloudinary,
   checkCloudinaryConnection
 };

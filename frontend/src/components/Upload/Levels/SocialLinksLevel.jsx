@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { uploadAPI } from '../../../utils/api';
-import { Share2, CheckCircle, AlertCircle, Instagram, Facebook, Twitter, Linkedin, Globe, Phone, MessageCircle } from 'lucide-react';
+import { Share2, CheckCircle, AlertCircle, Instagram, Facebook, Twitter, Linkedin, Globe, Phone, MessageCircle, Music2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { countryCodes, validatePhoneNumber as validatePhone, parsePhoneNumber, filterPhoneInput as filterPhone, formatPhoneNumber } from '../../../utils/countryCodes';
 
@@ -22,7 +22,8 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
     linkedin: currentLinks?.linkedin || user?.socialLinks?.linkedin || '',
     website: currentLinks?.website || user?.socialLinks?.website || '',
     contactNumber: parsedContact.phoneNumber,
-    whatsappNumber: parsedWhatsApp.phoneNumber
+    whatsappNumber: parsedWhatsApp.phoneNumber,
+    tiktok: currentLinks?.tiktok || user?.socialLinks?.tiktok || ''
   });
   
   // Country code state
@@ -119,6 +120,16 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
       color: 'from-green-500 to-green-600',
       bgColor: 'bg-green-50',
       borderColor: 'border-green-200',
+      type: 'url'
+    },
+    {
+      key: 'tiktok',
+      name: 'TikTok',
+      icon: Music2,
+      placeholder: 'https://www.tiktok.com/@yourusername',
+      color: 'from-slate-700 to-slate-900',
+      bgColor: 'bg-slate-100',
+      borderColor: 'border-slate-300',
       type: 'url'
     }
   ];
@@ -222,7 +233,7 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
         toast.success('🔗 Social links found! Level 3 completed automatically.');
         onComplete(user.socialLinks);
       }
-    }, [user?.socialLinks?.instagram, user?.socialLinks?.facebook, user?.socialLinks?.twitter, user?.socialLinks?.linkedin, user?.socialLinks?.website]); // Only depend on specific social link data
+    }, [user?.socialLinks?.instagram, user?.socialLinks?.facebook, user?.socialLinks?.twitter, user?.socialLinks?.linkedin, user?.socialLinks?.website, user?.socialLinks?.tiktok]); // Only depend on specific social link data
     
     return (
       <div className="text-center py-8">
