@@ -83,8 +83,7 @@ const ARExperiencePage = () => {
   const [containerHeight, setContainerHeight] = React.useState('400px');
   
   // Video controls overlay state
-  const [showVideoControls, setShowVideoControls] = React.useState(false);
-  const [controlsTimeout, setControlsTimeout] = React.useState(null);
+  const [showVideoControls, setShowVideoControls] = React.useState(true);
   const permissionPromptedRef = React.useRef(false);
 
   const attemptCameraPermission = React.useCallback(async () => {
@@ -299,34 +298,6 @@ const ARExperiencePage = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, [isLandscape, isHorizontal, showCompositeImage]);
 
-  // Video controls overlay management
-  const showControls = () => {
-    setShowVideoControls(true);
-    if (controlsTimeout) {
-      clearTimeout(controlsTimeout);
-    }
-    const timeout = setTimeout(() => {
-      setShowVideoControls(false);
-    }, 3000); // Hide controls after 3 seconds
-    setControlsTimeout(timeout);
-  };
-
-  const hideControls = () => {
-    setShowVideoControls(false);
-    if (controlsTimeout) {
-      clearTimeout(controlsTimeout);
-      setControlsTimeout(null);
-    }
-  };
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (controlsTimeout) {
-        clearTimeout(controlsTimeout);
-      }
-    };
-  }, [controlsTimeout]);
 
   // Hide composite image when target is detected
   useEffect(() => {
@@ -603,10 +574,6 @@ const ARExperiencePage = () => {
             {targetDetected && projectData?.videoUrl && (
               <div 
                 className="absolute inset-0 w-full h-full z-10"
-                onMouseEnter={showControls}
-                onMouseLeave={hideControls}
-                onTouchStart={showControls}
-                onClick={showControls}
               >
                 <video
                   ref={videoRef}
@@ -684,14 +651,29 @@ const ARExperiencePage = () => {
                       </div>
                       
                       <button
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.stopPropagation();
-                          const link = document.createElement('a');
-                          link.href = projectData.videoUrl;
-                          link.download = `ar-video-${projectId || userId}.mp4`;
-                          document.body.appendChild(link);
-                          link.click();
-                          document.body.removeChild(link);
+                          try {
+                            // Fetch the video as a blob to avoid redirect issues
+                            const response = await fetch(projectData.videoUrl);
+                            const blob = await response.blob();
+                            
+                            // Create object URL and trigger download
+                            const blobUrl = URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.href = blobUrl;
+                            link.download = `ar-video-${projectId || userId}.mp4`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            
+                            // Clean up the object URL
+                            setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+                          } catch (error) {
+                            console.error('Download failed:', error);
+                            // Fallback: open in new tab
+                            window.open(projectData.videoUrl, '_blank');
+                          }
                         }}
                         className="p-2 sm:p-3 rounded-full bg-black/50 hover:bg-black/70 active:bg-black/80 transition-colors touch-manipulation min-h-[44px] min-w-[44px] flex items-center justify-center"
                         title="Download Video"

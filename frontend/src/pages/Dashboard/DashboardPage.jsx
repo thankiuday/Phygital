@@ -154,11 +154,11 @@ const DashboardPage = () => {
 
   // Component to render individual project progress - Anti-flicker button styles
   const actionButtonBase =
-    'group w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-900';
+    'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-900';
 
-  const continueButtonClasses = `${actionButtonBase} text-white bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink shadow-glow-blue transition-all duration-200 hover:shadow-glow-lg hover:scale-[1.02]`;
+  const continueButtonClasses = `${actionButtonBase} text-white bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink shadow-glow-blue hover:opacity-90 transition-opacity duration-200`;
   const manageButtonClasses = `${actionButtonBase} text-neon-green border-2 border-green-500 bg-transparent hover:opacity-80 transition-opacity duration-200`;
-  const actionArrowClasses = 'h-4 w-4 transition-transform duration-200 group-hover:translate-x-1';
+  const actionArrowClasses = 'h-4 w-4';
 
   const ProjectProgressCard = ({ project, isLatest = false }) => {
     const projectProgress = getProjectProgress(project)
