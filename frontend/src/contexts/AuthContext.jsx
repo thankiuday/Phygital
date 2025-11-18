@@ -272,6 +272,37 @@ export const AuthProvider = ({ children }) => {
     dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR })
   }
 
+  // Handle OAuth callback
+  const handleOAuthCallback = async (token) => {
+    try {
+      // Store token in localStorage
+      localStorage.setItem('token', token)
+      
+      // Fetch user profile with the token
+      const response = await api.get('/auth/profile')
+      
+      dispatch({
+        type: AUTH_ACTIONS.LOGIN_SUCCESS,
+        payload: {
+          token,
+          user: response.data.data.user
+        }
+      })
+      
+      return { success: true }
+    } catch (error) {
+      console.error('OAuth callback error:', error)
+      localStorage.removeItem('token')
+      
+      dispatch({
+        type: AUTH_ACTIONS.LOGIN_FAILURE,
+        payload: error.response?.data?.message || 'OAuth authentication failed'
+      })
+      
+      throw error
+    }
+  }
+
   // Check if user has completed setup (has at least one complete project)
   const isSetupComplete = () => {
     if (!state.user) return false
@@ -364,6 +395,7 @@ export const AuthProvider = ({ children }) => {
     refreshUserData,
     clearError,
     loadUser,
+    handleOAuthCallback,
     isSetupComplete,
     getSetupProgress,
     getProjectStats,

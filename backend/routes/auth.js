@@ -8,6 +8,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { generateToken, authenticateToken } = require('../middleware/auth');
+const passport = require('../middleware/passport');
 
 const router = express.Router();
 
@@ -541,5 +542,65 @@ router.post('/change-password', authenticateToken, [
     });
   }
 });
+
+/**
+ * GET /api/auth/google
+ * Initiate Google OAuth flow
+ * Redirects user to Google consent screen
+ */
+router.get('/google',
+  passport.authenticate('google', {
+    scope: ['profile', 'email'],
+    session: false
+  })
+);
+
+/**
+ * GET /api/auth/google/callback
+ * Handle Google OAuth callback
+ * Processes authentication result and redirects to frontend with token
+ */
+router.get('/google/callback',
+  passport.authenticate('google', { 
+    session: false,
+    failureRedirect: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/#/login?error=auth_failed`
+  }),
+  async (req, res) => {
+    try {
+      // User is authenticated via Passport
+      const user = req.user;
+      
+      console.log('🔍 Google Callback - User received:', user ? 'Yes' : 'No');
+      
+      if (!user) {
+        console.error('❌ No user found after Google authentication');
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        console.log('Redirecting to:', `${frontendUrl}/#/login?error=auth_failed`);
+        return res.redirect(`${frontendUrl}/#/login?error=auth_failed`);
+      }
+      
+      // Generate JWT token
+      const token = generateToken(user._id);
+      console.log('🔑 Token generated for user:', user.email);
+      
+      // Log successful authentication
+      console.log('✅ Google OAuth successful for user:', user.email);
+      
+      // Redirect to frontend with token
+      // Frontend will extract token from URL and complete login
+      // IMPORTANT: Using HashRouter, so we need to include the # in the URL
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const redirectUrl = `${frontendUrl}/#/auth/callback?token=${token}`;
+      console.log('🔄 Redirecting to:', redirectUrl);
+      res.redirect(redirectUrl);
+      
+    } catch (error) {
+      console.error('❌ Google callback error:', error);
+      console.error('Error stack:', error.stack);
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      res.redirect(`${frontendUrl}/#/login?error=server_error`);
+    }
+  }
+);
 
 module.exports = router;

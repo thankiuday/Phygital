@@ -17,6 +17,7 @@ import LoadingSpinner from './components/UI/LoadingSpinner'
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/Auth/LoginPage'
 import RegisterPage from './pages/Auth/RegisterPage'
+import OAuthCallback from './pages/Auth/OAuthCallback'
 import DashboardPage from './pages/Dashboard/DashboardPage'
 import GameUploadPage from './pages/Upload/GameUploadPage'
 import QRCodePage from './pages/QRCode/QRCodePage'
@@ -82,6 +83,7 @@ function App() {
           <Route index element={<HomePage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
+          <Route path="auth/callback" element={<OAuthCallback />} />
           <Route path="forgot-password" element={<ComingSoonPage />} />
           <Route path="about" element={<AboutPage />} />
           <Route path="contact" element={<ContactPage />} />

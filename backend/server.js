@@ -131,6 +131,10 @@ app.use('/api/', limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Initialize Passport for OAuth authentication
+const passport = require('./middleware/passport');
+app.use(passport.initialize());
+
 // Serve static files from uploads directory (for local development)
 app.use('/uploads', express.static('uploads'));
 

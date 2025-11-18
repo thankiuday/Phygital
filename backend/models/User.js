@@ -30,8 +30,29 @@ const userSchema = new mongoose.Schema({
   
   password: {
     type: String,
-    required: [true, 'Password is required'],
+    required: function() {
+      // Password is only required if not using OAuth
+      return this.authProvider === 'local' || !this.authProvider;
+    },
     minlength: [6, 'Password must be at least 6 characters']
+  },
+  
+  // OAuth fields
+  googleId: {
+    type: String,
+    sparse: true,
+    unique: true
+  },
+  
+  authProvider: {
+    type: String,
+    enum: ['local', 'google', 'both'],
+    default: 'local'
+  },
+  
+  profilePicture: {
+    type: String,
+    default: ''
   },
   
   // Uploaded files information
@@ -240,6 +261,7 @@ const userSchema = new mongoose.Schema({
 userSchema.index({ username: 1 });
 userSchema.index({ email: 1 });
 userSchema.index({ urlCode: 1 });
+userSchema.index({ googleId: 1 });
 
 // Hash password and generate urlCode before saving
 userSchema.pre('save', async function(next) {

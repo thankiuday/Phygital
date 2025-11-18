@@ -9,6 +9,7 @@ import { useForm } from 'react-hook-form'
 import { useAuth } from '../../contexts/AuthContext'
 import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Sparkles, Check, X } from 'lucide-react'
 import LoadingSpinner from '../../components/UI/LoadingSpinner'
+import GoogleAuthButton from '../../components/Auth/GoogleAuthButton'
 
 const RegisterPage = () => {
   const [showPassword, setShowPassword] = useState(false)
@@ -339,6 +340,21 @@ const RegisterPage = () => {
               )}
             </button>
           </form>
+
+          {/* Divider with "OR" */}
+          <div className="mt-8 relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-700/50"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-4 bg-slate-800/50 text-slate-400">Or continue with</span>
+            </div>
+          </div>
+
+          {/* Google Sign Up */}
+          <div className="mt-6">
+            <GoogleAuthButton mode="signup" />
+          </div>
 
           {/* Divider */}
           <div className="mt-8 pt-6 border-t border-slate-700/50">
