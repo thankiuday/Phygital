@@ -439,10 +439,28 @@ const UploadPage = () => {
       });
       
       // Generate QR code URL for the user's personalized page
-      const frontendUrl = import.meta.env.VITE_FRONTEND_URL || import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5173';
-      const userIdentifier = user.urlCode || user._id;
+      // Use window.location.origin as fallback to match Campaign page behavior
+      const frontendUrl = import.meta.env.VITE_FRONTEND_URL || import.meta.env.VITE_API_URL?.replace('/api', '') || window.location.origin || 'http://localhost:5173';
+      
+      // Use user._id consistently to match backend format (not urlCode)
+      const userIdentifier = user._id;
+      if (!userIdentifier) {
+        throw new Error('User ID is required to generate QR code');
+      }
+      
+      // Use currentProject directly (backend uses user.currentProject || 'default')
       const projectId = user.currentProject || 'default';
+      
+      // Construct hash-based URL matching backend format: /#/ar/user/{userId}/project/{projectId}
       const qrCodeUrl = `${frontendUrl}/#/ar/user/${userIdentifier}/project/${projectId}`;
+      
+      // Validate URL before generating QR code
+      if (!qrCodeUrl || !qrCodeUrl.startsWith('http')) {
+        throw new Error(`Invalid QR code URL: ${qrCodeUrl}`);
+      }
+      
+      console.log('🔗 Generated QR code URL:', qrCodeUrl);
+      console.log('📋 URL components:', { frontendUrl, userIdentifier, projectId });
       
       // Calculate QR code size needed to match the positioned sticker dimensions
       // Sticker dimensions: width = qrSize + padding*2 + borderWidth*2, height = qrSize + padding*2 + borderWidth*2 + textHeight
@@ -471,7 +489,16 @@ const UploadPage = () => {
             light: '#FFFFFF'
           }
         });
-        console.log('✅ Plain QR code generated:', { size: qrDataUrl.length });
+        
+        // Validate QR code data URL is valid
+        if (!qrDataUrl || !qrDataUrl.startsWith('data:image')) {
+          throw new Error('Invalid QR code data URL generated');
+        }
+        
+        console.log('✅ Plain QR code generated:', { 
+          size: qrDataUrl.length,
+          url: qrCodeUrl.substring(0, 100) + '...' // Log first 100 chars of URL
+        });
 
         // Generate sticker with gradient border and "SCAN ME" text
         console.log('🎨 Generating sticker with QR size:', qrCodeSize);
@@ -544,7 +571,7 @@ const UploadPage = () => {
 
         // Verify sticker was drawn by checking a pixel
         const testX = Math.floor(stickerX + stickerDisplayWidth / 2);
-        const testY = Math.floor(finalStickerY + stickerDisplayHeight / 2);
+        const testY = Math.floor(stickerY + stickerDisplayHeight / 2);
         if (testX >= 0 && testX < canvas.width && testY >= 0 && testY < canvas.height) {
           const imageData = ctx.getImageData(testX, testY, 1, 1);
           console.log('🔍 Pixel check at sticker center:', { 
@@ -656,10 +683,28 @@ const UploadPage = () => {
       });
       
       // Generate QR code URL for the user's personalized page
-      const frontendUrl = import.meta.env.VITE_FRONTEND_URL || import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5173';
-      const userIdentifier = user.urlCode || user._id;
+      // Use window.location.origin as fallback to match Campaign page behavior
+      const frontendUrl = import.meta.env.VITE_FRONTEND_URL || import.meta.env.VITE_API_URL?.replace('/api', '') || window.location.origin || 'http://localhost:5173';
+      
+      // Use user._id consistently to match backend format (not urlCode)
+      const userIdentifier = user._id;
+      if (!userIdentifier) {
+        throw new Error('User ID is required to generate QR code');
+      }
+      
+      // Use currentProject directly (backend uses user.currentProject || 'default')
       const projectId = user.currentProject || 'default';
+      
+      // Construct hash-based URL matching backend format: /#/ar/user/{userId}/project/{projectId}
       const qrCodeUrl = `${frontendUrl}/#/ar/user/${userIdentifier}/project/${projectId}`;
+      
+      // Validate URL before generating QR code
+      if (!qrCodeUrl || !qrCodeUrl.startsWith('http')) {
+        throw new Error(`Invalid QR code URL: ${qrCodeUrl}`);
+      }
+      
+      console.log('🔗 Generated QR code URL for download:', qrCodeUrl);
+      console.log('📋 URL components:', { frontendUrl, userIdentifier, projectId });
       
       // Calculate QR code size needed to match the positioned sticker dimensions
       // Sticker dimensions: width = qrSize + padding*2 + borderWidth*2, height = qrSize + padding*2 + borderWidth*2 + textHeight
@@ -689,7 +734,16 @@ const UploadPage = () => {
             light: '#FFFFFF'
           }
         });
-        console.log('✅ Plain QR code generated for download:', { size: qrDataUrl.length });
+        
+        // Validate QR code data URL is valid
+        if (!qrDataUrl || !qrDataUrl.startsWith('data:image')) {
+          throw new Error('Invalid QR code data URL generated');
+        }
+        
+        console.log('✅ Plain QR code generated for download:', { 
+          size: qrDataUrl.length,
+          url: qrCodeUrl.substring(0, 100) + '...' // Log first 100 chars of URL
+        });
 
         // Generate sticker with gradient border and "SCAN ME" text
         console.log('🎨 Generating sticker with QR size:', qrCodeSize);
