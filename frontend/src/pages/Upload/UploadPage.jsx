@@ -462,21 +462,59 @@ const UploadPage = () => {
       console.log('🔗 Generated QR code URL:', qrCodeUrl);
       console.log('📋 URL components:', { frontendUrl, userIdentifier, projectId });
       
-      // Calculate QR code size needed to match the positioned sticker dimensions
+      // Calculate QR code size needed to match the positioned sticker dimensions EXACTLY
       // Sticker dimensions: width = qrSize + padding*2 + borderWidth*2, height = qrSize + padding*2 + borderWidth*2 + textHeight
-      // So: qrSize = actualQrWidth - (padding*2 + borderWidth*2) = actualQrWidth - 40
+      // To avoid scaling, we need: stickerNaturalSize = stickerDisplaySize
+      // So: qrSize = actualQrWidth - (padding*2 + borderWidth*2)
       // Minimum QR code size for reliable scanning: ~80px (allows for ~120px sticker width minimum)
       const padding = 16;
       const borderWidth = 4;
       const textHeight = 40;
       const MIN_QR_CODE_SIZE = 80; // Minimum QR code size for reliable scanning
-      const qrCodeSize = Math.max(MIN_QR_CODE_SIZE, Math.round(actualQrWidth - (padding * 2 + borderWidth * 2)));
+      const MIN_STICKER_WIDTH = MIN_QR_CODE_SIZE + padding * 2 + borderWidth * 2; // ~120px minimum
+      
+      // Calculate exact QR code size to match display width
+      // QR codes must be generated at integer pixel sizes, but we'll match sticker natural size to display size
+      const calculatedQrCodeSize = actualQrWidth - (padding * 2 + borderWidth * 2);
+      
+      // If calculated size is too small, use minimum and let sticker be slightly larger
+      let qrCodeSize;
+      let stickerDisplayWidth;
+      let stickerDisplayHeight;
+      
+      if (calculatedQrCodeSize < MIN_QR_CODE_SIZE) {
+        // Use minimum QR code size - sticker will be slightly larger than positioned size
+        qrCodeSize = MIN_QR_CODE_SIZE;
+        stickerDisplayWidth = qrCodeSize + padding * 2 + borderWidth * 2;
+        stickerDisplayHeight = qrCodeSize + padding * 2 + borderWidth * 2 + textHeight;
+        console.warn('⚠️ QR code size too small, using minimum. Sticker will be slightly larger than positioned size.');
+      } else {
+        // Round QR code size for generation (QR libraries need integers)
+        // But calculate exact sticker size to match display dimensions
+        qrCodeSize = Math.round(calculatedQrCodeSize);
+        const stickerNaturalWidth = qrCodeSize + padding * 2 + borderWidth * 2;
+        const stickerNaturalHeight = qrCodeSize + padding * 2 + borderWidth * 2 + textHeight;
+        
+        // Use sticker natural size as display size to avoid scaling
+        stickerDisplayWidth = stickerNaturalWidth;
+        stickerDisplayHeight = stickerNaturalHeight;
+        
+        // If there's a mismatch, log it for debugging
+        if (Math.abs(stickerNaturalWidth - actualQrWidth) > 1) {
+          console.warn(`⚠️ Sticker width mismatch: natural=${stickerNaturalWidth}, display=${actualQrWidth}, diff=${Math.abs(stickerNaturalWidth - actualQrWidth)}`);
+        }
+      }
+      
       console.log('🔲 Calculating QR code size to match positioned dimensions:', {
         actualQrWidth,
         actualQrHeight,
+        calculatedQrCodeSize,
         qrCodeSize,
         expectedStickerWidth: qrCodeSize + padding * 2 + borderWidth * 2,
-        expectedStickerHeight: qrCodeSize + padding * 2 + borderWidth * 2 + textHeight
+        expectedStickerHeight: qrCodeSize + padding * 2 + borderWidth * 2 + textHeight,
+        stickerDisplayWidth,
+        stickerDisplayHeight,
+        willScale: Math.abs((qrCodeSize + padding * 2 + borderWidth * 2) - stickerDisplayWidth) > 0.1
       });
       
       try {
@@ -543,11 +581,10 @@ const UploadPage = () => {
           stickerImg.src = stickerDataUrl;
         });
 
-        // Use the exact positioned dimensions (user set these during positioning)
-        const stickerDisplayWidth = actualQrWidth;
-        const stickerDisplayHeight = actualQrHeight;
+        // stickerDisplayWidth and stickerDisplayHeight are already calculated above
+        // They match the sticker natural size to avoid scaling (or are slightly larger if minimum size was used)
 
-        console.log('📐 Sticker positioning (using exact positioned dimensions):', {
+        console.log('📐 Sticker positioning (using calculated dimensions to avoid scaling):', {
           actualQrX,
           actualQrY,
           actualQrWidth,
@@ -557,7 +594,11 @@ const UploadPage = () => {
           stickerNaturalWidth: stickerImg.naturalWidth,
           stickerNaturalHeight: stickerImg.naturalHeight,
           canvasWidth: canvas.width,
-          canvasHeight: canvas.height
+          canvasHeight: canvas.height,
+          scalingRatio: {
+            width: stickerDisplayWidth / stickerImg.naturalWidth,
+            height: stickerDisplayHeight / stickerImg.naturalHeight
+          }
         });
 
         // Draw sticker at exact positioned location and size
@@ -720,21 +761,59 @@ const UploadPage = () => {
       console.log('🔗 Generated QR code URL for download:', qrCodeUrl);
       console.log('📋 URL components:', { frontendUrl, userIdentifier, projectId });
       
-      // Calculate QR code size needed to match the positioned sticker dimensions
+      // Calculate QR code size needed to match the positioned sticker dimensions EXACTLY
       // Sticker dimensions: width = qrSize + padding*2 + borderWidth*2, height = qrSize + padding*2 + borderWidth*2 + textHeight
-      // So: qrSize = actualQrWidth - (padding*2 + borderWidth*2) = actualQrWidth - 40
+      // To avoid scaling, we need: stickerNaturalSize = stickerDisplaySize
+      // So: qrSize = actualQrWidth - (padding*2 + borderWidth*2)
       // Minimum QR code size for reliable scanning: ~80px (allows for ~120px sticker width minimum)
       const padding = 16;
       const borderWidth = 4;
       const textHeight = 40;
       const MIN_QR_CODE_SIZE = 80; // Minimum QR code size for reliable scanning
-      const qrCodeSize = Math.max(MIN_QR_CODE_SIZE, Math.round(actualQrWidth - (padding * 2 + borderWidth * 2)));
+      const MIN_STICKER_WIDTH = MIN_QR_CODE_SIZE + padding * 2 + borderWidth * 2; // ~120px minimum
+      
+      // Calculate exact QR code size to match display width
+      // QR codes must be generated at integer pixel sizes, but we'll match sticker natural size to display size
+      const calculatedQrCodeSize = actualQrWidth - (padding * 2 + borderWidth * 2);
+      
+      // If calculated size is too small, use minimum and let sticker be slightly larger
+      let qrCodeSize;
+      let stickerDisplayWidth;
+      let stickerDisplayHeight;
+      
+      if (calculatedQrCodeSize < MIN_QR_CODE_SIZE) {
+        // Use minimum QR code size - sticker will be slightly larger than positioned size
+        qrCodeSize = MIN_QR_CODE_SIZE;
+        stickerDisplayWidth = qrCodeSize + padding * 2 + borderWidth * 2;
+        stickerDisplayHeight = qrCodeSize + padding * 2 + borderWidth * 2 + textHeight;
+        console.warn('⚠️ QR code size too small, using minimum. Sticker will be slightly larger than positioned size.');
+      } else {
+        // Round QR code size for generation (QR libraries need integers)
+        // But calculate exact sticker size to match display dimensions
+        qrCodeSize = Math.round(calculatedQrCodeSize);
+        const stickerNaturalWidth = qrCodeSize + padding * 2 + borderWidth * 2;
+        const stickerNaturalHeight = qrCodeSize + padding * 2 + borderWidth * 2 + textHeight;
+        
+        // Use sticker natural size as display size to avoid scaling
+        stickerDisplayWidth = stickerNaturalWidth;
+        stickerDisplayHeight = stickerNaturalHeight;
+        
+        // If there's a mismatch, log it for debugging
+        if (Math.abs(stickerNaturalWidth - actualQrWidth) > 1) {
+          console.warn(`⚠️ Sticker width mismatch: natural=${stickerNaturalWidth}, display=${actualQrWidth}, diff=${Math.abs(stickerNaturalWidth - actualQrWidth)}`);
+        }
+      }
+      
       console.log('🔲 Calculating QR code size to match positioned dimensions for download:', {
         actualQrWidth,
         actualQrHeight,
+        calculatedQrCodeSize,
         qrCodeSize,
         expectedStickerWidth: qrCodeSize + padding * 2 + borderWidth * 2,
-        expectedStickerHeight: qrCodeSize + padding * 2 + borderWidth * 2 + textHeight
+        expectedStickerHeight: qrCodeSize + padding * 2 + borderWidth * 2 + textHeight,
+        stickerDisplayWidth,
+        stickerDisplayHeight,
+        willScale: Math.abs((qrCodeSize + padding * 2 + borderWidth * 2) - stickerDisplayWidth) > 0.1
       });
       
       // Try to load and draw the QR code sticker
@@ -802,11 +881,10 @@ const UploadPage = () => {
           stickerImg.src = stickerDataUrl;
         });
 
-        // Use the exact positioned dimensions (user set these during positioning)
-        const stickerDisplayWidth = actualQrWidth;
-        const stickerDisplayHeight = actualQrHeight;
+        // stickerDisplayWidth and stickerDisplayHeight are already calculated above
+        // They match the sticker natural size to avoid scaling (or are slightly larger if minimum size was used)
 
-        console.log('📐 Sticker positioning for download (using exact positioned dimensions):', {
+        console.log('📐 Sticker positioning for download (using calculated dimensions to avoid scaling):', {
           actualQrX,
           actualQrY,
           actualQrWidth,
@@ -816,7 +894,11 @@ const UploadPage = () => {
           stickerNaturalWidth: stickerImg.naturalWidth,
           stickerNaturalHeight: stickerImg.naturalHeight,
           canvasWidth: canvas.width,
-          canvasHeight: canvas.height
+          canvasHeight: canvas.height,
+          scalingRatio: {
+            width: stickerDisplayWidth / stickerImg.naturalWidth,
+            height: stickerDisplayHeight / stickerImg.naturalHeight
+          }
         });
 
         // Draw sticker at exact positioned location and size
