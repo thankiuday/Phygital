@@ -45,23 +45,35 @@ const getFrontendUrl = () => {
   
   // If not set, try VITE_API_URL and remove /api suffix
   if (!frontendUrl && import.meta.env.VITE_API_URL) {
-    frontendUrl = import.meta.env.VITE_API_URL
-      .replace(/\/api\/?$/, '') // Remove trailing /api or /api/
-      .replace(/\/api$/, ''); // Also handle /api at end without trailing slash
+    frontendUrl = import.meta.env.VITE_API_URL;
   }
   
   // Fallback to window.location.origin
   if (!frontendUrl) {
-    frontendUrl = window.location.origin || 'http://localhost:5173';
+    frontendUrl = window.location.origin || 'https://phygital.zone';
   }
   
-  // Normalize the URL
-  // Remove trailing slashes
-  frontendUrl = frontendUrl.trim().replace(/\/+$/, '');
+  // Normalize the URL - aggressive cleaning
+  frontendUrl = frontendUrl.trim();
   
   // Fix malformed URLs like "https:/.phygital.zone" -> "https://phygital.zone"
+  // Handle various malformed protocol patterns
   frontendUrl = frontendUrl.replace(/^https:\/\./, 'https://');
   frontendUrl = frontendUrl.replace(/^http:\/\./, 'http://');
+  frontendUrl = frontendUrl.replace(/^https:\./, 'https://');
+  frontendUrl = frontendUrl.replace(/^http:\./, 'http://');
+  frontendUrl = frontendUrl.replace(/^https:\//, 'https://');
+  frontendUrl = frontendUrl.replace(/^http:\//, 'http://');
+  
+  // Remove /api from anywhere in the URL path (not just the end)
+  // Split by /api and take the first part, then clean it up
+  if (frontendUrl.includes('/api')) {
+    const parts = frontendUrl.split('/api');
+    frontendUrl = parts[0];
+  }
+  
+  // Remove trailing slashes
+  frontendUrl = frontendUrl.replace(/\/+$/, '');
   
   // Ensure URL starts with http:// or https://
   if (!frontendUrl.match(/^https?:\/\//)) {
@@ -69,8 +81,20 @@ const getFrontendUrl = () => {
     frontendUrl = `https://${frontendUrl}`;
   }
   
-  // Remove any /api that might still be in the path
+  // Final cleanup: remove any remaining /api
   frontendUrl = frontendUrl.replace(/\/api\/?$/, '');
+  
+  // Ensure we have a clean domain (remove any path after domain)
+  try {
+    const urlObj = new URL(frontendUrl);
+    frontendUrl = `${urlObj.protocol}//${urlObj.host}`;
+  } catch (e) {
+    // If URL parsing fails, try to extract domain manually
+    const match = frontendUrl.match(/^(https?:\/\/[^\/]+)/);
+    if (match) {
+      frontendUrl = match[1];
+    }
+  }
   
   return frontendUrl;
 };
