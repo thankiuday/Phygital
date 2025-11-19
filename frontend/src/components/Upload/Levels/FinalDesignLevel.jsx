@@ -17,6 +17,15 @@ const FinalDesignLevel = ({ onComplete, levelData, onStartNewJourney, forceStart
     try {
       setIsGeneratingPreview(true);
       
+      // Log levelData to verify we're using project-specific data, not root-level
+      console.log('🎯 Generate Preview - Using levelData:', {
+        hasDesign: !!levelData?.design?.url,
+        designUrl: levelData?.design?.url,
+        hasQrPosition: !!levelData?.qrPosition,
+        qrPosition: levelData?.qrPosition,
+        projectId: levelData?.projectId
+      });
+      
       // Create canvas for preview
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
@@ -25,7 +34,12 @@ const FinalDesignLevel = ({ onComplete, levelData, onStartNewJourney, forceStart
       const designImg = document.createElement('img');
       designImg.crossOrigin = 'anonymous';
       
-      const designUrl = levelData?.design?.url || user?.uploadedFiles?.design?.url;
+      // Use ONLY levelData - do not fallback to root-level user data
+      if (!levelData?.design?.url) {
+        throw new Error('Design image URL not found in level data. Please complete Level 1 first.');
+      }
+      
+      const designUrl = levelData.design.url;
       await new Promise((resolve, reject) => {
         designImg.onload = resolve;
         designImg.onerror = reject;
@@ -39,10 +53,14 @@ const FinalDesignLevel = ({ onComplete, levelData, onStartNewJourney, forceStart
       // Draw the design image
       ctx.drawImage(designImg, 0, 0);
       
-      // Get QR position from levelData or user data
+      // Get QR position from levelData ONLY - do not fallback to root-level user data
       // Note: qrPosition values are stored in pixels relative to actual image dimensions
       // (converted via screenToImageCoords which scales from displayed size to natural size)
-      const qrPos = levelData?.qrPosition || user?.qrPosition || { x: 100, y: 100, width: 100, height: 100 };
+      if (!levelData?.qrPosition) {
+        throw new Error('QR position not found in level data. Please complete Level 2 first.');
+      }
+      
+      const qrPos = levelData.qrPosition;
       console.log('📍 QR Position:', qrPos);
       console.log('🖼️ Design image dimensions:', {
         naturalWidth: designImg.naturalWidth,
@@ -99,7 +117,8 @@ const FinalDesignLevel = ({ onComplete, levelData, onStartNewJourney, forceStart
       // Generate QR code URL for the user's personalized page
       const frontendUrl = import.meta.env.VITE_FRONTEND_URL || import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5173';
       const userIdentifier = user.urlCode || user._id;
-      const projectId = levelData?.projectId || user.currentProject || 'default';
+      // Use projectId from levelData - do not fallback to root-level user.currentProject
+      const projectId = levelData?.projectId || 'default';
       const qrCodeUrl = `${frontendUrl}/#/ar/user/${userIdentifier}/project/${projectId}`;
       
       // Calculate QR code size needed to match the positioned sticker dimensions
@@ -222,6 +241,15 @@ const FinalDesignLevel = ({ onComplete, levelData, onStartNewJourney, forceStart
     try {
       setIsDownloading(true);
       
+      // Log levelData to verify we're using project-specific data, not root-level
+      console.log('🎯 Download Final Design - Using levelData:', {
+        hasDesign: !!levelData?.design?.url,
+        designUrl: levelData?.design?.url,
+        hasQrPosition: !!levelData?.qrPosition,
+        qrPosition: levelData?.qrPosition,
+        projectId: levelData?.projectId
+      });
+      
       // Create a fresh composite image with sticker design
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
@@ -230,7 +258,12 @@ const FinalDesignLevel = ({ onComplete, levelData, onStartNewJourney, forceStart
       const designImg = document.createElement('img');
       designImg.crossOrigin = 'anonymous';
       
-      const designUrl = levelData?.design?.url || user?.uploadedFiles?.design?.url;
+      // Use ONLY levelData - do not fallback to root-level user data
+      if (!levelData?.design?.url) {
+        throw new Error('Design image URL not found in level data. Please complete Level 1 first.');
+      }
+      
+      const designUrl = levelData.design.url;
       await new Promise((resolve, reject) => {
         designImg.onload = resolve;
         designImg.onerror = reject;
@@ -244,10 +277,14 @@ const FinalDesignLevel = ({ onComplete, levelData, onStartNewJourney, forceStart
       // Draw the design image
       ctx.drawImage(designImg, 0, 0);
       
-      // Get QR position from levelData or user data
+      // Get QR position from levelData ONLY - do not fallback to root-level user data
       // Note: qrPosition values are stored in pixels relative to actual image dimensions
       // (converted via screenToImageCoords which scales from displayed size to natural size)
-      const qrPos = levelData?.qrPosition || user?.qrPosition || { x: 100, y: 100, width: 100, height: 100 };
+      if (!levelData?.qrPosition) {
+        throw new Error('QR position not found in level data. Please complete Level 2 first.');
+      }
+      
+      const qrPos = levelData.qrPosition;
       console.log('📍 QR Position for download:', qrPos);
       console.log('🖼️ Design image dimensions:', {
         naturalWidth: designImg.naturalWidth,
@@ -304,7 +341,8 @@ const FinalDesignLevel = ({ onComplete, levelData, onStartNewJourney, forceStart
       // Generate QR code URL for the user's personalized page
       const frontendUrl = import.meta.env.VITE_FRONTEND_URL || import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5173';
       const userIdentifier = user.urlCode || user._id;
-      const projectId = levelData?.projectId || user.currentProject || 'default';
+      // Use projectId from levelData - do not fallback to root-level user.currentProject
+      const projectId = levelData?.projectId || 'default';
       const qrCodeUrl = `${frontendUrl}/#/ar/user/${userIdentifier}/project/${projectId}`;
       
       // Calculate QR code size needed to match the positioned sticker dimensions
@@ -437,12 +475,13 @@ const FinalDesignLevel = ({ onComplete, levelData, onStartNewJourney, forceStart
     }
   };
 
-  // Check if all prerequisites are met - use levelData instead of user (for project-based storage)
-  const hasDesign = levelData?.design?.url || user?.uploadedFiles?.design?.url;
-  const hasQRPosition = levelData?.qrPosition || user?.qrPosition;
+  // Check if all prerequisites are met - use ONLY levelData (for project-based storage)
+  // Do not fallback to root-level user data
+  const hasDesign = !!levelData?.design?.url;
+  const hasQRPosition = !!levelData?.qrPosition;
   const hasSocialLinks = levelData?.socialLinks 
     ? Object.values(levelData.socialLinks).some(link => link) 
-    : (user?.socialLinks && Object.values(user.socialLinks).some(link => link));
+    : false;
   
   console.log('🎯 FinalDesignLevel - Prerequisites check:', {
     hasDesign: !!hasDesign,

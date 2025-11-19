@@ -20,7 +20,8 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
     qrPosition: null,
     video: null,
     socialLinks: {},
-    finalDesign: null
+    finalDesign: null,
+    projectId: null
   });
   const [isAnimating, setIsAnimating] = useState(false);
   const [isLevelTransitioning, setIsLevelTransitioning] = useState(false);
@@ -314,7 +315,8 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
       design: null,
       qrPosition: null,
       socialLinks: {},
-      finalDesign: null
+      finalDesign: null,
+      projectId: null
     });
     
     // Call the onReset callback if provided
@@ -380,7 +382,8 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
         qrPosition: projectData.qrPosition,
         video: projectData.video,
         socialLinks: projectData.socialLinks,
-        finalDesign: null // This will be set when final design is generated
+        finalDesign: null, // This will be set when final design is generated
+        projectId: currentProject?.id || null
       };
       
       setLevelData(existingData);
@@ -527,7 +530,10 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
         return (
           <FinalDesignLevel 
             onComplete={(finalDesign) => completeCurrentLevel({ finalDesign })}
-            levelData={levelData}
+            levelData={{
+              ...levelData,
+              projectId: currentProject?.id || levelData?.projectId || null
+            }}
             forceStartFromLevel1={forceStartFromLevel1}
             onStartNewJourney={() => {
               console.log('Starting new journey - resetting to level 1');
