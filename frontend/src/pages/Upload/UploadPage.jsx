@@ -360,9 +360,10 @@ const UploadPage = () => {
           try {
             setIsGeneratingPreview(true)
             
-            // Create canvas for preview
+            // Create canvas for preview with device pixel ratio for crisp rendering
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
             
             // Load the original design image
             const designImg = document.createElement('img');
@@ -374,12 +375,17 @@ const UploadPage = () => {
               designImg.src = user.uploadedFiles.design.url;
             });
             
-            // Set canvas to image dimensions
-            canvas.width = designImg.naturalWidth;
-            canvas.height = designImg.naturalHeight;
+            // Set canvas to image dimensions with device pixel ratio
+            canvas.width = designImg.naturalWidth * dpr;
+            canvas.height = designImg.naturalHeight * dpr;
+            canvas.style.width = `${designImg.naturalWidth}px`;
+            canvas.style.height = `${designImg.naturalHeight}px`;
+            
+            // Scale context to match device pixel ratio
+            ctx.scale(dpr, dpr);
             
             // Draw the design image
-            ctx.drawImage(designImg, 0, 0);
+            ctx.drawImage(designImg, 0, 0, designImg.naturalWidth, designImg.naturalHeight);
             
             // Get QR position from user data
             const qrPos = user.qrPosition || { x: 100, y: 100, width: 100, height: 100 };
@@ -466,12 +472,13 @@ const UploadPage = () => {
       // Sticker dimensions: width = qrSize + padding*2 + borderWidth*2, height = qrSize + padding*2 + borderWidth*2 + textHeight
       // To avoid scaling, we need: stickerNaturalSize = stickerDisplaySize
       // So: qrSize = actualQrWidth - (padding*2 + borderWidth*2)
-      // Minimum QR code size for reliable scanning: ~80px (allows for ~120px sticker width minimum)
+      // Minimum QR code size for reliable scanning: 200px (increased from 80px for better scannability)
       const padding = 16;
       const borderWidth = 4;
       const textHeight = 40;
-      const MIN_QR_CODE_SIZE = 80; // Minimum QR code size for reliable scanning
-      const MIN_STICKER_WIDTH = MIN_QR_CODE_SIZE + padding * 2 + borderWidth * 2; // ~120px minimum
+      const MIN_QR_CODE_SIZE = 200; // Minimum QR code size for reliable scanning (increased for better quality)
+      const MIN_STICKER_WIDTH = MIN_QR_CODE_SIZE + padding * 2 + borderWidth * 2; // ~240px minimum
+      const QR_RESOLUTION_MULTIPLIER = 2; // Generate at 2x resolution for better quality
       
       // Calculate exact QR code size to match display width
       // QR codes must be generated at integer pixel sizes, but we'll match sticker natural size to display size
@@ -505,11 +512,16 @@ const UploadPage = () => {
         }
       }
       
+      // Generate QR code at 2x resolution for better quality, then scale down
+      const qrCodeGenerationSize = qrCodeSize * QR_RESOLUTION_MULTIPLIER;
+      
       console.log('🔲 Calculating QR code size to match positioned dimensions:', {
         actualQrWidth,
         actualQrHeight,
         calculatedQrCodeSize,
         qrCodeSize,
+        qrCodeGenerationSize,
+        resolutionMultiplier: QR_RESOLUTION_MULTIPLIER,
         expectedStickerWidth: qrCodeSize + padding * 2 + borderWidth * 2,
         expectedStickerHeight: qrCodeSize + padding * 2 + borderWidth * 2 + textHeight,
         stickerDisplayWidth,
@@ -518,9 +530,19 @@ const UploadPage = () => {
       });
       
       try {
-        // Generate plain QR code directly on frontend (no watermark)
+        // Validate URL before generating QR code
+        if (!qrCodeUrl || typeof qrCodeUrl !== 'string') {
+          throw new Error(`Invalid QR code URL: ${qrCodeUrl}`);
+        }
+        if (!qrCodeUrl.startsWith('http://') && !qrCodeUrl.startsWith('https://')) {
+          throw new Error(`QR code URL must start with http:// or https://: ${qrCodeUrl}`);
+        }
+        console.log('🔗 Full QR code URL to encode:', qrCodeUrl);
+        console.log('🔗 URL length:', qrCodeUrl.length);
+        
+        // Generate plain QR code at 2x resolution for better quality
         const qrDataUrl = await generateQRCode(qrCodeUrl, {
-          size: qrCodeSize,
+          size: qrCodeGenerationSize,
           margin: 2,
           color: {
             dark: '#000000',
@@ -535,16 +557,20 @@ const UploadPage = () => {
         
         console.log('✅ Plain QR code generated:', { 
           size: qrDataUrl.length,
+          generationSize: qrCodeGenerationSize,
+          targetSize: qrCodeSize,
           url: qrCodeUrl.substring(0, 100) + '...' // Log first 100 chars of URL
         });
 
         // Generate sticker with gradient border and "SCAN ME" text
-        console.log('🎨 Generating sticker with QR size:', qrCodeSize);
+        // Pass the target display size (1x) - sticker generator will scale down from 2x QR code
+        console.log('🎨 Generating sticker with QR size:', qrCodeSize, '(QR generated at', qrCodeGenerationSize, 'px, will be scaled down)');
         let stickerDataUrl;
         try {
           stickerDataUrl = await generateQRSticker(qrDataUrl, {
             variant: 'purple',
-            qrSize: qrCodeSize,
+            qrSize: qrCodeSize, // Target display size (sticker will scale down from 2x QR)
+            qrSourceSize: qrCodeGenerationSize, // Actual QR code size (2x resolution)
             borderWidth: 4,
             padding: 16
           });
@@ -601,37 +627,44 @@ const UploadPage = () => {
           }
         });
 
-        // Draw sticker at exact positioned location and size
-        const stickerX = Math.max(0, Math.min(actualQrX, canvas.width - stickerDisplayWidth));
-        const stickerY = Math.max(0, Math.min(actualQrY, canvas.height - stickerDisplayHeight));
+        // Draw sticker at exact positioned location and size using integer pixel coordinates
+        // Note: Since context is scaled by dpr, coordinates are in original image space
+        const stickerX = Math.max(0, Math.min(Math.round(actualQrX), designImg.naturalWidth - Math.round(stickerDisplayWidth)));
+        const stickerY = Math.max(0, Math.min(Math.round(actualQrY), designImg.naturalHeight - Math.round(stickerDisplayHeight)));
+        const stickerWidth = Math.round(stickerDisplayWidth);
+        const stickerHeight = Math.round(stickerDisplayHeight);
 
         // Draw sticker on the composite using exact positioned dimensions
         // Disable image smoothing to preserve QR code sharpness and scannability
         ctx.imageSmoothingEnabled = false;
         ctx.imageSmoothingQuality = 'high';
-        console.log('🎨 Drawing sticker on canvas with exact positioned dimensions...');
+        console.log('🎨 Drawing sticker on canvas with exact positioned dimensions (integer pixels)...');
         console.log('🔧 Canvas rendering settings:', {
+          devicePixelRatio: dpr,
           imageSmoothingEnabled: ctx.imageSmoothingEnabled,
           stickerNaturalSize: { width: stickerImg.naturalWidth, height: stickerImg.naturalHeight },
-          stickerDisplaySize: { width: stickerDisplayWidth, height: stickerDisplayHeight },
+          stickerDisplaySize: { width: stickerWidth, height: stickerHeight },
+          stickerPosition: { x: stickerX, y: stickerY },
           scalingRatio: {
-            width: stickerDisplayWidth / stickerImg.naturalWidth,
-            height: stickerDisplayHeight / stickerImg.naturalHeight
+            width: stickerWidth / stickerImg.naturalWidth,
+            height: stickerHeight / stickerImg.naturalHeight
           }
         });
-        ctx.drawImage(stickerImg, stickerX, stickerY, stickerDisplayWidth, stickerDisplayHeight);
+        ctx.drawImage(stickerImg, stickerX, stickerY, stickerWidth, stickerHeight);
         // Re-enable image smoothing for other operations if needed
         ctx.imageSmoothingEnabled = true;
-        console.log('✅ Sticker drawn at:', { x: stickerX, y: stickerY, width: stickerDisplayWidth, height: stickerDisplayHeight });
+        console.log('✅ Sticker drawn at:', { x: stickerX, y: stickerY, width: stickerWidth, height: stickerHeight });
 
-        // Verify sticker was drawn by checking a pixel
-        const testX = Math.floor(stickerX + stickerDisplayWidth / 2);
-        const testY = Math.floor(stickerY + stickerDisplayHeight / 2);
+        // Verify sticker was drawn by checking a pixel (coordinates in logical space, need to scale for getImageData)
+        const testX = Math.floor((stickerX + stickerWidth / 2) * dpr);
+        const testY = Math.floor((stickerY + stickerHeight / 2) * dpr);
         if (testX >= 0 && testX < canvas.width && testY >= 0 && testY < canvas.height) {
           const imageData = ctx.getImageData(testX, testY, 1, 1);
           console.log('🔍 Pixel check at sticker center:', { 
-            x: testX, 
-            y: testY, 
+            logicalX: stickerX + stickerWidth / 2,
+            logicalY: stickerY + stickerHeight / 2,
+            pixelX: testX, 
+            pixelY: testY, 
             rgba: Array.from(imageData.data) 
           });
         }
@@ -660,8 +693,10 @@ const UploadPage = () => {
             setIsDownloading(true)
             
             // Create a fresh composite image with sticker design
+            // Create canvas for download with device pixel ratio for crisp rendering
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
             
             // Load the original design image
             const designImg = document.createElement('img');
@@ -673,12 +708,17 @@ const UploadPage = () => {
               designImg.src = user.uploadedFiles.design.url;
             });
             
-            // Set canvas to image dimensions
-            canvas.width = designImg.naturalWidth;
-            canvas.height = designImg.naturalHeight;
+            // Set canvas to image dimensions with device pixel ratio
+            canvas.width = designImg.naturalWidth * dpr;
+            canvas.height = designImg.naturalHeight * dpr;
+            canvas.style.width = `${designImg.naturalWidth}px`;
+            canvas.style.height = `${designImg.naturalHeight}px`;
+            
+            // Scale context to match device pixel ratio
+            ctx.scale(dpr, dpr);
             
             // Draw the design image
-            ctx.drawImage(designImg, 0, 0);
+            ctx.drawImage(designImg, 0, 0, designImg.naturalWidth, designImg.naturalHeight);
             
             // Get QR position from user data
             const qrPos = user.qrPosition || { x: 100, y: 100, width: 100, height: 100 };
@@ -765,12 +805,13 @@ const UploadPage = () => {
       // Sticker dimensions: width = qrSize + padding*2 + borderWidth*2, height = qrSize + padding*2 + borderWidth*2 + textHeight
       // To avoid scaling, we need: stickerNaturalSize = stickerDisplaySize
       // So: qrSize = actualQrWidth - (padding*2 + borderWidth*2)
-      // Minimum QR code size for reliable scanning: ~80px (allows for ~120px sticker width minimum)
+      // Minimum QR code size for reliable scanning: 200px (increased from 80px for better scannability)
       const padding = 16;
       const borderWidth = 4;
       const textHeight = 40;
-      const MIN_QR_CODE_SIZE = 80; // Minimum QR code size for reliable scanning
-      const MIN_STICKER_WIDTH = MIN_QR_CODE_SIZE + padding * 2 + borderWidth * 2; // ~120px minimum
+      const MIN_QR_CODE_SIZE = 200; // Minimum QR code size for reliable scanning (increased for better quality)
+      const MIN_STICKER_WIDTH = MIN_QR_CODE_SIZE + padding * 2 + borderWidth * 2; // ~240px minimum
+      const QR_RESOLUTION_MULTIPLIER = 2; // Generate at 2x resolution for better quality
       
       // Calculate exact QR code size to match display width
       // QR codes must be generated at integer pixel sizes, but we'll match sticker natural size to display size
@@ -804,11 +845,16 @@ const UploadPage = () => {
         }
       }
       
+      // Generate QR code at 2x resolution for better quality, then scale down
+      const qrCodeGenerationSize = qrCodeSize * QR_RESOLUTION_MULTIPLIER;
+      
       console.log('🔲 Calculating QR code size to match positioned dimensions for download:', {
         actualQrWidth,
         actualQrHeight,
         calculatedQrCodeSize,
         qrCodeSize,
+        qrCodeGenerationSize,
+        resolutionMultiplier: QR_RESOLUTION_MULTIPLIER,
         expectedStickerWidth: qrCodeSize + padding * 2 + borderWidth * 2,
         expectedStickerHeight: qrCodeSize + padding * 2 + borderWidth * 2 + textHeight,
         stickerDisplayWidth,
@@ -818,9 +864,19 @@ const UploadPage = () => {
       
       // Try to load and draw the QR code sticker
       try {
-        // Generate plain QR code directly on frontend (no watermark)
+        // Validate URL before generating QR code
+        if (!qrCodeUrl || typeof qrCodeUrl !== 'string') {
+          throw new Error(`Invalid QR code URL: ${qrCodeUrl}`);
+        }
+        if (!qrCodeUrl.startsWith('http://') && !qrCodeUrl.startsWith('https://')) {
+          throw new Error(`QR code URL must start with http:// or https://: ${qrCodeUrl}`);
+        }
+        console.log('🔗 Full QR code URL to encode for download:', qrCodeUrl);
+        console.log('🔗 URL length:', qrCodeUrl.length);
+        
+        // Generate plain QR code at 2x resolution for better quality
         const qrDataUrl = await generateQRCode(qrCodeUrl, {
-          size: qrCodeSize,
+          size: qrCodeGenerationSize,
           margin: 2,
           color: {
             dark: '#000000',
@@ -835,16 +891,20 @@ const UploadPage = () => {
         
         console.log('✅ Plain QR code generated for download:', { 
           size: qrDataUrl.length,
+          generationSize: qrCodeGenerationSize,
+          targetSize: qrCodeSize,
           url: qrCodeUrl.substring(0, 100) + '...' // Log first 100 chars of URL
         });
 
         // Generate sticker with gradient border and "SCAN ME" text
-        console.log('🎨 Generating sticker with QR size:', qrCodeSize);
+        // Pass the target display size (1x) - sticker generator will scale down from 2x QR code
+        console.log('🎨 Generating sticker with QR size:', qrCodeSize, '(QR generated at', qrCodeGenerationSize, 'px, will be scaled down)');
         let stickerDataUrl;
         try {
           stickerDataUrl = await generateQRSticker(qrDataUrl, {
             variant: 'purple',
-            qrSize: qrCodeSize,
+            qrSize: qrCodeSize, // Target display size (sticker will scale down from 2x QR)
+            qrSourceSize: qrCodeGenerationSize, // Actual QR code size (2x resolution)
             borderWidth: 4,
             padding: 16
           });
@@ -901,37 +961,44 @@ const UploadPage = () => {
           }
         });
 
-        // Draw sticker at exact positioned location and size
-        const stickerX = Math.max(0, Math.min(actualQrX, canvas.width - stickerDisplayWidth));
-        const stickerY = Math.max(0, Math.min(actualQrY, canvas.height - stickerDisplayHeight));
+        // Draw sticker at exact positioned location and size using integer pixel coordinates
+        // Note: Since context is scaled by dpr, coordinates are in original image space
+        const stickerX = Math.max(0, Math.min(Math.round(actualQrX), designImg.naturalWidth - Math.round(stickerDisplayWidth)));
+        const stickerY = Math.max(0, Math.min(Math.round(actualQrY), designImg.naturalHeight - Math.round(stickerDisplayHeight)));
+        const stickerWidth = Math.round(stickerDisplayWidth);
+        const stickerHeight = Math.round(stickerDisplayHeight);
 
         // Draw sticker on the composite using exact positioned dimensions
         // Disable image smoothing to preserve QR code sharpness and scannability
         ctx.imageSmoothingEnabled = false;
         ctx.imageSmoothingQuality = 'high';
-        console.log('🎨 Drawing sticker on canvas for download with exact positioned dimensions...');
+        console.log('🎨 Drawing sticker on canvas for download with exact positioned dimensions (integer pixels)...');
         console.log('🔧 Canvas rendering settings:', {
+          devicePixelRatio: dpr,
           imageSmoothingEnabled: ctx.imageSmoothingEnabled,
           stickerNaturalSize: { width: stickerImg.naturalWidth, height: stickerImg.naturalHeight },
-          stickerDisplaySize: { width: stickerDisplayWidth, height: stickerDisplayHeight },
+          stickerDisplaySize: { width: stickerWidth, height: stickerHeight },
+          stickerPosition: { x: stickerX, y: stickerY },
           scalingRatio: {
-            width: stickerDisplayWidth / stickerImg.naturalWidth,
-            height: stickerDisplayHeight / stickerImg.naturalHeight
+            width: stickerWidth / stickerImg.naturalWidth,
+            height: stickerHeight / stickerImg.naturalHeight
           }
         });
-        ctx.drawImage(stickerImg, stickerX, stickerY, stickerDisplayWidth, stickerDisplayHeight);
+        ctx.drawImage(stickerImg, stickerX, stickerY, stickerWidth, stickerHeight);
         // Re-enable image smoothing for other operations if needed
         ctx.imageSmoothingEnabled = true;
-        console.log('✅ Sticker drawn for download at:', { x: stickerX, y: stickerY, width: stickerDisplayWidth, height: stickerDisplayHeight });
+        console.log('✅ Sticker drawn for download at:', { x: stickerX, y: stickerY, width: stickerWidth, height: stickerHeight });
 
-        // Verify sticker was drawn by checking a pixel
-        const testX = Math.floor(stickerX + stickerDisplayWidth / 2);
-        const testY = Math.floor(stickerY + stickerDisplayHeight / 2);
+        // Verify sticker was drawn by checking a pixel (coordinates in logical space, need to scale for getImageData)
+        const testX = Math.floor((stickerX + stickerWidth / 2) * dpr);
+        const testY = Math.floor((stickerY + stickerHeight / 2) * dpr);
         if (testX >= 0 && testX < canvas.width && testY >= 0 && testY < canvas.height) {
           const imageData = ctx.getImageData(testX, testY, 1, 1);
           console.log('🔍 Pixel check at sticker center:', { 
-            x: testX, 
-            y: testY, 
+            logicalX: stickerX + stickerWidth / 2,
+            logicalY: stickerY + stickerHeight / 2,
+            pixelX: testX, 
+            pixelY: testY, 
             rgba: Array.from(imageData.data) 
           });
         }

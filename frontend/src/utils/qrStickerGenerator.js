@@ -8,7 +8,8 @@
  * @param {string} qrCodeDataUrl - Data URL of the QR code
  * @param {Object} options - Generation options
  * @param {string} options.variant - Gradient variant: 'green-blue', 'blue', 'yellow-orange', 'orange-pink', 'purple'
- * @param {number} options.qrSize - QR code size in pixels (default: 300)
+ * @param {number} options.qrSize - Target QR code display size in pixels (default: 300)
+ * @param {number} options.qrSourceSize - Actual QR code source size in pixels (for scaling down high-res QR codes, default: same as qrSize)
  * @param {number} options.borderWidth - Border width in pixels (default: 4)
  * @param {number} options.padding - Padding around QR code in pixels (default: 16)
  * @returns {Promise<string>} Data URL of the generated sticker
@@ -18,9 +19,13 @@ export const generateQRSticker = async (qrCodeDataUrl, options = {}) => {
     const {
       variant = 'purple',
       qrSize = 300,
+      qrSourceSize = null, // If provided, QR code will be scaled down from this size to qrSize
       borderWidth = 4,
       padding = 16
     } = options;
+    
+    // Use qrSourceSize if provided, otherwise use qrSize (no scaling)
+    const actualQrSourceSize = qrSourceSize || qrSize;
 
     // Gradient color variants
     const gradients = {
@@ -73,12 +78,22 @@ export const generateQRSticker = async (qrCodeDataUrl, options = {}) => {
     });
 
     // Calculate dimensions
-    const qrActualSize = qrSize;
+    // qrSize is the target display size, actualQrSourceSize is the source QR code size
+    const qrActualSize = qrSize; // Target display size
     const totalPadding = padding * 2;
     const totalBorder = borderWidth * 2;
     const textHeight = 40; // Space for "SCAN ME" text inside border
     const stickerWidth = qrActualSize + totalPadding + totalBorder;
     const stickerHeight = qrActualSize + totalPadding + totalBorder + textHeight; // Height includes text inside
+    
+    console.log('📐 Sticker dimensions calculated:', {
+      qrSize,
+      qrSourceSize: actualQrSourceSize,
+      qrActualSize,
+      stickerWidth,
+      stickerHeight,
+      willScale: actualQrSourceSize !== qrSize
+    });
 
     // Create canvas
     const canvas = document.createElement('canvas');
@@ -139,11 +154,30 @@ export const generateQRSticker = async (qrCodeDataUrl, options = {}) => {
     drawRoundedRect(whiteBgX, whiteBgY, whiteBgWidth, whiteBgHeight, whiteRadius);
     ctx.fill();
 
-    // Draw QR code
+    // Draw QR code - scale down from source size to target size if needed
     const qrX = borderWidth + padding;
     const qrY = borderWidth + padding;
-    console.log('🎨 Drawing QR code in sticker:', { qrX, qrY, qrActualSize });
+    
+    // Disable image smoothing when scaling down for crisp QR code rendering
+    ctx.imageSmoothingEnabled = false;
+    ctx.imageSmoothingQuality = 'high';
+    
+    console.log('🎨 Drawing QR code in sticker:', { 
+      qrX, 
+      qrY, 
+      qrActualSize,
+      qrSourceSize: actualQrSourceSize,
+      qrImageNaturalWidth: qrImage.naturalWidth,
+      qrImageNaturalHeight: qrImage.naturalHeight,
+      scalingRatio: qrActualSize / actualQrSourceSize
+    });
+    
+    // Draw QR code scaled from source size to target size
     ctx.drawImage(qrImage, qrX, qrY, qrActualSize, qrActualSize);
+    
+    // Re-enable image smoothing for text rendering
+    ctx.imageSmoothingEnabled = true;
+    
     console.log('✅ QR code drawn');
 
     // Draw "SCAN ME" text inside border, below QR code
