@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { uploadAPI, generateQRCode, downloadFile } from '../../../utils/api';
 import { generateQRSticker } from '../../../utils/qrStickerGenerator';
+import { constructQRCodeUrl } from '../../../utils/urlHelpers';
 import { Sparkles, CheckCircle, AlertCircle, Download, Eye, Trophy } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -115,11 +116,14 @@ const FinalDesignLevel = ({ onComplete, levelData, onStartNewJourney, forceStart
       });
       
       // Generate QR code URL for the user's personalized page
-      const frontendUrl = import.meta.env.VITE_FRONTEND_URL || import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5173';
-      const userIdentifier = user.urlCode || user._id;
+      // Use user._id exclusively (not urlCode) to match backend format
+      if (!user?._id || typeof user._id !== 'string') {
+        throw new Error('User ID is required. Please ensure you are logged in.');
+      }
       // Use projectId from levelData - do not fallback to root-level user.currentProject
       const projectId = levelData?.projectId || 'default';
-      const qrCodeUrl = `${frontendUrl}/#/ar/user/${userIdentifier}/project/${projectId}`;
+      const qrCodeUrl = constructQRCodeUrl(user._id, projectId);
+      console.log('🔗 Generated QR code URL:', qrCodeUrl);
       
       // Calculate QR code size needed to match the positioned sticker dimensions
       // Sticker dimensions: width = qrSize + padding*2 + borderWidth*2, height = qrSize + padding*2 + borderWidth*2 + textHeight
@@ -339,11 +343,14 @@ const FinalDesignLevel = ({ onComplete, levelData, onStartNewJourney, forceStart
       });
       
       // Generate QR code URL for the user's personalized page
-      const frontendUrl = import.meta.env.VITE_FRONTEND_URL || import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5173';
-      const userIdentifier = user.urlCode || user._id;
+      // Use user._id exclusively (not urlCode) to match backend format
+      if (!user?._id || typeof user._id !== 'string') {
+        throw new Error('User ID is required. Please ensure you are logged in.');
+      }
       // Use projectId from levelData - do not fallback to root-level user.currentProject
       const projectId = levelData?.projectId || 'default';
-      const qrCodeUrl = `${frontendUrl}/#/ar/user/${userIdentifier}/project/${projectId}`;
+      const qrCodeUrl = constructQRCodeUrl(user._id, projectId);
+      console.log('🔗 Generated QR code URL for download:', qrCodeUrl);
       
       // Calculate QR code size needed to match the positioned sticker dimensions
       // Sticker dimensions: width = qrSize + padding*2 + borderWidth*2, height = qrSize + padding*2 + borderWidth*2 + textHeight
