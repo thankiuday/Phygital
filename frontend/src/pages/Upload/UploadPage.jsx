@@ -438,11 +438,13 @@ const UploadPage = () => {
         displayHeight
       });
       
-      // Generate QR code URL for the user's personalized page
+      // Generate QR code URL for the user's personalized page (hash-based routing for AR experience)
       const frontendUrl = import.meta.env.VITE_FRONTEND_URL || import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5173';
-      const userIdentifier = user.urlCode || user._id;
+      // Use _id for consistency with backend (backend uses _id in hash-based URLs)
+      const userIdentifier = user._id;
       const projectId = user.currentProject || 'default';
       const qrCodeUrl = `${frontendUrl}/#/ar/user/${userIdentifier}/project/${projectId}`;
+      console.log('🔗 Frontend QR URL (preview):', qrCodeUrl);
       
       // Calculate QR code size needed to match the positioned sticker dimensions
       // Sticker dimensions: width = qrSize + padding*2 + borderWidth*2, height = qrSize + padding*2 + borderWidth*2 + textHeight
@@ -655,11 +657,13 @@ const UploadPage = () => {
         displayHeight
       });
       
-      // Generate QR code URL for the user's personalized page
+      // Generate QR code URL for the user's personalized page (hash-based routing for AR experience)
       const frontendUrl = import.meta.env.VITE_FRONTEND_URL || import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5173';
-      const userIdentifier = user.urlCode || user._id;
+      // Use _id for consistency with backend (backend uses _id in hash-based URLs)
+      const userIdentifier = user._id;
       const projectId = user.currentProject || 'default';
       const qrCodeUrl = `${frontendUrl}/#/ar/user/${userIdentifier}/project/${projectId}`;
+      console.log('🔗 Frontend QR URL (preview):', qrCodeUrl);
       
       // Calculate QR code size needed to match the positioned sticker dimensions
       // Sticker dimensions: width = qrSize + padding*2 + borderWidth*2, height = qrSize + padding*2 + borderWidth*2 + textHeight
