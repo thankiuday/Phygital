@@ -9,17 +9,47 @@
  * @returns {string} Normalized frontend URL (e.g., "https://phygital.zone")
  */
 export const getFrontendUrl = () => {
+  const DEFAULT_URL = 'https://phygital.zone';
+  
   // Try VITE_FRONTEND_URL first
   let frontendUrl = import.meta.env.VITE_FRONTEND_URL;
   
-  // If not set, try VITE_API_URL and remove /api suffix
-  if (!frontendUrl && import.meta.env.VITE_API_URL) {
-    frontendUrl = import.meta.env.VITE_API_URL;
+  // Validate VITE_FRONTEND_URL - must contain a domain, not just "https" or protocol
+  if (frontendUrl) {
+    frontendUrl = frontendUrl.trim();
+    // Reject if it's just a protocol or doesn't contain a valid domain
+    if (frontendUrl === 'https' || frontendUrl === 'http' || 
+        frontendUrl === 'https://' || frontendUrl === 'http://' ||
+        !frontendUrl.includes('.') || frontendUrl.length < 10) {
+      console.warn('⚠️ Invalid VITE_FRONTEND_URL detected:', frontendUrl, '- using fallback');
+      frontendUrl = null;
+    }
   }
   
-  // Fallback to window.location.origin
+  // If not set or invalid, try VITE_API_URL and remove /api suffix
+  if (!frontendUrl && import.meta.env.VITE_API_URL) {
+    frontendUrl = import.meta.env.VITE_API_URL.trim();
+    // Validate VITE_API_URL as well
+    if (frontendUrl === 'https' || frontendUrl === 'http' || 
+        frontendUrl === 'https://' || frontendUrl === 'http://' ||
+        !frontendUrl.includes('.') || frontendUrl.length < 10) {
+      console.warn('⚠️ Invalid VITE_API_URL detected:', frontendUrl, '- using fallback');
+      frontendUrl = null;
+    }
+  }
+  
+  // Fallback to window.location.origin if available and valid
+  if (!frontendUrl && typeof window !== 'undefined' && window.location) {
+    const origin = window.location.origin;
+    if (origin && origin !== 'null' && origin.includes('.')) {
+      frontendUrl = origin;
+    }
+  }
+  
+  // Final fallback to default
   if (!frontendUrl) {
-    frontendUrl = window.location.origin || 'https://phygital.zone';
+    console.warn('⚠️ No valid frontend URL found in environment variables, using default:', DEFAULT_URL);
+    return DEFAULT_URL;
   }
   
   // Normalize the URL - aggressive cleaning
@@ -56,13 +86,27 @@ export const getFrontendUrl = () => {
   // Ensure we have a clean domain (remove any path after domain)
   try {
     const urlObj = new URL(frontendUrl);
+    // Validate that host is not empty and contains a domain
+    if (!urlObj.host || !urlObj.host.includes('.')) {
+      throw new Error('Invalid host in URL');
+    }
     frontendUrl = `${urlObj.protocol}//${urlObj.host}`;
   } catch (e) {
     // If URL parsing fails, try to extract domain manually
-    const match = frontendUrl.match(/^(https?:\/\/[^\/]+)/);
-    if (match) {
+    const match = frontendUrl.match(/^(https?:\/\/[^\/\s]+)/);
+    if (match && match[1].includes('.')) {
       frontendUrl = match[1];
+    } else {
+      // If all else fails, use default
+      console.warn('⚠️ Failed to parse frontend URL:', frontendUrl, '- using default:', DEFAULT_URL);
+      return DEFAULT_URL;
     }
+  }
+  
+  // Final validation: ensure we have a valid domain
+  if (!frontendUrl || !frontendUrl.includes('.') || frontendUrl.length < 10) {
+    console.warn('⚠️ Final URL validation failed:', frontendUrl, '- using default:', DEFAULT_URL);
+    return DEFAULT_URL;
   }
   
   return frontendUrl;
