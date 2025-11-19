@@ -34,6 +34,93 @@ import { getUserFriendlyError, getFileError } from '../../utils/userFriendlyErro
 const MIN_STICKER_WIDTH = 120
 const MIN_STICKER_HEIGHT = 160
 
+/**
+ * Normalize and construct frontend URL from environment variables
+ * Handles various URL formats and ensures valid URL is returned
+ * @returns {string} Normalized frontend URL
+ */
+const getFrontendUrl = () => {
+  // Try VITE_FRONTEND_URL first
+  let frontendUrl = import.meta.env.VITE_FRONTEND_URL;
+  
+  // If not set, try VITE_API_URL and remove /api suffix
+  if (!frontendUrl && import.meta.env.VITE_API_URL) {
+    frontendUrl = import.meta.env.VITE_API_URL
+      .replace(/\/api\/?$/, '') // Remove trailing /api or /api/
+      .replace(/\/api$/, ''); // Also handle /api at end without trailing slash
+  }
+  
+  // Fallback to window.location.origin
+  if (!frontendUrl) {
+    frontendUrl = window.location.origin || 'http://localhost:5173';
+  }
+  
+  // Normalize the URL
+  // Remove trailing slashes
+  frontendUrl = frontendUrl.trim().replace(/\/+$/, '');
+  
+  // Fix malformed URLs like "https:/.phygital.zone" -> "https://phygital.zone"
+  frontendUrl = frontendUrl.replace(/^https:\/\./, 'https://');
+  frontendUrl = frontendUrl.replace(/^http:\/\./, 'http://');
+  
+  // Ensure URL starts with http:// or https://
+  if (!frontendUrl.match(/^https?:\/\//)) {
+    // If it doesn't start with protocol, add https://
+    frontendUrl = `https://${frontendUrl}`;
+  }
+  
+  // Remove any /api that might still be in the path
+  frontendUrl = frontendUrl.replace(/\/api\/?$/, '');
+  
+  return frontendUrl;
+};
+
+/**
+ * Validate and construct QR code URL
+ * @param {string} userId - User ID (must be user._id, not urlCode)
+ * @param {string} projectId - Project ID
+ * @returns {string} Valid QR code URL
+ */
+const constructQRCodeUrl = (userId, projectId) => {
+  // Validate userId - must be user._id, not urlCode or username
+  if (!userId || typeof userId !== 'string') {
+    throw new Error('User ID is required and must be a valid string (user._id)');
+  }
+  
+  // Validate projectId
+  if (!projectId || typeof projectId !== 'string') {
+    throw new Error('Project ID is required and must be a valid string');
+  }
+  
+  // Get normalized frontend URL
+  const frontendUrl = getFrontendUrl();
+  
+  // Construct hash-based URL matching backend format: /#/ar/user/{userId}/project/{projectId}
+  const qrCodeUrl = `${frontendUrl}/#/ar/user/${userId}/project/${projectId}`;
+  
+  // Validate the final URL
+  try {
+    // Check if URL is valid by creating a URL object (for validation only)
+    // We can't use URL constructor with hash, so we validate the base URL
+    const baseUrl = qrCodeUrl.split('#')[0];
+    new URL(baseUrl);
+    
+    // Additional validation: ensure URL starts with http:// or https://
+    if (!qrCodeUrl.match(/^https?:\/\//)) {
+      throw new Error(`Invalid URL format: ${qrCodeUrl}`);
+    }
+    
+    // Ensure no double slashes in path (except after protocol)
+    if (qrCodeUrl.match(/https?:\/\/[^/]+\/\/+/)) {
+      throw new Error(`URL contains double slashes: ${qrCodeUrl}`);
+    }
+    
+    return qrCodeUrl;
+  } catch (error) {
+    throw new Error(`Invalid QR code URL constructed: ${qrCodeUrl}. Error: ${error.message}`);
+  }
+};
+
 const UploadPage = () => {
   const { user, updateUser } = useAuth()
   const [activeTab, setActiveTab] = useState('design')
@@ -440,28 +527,26 @@ const UploadPage = () => {
       });
       
       // Generate QR code URL for the user's personalized page
-      // Use window.location.origin as fallback to match Campaign page behavior
-      const frontendUrl = import.meta.env.VITE_FRONTEND_URL || import.meta.env.VITE_API_URL?.replace('/api', '') || window.location.origin || 'http://localhost:5173';
-      
-      // Use user._id consistently to match backend format (not urlCode)
+      // Use user._id consistently to match backend format (not urlCode or username)
       const userIdentifier = user._id;
-      if (!userIdentifier) {
-        throw new Error('User ID is required to generate QR code');
+      if (!userIdentifier || typeof userIdentifier !== 'string') {
+        throw new Error('User ID (user._id) is required and must be a valid string to generate QR code');
       }
       
       // Use currentProject directly (backend uses user.currentProject || 'default')
       const projectId = user.currentProject || 'default';
       
-      // Construct hash-based URL matching backend format: /#/ar/user/{userId}/project/{projectId}
-      const qrCodeUrl = `${frontendUrl}/#/ar/user/${userIdentifier}/project/${projectId}`;
-      
-      // Validate URL before generating QR code
-      if (!qrCodeUrl || !qrCodeUrl.startsWith('http')) {
-        throw new Error(`Invalid QR code URL: ${qrCodeUrl}`);
-      }
+      // Construct and validate QR code URL using helper function
+      const qrCodeUrl = constructQRCodeUrl(userIdentifier, projectId);
       
       console.log('🔗 Generated QR code URL:', qrCodeUrl);
-      console.log('📋 URL components:', { frontendUrl, userIdentifier, projectId });
+      console.log('📋 URL components:', { 
+        frontendUrl: getFrontendUrl(), 
+        userIdentifier, 
+        projectId,
+        urlFormat: 'hash-based',
+        urlValid: true
+      });
       
       // Calculate QR code size needed to match the positioned sticker dimensions EXACTLY
       // Sticker dimensions: width = qrSize + padding*2 + borderWidth*2, height = qrSize + padding*2 + borderWidth*2 + textHeight
@@ -808,28 +893,26 @@ const UploadPage = () => {
       });
       
       // Generate QR code URL for the user's personalized page
-      // Use window.location.origin as fallback to match Campaign page behavior
-      const frontendUrl = import.meta.env.VITE_FRONTEND_URL || import.meta.env.VITE_API_URL?.replace('/api', '') || window.location.origin || 'http://localhost:5173';
-      
-      // Use user._id consistently to match backend format (not urlCode)
+      // Use user._id consistently to match backend format (not urlCode or username)
       const userIdentifier = user._id;
-      if (!userIdentifier) {
-        throw new Error('User ID is required to generate QR code');
+      if (!userIdentifier || typeof userIdentifier !== 'string') {
+        throw new Error('User ID (user._id) is required and must be a valid string to generate QR code');
       }
       
       // Use currentProject directly (backend uses user.currentProject || 'default')
       const projectId = user.currentProject || 'default';
       
-      // Construct hash-based URL matching backend format: /#/ar/user/{userId}/project/{projectId}
-      const qrCodeUrl = `${frontendUrl}/#/ar/user/${userIdentifier}/project/${projectId}`;
-      
-      // Validate URL before generating QR code
-      if (!qrCodeUrl || !qrCodeUrl.startsWith('http')) {
-        throw new Error(`Invalid QR code URL: ${qrCodeUrl}`);
-      }
+      // Construct and validate QR code URL using helper function
+      const qrCodeUrl = constructQRCodeUrl(userIdentifier, projectId);
       
       console.log('🔗 Generated QR code URL for download:', qrCodeUrl);
-      console.log('📋 URL components:', { frontendUrl, userIdentifier, projectId });
+      console.log('📋 URL components:', { 
+        frontendUrl: getFrontendUrl(), 
+        userIdentifier, 
+        projectId,
+        urlFormat: 'hash-based',
+        urlValid: true
+      });
       
       // Calculate QR code size needed to match the positioned sticker dimensions EXACTLY
       // Sticker dimensions: width = qrSize + padding*2 + borderWidth*2, height = qrSize + padding*2 + borderWidth*2 + textHeight
