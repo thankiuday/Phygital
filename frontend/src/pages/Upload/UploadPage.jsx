@@ -918,9 +918,29 @@ const UploadPage = () => {
       
       // Generate QR code URL for the user's personalized page
       // Use user._id consistently to match backend format (not urlCode or username)
-      const userIdentifier = user._id;
+      // CRITICAL: Must use user._id, never urlCode or username
+      let userIdentifier = user?._id;
+      
+      // Validate user._id exists and is a string
       if (!userIdentifier || typeof userIdentifier !== 'string') {
-        throw new Error('User ID (user._id) is required and must be a valid string to generate QR code');
+        console.error('❌ user._id is missing or invalid:', { 
+          _id: user?._id, 
+          urlCode: user?.urlCode, 
+          username: user?.username,
+          user: user 
+        });
+        throw new Error('User ID (user._id) is required and must be a valid string to generate QR code. Please refresh the page and try again.');
+      }
+      
+      // Double-check we're not accidentally using urlCode
+      if (userIdentifier === user?.urlCode || userIdentifier === user?.username) {
+        console.error('❌ ERROR: Using urlCode/username instead of _id!', { 
+          userIdentifier, 
+          urlCode: user?.urlCode, 
+          username: user?.username,
+          _id: user?._id 
+        });
+        throw new Error('Invalid user identifier. Please refresh the page and try again.');
       }
       
       // Use currentProject directly (backend uses user.currentProject || 'default')
