@@ -565,8 +565,22 @@ const UploadPage = () => {
         const stickerY = Math.max(0, Math.min(actualQrY, canvas.height - stickerDisplayHeight));
 
         // Draw sticker on the composite using exact positioned dimensions
+        // Disable image smoothing to preserve QR code sharpness and scannability
+        ctx.imageSmoothingEnabled = false;
+        ctx.imageSmoothingQuality = 'high';
         console.log('🎨 Drawing sticker on canvas with exact positioned dimensions...');
+        console.log('🔧 Canvas rendering settings:', {
+          imageSmoothingEnabled: ctx.imageSmoothingEnabled,
+          stickerNaturalSize: { width: stickerImg.naturalWidth, height: stickerImg.naturalHeight },
+          stickerDisplaySize: { width: stickerDisplayWidth, height: stickerDisplayHeight },
+          scalingRatio: {
+            width: stickerDisplayWidth / stickerImg.naturalWidth,
+            height: stickerDisplayHeight / stickerImg.naturalHeight
+          }
+        });
         ctx.drawImage(stickerImg, stickerX, stickerY, stickerDisplayWidth, stickerDisplayHeight);
+        // Re-enable image smoothing for other operations if needed
+        ctx.imageSmoothingEnabled = true;
         console.log('✅ Sticker drawn at:', { x: stickerX, y: stickerY, width: stickerDisplayWidth, height: stickerDisplayHeight });
 
         // Verify sticker was drawn by checking a pixel
@@ -810,8 +824,22 @@ const UploadPage = () => {
         const stickerY = Math.max(0, Math.min(actualQrY, canvas.height - stickerDisplayHeight));
 
         // Draw sticker on the composite using exact positioned dimensions
+        // Disable image smoothing to preserve QR code sharpness and scannability
+        ctx.imageSmoothingEnabled = false;
+        ctx.imageSmoothingQuality = 'high';
         console.log('🎨 Drawing sticker on canvas for download with exact positioned dimensions...');
+        console.log('🔧 Canvas rendering settings:', {
+          imageSmoothingEnabled: ctx.imageSmoothingEnabled,
+          stickerNaturalSize: { width: stickerImg.naturalWidth, height: stickerImg.naturalHeight },
+          stickerDisplaySize: { width: stickerDisplayWidth, height: stickerDisplayHeight },
+          scalingRatio: {
+            width: stickerDisplayWidth / stickerImg.naturalWidth,
+            height: stickerDisplayHeight / stickerImg.naturalHeight
+          }
+        });
         ctx.drawImage(stickerImg, stickerX, stickerY, stickerDisplayWidth, stickerDisplayHeight);
+        // Re-enable image smoothing for other operations if needed
+        ctx.imageSmoothingEnabled = true;
         console.log('✅ Sticker drawn for download at:', { x: stickerX, y: stickerY, width: stickerDisplayWidth, height: stickerDisplayHeight });
 
         // Verify sticker was drawn by checking a pixel
