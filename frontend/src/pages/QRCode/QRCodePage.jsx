@@ -26,6 +26,8 @@ import {
   Layers
 } from 'lucide-react'
 import LoadingSpinner from '../../components/UI/LoadingSpinner'
+import QRSticker from '../../components/QR/QRSticker'
+import { generateQRSticker } from '../../utils/qrStickerGenerator'
 import toast from 'react-hot-toast'
 
 const QRCodePage = () => {
@@ -146,21 +148,43 @@ const QRCodePage = () => {
     setQrCodeUrl('')
   }
 
-  // Download QR code
+  // Download QR code with sticker design
   const downloadQRCode = async (size = 300) => {
     if (!user?._id) return
 
     try {
+      // Download QR code from backend
       const response = selectedProject 
         ? await qrAPI.downloadProjectQR(selectedProject.id, 'png', size)
         : await qrAPI.downloadQR(user._id, 'png', size)
       
+      // Convert blob to data URL
+      const qrDataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onloadend = () => resolve(reader.result)
+        reader.onerror = reject
+        reader.readAsDataURL(response.data)
+      })
+
+      // Generate sticker with gradient border and "SCAN ME" text
+      const stickerDataUrl = await generateQRSticker(qrDataUrl, {
+        variant: 'purple',
+        qrSize: size,
+        borderWidth: 4,
+        padding: 16
+      })
+
+      // Convert sticker data URL to blob for download
+      const response2 = await fetch(stickerDataUrl)
+      const blob = await response2.blob()
+      
       const filename = selectedProject 
-        ? `qr-${selectedProject.name.toLowerCase().replace(/\s+/g, '-')}.png`
-        : `qr-${user.username}.png`
-      downloadFile(response.data, filename)
-      toast.success('QR code downloaded!')
+        ? `qr-sticker-${selectedProject.name.toLowerCase().replace(/\s+/g, '-')}.png`
+        : `qr-sticker-${user.username}.png`
+      downloadFile(blob, filename)
+      toast.success('QR code sticker downloaded!')
     } catch (error) {
+      console.error('Download error:', error)
       toast.error('Failed to download QR code')
     }
   }
@@ -302,13 +326,11 @@ const QRCodePage = () => {
                 </div>
               ) : qrCodeUrl ? (
                 <div className="space-y-4">
-                  <div className="inline-block p-4 bg-slate-800/50 rounded-lg shadow-dark-large border border-slate-600/30">
-                    <img
-                      src={qrCodeUrl}
-                      alt="QR Code"
-                      className="w-64 h-64"
-                    />
-                  </div>
+                  <QRSticker 
+                    qrCodeUrl={qrCodeUrl}
+                    variant="purple"
+                    size="large"
+                  />
                   <p className="text-sm text-slate-300">
                     Scan this QR code to visit your personalized page
                   </p>

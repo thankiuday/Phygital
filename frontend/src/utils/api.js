@@ -291,7 +291,10 @@ export const qrDesignAPI = {
   save: (designData) => api.post('/qr-design/save', designData),
   getHistory: () => api.get('/qr-design/history'),
   delete: (designId) => api.delete(`/qr-design/${designId}`),
-  download: (designId) => api.get(`/qr-design/download/${designId}`)
+  download: (designId, format = 'png', size = 300) => 
+    api.get(`/qr-design/download/${designId}?format=${format}&size=${size}`, {
+      responseType: 'blob'
+    })
 }
 
 // Utility functions

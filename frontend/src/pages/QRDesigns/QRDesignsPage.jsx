@@ -9,8 +9,10 @@ import { useDropzone } from 'react-dropzone';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { generateQRCodeWithIcon, downloadQRCode } from '../../utils/qrGenerator';
+import { generateQRSticker } from '../../utils/qrStickerGenerator';
 import { qrDesignAPI } from '../../utils/api';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
+import QRSticker from '../../components/QR/QRSticker';
 import toast from 'react-hot-toast';
 import {
   QrCode,
@@ -347,8 +349,8 @@ const QRDesignsPage = () => {
     }
   };
 
-  // Download QR code
-  const handleDownload = (size = 300) => {
+  // Download QR code with sticker design
+  const handleDownload = async (size = 300) => {
     if (!qrCodePreview) {
       toast.error('No QR code to download');
       return;
@@ -359,15 +361,24 @@ const QRDesignsPage = () => {
       const iconToUse = iconSource === 'upload' ? uploadedIcon : selectedIcon;
       const validUrl = validateUrl(redirectUrl.trim());
       
-      generateQRCodeWithIcon(validUrl, {
+      // Generate QR code with icon
+      const qrDataUrl = await generateQRCodeWithIcon(validUrl, {
         iconUrl: iconToUse || null,
         size: size,
         iconSize: 0.15
-      }).then((qrDataUrl) => {
-        const filename = `qr-code-${Date.now()}.png`;
-        downloadQRCode(qrDataUrl, filename);
-        toast.success('QR code downloaded!');
       });
+
+      // Generate sticker with gradient border and "SCAN ME" text
+      const stickerDataUrl = await generateQRSticker(qrDataUrl, {
+        variant: 'purple',
+        qrSize: size,
+        borderWidth: 4,
+        padding: 16
+      });
+
+      const filename = `qr-code-sticker-${Date.now()}.png`;
+      downloadQRCode(stickerDataUrl, filename);
+      toast.success('QR code sticker downloaded!');
     } catch (error) {
       console.error('Download error:', error);
       toast.error('Failed to download QR code');
@@ -878,20 +889,11 @@ const QRDesignsPage = () => {
             {/* QR Code Preview */}
             <div className="space-y-3 sm:space-y-4">
               <div className="bg-slate-800/50 rounded-lg p-4 sm:p-6 md:p-8 flex items-center justify-center border border-slate-600">
-                <div className="relative inline-block">
-                  <img
-                    src={qrCodePreview}
-                    alt="QR Code Preview"
-                    className="max-w-full h-auto"
-                    style={{ maxWidth: '280px' }}
-                  />
-                  {/* Phygital.zone Watermark - Bottom Right of QR Code */}
-                  <div className="absolute bottom-1 right-1 sm:bottom-2 sm:right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-md shadow-sm">
-                    <div className="text-gradient bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink bg-clip-text text-transparent font-bold text-[10px] sm:text-xs whitespace-nowrap">
-                      Phygital.zone
-                    </div>
-                  </div>
-                </div>
+                <QRSticker 
+                  qrCodeUrl={qrCodePreview}
+                  variant="purple"
+                  size="medium"
+                />
               </div>
               <div className="bg-slate-800/30 rounded-lg p-3 sm:p-4 border border-slate-600">
                 <p className="text-xs sm:text-sm text-slate-400 mb-2">Redirect URL:</p>

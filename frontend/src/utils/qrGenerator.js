@@ -89,42 +89,8 @@ export const generateQRCodeWithIcon = async (url, options = {}) => {
       iconImage.src = iconUrl;
     });
 
-    // Add "Phygital.zone" watermark at bottom-right
-    const watermarkText = 'Phygital.zone';
-    const fontSize = Math.max(10, size * 0.04); // 4% of QR size, minimum 10px
-    const watermarkPadding = Math.max(6, size * 0.02); // 2% padding
-    
-    // Set font for measuring
-    ctx.font = `bold ${fontSize}px Arial, sans-serif`;
-    const textMetrics = ctx.measureText(watermarkText);
-    const textWidth = textMetrics.width;
-    const textHeight = fontSize;
-    
-    // Calculate watermark background dimensions
-    const bgPadding = watermarkPadding * 0.6;
-    const bgWidth = textWidth + bgPadding * 2;
-    const bgHeight = textHeight + bgPadding * 2;
-    const bgX = size - bgWidth - watermarkPadding;
-    const bgY = size - bgHeight - watermarkPadding;
-    
-    // Draw white background with slight transparency
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-    const borderRadius = Math.min(4, size * 0.015);
-    ctx.beginPath();
-    ctx.roundRect(bgX, bgY, bgWidth, bgHeight, borderRadius);
-    ctx.fill();
-    
-    // Create gradient for text (blue -> purple -> pink)
-    const gradient = ctx.createLinearGradient(bgX, bgY, bgX + bgWidth, bgY);
-    gradient.addColorStop(0, '#00d4ff');    // Neon blue
-    gradient.addColorStop(0.5, '#a855f7');  // Neon purple
-    gradient.addColorStop(1, '#ec4899');    // Neon pink
-    
-    // Draw gradient text
-    ctx.fillStyle = gradient;
-    ctx.font = `bold ${fontSize}px Arial, sans-serif`;
-    ctx.textBaseline = 'top';
-    ctx.fillText(watermarkText, bgX + bgPadding, bgY + bgPadding);
+    // Watermark removed from QR code to preserve scanability
+    // Watermark will be displayed below the QR code in the UI instead
 
     // Return canvas as data URL
     return canvas.toDataURL('image/png');

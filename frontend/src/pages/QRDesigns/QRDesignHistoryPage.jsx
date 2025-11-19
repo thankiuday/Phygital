@@ -7,6 +7,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { qrDesignAPI } from '../../utils/api';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
+import QRSticker from '../../components/QR/QRSticker';
+import { generateQRSticker } from '../../utils/qrStickerGenerator';
 import toast from 'react-hot-toast';
 import {
   QrCode,
@@ -76,28 +78,51 @@ const QRDesignHistoryPage = () => {
   // Handle download
   const handleDownload = async (design) => {
     try {
-      // Fetch the image as blob to force download
-      const response = await fetch(design.qrCodeUrl);
-      const blob = await response.blob();
+      console.log('📥 Starting QR design download:', { designId: design.id, redirectUrl: design.redirectUrl });
       
-      // Create download link
+      // Download from backend endpoint which regenerates QR code
+      const response = await qrDesignAPI.download(design.id);
+      
+      console.log('✅ Received QR code from backend:', { 
+        blobSize: response.data?.size, 
+        blobType: response.data?.type 
+      });
+      
+      // Convert blob to data URL
+      const qrDataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(response.data);
+      });
+
+      // Generate sticker with gradient border and "SCAN ME" text
+      const stickerDataUrl = await generateQRSticker(qrDataUrl, {
+        variant: 'purple',
+        qrSize: design.size || 300,
+        borderWidth: 4,
+        padding: 16
+      });
+
+      // Convert sticker data URL to blob for download
+      const response2 = await fetch(stickerDataUrl);
+      const blob = await response2.blob();
+      
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `qr-design-${design.id}.png`;
+      link.download = `qr-design-sticker-${design.id}.png`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       
       // Clean up the blob URL
       window.URL.revokeObjectURL(url);
-
-      // Increment download count on server
-      await qrDesignAPI.download(design.id);
       
-      toast.success('QR code downloaded!');
+      toast.success('QR code sticker downloaded!');
     } catch (error) {
-      console.error('Download error:', error);
+      console.error('❌ Download error:', error);
+      console.error('❌ Error details:', error.response?.data || error.message);
       toast.error('Failed to download QR code');
     }
   };
@@ -214,11 +239,11 @@ const QRDesignHistoryPage = () => {
               className="bg-slate-800/50 rounded-lg border border-slate-600 overflow-hidden hover:border-neon-blue/50 transition-all duration-300 hover:shadow-lg"
             >
               {/* QR Code Preview */}
-              <div className="bg-white p-4 flex items-center justify-center">
-                <img
-                  src={design.qrCodeUrl}
-                  alt={design.name}
-                  className="w-full max-w-[200px] h-auto"
+              <div className="bg-slate-800/50 p-4 flex items-center justify-center">
+                <QRSticker 
+                  qrCodeUrl={design.qrCodeUrl}
+                  variant="purple"
+                  size="small"
                 />
               </div>
 
@@ -275,11 +300,11 @@ const QRDesignHistoryPage = () => {
             >
               <div className="flex flex-col sm:flex-row gap-4">
                 {/* QR Code Thumbnail */}
-                <div className="bg-white p-3 rounded-lg flex-shrink-0 w-24 h-24 flex items-center justify-center">
-                  <img
-                    src={design.qrCodeUrl}
-                    alt={design.name}
-                    className="w-full h-full object-contain"
+                <div className="bg-slate-800/50 p-2 rounded-lg flex-shrink-0 w-32 h-32 flex items-center justify-center">
+                  <QRSticker 
+                    qrCodeUrl={design.qrCodeUrl}
+                    variant="purple"
+                    size="small"
                   />
                 </div>
 

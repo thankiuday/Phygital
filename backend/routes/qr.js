@@ -14,12 +14,15 @@ const fs = require('fs');
 
 const router = express.Router();
 
-// Centralized QR code generation helper
+// Centralized QR code generation helper - returns plain QR codes without watermark
+// Frontend will handle wrapping with sticker design
 const generateQRCode = async (url, format = 'png', size = 200) => {
+  console.log('🎨 generateQRCode called (plain QR, no watermark):', { url: url.substring(0, 50), format, size });
+  
   const qrOptions = {
     type: format === 'svg' ? 'svg' : 'png',
     quality: 0.92,
-    margin: 1,
+    margin: 2, // Standard margin for QR codes
     color: {
       dark: '#000000',
       light: '#FFFFFF'
@@ -28,9 +31,13 @@ const generateQRCode = async (url, format = 'png', size = 200) => {
   };
   
   if (format === 'svg') {
+    console.log('📄 Returning SVG format');
     return await QRCode.toString(url, qrOptions);
   } else {
-    return await QRCode.toDataURL(url, qrOptions);
+    // Generate plain QR code without watermark
+    console.log('🖼️ Generating plain PNG QR code (no watermark)');
+    const qrCodeDataURL = await QRCode.toDataURL(url, qrOptions);
+    return qrCodeDataURL;
   }
 };
 
@@ -802,34 +809,13 @@ router.get('/project/:projectId', authenticateToken, async (req, res) => {
     // Format: /ar/user/{userId}/project/{projectId}
     const personalizedUrl = `${process.env.FRONTEND_URL}/#/ar/user/${user._id}/project/${projectId}`;
     
-    // QR code options
-    const qrOptions = {
-      type: format === 'svg' ? 'svg' : 'png',
-      quality: 0.92,
-      margin: 1,
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF'
-      },
-      width: parseInt(size)
-    };
+    // Generate QR code using centralized function (includes watermark in margin)
+    const qrCodeData = await generateQRCode(personalizedUrl, format, size);
     
-    // Generate QR code
-    let qrCodeData;
     if (format === 'svg') {
-      qrCodeData = await QRCode.toString(personalizedUrl, {
-        type: 'svg',
-        quality: qrOptions.quality,
-        margin: qrOptions.margin,
-        color: qrOptions.color,
-        width: qrOptions.width
-      });
-      
       res.setHeader('Content-Type', 'image/svg+xml');
       res.send(qrCodeData);
     } else {
-      qrCodeData = await QRCode.toDataURL(personalizedUrl, qrOptions);
-      
       // Extract base64 data
       const base64Data = qrCodeData.split(',')[1];
       const buffer = Buffer.from(base64Data, 'base64');
@@ -856,6 +842,7 @@ router.get('/project/:projectId', authenticateToken, async (req, res) => {
  */
 router.get('/download/project/:projectId', authenticateToken, async (req, res) => {
   try {
+    console.log('📥 PROJECT QR DOWNLOAD REQUEST:', { projectId: req.params.projectId, format: req.query.format, size: req.query.size });
     const { projectId } = req.params;
     const { format = 'png', size = 300 } = req.query;
     
@@ -881,35 +868,17 @@ router.get('/download/project/:projectId', authenticateToken, async (req, res) =
     // Format: /ar/user/{userId}/project/{projectId}
     const currentProjectId = user.currentProject || 'default';
     const personalizedUrl = `${process.env.FRONTEND_URL}/#/ar/user/${user._id}/project/${currentProjectId}`;
+    console.log('🔗 Personalized URL:', personalizedUrl);
     
-    // QR code options
-    const qrOptions = {
-      type: format === 'svg' ? 'svg' : 'png',
-      quality: 0.92,
-      margin: 1,
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF'
-      },
-      width: parseInt(size)
-    };
+    // Generate QR code using centralized function (includes watermark in margin)
+    console.log('🎨 Calling generateQRCode for project download');
+    const qrCodeData = await generateQRCode(personalizedUrl, format, size);
     
-    // Generate QR code
     if (format === 'svg') {
-      const qrCodeData = await QRCode.toString(personalizedUrl, {
-        type: 'svg',
-        quality: qrOptions.quality,
-        margin: qrOptions.margin,
-        color: qrOptions.color,
-        width: qrOptions.width
-      });
-      
       res.setHeader('Content-Type', 'image/svg+xml');
       res.setHeader('Content-Disposition', `attachment; filename="qr-${project.name.toLowerCase().replace(/\s+/g, '-')}.svg"`);
       res.send(qrCodeData);
     } else {
-      const qrCodeData = await QRCode.toDataURL(personalizedUrl, qrOptions);
-      
       // Extract base64 data
       const base64Data = qrCodeData.split(',')[1];
       const buffer = Buffer.from(base64Data, 'base64');
@@ -938,6 +907,7 @@ router.get('/download/project/:projectId', authenticateToken, async (req, res) =
  */
 router.get('/download/:userId', async (req, res) => {
   try {
+    console.log('📥 QR DOWNLOAD REQUEST:', { userId: req.params.userId, format: req.query.format, size: req.query.size });
     const { userId } = req.params;
     const { format = 'png', size = 300 } = req.query;
     
@@ -952,35 +922,17 @@ router.get('/download/:userId', async (req, res) => {
     
     // Generate personalized URL - use AR route for AR experience
     const personalizedUrl = `${process.env.FRONTEND_URL}/ar/${user._id}`;
+    console.log('🔗 Personalized URL:', personalizedUrl);
     
-    // QR code options
-    const qrOptions = {
-      type: format === 'svg' ? 'svg' : 'png',
-      quality: 0.92,
-      margin: 1,
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF'
-      },
-      width: parseInt(size)
-    };
+    // Generate QR code using centralized function (includes watermark in margin)
+    console.log('🎨 Calling generateQRCode for download');
+    const qrCodeData = await generateQRCode(personalizedUrl, format, size);
     
-    // Generate QR code
     if (format === 'svg') {
-      const qrCodeData = await QRCode.toString(personalizedUrl, {
-        type: 'svg',
-        quality: qrOptions.quality,
-        margin: qrOptions.margin,
-        color: qrOptions.color,
-        width: qrOptions.width
-      });
-      
       res.setHeader('Content-Type', 'image/svg+xml');
       res.setHeader('Content-Disposition', `attachment; filename="qr-${user.username}.svg"`);
       res.send(qrCodeData);
     } else {
-      const qrCodeData = await QRCode.toDataURL(personalizedUrl, qrOptions);
-      
       // Extract base64 data
       const base64Data = qrCodeData.split(',')[1];
       const buffer = Buffer.from(base64Data, 'base64');
@@ -1002,3 +954,4 @@ router.get('/download/:userId', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.generateQRCode = generateQRCode;

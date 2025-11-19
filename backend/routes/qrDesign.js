@@ -218,6 +218,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 /**
  * GET /api/qr-design/download/:id
  * Download a specific QR design and increment download count
+ * Regenerates QR code with watermark for download
  */
 router.get('/download/:id', authenticateToken, async (req, res) => {
   try {
@@ -226,6 +227,7 @@ router.get('/download/:id', authenticateToken, async (req, res) => {
     console.log('Design ID:', req.params.id);
 
     const { id } = req.params;
+    const { format = 'png', size = 300 } = req.query;
 
     const user = await User.findById(req.user._id);
     
@@ -254,14 +256,27 @@ router.get('/download/:id', authenticateToken, async (req, res) => {
 
     console.log('✅ Download count incremented:', user.qrDesignHistory[designIndex].downloadCount);
 
-    // Return QR code URL for download
-    res.status(200).json({
-      status: 'success',
-      data: {
-        qrCodeUrl: design.qrCodeUrl,
-        design: user.qrDesignHistory[designIndex]
-      }
-    });
+    // Regenerate QR code with watermark using the redirect URL
+    const { generateQRCode } = require('./qr');
+    
+    console.log('🎨 Regenerating QR code with watermark for download');
+    console.log('🔗 Redirect URL:', design.redirectUrl);
+    const qrCodeData = await generateQRCode(design.redirectUrl, format, parseInt(size));
+
+    if (format === 'svg') {
+      res.setHeader('Content-Type', 'image/svg+xml');
+      res.setHeader('Content-Disposition', `attachment; filename="qr-design-${id}.svg"`);
+      res.send(qrCodeData);
+    } else {
+      // Extract base64 data
+      const base64Data = qrCodeData.split(',')[1];
+      const buffer = Buffer.from(base64Data, 'base64');
+      
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Content-Disposition', `attachment; filename="qr-design-${id}.png"`);
+      res.setHeader('Content-Length', buffer.length);
+      res.send(buffer);
+    }
 
   } catch (error) {
     console.error('QR design download error:', error);

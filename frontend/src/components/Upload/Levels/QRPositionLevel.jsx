@@ -1,17 +1,24 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { uploadAPI, qrAPI } from '../../../utils/api';
+import { generateQRSticker } from '../../../utils/qrStickerGenerator';
 import { QrCode, CheckCircle, AlertCircle, MapPin, MousePointer } from 'lucide-react';
 import MindFileGenerationLoader from '../../UI/MindFileGenerationLoader';
 import toast from 'react-hot-toast';
+
+// Minimum dimensions for scannable QR code
+// QR code itself needs ~80-100px minimum, plus border (8px) + padding (32px) = ~120px sticker width minimum
+// Height includes "SCAN ME" text (~40px), so minimum height ~160px
+const MIN_STICKER_WIDTH = 120;
+const MIN_STICKER_HEIGHT = 160;
 
 const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFromLevel1 = false, onLoadingStart, onLoadingEnd }) => {
   const { user, updateUser } = useAuth();
   const [qrPosition, setQrPosition] = useState({
     x: currentPosition?.x || user?.qrPosition?.x || 100,
     y: currentPosition?.y || user?.qrPosition?.y || 100,
-    width: currentPosition?.width || user?.qrPosition?.width || 100,
-    height: currentPosition?.height || user?.qrPosition?.height || 100
+    width: currentPosition?.width || user?.qrPosition?.width || MIN_STICKER_WIDTH,
+    height: currentPosition?.height || user?.qrPosition?.height || MIN_STICKER_HEIGHT
   });
   const [isSaving, setIsSaving] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -21,6 +28,9 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
   const [captureCompositeFunction, setCaptureCompositeFunction] = useState(null);
   const [qrImageUrl, setQrImageUrl] = useState('');
+  const [stickerImageUrl, setStickerImageUrl] = useState(null);
+  const [stickerAspectRatio, setStickerAspectRatio] = useState(1); // Default to 1:1, will be updated when sticker is generated
+  
   const imageRef = useRef(null);
   const qrRef = useRef(null);
   const scrollPositionRef = useRef({ x: 0, y: 0 });
@@ -60,6 +70,59 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       }
     };
   }, [user?._id]);
+
+  // Generate sticker design from QR code when available
+  useEffect(() => {
+    const generateSticker = async () => {
+      if (!qrImageUrl) {
+        setStickerImageUrl(null);
+        setStickerAspectRatio(1);
+        return;
+      }
+
+      try {
+        // Calculate sticker aspect ratio based on default dimensions
+        // Sticker dimensions: width = qrSize + padding*2 + borderWidth*2, height = qrSize + padding*2 + borderWidth*2 + textHeight
+        const defaultQrSize = 200; // Reference size for aspect ratio calculation
+        const padding = 16;
+        const borderWidth = 4;
+        const textHeight = 40;
+        const stickerWidth = defaultQrSize + padding * 2 + borderWidth * 2;
+        const stickerHeight = defaultQrSize + padding * 2 + borderWidth * 2 + textHeight;
+        const aspectRatio = stickerHeight / stickerWidth;
+        setStickerAspectRatio(aspectRatio);
+
+        // Convert blob URL to data URL if needed
+        let qrDataUrl = qrImageUrl;
+        if (qrImageUrl.startsWith('blob:')) {
+          const response = await fetch(qrImageUrl);
+          const blob = await response.blob();
+          qrDataUrl = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.readAsDataURL(blob);
+          });
+        }
+
+        // Generate sticker with a reasonable QR size based on current position width
+        const qrSize = Math.max(100, Math.round(qrPosition.width * 0.8)); // Use 80% of position width as QR size
+        const stickerDataUrl = await generateQRSticker(qrDataUrl, {
+          variant: 'purple',
+          qrSize: qrSize,
+          borderWidth: 4,
+          padding: 16
+        });
+        setStickerImageUrl(stickerDataUrl);
+        console.log('[Level QR] Generated sticker design for positioning');
+      } catch (error) {
+        console.error('[Level QR] Failed to generate sticker:', error);
+        setStickerImageUrl(null);
+        setStickerAspectRatio(1);
+      }
+    };
+
+    generateSticker();
+  }, [qrImageUrl, qrPosition.width]);
 
   // Capture composite image (design + QR overlay)
   const captureCompositeImage = React.useCallback(() => {
@@ -171,29 +234,40 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     setQrPosition(prev => constrainPositionToImage(prev));
   }, []);
   
-  // Function to constrain position to image boundaries
+  // Function to constrain position to image boundaries with minimum scannable size
   const constrainPositionToImage = (position, imgDims = imageDimensions) => {
     if (imgDims.width === 0 || imgDims.height === 0) return position;
     
-    const maxX = Math.max(0, imgDims.width - position.width);
-    const maxY = Math.max(0, imgDims.height - position.height);
+    // Ensure minimum scannable dimensions
+    const constrainedWidth = Math.max(MIN_STICKER_WIDTH, Math.min(position.width, imgDims.width));
+    const constrainedHeight = Math.max(MIN_STICKER_HEIGHT, Math.min(position.height, imgDims.height));
+    
+    const maxX = Math.max(0, imgDims.width - constrainedWidth);
+    const maxY = Math.max(0, imgDims.height - constrainedHeight);
     
     return {
       x: Math.max(0, Math.min(position.x, maxX)),
       y: Math.max(0, Math.min(position.y, maxY)),
-      width: Math.max(50, Math.min(position.width, imgDims.width)),
-      height: Math.max(50, Math.min(position.height, imgDims.height))
+      width: constrainedWidth,
+      height: constrainedHeight
     };
   };
 
-  // Improved screenToImageCoords using ref
-  const screenToImageCoords = useCallback((clientX, clientY) => {
+  // Improved screenToImageCoords using pageX/pageY for reliable coordinates across scroll
+  // pageX/pageY include scroll offset, getBoundingClientRect() is relative to viewport
+  const screenToImageCoords = useCallback((pageX, pageY) => {
     const img = imageRef.current;
     if (!img || imageDimensions.width === 0) return { x: 0, y: 0 };
 
     const rect = img.getBoundingClientRect();
     const scaleX = imageDimensions.width / rect.width;
     const scaleY = imageDimensions.height / rect.height;
+    // Convert pageX/pageY (includes scroll) to viewport coordinates, then to image coordinates
+    // Ensure we account for scroll position correctly for both X and Y
+    const scrollX = window.scrollX || window.pageXOffset || 0;
+    const scrollY = window.scrollY || window.pageYOffset || 0;
+    const clientX = pageX - scrollX;
+    const clientY = pageY - scrollY;
     const imageX = (clientX - rect.left) * scaleX;
     const imageY = (clientY - rect.top) * scaleY;
 
@@ -382,56 +456,54 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       }
     };
 
-    if (isDragging || isResizing) {
-      document.addEventListener('mouseup', handleGlobalMouseUp);
-      document.addEventListener('mouseleave', handleGlobalMouseUp);
-      document.addEventListener('mousemove', handleGlobalMouseMove);
-      document.addEventListener('touchend', handleGlobalMouseUp);
-      document.addEventListener('touchmove', handleGlobalMouseMove);
-    }
-
-    return () => {
-      document.removeEventListener('mouseup', handleGlobalMouseUp);
-      document.removeEventListener('mouseleave', handleGlobalMouseUp);
-      document.removeEventListener('mousemove', handleGlobalMouseMove);
-      document.removeEventListener('touchend', handleGlobalMouseUp);
-      document.removeEventListener('touchmove', handleGlobalMouseMove);
-    };
+    // Old touch/mouse event listeners removed - using pointer events instead
+    // This useEffect is kept for compatibility but doesn't add listeners anymore
   }, [isDragging, isResizing, dragStart, resizeHandle, qrPosition.width, qrPosition.height, imageDimensions]);
 
-  // Handle resize start for both mouse and touch
-  const handleResizeStart = (handle) => {
-    console.log('Resize handle clicked:', handle);
+  // Handle resize start for pointer events
+  const handleResizeStart = useCallback((e, handle) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const pointerId = e.pointerId;
+    const pageX = e.pageX;
+    const pageY = e.pageY;
+    
+    // Store current scroll position
+    scrollPositionRef.current = {
+      x: window.scrollX || window.pageXOffset,
+      y: window.scrollY || window.pageYOffset
+    };
+
+    // Prevent scroll behavior during resize
+    document.body.style.overscrollBehavior = 'none';
+    // Don't set overflow: hidden or touchAction: 'none' as it interferes with vertical drag on mobile
+
     setIsResizing(true);
     setResizeHandle(handle);
-
-    // Find the image element to get current coordinates
-    const imageElement = document.querySelector('img[alt="Design preview"]');
     
-    if (imageElement && imageDimensions.width > 0 && imageDimensions.height > 0) {
-      // Store initial values for resize calculations with current coordinates
-      setDragStart({
-        x: 0, // Will be set in handlePointerMove
-        y: 0, // Will be set in handlePointerMove
-        initialWidth: qrPosition.width,
-        initialHeight: qrPosition.height,
-        initialX: qrPosition.x,
-        initialY: qrPosition.y,
-        resizeHandle: handle
-      });
-    } else {
-      // Fallback for when image dimensions aren't available
-      setDragStart({
-        x: 0,
-        y: 0,
-        initialWidth: qrPosition.width,
-        initialHeight: qrPosition.height,
-        initialX: qrPosition.x,
-        initialY: qrPosition.y,
-        resizeHandle: handle
-      });
+    const imageCoords = screenToImageCoords(pageX, pageY);
+    setDragStart({
+      pointerId,
+      startX: pageX,
+      startY: pageY,
+      imageStartX: imageCoords.x,
+      imageStartY: imageCoords.y,
+      initialX: qrPosition.x,
+      initialY: qrPosition.y,
+      initialWidth: qrPosition.width,
+      initialHeight: qrPosition.height
+    });
+    
+    // Capture pointer for consistent tracking
+    try {
+      if (qrRef.current && qrRef.current.setPointerCapture) {
+        qrRef.current.setPointerCapture(pointerId);
+      }
+    } catch (err) {
+      console.warn('Pointer capture failed:', err);
     }
-  };
+  }, [qrPosition, screenToImageCoords]);
 
   // Detect resize handle (improved for touch: larger hit area)
   const getResizeHandle = useCallback((clientX, clientY, qrScreenRect) => {
@@ -461,6 +533,8 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     e.stopPropagation();
 
     const pointerId = e.pointerId;
+    const pageX = e.pageX;
+    const pageY = e.pageY;
     const clientX = e.clientX;
     const clientY = e.clientY;
 
@@ -470,12 +544,17 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       y: window.scrollY || window.pageYOffset
     };
 
-    // Prevent scroll behavior during drag for ALL pointer types
+    // Prevent scroll behavior during drag for ALL pointer types using CSS
+    // Use 'overscroll-behavior' instead of 'overflow: hidden' to allow touch events
     document.body.style.overscrollBehavior = 'none';
+    // Don't set overflow: hidden as it can interfere with touch events on mobile
+    // Instead, use touchAction to prevent scrolling while allowing our drag
     
     // Additional touch-specific handling
     if (e.pointerType === 'touch') {
-      document.body.style.touchAction = 'none';
+      // Don't set touchAction: 'none' on body as it can interfere with vertical drag
+      // Instead, rely on preventDefault in the move handler and touchAction on specific elements
+      // This allows vertical drag to work properly on mobile
     }
 
     const img = imageRef.current;
@@ -492,112 +571,237 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     const handle = getResizeHandle(clientX, clientY, qrScreenRect);
 
     if (handle) {
-      // Resize start
+      // Resize start - use pageX/pageY for consistent coordinates
       setIsResizing(true);
       setResizeHandle(handle);
+      const imageCoords = screenToImageCoords(pageX, pageY);
       setDragStart({
         pointerId,
-        startX: clientX,
-        startY: clientY,
-        imageStartX: screenToImageCoords(clientX, clientY).x,
-        imageStartY: screenToImageCoords(clientX, clientY).y,
+        startX: pageX,
+        startY: pageY,
+        imageStartX: imageCoords.x,
+        imageStartY: imageCoords.y,
         initialX: qrPosition.x,
         initialY: qrPosition.y,
         initialWidth: qrPosition.width,
         initialHeight: qrPosition.height
       });
       qrRef.current?.setPointerCapture(pointerId);
-    } else if (
-      clientX >= qrScreenRect.left &&
-      clientX <= qrScreenRect.left + qrScreenRect.width &&
-      clientY >= qrScreenRect.top &&
-      clientY <= qrScreenRect.top + qrScreenRect.height
-    ) {
-      // Drag start
+    } else {
+      // Drag start - check if touch is within QR bounds (with tolerance for mobile)
+      // Use a larger tolerance area on mobile for easier dragging
+      const tolerance = e.pointerType === 'touch' ? 10 : 0;
+      const isWithinBounds = 
+        clientX >= qrScreenRect.left - tolerance &&
+        clientX <= qrScreenRect.left + qrScreenRect.width + tolerance &&
+        clientY >= qrScreenRect.top - tolerance &&
+        clientY <= qrScreenRect.top + qrScreenRect.height + tolerance;
+      
+      if (isWithinBounds) {
+      // Drag start - use pageX/pageY for consistent coordinates
       setIsDragging(true);
+      const imageCoords = screenToImageCoords(pageX, pageY);
       setDragStart({
         pointerId,
-        startX: clientX,
-        startY: clientY,
-        imageStartX: screenToImageCoords(clientX, clientY).x,
-        imageStartY: screenToImageCoords(clientX, clientY).y,
-        offsetX: screenToImageCoords(clientX, clientY).x - qrPosition.x,
-        offsetY: screenToImageCoords(clientX, clientY).y - qrPosition.y
+        startX: pageX,
+        startY: pageY,
+        imageStartX: imageCoords.x,
+        imageStartY: imageCoords.y,
+        offsetX: imageCoords.x - qrPosition.x,
+        offsetY: imageCoords.y - qrPosition.y
       });
-      qrRef.current?.setPointerCapture(pointerId);
+      // Capture pointer for consistent tracking (works on mobile too)
+      try {
+        if (qrRef.current && qrRef.current.setPointerCapture) {
+          qrRef.current.setPointerCapture(pointerId);
+        }
+      } catch (err) {
+        console.warn('Pointer capture failed:', err);
+      }
+      }
     }
   }, [qrPosition, imageDimensions, getResizeHandle, screenToImageCoords]);
 
   // Global pointer move handler
   const handleGlobalPointerMove = useCallback((e) => {
     if (!isDragging && !isResizing) return;
+    
+    // Prevent default to stop scrolling, but allow our drag to work
+    // This is crucial for vertical drag on mobile
     e.preventDefault();
     e.stopPropagation();
 
-    // Maintain scroll position during drag/resize
-    window.scrollTo(scrollPositionRef.current.x, scrollPositionRef.current.y);
-
     const drag = dragStart;
     if (!drag || drag.pointerId !== e.pointerId) return;
+    
+    // Ensure pointer is still captured (important for mobile)
+    try {
+      if (qrRef.current && qrRef.current.hasPointerCapture && !qrRef.current.hasPointerCapture(e.pointerId)) {
+        qrRef.current.setPointerCapture(e.pointerId);
+      }
+    } catch (err) {
+      // Ignore capture errors
+    }
 
-    const clientX = e.clientX;
-    const clientY = e.clientY;
-    const imageCoords = screenToImageCoords(clientX, clientY);
+    // Use pageX/pageY for consistent coordinates that account for scroll
+    // On mobile, ensure we're getting the correct coordinates for both horizontal and vertical movement
+    const pageX = e.pageX !== undefined ? e.pageX : (e.clientX + (window.scrollX || window.pageXOffset));
+    const pageY = e.pageY !== undefined ? e.pageY : (e.clientY + (window.scrollY || window.pageYOffset));
+    
+    const imageCoords = screenToImageCoords(pageX, pageY);
 
     if (isResizing) {
-      const deltaX = imageCoords.x - drag.imageStartX;
-      const deltaY = imageCoords.y - drag.imageStartY;
+      // Calculate deltas in image coordinate space for accurate resize
+      // Use the difference between current and start image coordinates
+      const currentImageX = imageCoords.x;
+      const currentImageY = imageCoords.y;
+      const deltaX = currentImageX - drag.imageStartX;
+      const deltaY = currentImageY - drag.imageStartY;
 
       let newX = drag.initialX;
       let newY = drag.initialY;
       let newWidth = drag.initialWidth;
       let newHeight = drag.initialHeight;
 
-      // Resize logic based on handle (same as before)
+      // Resize logic based on handle - maintain sticker aspect ratio
+      let baseSizeChange = 0;
+      
       switch (resizeHandle) {
         case 'nw':
-          newX += deltaX;
-          newY += deltaY;
-          newWidth -= deltaX;
-          newHeight -= deltaY;
+          baseSizeChange = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
+          newWidth = Math.max(MIN_STICKER_WIDTH, drag.initialWidth + baseSizeChange);
+          newHeight = newWidth * stickerAspectRatio;
+          // Ensure height meets minimum
+          if (newHeight < MIN_STICKER_HEIGHT) {
+            newHeight = MIN_STICKER_HEIGHT;
+            newWidth = newHeight / stickerAspectRatio;
+          }
+          newX = drag.initialX + (drag.initialWidth - newWidth);
+          newY = drag.initialY + (drag.initialHeight - newHeight);
           break;
         case 'ne':
-          newY += deltaY;
-          newWidth += deltaX;
-          newHeight -= deltaY;
+          baseSizeChange = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : -deltaY;
+          newWidth = Math.max(MIN_STICKER_WIDTH, drag.initialWidth + baseSizeChange);
+          newHeight = newWidth * stickerAspectRatio;
+          // Ensure height meets minimum
+          if (newHeight < MIN_STICKER_HEIGHT) {
+            newHeight = MIN_STICKER_HEIGHT;
+            newWidth = newHeight / stickerAspectRatio;
+          }
+          newY = drag.initialY + (drag.initialHeight - newHeight);
           break;
         case 'sw':
-          newX += deltaX;
-          newWidth -= deltaX;
-          newHeight += deltaY;
+          baseSizeChange = Math.abs(deltaX) > Math.abs(deltaY) ? -deltaX : deltaY;
+          newWidth = Math.max(MIN_STICKER_WIDTH, drag.initialWidth + baseSizeChange);
+          newHeight = newWidth * stickerAspectRatio;
+          // Ensure height meets minimum
+          if (newHeight < MIN_STICKER_HEIGHT) {
+            newHeight = MIN_STICKER_HEIGHT;
+            newWidth = newHeight / stickerAspectRatio;
+          }
+          newX = drag.initialX + (drag.initialWidth - newWidth);
           break;
         case 'se':
-          newWidth += deltaX;
-          newHeight += deltaY;
+          baseSizeChange = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
+          newWidth = Math.max(MIN_STICKER_WIDTH, drag.initialWidth + baseSizeChange);
+          newHeight = newWidth * stickerAspectRatio;
+          // Ensure height meets minimum
+          if (newHeight < MIN_STICKER_HEIGHT) {
+            newHeight = MIN_STICKER_HEIGHT;
+            newWidth = newHeight / stickerAspectRatio;
+          }
           break;
         case 'n':
-          newY += deltaY;
-          newHeight -= deltaY;
+          // Use height change, then calculate width from aspect ratio
+          newHeight = Math.max(MIN_STICKER_HEIGHT, drag.initialHeight - deltaY);
+          newWidth = newHeight / stickerAspectRatio;
+          // Ensure width meets minimum
+          if (newWidth < MIN_STICKER_WIDTH) {
+            newWidth = MIN_STICKER_WIDTH;
+            newHeight = newWidth * stickerAspectRatio;
+          }
+          newY = drag.initialY + (drag.initialHeight - newHeight);
+          newX = drag.initialX + (drag.initialWidth - newWidth);
           break;
         case 's':
-          newHeight += deltaY;
+          // Use height change, then calculate width from aspect ratio
+          newHeight = Math.max(MIN_STICKER_HEIGHT, drag.initialHeight + deltaY);
+          newWidth = newHeight / stickerAspectRatio;
+          // Ensure width meets minimum
+          if (newWidth < MIN_STICKER_WIDTH) {
+            newWidth = MIN_STICKER_WIDTH;
+            newHeight = newWidth * stickerAspectRatio;
+          }
+          newX = drag.initialX + (drag.initialWidth - newWidth);
           break;
         case 'w':
-          newX += deltaX;
-          newWidth -= deltaX;
+          newWidth = Math.max(MIN_STICKER_WIDTH, drag.initialWidth - deltaX);
+          newHeight = newWidth * stickerAspectRatio;
+          // Ensure height meets minimum
+          if (newHeight < MIN_STICKER_HEIGHT) {
+            newHeight = MIN_STICKER_HEIGHT;
+            newWidth = newHeight / stickerAspectRatio;
+          }
+          newX = drag.initialX + (drag.initialWidth - newWidth);
+          newY = drag.initialY + (drag.initialHeight - newHeight);
           break;
         case 'e':
-          newWidth += deltaX;
+          newWidth = Math.max(MIN_STICKER_WIDTH, drag.initialWidth + deltaX);
+          newHeight = newWidth * stickerAspectRatio;
+          // Ensure height meets minimum
+          if (newHeight < MIN_STICKER_HEIGHT) {
+            newHeight = MIN_STICKER_HEIGHT;
+            newWidth = newHeight / stickerAspectRatio;
+          }
+          newY = drag.initialY + (drag.initialHeight - newHeight);
           break;
         default:
           return;
       }
 
-      // Constrain
-      newWidth = Math.max(50, Math.min(newWidth, imageDimensions.width - newX));
-      newHeight = Math.max(50, Math.min(newHeight, imageDimensions.height - newY));
+      // Constrain with minimums
+      newWidth = Math.max(MIN_STICKER_WIDTH, Math.min(newWidth, imageDimensions.width - newX));
+      newHeight = newWidth * stickerAspectRatio; // Maintain sticker aspect ratio
+      // Ensure height meets minimum
+      if (newHeight < MIN_STICKER_HEIGHT) {
+        newHeight = MIN_STICKER_HEIGHT;
+        newWidth = newHeight / stickerAspectRatio;
+      }
+      newHeight = Math.max(MIN_STICKER_HEIGHT, Math.min(newHeight, imageDimensions.height - newY));
+      newWidth = newHeight / stickerAspectRatio; // Re-sync width if height was constrained
+      // Ensure width still meets minimum after re-sync
+      if (newWidth < MIN_STICKER_WIDTH) {
+        newWidth = MIN_STICKER_WIDTH;
+        newHeight = newWidth * stickerAspectRatio;
+      }
       newX = Math.max(0, Math.min(newX, imageDimensions.width - newWidth));
       newY = Math.max(0, Math.min(newY, imageDimensions.height - newHeight));
+
+      // Final check: ensure we don't exceed bounds, but maintain minimums
+      if (newX + newWidth > imageDimensions.width) {
+        newWidth = Math.max(MIN_STICKER_WIDTH, imageDimensions.width - newX);
+        newHeight = newWidth * stickerAspectRatio;
+        if (newHeight < MIN_STICKER_HEIGHT) {
+          newHeight = MIN_STICKER_HEIGHT;
+          newWidth = newHeight / stickerAspectRatio;
+        }
+      }
+      if (newY + newHeight > imageDimensions.height) {
+        newHeight = Math.max(MIN_STICKER_HEIGHT, imageDimensions.height - newY);
+        newWidth = newHeight / stickerAspectRatio;
+        if (newWidth < MIN_STICKER_WIDTH) {
+          newWidth = MIN_STICKER_WIDTH;
+          newHeight = newWidth * stickerAspectRatio;
+        }
+        // Re-adjust X position if needed
+        if (resizeHandle === 'n' || resizeHandle === 'w' || resizeHandle === 'nw' || resizeHandle === 'sw') {
+          newX = drag.initialX + (drag.initialWidth - newWidth);
+        }
+      }
+      
+      // Final check: ensure minimums are met
+      newWidth = Math.max(MIN_STICKER_WIDTH, newWidth);
+      newHeight = Math.max(MIN_STICKER_HEIGHT, newHeight);
 
       setQrPosition({ x: newX, y: newY, width: newWidth, height: newHeight });
     } else if (isDragging) {
@@ -605,18 +809,25 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       const newY = Math.max(0, Math.min(imageCoords.y - drag.offsetY, imageDimensions.height - qrPosition.height));
       setQrPosition(prev => ({ ...prev, x: newX, y: newY }));
     }
-  }, [isDragging, isResizing, dragStart, resizeHandle, qrPosition.width, qrPosition.height, imageDimensions, screenToImageCoords]);
+  }, [isDragging, isResizing, dragStart, resizeHandle, qrPosition.width, qrPosition.height, imageDimensions, stickerAspectRatio, screenToImageCoords]);
 
   // Global pointer up handler
   const handleGlobalPointerUp = useCallback((e) => {
-    if (e.pointerId !== dragStart?.pointerId) return;
+    if (dragStart && e.pointerId !== dragStart.pointerId) return;
+
+    // Release pointer capture
+    try {
+      if (qrRef.current && qrRef.current.releasePointerCapture) {
+        qrRef.current.releasePointerCapture(e.pointerId);
+      }
+    } catch (err) {
+      // Ignore errors if pointer was already released
+    }
 
     // Restore body scroll and touch behavior
     document.body.style.overscrollBehavior = '';
     document.body.style.touchAction = '';
-
-    // Ensure scroll position is maintained (final check)
-    window.scrollTo(scrollPositionRef.current.x, scrollPositionRef.current.y);
+    document.documentElement.style.touchAction = '';
 
     setIsDragging(false);
     setIsResizing(false);
@@ -627,16 +838,10 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
   // Prevent scroll during state updates when dragging/resizing
   useEffect(() => {
     if (isDragging || isResizing) {
-      // Lock scroll position during drag/resize operations
-      const scrollLock = () => {
-        window.scrollTo(scrollPositionRef.current.x, scrollPositionRef.current.y);
-      };
-      
-      // Prevent any scroll events
-      window.addEventListener('scroll', scrollLock, { passive: false });
-      
+      // Prevent scroll using CSS (already set in handlePointerDown)
+      // No need for JavaScript scroll locking which causes jumps
       return () => {
-        window.removeEventListener('scroll', scrollLock);
+        // Cleanup handled in handleGlobalPointerUp
       };
     }
   }, [isDragging, isResizing]);
@@ -644,76 +849,22 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
   // Add/remove global listeners
   useEffect(() => {
     if (isDragging || isResizing) {
-      document.addEventListener('pointermove', handleGlobalPointerMove);
-      document.addEventListener('pointerup', handleGlobalPointerUp);
-      document.addEventListener('pointercancel', handleGlobalPointerUp);
-      
-      // Prevent all touch events on mobile during drag/resize
-      const preventTouch = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      };
-      
-      document.addEventListener('touchstart', preventTouch, { passive: false });
-      document.addEventListener('touchmove', preventTouch, { passive: false });
-      document.addEventListener('touchend', preventTouch, { passive: false });
-      document.addEventListener('touchcancel', preventTouch, { passive: false });
+      // Use pointer events for both mouse and touch (works on mobile)
+      document.addEventListener('pointermove', handleGlobalPointerMove, { passive: false });
+      document.addEventListener('pointerup', handleGlobalPointerUp, { passive: false });
+      document.addEventListener('pointercancel', handleGlobalPointerUp, { passive: false });
       
       return () => {
         document.removeEventListener('pointermove', handleGlobalPointerMove);
         document.removeEventListener('pointerup', handleGlobalPointerUp);
         document.removeEventListener('pointercancel', handleGlobalPointerUp);
-        document.removeEventListener('touchstart', preventTouch);
-        document.removeEventListener('touchmove', preventTouch);
-        document.removeEventListener('touchend', preventTouch);
-        document.removeEventListener('touchcancel', preventTouch);
       };
     }
-
-    return () => {
-      document.removeEventListener('pointermove', handleGlobalPointerMove);
-      document.removeEventListener('pointerup', handleGlobalPointerUp);
-      document.removeEventListener('pointercancel', handleGlobalPointerUp);
-    };
   }, [isDragging, isResizing, handleGlobalPointerMove, handleGlobalPointerUp]);
 
   // Prevent unwanted touch behaviors on mobile - but allow our own events
-  useEffect(() => {
-    const preventUnwantedTouch = (e) => {
-      // Only prevent if we're touching the QR positioning area AND it's not our own event
-      if (e.target.closest('.relative.inline-block')) {
-        // Don't prevent if it's our own pointer event
-        if (e.type === 'pointerdown' || e.type === 'pointermove' || e.type === 'pointerup') {
-          return;
-        }
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
-    };
-
-    const preventScroll = (e) => {
-      // Only prevent scroll if we're not actively dragging/resizing
-      if (e.target.closest('.relative.inline-block') && !isDragging && !isResizing) {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
-    };
-
-    // Add selective touch prevention
-    document.addEventListener('touchstart', preventUnwantedTouch, { passive: false });
-    document.addEventListener('touchmove', preventScroll, { passive: false });
-    document.addEventListener('touchend', preventUnwantedTouch, { passive: false });
-    document.addEventListener('touchcancel', preventUnwantedTouch, { passive: false });
-
-    return () => {
-      document.removeEventListener('touchstart', preventUnwantedTouch);
-      document.removeEventListener('touchmove', preventScroll);
-      document.removeEventListener('touchend', preventUnwantedTouch);
-      document.removeEventListener('touchcancel', preventUnwantedTouch);
-    };
-  }, [isDragging, isResizing]);
+  // Removed conflicting touch listeners that were interfering with vertical drag
+  // Pointer events handle everything now without conflicts
 
   // Save QR position
   const saveQRPosition = async () => {
@@ -722,7 +873,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     try {
       // Show loader immediately when button is clicked
       setIsSaving(true);
-      onLoadingStart('Saving QR position...');
+      onLoadingStart('Saving your design...');
       
       // Check if user is authenticated
       if (!user || !localStorage.getItem('token')) {
@@ -742,13 +893,25 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         return;
       }
       
+      // Validate minimum size requirements for scannability
+      if (qrPosition.width < MIN_STICKER_WIDTH || qrPosition.height < MIN_STICKER_HEIGHT) {
+        console.error('QR position too small:', qrPosition);
+        toast.error(
+          `Scanner size is too small! Minimum size required: ${MIN_STICKER_WIDTH}×${MIN_STICKER_HEIGHT}px for reliable scanning. Please resize the scanner to make it scannable.`,
+          { duration: 6000 }
+        );
+        setIsSaving(false);
+        onLoadingEnd();
+        return;
+      }
       
-      onLoadingStart('Uploading QR position to server...');
+      
+      onLoadingStart('Preparing your AR experience...');
       
       // Always use server-side composite generation to ensure real QR is baked in
       const response = await uploadAPI.setQRPosition(qrPosition);
       
-      onLoadingStart('Verifying AR tracking file...');
+      onLoadingStart('Verifying your AR experience...');
       
       // Update user context with the response data
       if (response.data?.data?.user) {
@@ -772,7 +935,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         if (mindTargetUrl) {
           // Server already generated .mind file - we can proceed directly
           console.log('[Level QR] ✅ Server already has .mind file, proceeding to Level 3');
-          onLoadingStart('✅ AR tracking file ready!');
+          onLoadingStart('✅ Your AR experience is ready!');
           
           // Mark that we're in the success flow since we have the .mind file
           successFlow = true;
@@ -780,9 +943,9 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           // Server didn't generate .mind file - try client-side generation
           // Show specialized loader for .mind generation
           console.log('🔍 Signaling parent to show loader for .mind generation');
-          onLoadingStart('Generating AR tracking file...');
-          toast.loading('🧠 Generating AR tracking file...', { id: 'mind-gen' });
-          console.log('🔍 Loader should now be visible with message: Generating AR tracking file...');
+          onLoadingStart('Your Augmented Reality is getting ready...');
+          toast.loading('✨ Your Augmented Reality is getting ready...', { id: 'mind-gen' });
+          console.log('🔍 Loader should now be visible with message: Your Augmented Reality is getting ready...');
           
           // Add a small delay to ensure state updates are processed
           await new Promise(resolve => setTimeout(resolve, 100));
@@ -801,11 +964,11 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
             throw new Error('No composite image available for .mind generation. Please try uploading your design again.');
           }
           
-          onLoadingStart('Loading AR compiler...');
+          onLoadingStart('Preparing AR tools...');
           const mindarModule = await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image.prod.js');
           const { Compiler } = mindarModule;
           
-          onLoadingStart('Loading design image...');
+          onLoadingStart('Loading your design...');
           const img = await new Promise((resolve, reject) => {
             const i = new Image();
             i.crossOrigin = 'anonymous';
@@ -825,7 +988,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
             }, 30000);
           });
           
-          onLoadingStart('Processing AR tracking data...');
+          onLoadingStart('Processing your AR experience...');
           const compiler = new Compiler();
           console.log('[Level QR] Starting image compilation...');
           await compiler.compileImageTargets([img], (progress) => {
@@ -833,16 +996,16 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
             const normalizedProgress = Math.min(Math.max(progress, 0), 1);
             const percentage = (normalizedProgress * 100).toFixed(0);
             console.log(`[Level QR] .mind compilation progress: ${percentage}% (raw: ${progress})`);
-            onLoadingStart(`Compiling AR data: ${percentage}%`);
+            onLoadingStart(`Preparing your AR experience: ${percentage}%`);
           });
           console.log('[Level QR] Image compilation completed successfully');
           
-          onLoadingStart('Exporting AR data...');
+          onLoadingStart('Finalizing your AR experience...');
           console.log('[Level QR] Exporting compiled data...');
           const buf = await compiler.exportData();
           console.log('[Level QR] Data export completed successfully');
           
-          onLoadingStart('Converting to file format...');
+          onLoadingStart('Preparing final files...');
           // Convert ArrayBuffer -> data URL (base64) safely via Blob + FileReader
           const blob = new Blob([buf], { type: 'application/octet-stream' });
           const dataUrl = await new Promise((resolve, reject) => {
@@ -852,12 +1015,12 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
             reader.readAsDataURL(blob);
           });
           
-          onLoadingStart('Uploading AR tracking file...');
+          onLoadingStart('Uploading your AR experience...');
           const saveRes = await uploadAPI.saveMindTarget(dataUrl);
           mindTargetUrl = saveRes.data?.data?.mindTarget?.url;
           
           console.log('[Level QR] .mind generated and saved via /upload/save-mind-target', saveRes.data);
-          toast.success('✅ AR tracking file generated!', { id: 'mind-gen' });
+          toast.success('✅ Your AR experience is ready!', { id: 'mind-gen' });
           // Don't hide loader here - let the success flow handle it
         }
       } catch (clientMindErr) {
@@ -876,12 +1039,12 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         
         if (isTimeoutError) {
           // Don't hide loader immediately - show timeout message first
-          onLoadingStart('⏱️ Upload taking longer than expected...');
+          onLoadingStart('⏱️ This is taking a bit longer...');
           
           // Show user-friendly timeout message
-          toast.error('⏱️ Upload is taking longer than expected', { id: 'mind-gen' });
+          toast.error('⏱️ This is taking a bit longer than expected', { id: 'mind-gen' });
           toast.error(
-            'The AR tracking file is large and taking time to upload. Please wait a bit longer or try again.\n\nIf this continues, please contact support.',
+            'Your AR experience is being prepared. Please wait a bit longer or try again.\n\nIf this continues, please contact support.',
             { duration: 10000 }
           );
           
@@ -893,13 +1056,13 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           }, 5000); // Give user more time to see the timeout message
         } else {
           // Don't hide loader immediately - show error message first
-          onLoadingStart('❌ AR tracking file generation failed');
+          onLoadingStart('❌ Something went wrong...');
           
           // Show user-friendly error with action
           const errorMessage = clientMindErr?.message || clientMindErr?.toString() || 'Unknown error';
-          toast.error('❌ Failed to generate AR tracking file', { id: 'mind-gen' });
+          toast.error('❌ Something went wrong while preparing your AR experience', { id: 'mind-gen' });
           toast.error(
-            `Cannot proceed to Level 3: ${errorMessage}\n\nPlease try saving QR position again or contact support.`,
+            `Cannot proceed to the next step: ${errorMessage}\n\nPlease try saving QR position again or contact support.`,
             { duration: 8000 }
           );
           
@@ -917,7 +1080,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       // ===== Final verification before advancing =====
       if (!mindTargetUrl) {
         console.error('[Level QR] .mind file URL not available after generation attempts');
-        toast.error('⚠️ AR tracking file was not generated. Cannot proceed to Level 3.');
+        toast.error('⚠️ Your AR experience could not be prepared. Cannot proceed to the next step.');
         toast.error('Please try clicking "Save QR Position" again.', { duration: 6000 });
         setIsSaving(false);
         onLoadingEnd();
@@ -930,7 +1093,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       successFlow = true;
       
       // Show final success message on the loader
-      onLoadingStart('✅ AR tracking file successfully generated!');
+      onLoadingStart('✅ Your AR experience is ready!');
       
       // Wait 2 seconds to show the success message on loader
       setTimeout(() => {
@@ -1181,19 +1344,19 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
             <QrCode className="w-8 h-8 text-neon-blue" />
           </div>
         <h3 className="text-xl font-semibold text-slate-100 mb-2">
-          Position Your QR Code
+          Position Your QR Sticker
         </h3>
         <p className="text-slate-300">
-          Click and drag the QR code area to position it on your design
+          {stickerImageUrl ? `Click and drag the QR sticker to position it on your design. The preview shows the complete sticker including "SCAN ME" text. Minimum size: ${MIN_STICKER_WIDTH}×${MIN_STICKER_HEIGHT}px to ensure reliable scanning.` : 'Click and drag the QR code area to position it on your design'}
         </p>
       </div>
 
       {/* Interactive Design Preview */}
-      <div className="bg-slate-800/50 border-2 border-slate-600/30 rounded-xl p-3 sm:p-6 mb-4 sm:mb-6" style={{ overscrollBehavior: 'none' }}>
+      <div className="bg-slate-800/50 border-2 border-slate-600/30 rounded-xl p-3 sm:p-6 mb-4 sm:mb-6" style={{ overscrollBehavior: 'none', touchAction: 'manipulation' }}>
         <div
           className="relative inline-block"
           style={{
-            touchAction: 'none',
+            touchAction: 'manipulation',
             overscrollBehavior: 'none'
           }}
         >
@@ -1222,24 +1385,133 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
             onPointerDown={handlePointerDown}
           >
             {/* Resize Handles */}
-            {/* Corner handles */}
-            <div className="absolute -top-1 -left-1 w-3 h-3 bg-neon-blue border border-white cursor-nw-resize hover:scale-125 transition-transform" style={{ touchAction: 'none', userSelect: 'none' }} onPointerDown={(e) => { e.stopPropagation(); handleResizeStart('nw'); }}></div>
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-neon-blue border border-white cursor-ne-resize hover:scale-125 transition-transform" style={{ touchAction: 'none', userSelect: 'none' }} onPointerDown={(e) => { e.stopPropagation(); handleResizeStart('ne'); }}></div>
-            <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-neon-blue border border-white cursor-sw-resize hover:scale-125 transition-transform" style={{ touchAction: 'none', userSelect: 'none' }} onPointerDown={(e) => { e.stopPropagation(); handleResizeStart('sw'); }}></div>
-            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-neon-blue border border-white cursor-se-resize hover:scale-125 transition-transform" style={{ touchAction: 'none', userSelect: 'none' }} onPointerDown={(e) => { e.stopPropagation(); handleResizeStart('se'); }}></div>
+            {/* Corner handles - larger on mobile for easier interaction */}
+            <div 
+              className="absolute bg-neon-blue border border-white cursor-nw-resize hover:scale-125 transition-transform" 
+              style={{ 
+                top: window.innerWidth < 768 ? '-8px' : '-6px', 
+                left: window.innerWidth < 768 ? '-8px' : '-6px',
+                width: window.innerWidth < 768 ? '16px' : '12px',
+                height: window.innerWidth < 768 ? '16px' : '12px',
+                touchAction: 'none', 
+                userSelect: 'none',
+                zIndex: 10
+              }} 
+              onPointerDown={(e) => { e.stopPropagation(); handleResizeStart(e, 'nw'); }}
+            ></div>
+            <div 
+              className="absolute bg-neon-blue border border-white cursor-ne-resize hover:scale-125 transition-transform" 
+              style={{ 
+                top: window.innerWidth < 768 ? '-8px' : '-6px', 
+                right: window.innerWidth < 768 ? '-8px' : '-6px',
+                width: window.innerWidth < 768 ? '16px' : '12px',
+                height: window.innerWidth < 768 ? '16px' : '12px',
+                touchAction: 'none', 
+                userSelect: 'none',
+                zIndex: 10
+              }} 
+              onPointerDown={(e) => { e.stopPropagation(); handleResizeStart(e, 'ne'); }}
+            ></div>
+            <div 
+              className="absolute bg-neon-blue border border-white cursor-sw-resize hover:scale-125 transition-transform" 
+              style={{ 
+                bottom: window.innerWidth < 768 ? '-8px' : '-6px', 
+                left: window.innerWidth < 768 ? '-8px' : '-6px',
+                width: window.innerWidth < 768 ? '16px' : '12px',
+                height: window.innerWidth < 768 ? '16px' : '12px',
+                touchAction: 'none', 
+                userSelect: 'none',
+                zIndex: 10
+              }} 
+              onPointerDown={(e) => { e.stopPropagation(); handleResizeStart(e, 'sw'); }}
+            ></div>
+            <div 
+              className="absolute bg-neon-blue border border-white cursor-se-resize hover:scale-125 transition-transform" 
+              style={{ 
+                bottom: window.innerWidth < 768 ? '-8px' : '-6px', 
+                right: window.innerWidth < 768 ? '-8px' : '-6px',
+                width: window.innerWidth < 768 ? '16px' : '12px',
+                height: window.innerWidth < 768 ? '16px' : '12px',
+                touchAction: 'none', 
+                userSelect: 'none',
+                zIndex: 10
+              }} 
+              onPointerDown={(e) => { e.stopPropagation(); handleResizeStart(e, 'se'); }}
+            ></div>
 
-            {/* Edge handles */}
-            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1 w-3 h-2 bg-neon-blue border border-white cursor-n-resize hover:scale-125 transition-transform" style={{ touchAction: 'none', userSelect: 'none' }} onPointerDown={(e) => { e.stopPropagation(); handleResizeStart('n'); }}></div>
-            <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1 w-3 h-2 bg-neon-blue border border-white cursor-s-resize hover:scale-125 transition-transform" style={{ touchAction: 'none', userSelect: 'none' }} onPointerDown={(e) => { e.stopPropagation(); handleResizeStart('s'); }}></div>
-            <div className="absolute left-0 top-1/2 transform -translate-x-1 -translate-y-1/2 w-2 h-3 bg-neon-blue border border-white cursor-w-resize hover:scale-125 transition-transform" style={{ touchAction: 'none', userSelect: 'none' }} onPointerDown={(e) => { e.stopPropagation(); handleResizeStart('w'); }}></div>
-            <div className="absolute right-0 top-1/2 transform translate-x-1 -translate-y-1/2 w-2 h-3 bg-neon-blue border border-white cursor-e-resize hover:scale-125 transition-transform" style={{ touchAction: 'none', userSelect: 'none' }} onPointerDown={(e) => { e.stopPropagation(); handleResizeStart('e'); }}></div>
+            {/* Edge handles - larger on mobile */}
+            <div 
+              className="absolute bg-neon-blue border border-white cursor-n-resize hover:scale-125 transition-transform" 
+              style={{ 
+                top: window.innerWidth < 768 ? '-8px' : '-6px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: window.innerWidth < 768 ? '24px' : '12px',
+                height: window.innerWidth < 768 ? '8px' : '8px',
+                touchAction: 'none', 
+                userSelect: 'none',
+                zIndex: 10
+              }} 
+              onPointerDown={(e) => { e.stopPropagation(); handleResizeStart(e, 'n'); }}
+            ></div>
+            <div 
+              className="absolute bg-neon-blue border border-white cursor-s-resize hover:scale-125 transition-transform" 
+              style={{ 
+                bottom: window.innerWidth < 768 ? '-8px' : '-6px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: window.innerWidth < 768 ? '24px' : '12px',
+                height: window.innerWidth < 768 ? '8px' : '8px',
+                touchAction: 'none', 
+                userSelect: 'none',
+                zIndex: 10
+              }} 
+              onPointerDown={(e) => { e.stopPropagation(); handleResizeStart(e, 's'); }}
+            ></div>
+            <div 
+              className="absolute bg-neon-blue border border-white cursor-w-resize hover:scale-125 transition-transform" 
+              style={{ 
+                left: window.innerWidth < 768 ? '-8px' : '-6px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: window.innerWidth < 768 ? '8px' : '8px',
+                height: window.innerWidth < 768 ? '24px' : '12px',
+                touchAction: 'none', 
+                userSelect: 'none',
+                zIndex: 10
+              }} 
+              onPointerDown={(e) => { e.stopPropagation(); handleResizeStart(e, 'w'); }}
+            ></div>
+            <div 
+              className="absolute bg-neon-blue border border-white cursor-e-resize hover:scale-125 transition-transform" 
+              style={{ 
+                right: window.innerWidth < 768 ? '-8px' : '-6px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: window.innerWidth < 768 ? '8px' : '8px',
+                height: window.innerWidth < 768 ? '24px' : '12px',
+                touchAction: 'none', 
+                userSelect: 'none',
+                zIndex: 10
+              }} 
+              onPointerDown={(e) => { e.stopPropagation(); handleResizeStart(e, 'e'); }}
+            ></div>
 
             <div className="absolute -top-6 left-0 text-xs bg-neon-blue text-slate-900 px-2 py-1 rounded whitespace-nowrap">
-              QR Code Area
+              {stickerImageUrl ? `QR Sticker (Min: ${MIN_STICKER_WIDTH}×${MIN_STICKER_HEIGHT}px)` : 'QR Code Area'}
             </div>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <QrCode className="w-4 h-4 sm:w-6 sm:h-6 text-neon-blue" />
-            </div>
+            {stickerImageUrl ? (
+              <img
+                src={stickerImageUrl}
+                alt="QR sticker preview"
+                className="w-full h-full object-contain pointer-events-none"
+                style={{ pointerEvents: 'none' }}
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <QrCode className="w-4 h-4 sm:w-6 sm:h-6 text-neon-blue" />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1266,9 +1538,10 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
           <div>
             <h4 className="font-medium text-neon-blue mb-1 text-sm sm:text-base">💡 Pro Tips</h4>
             <ul className="text-xs sm:text-sm text-slate-300 space-y-1">
-              <li>• Tap and drag the blue area to position your QR code</li>
-              <li>• Use the input fields for precise positioning</li>
-              <li>• Make sure the QR code area doesn't overlap important content</li>
+              <li>• Tap and drag the blue area to position your QR sticker</li>
+              <li>• Use the resize handles to adjust size (minimum: {MIN_STICKER_WIDTH}×{MIN_STICKER_HEIGHT}px for reliable scanning)</li>
+              <li>• Make sure the QR sticker doesn't overlap important content</li>
+              <li>• The preview shows the complete sticker design including "SCAN ME" text</li>
             </ul>
           </div>
         </div>

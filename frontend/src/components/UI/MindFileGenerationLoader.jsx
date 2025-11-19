@@ -7,7 +7,7 @@
 import React from 'react';
 import { QrCode, Cpu, Zap } from 'lucide-react';
 
-const MindFileGenerationLoader = ({ isLoading, message = 'Generating AR tracking file...', progress = null }) => {
+const MindFileGenerationLoader = ({ isLoading, message = 'Your Augmented Reality is getting ready...', progress = null }) => {
   // Debug logging
   React.useEffect(() => {
     console.log('🔍 MindFileGenerationLoader state:', { isLoading, message, progress });
@@ -75,15 +75,15 @@ const MindFileGenerationLoader = ({ isLoading, message = 'Generating AR tracking
           <div className="space-y-2 text-xs text-slate-400">
             <div className="flex items-center">
               <div className="w-2 h-2 bg-neon-green rounded-full mr-2 animate-pulse"></div>
-              <span>Processing design image...</span>
+              <span>Preparing your design...</span>
             </div>
             <div className="flex items-center">
               <div className="w-2 h-2 bg-neon-blue rounded-full mr-2 animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-              <span>Generating AR tracking data...</span>
+              <span>Setting up AR experience...</span>
             </div>
             <div className="flex items-center">
               <div className="w-2 h-2 bg-neon-purple rounded-full mr-2 animate-pulse" style={{ animationDelay: '0.4s' }}></div>
-              <span>Creating .mind file...</span>
+              <span>Finalizing your AR experience...</span>
             </div>
           </div>
         </div>

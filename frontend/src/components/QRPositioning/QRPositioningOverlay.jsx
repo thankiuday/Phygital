@@ -6,6 +6,7 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { Move, RotateCcw } from 'lucide-react'
+import { generateQRSticker } from '../../utils/qrStickerGenerator'
 
 const QRPositioningOverlay = ({ 
   imageUrl, 
@@ -23,6 +24,14 @@ const QRPositioningOverlay = ({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 })
   const [imageDimensions, setImageDimensions] = useState({ width: imageWidth, height: imageHeight })
+  const [stickerImageUrl, setStickerImageUrl] = useState(null)
+  const [stickerAspectRatio, setStickerAspectRatio] = useState(1) // Default to 1:1, will be updated when sticker is generated
+  
+  // Minimum dimensions for scannable QR code
+  // QR code itself needs ~80-100px minimum, plus border (8px) + padding (32px) = ~120px sticker width minimum
+  // Height includes "SCAN ME" text (~40px), so minimum height ~160px
+  const MIN_STICKER_WIDTH = 120
+  const MIN_STICKER_HEIGHT = 160
   
   const imageRef = useRef(null)
   const overlayRef = useRef(null)
@@ -59,35 +68,118 @@ const QRPositioningOverlay = ({
     }
   }, [])
 
-  // Mouse down handler for drag start
-  const handleMouseDown = useCallback((e) => {
-    e.preventDefault()
-    setIsDragging(true)
-    setDragStart({
-      x: e.clientX - qrPosition.x,
-      y: e.clientY - qrPosition.y
-    })
-  }, [qrPosition.x, qrPosition.y])
+  // Generate sticker design from QR code when available
+  useEffect(() => {
+    const generateSticker = async () => {
+      if (!qrImageUrl) {
+        setStickerImageUrl(null)
+        setStickerAspectRatio(1)
+        return
+      }
 
-  // Mouse down handler for resize start
-  const handleResizeMouseDown = useCallback((e, handle) => {
+      try {
+        // Calculate sticker aspect ratio based on default dimensions
+        // Sticker dimensions: width = qrSize + padding*2 + borderWidth*2, height = qrSize + padding*2 + borderWidth*2 + textHeight
+        const defaultQrSize = 200 // Reference size for aspect ratio calculation
+        const padding = 16
+        const borderWidth = 4
+        const textHeight = 40
+        const stickerWidth = defaultQrSize + padding * 2 + borderWidth * 2
+        const stickerHeight = defaultQrSize + padding * 2 + borderWidth * 2 + textHeight
+        const aspectRatio = stickerHeight / stickerWidth
+        setStickerAspectRatio(aspectRatio)
+
+        // Convert blob URL to data URL if needed
+        let qrDataUrl = qrImageUrl
+        if (qrImageUrl.startsWith('blob:')) {
+          const response = await fetch(qrImageUrl)
+          const blob = await response.blob()
+          qrDataUrl = await new Promise((resolve) => {
+            const reader = new FileReader()
+            reader.onloadend = () => resolve(reader.result)
+            reader.readAsDataURL(blob)
+          })
+        }
+
+        // Generate sticker with a reasonable QR size based on current position width
+        const qrSize = Math.max(100, Math.round(qrPosition.width * 0.8)) // Use 80% of position width as QR size
+        const stickerDataUrl = await generateQRSticker(qrDataUrl, {
+          variant: 'purple',
+          qrSize: qrSize,
+          borderWidth: 4,
+          padding: 16
+        })
+        setStickerImageUrl(stickerDataUrl)
+      } catch (error) {
+        console.error('Failed to generate sticker:', error)
+        setStickerImageUrl(null)
+        setStickerAspectRatio(1)
+      }
+    }
+
+    generateSticker()
+  }, [qrImageUrl, qrPosition.width])
+
+  // Pointer down handler for drag start (supports both mouse and touch)
+  const handlePointerDown = useCallback((e) => {
     e.preventDefault()
     e.stopPropagation()
+    
+    // Prevent scroll during drag/resize
+    document.body.style.overscrollBehavior = 'none'
+    document.body.style.overflow = 'hidden'
+    if (e.pointerType === 'touch') {
+      document.body.style.touchAction = 'none'
+    }
+    
+    setIsDragging(true)
+    setDragStart({
+      x: e.pageX - qrPosition.x,
+      y: e.pageY - qrPosition.y
+    })
+    
+    // Capture pointer for consistent tracking
+    if (e.target && e.target.setPointerCapture) {
+      e.target.setPointerCapture(e.pointerId)
+    }
+  }, [qrPosition.x, qrPosition.y])
+
+  // Pointer down handler for resize start (supports both mouse and touch)
+  const handleResizePointerDown = useCallback((e, handle) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    // Prevent scroll during drag/resize
+    document.body.style.overscrollBehavior = 'none'
+    document.body.style.overflow = 'hidden'
+    if (e.pointerType === 'touch') {
+      document.body.style.touchAction = 'none'
+    }
+    
     setIsResizing(true)
     setResizeHandle(handle)
     setResizeStart({
-      x: e.clientX,
-      y: e.clientY,
+      x: e.pageX,
+      y: e.pageY,
       width: qrPosition.width,
       height: qrPosition.height
     })
+    
+    // Capture pointer for consistent tracking
+    if (e.target && e.target.setPointerCapture) {
+      e.target.setPointerCapture(e.pointerId)
+    }
   }, [qrPosition.width, qrPosition.height])
 
-  // Mouse move handler
-  const handleMouseMove = useCallback((e) => {
+  // Pointer move handler (supports both mouse and touch)
+  const handlePointerMove = useCallback((e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
     if (isDragging) {
-      const newX = e.clientX - dragStart.x
-      const newY = e.clientY - dragStart.y
+      // Use pageX/pageY for consistent coordinates across scroll
+      const newX = e.pageX - dragStart.x
+      const newY = e.pageY - dragStart.y
       
       // Constrain to image bounds
       const constrainedX = Math.max(0, Math.min(newX, imageWidth - qrPosition.width))
@@ -95,49 +187,107 @@ const QRPositioningOverlay = ({
       
       onPositionChange({ x: constrainedX, y: constrainedY })
     } else if (isResizing && resizeHandle) {
-      const deltaX = e.clientX - resizeStart.x
-      const deltaY = e.clientY - resizeStart.y
+      // Use pageX/pageY for consistent coordinates across scroll
+      const deltaX = e.pageX - resizeStart.x
+      const deltaY = e.pageY - resizeStart.y
       
       let newWidth = resizeStart.width
       let newHeight = resizeStart.height
       let newX = qrPosition.x
       let newY = qrPosition.y
       
-      // Handle different resize directions
+      // Handle different resize directions - maintain sticker aspect ratio
+      // Calculate new dimensions based on width change, then apply aspect ratio
+      let baseSizeChange = 0
+      
       switch (resizeHandle) {
         case 'se': // Southeast (bottom-right)
-          newWidth = Math.max(20, resizeStart.width + deltaX)
-          newHeight = Math.max(20, resizeStart.height + deltaY)
+          baseSizeChange = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY
+          newWidth = Math.max(MIN_STICKER_WIDTH, resizeStart.width + baseSizeChange)
+          newHeight = newWidth * stickerAspectRatio
+          // Ensure height meets minimum
+          if (newHeight < MIN_STICKER_HEIGHT) {
+            newHeight = MIN_STICKER_HEIGHT
+            newWidth = newHeight / stickerAspectRatio
+          }
           break
         case 'sw': // Southwest (bottom-left)
-          newWidth = Math.max(20, resizeStart.width - deltaX)
-          newHeight = Math.max(20, resizeStart.height + deltaY)
+          baseSizeChange = Math.abs(deltaX) > Math.abs(deltaY) ? -deltaX : deltaY
+          newWidth = Math.max(MIN_STICKER_WIDTH, resizeStart.width + baseSizeChange)
+          newHeight = newWidth * stickerAspectRatio
+          // Ensure height meets minimum
+          if (newHeight < MIN_STICKER_HEIGHT) {
+            newHeight = MIN_STICKER_HEIGHT
+            newWidth = newHeight / stickerAspectRatio
+          }
           newX = qrPosition.x + (resizeStart.width - newWidth)
           break
         case 'ne': // Northeast (top-right)
-          newWidth = Math.max(20, resizeStart.width + deltaX)
-          newHeight = Math.max(20, resizeStart.height - deltaY)
+          baseSizeChange = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : -deltaY
+          newWidth = Math.max(MIN_STICKER_WIDTH, resizeStart.width + baseSizeChange)
+          newHeight = newWidth * stickerAspectRatio
+          // Ensure height meets minimum
+          if (newHeight < MIN_STICKER_HEIGHT) {
+            newHeight = MIN_STICKER_HEIGHT
+            newWidth = newHeight / stickerAspectRatio
+          }
           newY = qrPosition.y + (resizeStart.height - newHeight)
           break
         case 'nw': // Northwest (top-left)
-          newWidth = Math.max(20, resizeStart.width - deltaX)
-          newHeight = Math.max(20, resizeStart.height - deltaY)
+          baseSizeChange = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY
+          newWidth = Math.max(MIN_STICKER_WIDTH, resizeStart.width + baseSizeChange)
+          newHeight = newWidth * stickerAspectRatio
+          // Ensure height meets minimum
+          if (newHeight < MIN_STICKER_HEIGHT) {
+            newHeight = MIN_STICKER_HEIGHT
+            newWidth = newHeight / stickerAspectRatio
+          }
           newX = qrPosition.x + (resizeStart.width - newWidth)
           newY = qrPosition.y + (resizeStart.height - newHeight)
           break
         case 'n': // North (top)
-          newHeight = Math.max(20, resizeStart.height - deltaY)
+          // Use height change, then calculate width from aspect ratio
+          newHeight = Math.max(MIN_STICKER_HEIGHT, resizeStart.height - deltaY)
+          newWidth = newHeight / stickerAspectRatio
+          // Ensure width meets minimum
+          if (newWidth < MIN_STICKER_WIDTH) {
+            newWidth = MIN_STICKER_WIDTH
+            newHeight = newWidth * stickerAspectRatio
+          }
           newY = qrPosition.y + (resizeStart.height - newHeight)
+          newX = qrPosition.x + (resizeStart.width - newWidth)
           break
         case 's': // South (bottom)
-          newHeight = Math.max(20, resizeStart.height + deltaY)
+          // Use height change, then calculate width from aspect ratio
+          newHeight = Math.max(MIN_STICKER_HEIGHT, resizeStart.height + deltaY)
+          newWidth = newHeight / stickerAspectRatio
+          // Ensure width meets minimum
+          if (newWidth < MIN_STICKER_WIDTH) {
+            newWidth = MIN_STICKER_WIDTH
+            newHeight = newWidth * stickerAspectRatio
+          }
+          newX = qrPosition.x + (resizeStart.width - newWidth)
           break
         case 'e': // East (right)
-          newWidth = Math.max(20, resizeStart.width + deltaX)
+          newWidth = Math.max(MIN_STICKER_WIDTH, resizeStart.width + deltaX)
+          newHeight = newWidth * stickerAspectRatio
+          // Ensure height meets minimum
+          if (newHeight < MIN_STICKER_HEIGHT) {
+            newHeight = MIN_STICKER_HEIGHT
+            newWidth = newHeight / stickerAspectRatio
+          }
+          newY = qrPosition.y + (resizeStart.height - newHeight)
           break
         case 'w': // West (left)
-          newWidth = Math.max(20, resizeStart.width - deltaX)
+          newWidth = Math.max(MIN_STICKER_WIDTH, resizeStart.width - deltaX)
+          newHeight = newWidth * stickerAspectRatio
+          // Ensure height meets minimum
+          if (newHeight < MIN_STICKER_HEIGHT) {
+            newHeight = MIN_STICKER_HEIGHT
+            newWidth = newHeight / stickerAspectRatio
+          }
           newX = qrPosition.x + (resizeStart.width - newWidth)
+          newY = qrPosition.y + (resizeStart.height - newHeight)
           break
       }
       
@@ -145,29 +295,70 @@ const QRPositioningOverlay = ({
       newX = Math.max(0, Math.min(newX, imageWidth - newWidth))
       newY = Math.max(0, Math.min(newY, imageHeight - newHeight))
       
+      // Ensure size doesn't exceed bounds, but maintain minimums
+      if (newX + newWidth > imageWidth) {
+        newWidth = Math.max(MIN_STICKER_WIDTH, imageWidth - newX)
+        newHeight = newWidth * stickerAspectRatio
+        if (newHeight < MIN_STICKER_HEIGHT) {
+          newHeight = MIN_STICKER_HEIGHT
+          newWidth = newHeight / stickerAspectRatio
+        }
+      }
+      if (newY + newHeight > imageHeight) {
+        newHeight = Math.max(MIN_STICKER_HEIGHT, imageHeight - newY)
+        newWidth = newHeight / stickerAspectRatio
+        if (newWidth < MIN_STICKER_WIDTH) {
+          newWidth = MIN_STICKER_WIDTH
+          newHeight = newWidth * stickerAspectRatio
+        }
+        // Re-adjust X position if needed
+        if (resizeHandle === 'n' || resizeHandle === 'w' || resizeHandle === 'nw' || resizeHandle === 'sw') {
+          newX = qrPosition.x + (resizeStart.width - newWidth)
+        }
+      }
+      
+      // Final check: ensure minimums are met
+      newWidth = Math.max(MIN_STICKER_WIDTH, newWidth)
+      newHeight = Math.max(MIN_STICKER_HEIGHT, newHeight)
+      
       onPositionChange({ x: newX, y: newY })
       onSizeChange({ width: newWidth, height: newHeight })
     }
-  }, [isDragging, isResizing, dragStart, resizeStart, resizeHandle, qrPosition, imageWidth, imageHeight, onPositionChange, onSizeChange])
+  }, [isDragging, isResizing, dragStart, resizeStart, resizeHandle, qrPosition, imageWidth, imageHeight, stickerAspectRatio, onPositionChange, onSizeChange])
 
-  // Mouse up handler
-  const handleMouseUp = useCallback(() => {
+  // Pointer up handler (supports both mouse and touch)
+  const handlePointerUp = useCallback((e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    // Restore scroll behavior
+    document.body.style.overscrollBehavior = ''
+    document.body.style.overflow = ''
+    document.body.style.touchAction = ''
+    
+    // Release pointer capture
+    if (e.target && e.target.releasePointerCapture) {
+      e.target.releasePointerCapture(e.pointerId)
+    }
+    
     setIsDragging(false)
     setIsResizing(false)
     setResizeHandle(null)
   }, [])
 
-  // Add event listeners
+  // Add event listeners for pointer events
   useEffect(() => {
     if (isDragging || isResizing) {
-      document.addEventListener('mousemove', handleMouseMove)
-      document.addEventListener('mouseup', handleMouseUp)
+      document.addEventListener('pointermove', handlePointerMove)
+      document.addEventListener('pointerup', handlePointerUp)
+      document.addEventListener('pointercancel', handlePointerUp)
       return () => {
-        document.removeEventListener('mousemove', handleMouseMove)
-        document.removeEventListener('mouseup', handleMouseUp)
+        document.removeEventListener('pointermove', handlePointerMove)
+        document.removeEventListener('pointerup', handlePointerUp)
+        document.removeEventListener('pointercancel', handlePointerUp)
       }
     }
-  }, [isDragging, isResizing, handleMouseMove, handleMouseUp])
+  }, [isDragging, isResizing, handlePointerMove, handlePointerUp])
 
   // Expose capture function to parent
   useEffect(() => {
@@ -176,10 +367,10 @@ const QRPositioningOverlay = ({
     }
   }, [onCaptureComposite, captureCompositeImage])
 
-  // Reset to default position
+  // Reset to default position (with minimum scannable size)
   const resetPosition = useCallback(() => {
     onPositionChange({ x: 10, y: 10 })
-    onSizeChange({ width: 100, height: 100 })
+    onSizeChange({ width: MIN_STICKER_WIDTH, height: MIN_STICKER_HEIGHT })
   }, [onPositionChange, onSizeChange])
 
   // Capture composite image (design + QR overlay)
@@ -299,17 +490,23 @@ const QRPositioningOverlay = ({
             minWidth: '20px',
             minHeight: '20px'
           }}
-          onMouseDown={handleMouseDown}
+          onPointerDown={handlePointerDown}
         >
           {/* QR Code Label */}
           <div className="absolute -top-8 left-0 text-xs bg-primary-500 text-white px-2 py-1 rounded whitespace-nowrap">
-            QR Code Position
+            {stickerImageUrl ? 'QR Sticker Position' : 'QR Code Position'}
           </div>
           <div className="absolute -top-6 left-0 text-xs bg-primary-600 text-white px-2 py-1 rounded whitespace-nowrap">
-            Drag to move • Resize handles on edges
+            {stickerImageUrl ? `Drag to move • Min: ${MIN_STICKER_WIDTH}×${MIN_STICKER_HEIGHT}px for scanning` : 'Drag to move • Resize handles on edges'}
           </div>
-          {/* QR preview inside overlay (if available) */}
-          {qrImageUrl ? (
+          {/* Sticker preview inside overlay (if available) */}
+          {stickerImageUrl ? (
+            <img
+              src={stickerImageUrl}
+              alt="QR sticker preview"
+              style={{ width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none' }}
+            />
+          ) : qrImageUrl ? (
             <img
               src={qrImageUrl}
               alt="QR preview"
@@ -356,44 +553,44 @@ const QRPositioningOverlay = ({
           <div
             className="absolute w-3 h-3 bg-primary-500 border border-white cursor-nw-resize qr-resize-handle"
             style={{ top: '-6px', left: '-6px' }}
-            onMouseDown={(e) => handleResizeMouseDown(e, 'nw')}
+            onPointerDown={(e) => handleResizePointerDown(e, 'nw')}
           />
           <div
             className="absolute w-3 h-3 bg-primary-500 border border-white cursor-ne-resize qr-resize-handle"
             style={{ top: '-6px', right: '-6px' }}
-            onMouseDown={(e) => handleResizeMouseDown(e, 'ne')}
+            onPointerDown={(e) => handleResizePointerDown(e, 'ne')}
           />
           <div
             className="absolute w-3 h-3 bg-primary-500 border border-white cursor-sw-resize qr-resize-handle"
             style={{ bottom: '-6px', left: '-6px' }}
-            onMouseDown={(e) => handleResizeMouseDown(e, 'sw')}
+            onPointerDown={(e) => handleResizePointerDown(e, 'sw')}
           />
           <div
             className="absolute w-3 h-3 bg-primary-500 border border-white cursor-se-resize qr-resize-handle"
             style={{ bottom: '-6px', right: '-6px' }}
-            onMouseDown={(e) => handleResizeMouseDown(e, 'se')}
+            onPointerDown={(e) => handleResizePointerDown(e, 'se')}
           />
           
           {/* Edge handles */}
           <div
             className="absolute w-3 h-3 bg-primary-500 border border-white cursor-n-resize qr-resize-handle"
             style={{ top: '-6px', left: '50%', transform: 'translateX(-50%)' }}
-            onMouseDown={(e) => handleResizeMouseDown(e, 'n')}
+            onPointerDown={(e) => handleResizePointerDown(e, 'n')}
           />
           <div
             className="absolute w-3 h-3 bg-primary-500 border border-white cursor-s-resize qr-resize-handle"
             style={{ bottom: '-6px', left: '50%', transform: 'translateX(-50%)' }}
-            onMouseDown={(e) => handleResizeMouseDown(e, 's')}
+            onPointerDown={(e) => handleResizePointerDown(e, 's')}
           />
           <div
             className="absolute w-3 h-3 bg-primary-500 border border-white cursor-w-resize qr-resize-handle"
             style={{ left: '-6px', top: '50%', transform: 'translateY(-50%)' }}
-            onMouseDown={(e) => handleResizeMouseDown(e, 'w')}
+            onPointerDown={(e) => handleResizePointerDown(e, 'w')}
           />
           <div
             className="absolute w-3 h-3 bg-primary-500 border border-white cursor-e-resize qr-resize-handle"
             style={{ right: '-6px', top: '50%', transform: 'translateY(-50%)' }}
-            onMouseDown={(e) => handleResizeMouseDown(e, 'e')}
+            onPointerDown={(e) => handleResizePointerDown(e, 'e')}
           />
         </div>
       </div>
@@ -401,8 +598,8 @@ const QRPositioningOverlay = ({
       {/* Instructions */}
       <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
         <p className="text-sm text-blue-800">
-          <strong>💡 Tip:</strong> Position the QR code area where you want your QR code to appear on your design. 
-          The dummy pattern shows you exactly where the QR code will be placed.
+          <strong>💡 Tip:</strong> Position the QR sticker where you want it to appear on your design. 
+          {stickerImageUrl ? ` The preview shows the complete sticker design including the gradient border and "SCAN ME" text. Minimum size: ${MIN_STICKER_WIDTH}×${MIN_STICKER_HEIGHT}px to ensure reliable scanning.` : ' The dummy pattern shows you exactly where the QR code will be placed.'}
         </p>
       </div>
 

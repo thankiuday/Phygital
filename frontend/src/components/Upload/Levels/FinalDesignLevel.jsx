@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
-import { uploadAPI } from '../../../utils/api';
+import { uploadAPI, generateQRCode, downloadFile } from '../../../utils/api';
+import { generateQRSticker } from '../../../utils/qrStickerGenerator';
 import { Sparkles, CheckCircle, AlertCircle, Download, Eye, Trophy } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -11,50 +12,427 @@ const FinalDesignLevel = ({ onComplete, levelData, onStartNewJourney, forceStart
   const [isDownloading, setIsDownloading] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
 
-  // Generate preview of final design
+  // Generate preview of final design with sticker design
   const generatePreview = async () => {
     try {
       setIsGeneratingPreview(true);
-      const response = await uploadAPI.previewFinalDesign();
-      setFinalDesignPreview(response.data.data.preview);
-      toast.success('✨ Preview generated successfully!');
+      
+      // Create canvas for preview
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Load the original design image
+      const designImg = document.createElement('img');
+      designImg.crossOrigin = 'anonymous';
+      
+      const designUrl = levelData?.design?.url || user?.uploadedFiles?.design?.url;
+      await new Promise((resolve, reject) => {
+        designImg.onload = resolve;
+        designImg.onerror = reject;
+        designImg.src = designUrl;
+      });
+      
+      // Set canvas to image dimensions
+      canvas.width = designImg.naturalWidth;
+      canvas.height = designImg.naturalHeight;
+      
+      // Draw the design image
+      ctx.drawImage(designImg, 0, 0);
+      
+      // Get QR position from levelData or user data
+      // Note: qrPosition values are stored in pixels relative to actual image dimensions
+      // (converted via screenToImageCoords which scales from displayed size to natural size)
+      const qrPos = levelData?.qrPosition || user?.qrPosition || { x: 100, y: 100, width: 100, height: 100 };
+      console.log('📍 QR Position:', qrPos);
+      console.log('🖼️ Design image dimensions:', {
+        naturalWidth: designImg.naturalWidth,
+        naturalHeight: designImg.naturalHeight
+      });
+      
+      // QR position is already in actual image coordinates, use directly
+      // But we need to scale if the stored position was relative to a different image size
+      // Check if position values seem reasonable (if they're > naturalWidth, they're in display coordinates)
+      let actualQrX, actualQrY, actualQrWidth, actualQrHeight;
+      
+      if (qrPos.width > designImg.naturalWidth || qrPos.height > designImg.naturalHeight) {
+        // Position appears to be in display coordinates, need to scale
+        // Calculate display dimensions based on image aspect ratio
+        const maxDisplayWidth = 400;
+        const imageAspectRatio = designImg.naturalWidth / designImg.naturalHeight;
+        let displayWidth, displayHeight;
+        
+        if (imageAspectRatio > 1) {
+          displayWidth = maxDisplayWidth;
+          displayHeight = maxDisplayWidth / imageAspectRatio;
+        } else {
+          displayHeight = maxDisplayWidth / imageAspectRatio;
+          displayWidth = maxDisplayWidth;
+          if (displayHeight > 300) {
+            displayHeight = 300;
+            displayWidth = 300 * imageAspectRatio;
+          }
+        }
+        
+        actualQrX = (qrPos.x / displayWidth) * designImg.naturalWidth;
+        actualQrY = (qrPos.y / displayHeight) * designImg.naturalHeight;
+        actualQrWidth = (qrPos.width / displayWidth) * designImg.naturalWidth;
+        actualQrHeight = (qrPos.height / displayHeight) * designImg.naturalHeight;
+        
+        console.log('📐 Scaling from display coordinates:', { displayWidth, displayHeight });
+      } else {
+        // Position is already in actual image coordinates, use directly
+        actualQrX = qrPos.x;
+        actualQrY = qrPos.y;
+        actualQrWidth = qrPos.width;
+        actualQrHeight = qrPos.height;
+        
+        console.log('📐 Using position directly (already in actual image coordinates)');
+      }
+      
+      console.log('📏 Calculated QR position:', {
+        actualQrX,
+        actualQrY,
+        actualQrWidth,
+        actualQrHeight
+      });
+      
+      // Generate QR code URL for the user's personalized page
+      const frontendUrl = import.meta.env.VITE_FRONTEND_URL || import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5173';
+      const userIdentifier = user.urlCode || user._id;
+      const projectId = levelData?.projectId || user.currentProject || 'default';
+      const qrCodeUrl = `${frontendUrl}/#/ar/user/${userIdentifier}/project/${projectId}`;
+      
+      // Calculate QR code size needed to match the positioned sticker dimensions
+      // Sticker dimensions: width = qrSize + padding*2 + borderWidth*2, height = qrSize + padding*2 + borderWidth*2 + textHeight
+      // So: qrSize = actualQrWidth - (padding*2 + borderWidth*2) = actualQrWidth - 40
+      // Minimum QR code size for reliable scanning: ~80px (allows for ~120px sticker width minimum)
+      const padding = 16;
+      const borderWidth = 4;
+      const textHeight = 40;
+      const MIN_QR_CODE_SIZE = 80; // Minimum QR code size for reliable scanning
+      const qrCodeSize = Math.max(MIN_QR_CODE_SIZE, Math.round(actualQrWidth - (padding * 2 + borderWidth * 2)));
+      console.log('🔲 Calculating QR code size to match positioned dimensions:', {
+        actualQrWidth,
+        actualQrHeight,
+        qrCodeSize,
+        expectedStickerWidth: qrCodeSize + padding * 2 + borderWidth * 2,
+        expectedStickerHeight: qrCodeSize + padding * 2 + borderWidth * 2 + textHeight
+      });
+      
+      try {
+        // Generate plain QR code directly on frontend (no watermark)
+        const qrDataUrl = await generateQRCode(qrCodeUrl, {
+          size: qrCodeSize,
+          margin: 2,
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF'
+          }
+        });
+        console.log('✅ Plain QR code generated:', { size: qrDataUrl.length });
+
+        // Generate sticker with gradient border and "SCAN ME" text
+        console.log('🎨 Generating sticker with QR size:', qrCodeSize);
+        let stickerDataUrl;
+        try {
+          stickerDataUrl = await generateQRSticker(qrDataUrl, {
+            variant: 'purple',
+            qrSize: qrCodeSize,
+            borderWidth: 4,
+            padding: 16
+          });
+          console.log('✅ Sticker generated, data URL length:', stickerDataUrl.length);
+          if (!stickerDataUrl || !stickerDataUrl.startsWith('data:image')) {
+            throw new Error('Invalid sticker data URL generated');
+          }
+        } catch (stickerError) {
+          console.error('❌ Sticker generation failed:', stickerError);
+          throw new Error(`Failed to generate sticker: ${stickerError.message}`);
+        }
+
+        // Load sticker image
+        const stickerImg = document.createElement('img');
+        stickerImg.crossOrigin = 'anonymous';
+        await new Promise((resolve, reject) => {
+          stickerImg.onload = () => {
+            console.log('✅ Sticker image loaded:', {
+              width: stickerImg.width,
+              height: stickerImg.height,
+              naturalWidth: stickerImg.naturalWidth,
+              naturalHeight: stickerImg.naturalHeight
+            });
+            if (stickerImg.naturalWidth === 0 || stickerImg.naturalHeight === 0) {
+              reject(new Error('Sticker image has zero dimensions'));
+              return;
+            }
+            resolve();
+          };
+          stickerImg.onerror = (error) => {
+            console.error('❌ Sticker image load error:', error);
+            reject(new Error('Failed to load sticker image'));
+          };
+          stickerImg.src = stickerDataUrl;
+        });
+
+        // Use the exact positioned dimensions (user set these during positioning)
+        const stickerDisplayWidth = actualQrWidth;
+        const stickerDisplayHeight = actualQrHeight;
+
+        console.log('📐 Sticker positioning (using exact positioned dimensions):', {
+          actualQrX,
+          actualQrY,
+          actualQrWidth,
+          actualQrHeight,
+          stickerDisplayWidth,
+          stickerDisplayHeight,
+          stickerNaturalWidth: stickerImg.naturalWidth,
+          stickerNaturalHeight: stickerImg.naturalHeight,
+          canvasWidth: canvas.width,
+          canvasHeight: canvas.height
+        });
+
+        // Draw sticker at exact positioned location and size
+        const stickerX = Math.max(0, Math.min(actualQrX, canvas.width - stickerDisplayWidth));
+        const stickerY = Math.max(0, Math.min(actualQrY, canvas.height - stickerDisplayHeight));
+
+        // Draw sticker on the composite using exact positioned dimensions
+        console.log('🎨 Drawing sticker on canvas with exact positioned dimensions...');
+        ctx.drawImage(stickerImg, stickerX, stickerY, stickerDisplayWidth, stickerDisplayHeight);
+        console.log('✅ Sticker drawn at:', { x: stickerX, y: stickerY, width: stickerDisplayWidth, height: stickerDisplayHeight });
+
+        // Set preview
+        const previewDataUrl = canvas.toDataURL('image/png', 1.0);
+        console.log('✅ Preview generated, data URL length:', previewDataUrl.length);
+        setFinalDesignPreview(previewDataUrl);
+        toast.success('✨ Preview generated with sticker design!');
+      } catch (qrError) {
+        console.error('QR loading failed:', qrError);
+        toast.error('Failed to generate QR code for preview');
+      }
     } catch (error) {
+      console.error('Generate preview error:', error);
       toast.error('Failed to generate preview');
     } finally {
       setIsGeneratingPreview(false);
     }
   };
 
-  // Download final design and complete level
+  // Download final design with sticker design and complete level
   const downloadFinalDesign = async () => {
     try {
       setIsDownloading(true);
-      const response = await uploadAPI.downloadFinalDesign();
       
-      // Create blob and download
-      const blob = new Blob([response.data], { type: 'image/png' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `phygital-design-${user.username}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      // Create a fresh composite image with sticker design
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
       
-      toast.success('🎉 Final design downloaded successfully!');
+      // Load the original design image
+      const designImg = document.createElement('img');
+      designImg.crossOrigin = 'anonymous';
       
-      // Complete the level
-      setIsCompleted(true);
-      onComplete({
-        url: url,
-        name: `phygital-design-${user.username}.png`,
-        downloaded: true
+      const designUrl = levelData?.design?.url || user?.uploadedFiles?.design?.url;
+      await new Promise((resolve, reject) => {
+        designImg.onload = resolve;
+        designImg.onerror = reject;
+        designImg.src = designUrl;
       });
       
+      // Set canvas to image dimensions
+      canvas.width = designImg.naturalWidth;
+      canvas.height = designImg.naturalHeight;
+      
+      // Draw the design image
+      ctx.drawImage(designImg, 0, 0);
+      
+      // Get QR position from levelData or user data
+      // Note: qrPosition values are stored in pixels relative to actual image dimensions
+      // (converted via screenToImageCoords which scales from displayed size to natural size)
+      const qrPos = levelData?.qrPosition || user?.qrPosition || { x: 100, y: 100, width: 100, height: 100 };
+      console.log('📍 QR Position for download:', qrPos);
+      console.log('🖼️ Design image dimensions:', {
+        naturalWidth: designImg.naturalWidth,
+        naturalHeight: designImg.naturalHeight
+      });
+      
+      // QR position is already in actual image coordinates, use directly
+      // But we need to scale if the stored position was relative to a different image size
+      // Check if position values seem reasonable (if they're > naturalWidth, they're in display coordinates)
+      let actualQrX, actualQrY, actualQrWidth, actualQrHeight;
+      
+      if (qrPos.width > designImg.naturalWidth || qrPos.height > designImg.naturalHeight) {
+        // Position appears to be in display coordinates, need to scale
+        // Calculate display dimensions based on image aspect ratio
+        const maxDisplayWidth = 400;
+        const imageAspectRatio = designImg.naturalWidth / designImg.naturalHeight;
+        let displayWidth, displayHeight;
+        
+        if (imageAspectRatio > 1) {
+          displayWidth = maxDisplayWidth;
+          displayHeight = maxDisplayWidth / imageAspectRatio;
+        } else {
+          displayHeight = maxDisplayWidth / imageAspectRatio;
+          displayWidth = maxDisplayWidth;
+          if (displayHeight > 300) {
+            displayHeight = 300;
+            displayWidth = 300 * imageAspectRatio;
+          }
+        }
+        
+        actualQrX = (qrPos.x / displayWidth) * designImg.naturalWidth;
+        actualQrY = (qrPos.y / displayHeight) * designImg.naturalHeight;
+        actualQrWidth = (qrPos.width / displayWidth) * designImg.naturalWidth;
+        actualQrHeight = (qrPos.height / displayHeight) * designImg.naturalHeight;
+        
+        console.log('📐 Scaling from display coordinates:', { displayWidth, displayHeight });
+      } else {
+        // Position is already in actual image coordinates, use directly
+        actualQrX = qrPos.x;
+        actualQrY = qrPos.y;
+        actualQrWidth = qrPos.width;
+        actualQrHeight = qrPos.height;
+        
+        console.log('📐 Using position directly (already in actual image coordinates)');
+      }
+      
+      console.log('📏 Calculated QR position for download:', {
+        actualQrX,
+        actualQrY,
+        actualQrWidth,
+        actualQrHeight
+      });
+      
+      // Generate QR code URL for the user's personalized page
+      const frontendUrl = import.meta.env.VITE_FRONTEND_URL || import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5173';
+      const userIdentifier = user.urlCode || user._id;
+      const projectId = levelData?.projectId || user.currentProject || 'default';
+      const qrCodeUrl = `${frontendUrl}/#/ar/user/${userIdentifier}/project/${projectId}`;
+      
+      // Calculate QR code size needed to match the positioned sticker dimensions
+      // Sticker dimensions: width = qrSize + padding*2 + borderWidth*2, height = qrSize + padding*2 + borderWidth*2 + textHeight
+      // So: qrSize = actualQrWidth - (padding*2 + borderWidth*2) = actualQrWidth - 40
+      // Minimum QR code size for reliable scanning: ~80px (allows for ~120px sticker width minimum)
+      const padding = 16;
+      const borderWidth = 4;
+      const textHeight = 40;
+      const MIN_QR_CODE_SIZE = 80; // Minimum QR code size for reliable scanning
+      const qrCodeSize = Math.max(MIN_QR_CODE_SIZE, Math.round(actualQrWidth - (padding * 2 + borderWidth * 2)));
+      console.log('🔲 Calculating QR code size to match positioned dimensions for download:', {
+        actualQrWidth,
+        actualQrHeight,
+        qrCodeSize,
+        expectedStickerWidth: qrCodeSize + padding * 2 + borderWidth * 2,
+        expectedStickerHeight: qrCodeSize + padding * 2 + borderWidth * 2 + textHeight
+      });
+      
+      try {
+        // Generate plain QR code directly on frontend (no watermark)
+        const qrDataUrl = await generateQRCode(qrCodeUrl, {
+          size: qrCodeSize,
+          margin: 2,
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF'
+          }
+        });
+        console.log('✅ Plain QR code generated for download:', { size: qrDataUrl.length });
+
+        // Generate sticker with gradient border and "SCAN ME" text
+        console.log('🎨 Generating sticker with QR size:', qrCodeSize);
+        let stickerDataUrl;
+        try {
+          stickerDataUrl = await generateQRSticker(qrDataUrl, {
+            variant: 'purple',
+            qrSize: qrCodeSize,
+            borderWidth: 4,
+            padding: 16
+          });
+          console.log('✅ Sticker generated for download, data URL length:', stickerDataUrl.length);
+          if (!stickerDataUrl || !stickerDataUrl.startsWith('data:image')) {
+            throw new Error('Invalid sticker data URL generated');
+          }
+        } catch (stickerError) {
+          console.error('❌ Sticker generation failed:', stickerError);
+          throw new Error(`Failed to generate sticker: ${stickerError.message}`);
+        }
+
+        // Load sticker image
+        const stickerImg = document.createElement('img');
+        stickerImg.crossOrigin = 'anonymous';
+        await new Promise((resolve, reject) => {
+          stickerImg.onload = () => {
+            console.log('✅ Sticker image loaded for download:', {
+              width: stickerImg.width,
+              height: stickerImg.height,
+              naturalWidth: stickerImg.naturalWidth,
+              naturalHeight: stickerImg.naturalHeight
+            });
+            if (stickerImg.naturalWidth === 0 || stickerImg.naturalHeight === 0) {
+              reject(new Error('Sticker image has zero dimensions'));
+              return;
+            }
+            resolve();
+          };
+          stickerImg.onerror = (error) => {
+            console.error('❌ Sticker image load error:', error);
+            reject(new Error('Failed to load sticker image'));
+          };
+          stickerImg.src = stickerDataUrl;
+        });
+
+        // Use the exact positioned dimensions (user set these during positioning)
+        const stickerDisplayWidth = actualQrWidth;
+        const stickerDisplayHeight = actualQrHeight;
+
+        console.log('📐 Sticker positioning for download (using exact positioned dimensions):', {
+          actualQrX,
+          actualQrY,
+          actualQrWidth,
+          actualQrHeight,
+          stickerDisplayWidth,
+          stickerDisplayHeight,
+          stickerNaturalWidth: stickerImg.naturalWidth,
+          stickerNaturalHeight: stickerImg.naturalHeight,
+          canvasWidth: canvas.width,
+          canvasHeight: canvas.height
+        });
+
+        // Draw sticker at exact positioned location and size
+        const stickerX = Math.max(0, Math.min(actualQrX, canvas.width - stickerDisplayWidth));
+        const stickerY = Math.max(0, Math.min(actualQrY, canvas.height - stickerDisplayHeight));
+
+        // Draw sticker on the composite using exact positioned dimensions
+        console.log('🎨 Drawing sticker on canvas for download with exact positioned dimensions...');
+        ctx.drawImage(stickerImg, stickerX, stickerY, stickerDisplayWidth, stickerDisplayHeight);
+        console.log('✅ Sticker drawn for download at:', { x: stickerX, y: stickerY, width: stickerDisplayWidth, height: stickerDisplayHeight });
+        
+        // Convert to blob and download
+        canvas.toBlob((blob) => {
+          const filename = `phygital-design-${user.username}.png`;
+          
+          // Use the downloadFile utility
+          downloadFile(blob, filename);
+          
+          toast.success('🎉 Final design downloaded with sticker design!');
+          
+          // Complete the level
+          setIsCompleted(true);
+          onComplete({
+            url: URL.createObjectURL(blob),
+            name: filename,
+            downloaded: true
+          });
+          
+          setIsDownloading(false);
+        }, 'image/png', 1.0);
+      } catch (qrError) {
+        console.error('QR loading failed:', qrError);
+        toast.error('Failed to generate QR code for download');
+        setIsDownloading(false);
+      }
+      
     } catch (error) {
+      console.error('Download preparation failed:', error);
       toast.error('Failed to download design');
-    } finally {
       setIsDownloading(false);
     }
   };

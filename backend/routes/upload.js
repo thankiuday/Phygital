@@ -1375,11 +1375,17 @@ router.put('/project/:projectId/video', authenticateToken, upload.single('video'
  * Set QR code position on the design
  * Stores coordinates where QR code should be placed
  */
+// Minimum dimensions for scannable QR code sticker
+// QR code itself needs ~80-100px minimum, plus border (8px) + padding (32px) = ~120px sticker width minimum
+// Height includes "SCAN ME" text (~40px), so minimum height ~160px
+const MIN_STICKER_WIDTH = 120;
+const MIN_STICKER_HEIGHT = 160;
+
 router.post('/qr-position', authenticateToken, [
   body('x').isFloat({ min: 0 }).withMessage('X coordinate must be a positive number'),
   body('y').isFloat({ min: 0 }).withMessage('Y coordinate must be a positive number'),
-  body('width').isFloat({ min: 1 }).withMessage('Width must be a positive number'),
-  body('height').isFloat({ min: 1 }).withMessage('Height must be a positive number')
+  body('width').isFloat({ min: MIN_STICKER_WIDTH }).withMessage(`Width must be at least ${MIN_STICKER_WIDTH}px for reliable scanning`),
+  body('height').isFloat({ min: MIN_STICKER_HEIGHT }).withMessage(`Height must be at least ${MIN_STICKER_HEIGHT}px for reliable scanning`)
 ], async (req, res) => {
   try {
     // Check for validation errors
@@ -1394,12 +1400,12 @@ router.post('/qr-position', authenticateToken, [
     
     const { x, y, width, height } = req.body;
     
-    // Ensure values are numbers
+    // Ensure values are numbers and enforce minimums
     const qrPositionData = {
       x: parseFloat(x),
       y: parseFloat(y),
-      width: parseFloat(width),
-      height: parseFloat(height)
+      width: Math.max(MIN_STICKER_WIDTH, parseFloat(width)),
+      height: Math.max(MIN_STICKER_HEIGHT, parseFloat(height))
     };
     
     // Check if user has uploaded a design (check project first, then root level)
@@ -1703,8 +1709,8 @@ router.post('/save-composite-design', authenticateToken, [
   body('qrPosition').isObject().withMessage('QR position data is required'),
   body('qrPosition.x').isFloat({ min: 0 }).withMessage('X coordinate must be a positive number'),
   body('qrPosition.y').isFloat({ min: 0 }).withMessage('Y coordinate must be a positive number'),
-  body('qrPosition.width').isFloat({ min: 1 }).withMessage('Width must be a positive number'),
-  body('qrPosition.height').isFloat({ min: 1 }).withMessage('Height must be a positive number')
+  body('qrPosition.width').isFloat({ min: MIN_STICKER_WIDTH }).withMessage(`Width must be at least ${MIN_STICKER_WIDTH}px for reliable scanning`),
+  body('qrPosition.height').isFloat({ min: MIN_STICKER_HEIGHT }).withMessage(`Height must be at least ${MIN_STICKER_HEIGHT}px for reliable scanning`)
 ], async (req, res) => {
   try {
     // Check for validation errors
@@ -1805,13 +1811,21 @@ router.post('/save-composite-design', authenticateToken, [
     // Store old QR position for history
     const oldQrPosition = req.user.qrPosition;
     
+    // Enforce minimums on QR position before saving
+    const validatedQrPosition = {
+      x: parseFloat(qrPosition.x),
+      y: parseFloat(qrPosition.y),
+      width: Math.max(MIN_STICKER_WIDTH, parseFloat(qrPosition.width)),
+      height: Math.max(MIN_STICKER_HEIGHT, parseFloat(qrPosition.height))
+    };
+    
     // Note: .mind target generation is handled client-side via /save-mind-target endpoint
 
     // Update user with composite design, optional mind target and QR position
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
       {
-        qrPosition: qrPosition,
+        qrPosition: validatedQrPosition,
         'uploadedFiles.compositeDesign': {
           filename: uploadResult.key,
           originalName: `composite-design-${timestamp}.png`,
