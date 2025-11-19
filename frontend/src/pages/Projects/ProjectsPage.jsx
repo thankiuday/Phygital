@@ -724,6 +724,89 @@ const ProjectsPage = () => {
     setProjectToDelete(null)
   }
 
+  // Group delete functions
+  const toggleProjectSelection = (projectId) => {
+    setSelectedProjects(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(projectId)) {
+        newSet.delete(projectId)
+      } else {
+        newSet.add(projectId)
+      }
+      return newSet
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedProjects.size === projects.length) {
+      setSelectedProjects(new Set())
+    } else {
+      setSelectedProjects(new Set(projects.map(p => p.id)))
+    }
+  }
+
+  const handleGroupDelete = () => {
+    if (selectedProjects.size === 0) {
+      toast.error('Please select at least one campaign to delete')
+      return
+    }
+    setShowGroupDeleteModal(true)
+  }
+
+  const confirmGroupDelete = async () => {
+    if (selectedProjects.size === 0) return
+
+    try {
+      setIsGroupDeleting(true)
+      const projectIds = Array.from(selectedProjects)
+      const sortedProjects = getSortedProjects()
+      const projectsToDelete = sortedProjects.filter(p => projectIds.includes(p.id))
+      
+      let successCount = 0
+      let failCount = 0
+      const errors = []
+
+      // Delete projects one by one
+      for (const project of projectsToDelete) {
+        try {
+          const response = await uploadAPI.deleteProject(project.id)
+          if (response.data.success) {
+            successCount++
+          } else {
+            failCount++
+            errors.push(project.name)
+          }
+        } catch (error) {
+          failCount++
+          errors.push(project.name)
+          console.error(`Failed to delete project ${project.id}:`, error)
+        }
+      }
+
+      // Show results
+      if (successCount > 0) {
+        toast.success(`Successfully deleted ${successCount} campaign${successCount > 1 ? 's' : ''}!`)
+      }
+      if (failCount > 0) {
+        toast.error(`Failed to delete ${failCount} campaign${failCount > 1 ? 's' : ''}: ${errors.join(', ')}`)
+      }
+
+      // Clear selection and reload
+      setSelectedProjects(new Set())
+      setShowGroupDeleteModal(false)
+      loadProjects()
+    } catch (error) {
+      console.error('Group delete error:', error)
+      toast.error('An error occurred during bulk deletion')
+    } finally {
+      setIsGroupDeleting(false)
+    }
+  }
+
+  const closeGroupDeleteModal = () => {
+    setShowGroupDeleteModal(false)
+  }
+
   // Toggle project enabled/disabled status
   const handleToggleProjectStatus = async (project) => {
     const projectId = project.id
