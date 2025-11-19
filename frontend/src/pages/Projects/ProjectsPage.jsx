@@ -59,6 +59,10 @@ const ProjectsPage = () => {
   const [viewMode, setViewMode] = useState('list') // 'list' or 'grid'
   const [sortBy, setSortBy] = useState('newest') // 'newest', 'oldest', 'name', 'scans'
   
+  // Group delete state
+  const [selectedProjects, setSelectedProjects] = useState(new Set())
+  const [isGroupDeleting, setIsGroupDeleting] = useState(false)
+  const [showGroupDeleteModal, setShowGroupDeleteModal] = useState(false)
   
   // Delete modal state
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -869,33 +873,46 @@ const ProjectsPage = () => {
               </div>
             )}
 
-            {/* View Mode Toggle - Hidden on mobile */}
-            {projects.length > 0 && (
-              <div className="hidden sm:flex bg-slate-700/50 rounded-lg p-1">
+            <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+              {/* Group Delete Button */}
+              {projects.length > 0 && selectedProjects.size > 0 && (
                 <button
-                  onClick={() => setViewMode('list')}
-                  className={`px-3 py-2 rounded-md transition-colors flex items-center ${
-                    viewMode === 'list'
-                      ? 'bg-neon-blue text-slate-900'
-                      : 'text-slate-300 hover:text-slate-100'
-                  }`}
+                  onClick={handleGroupDelete}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
                 >
-                  <List className="w-4 h-4 mr-1" />
-                  <span className="text-sm">List</span>
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete Selected ({selectedProjects.size})</span>
                 </button>
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`px-3 py-2 rounded-md transition-colors flex items-center ${
-                    viewMode === 'grid'
-                      ? 'bg-neon-blue text-slate-900'
-                      : 'text-slate-300 hover:text-slate-100'
-                  }`}
-                >
-                  <Grid className="w-4 h-4 mr-1" />
-                  <span className="text-sm">Grid</span>
-                </button>
-              </div>
-            )}
+              )}
+
+              {/* View Mode Toggle - Hidden on mobile */}
+              {projects.length > 0 && (
+                <div className="hidden sm:flex bg-slate-700/50 rounded-lg p-1">
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`px-3 py-2 rounded-md transition-colors flex items-center ${
+                      viewMode === 'list'
+                        ? 'bg-neon-blue text-slate-900'
+                        : 'text-slate-300 hover:text-slate-100'
+                    }`}
+                  >
+                    <List className="w-4 h-4 mr-1" />
+                    <span className="text-sm">List</span>
+                  </button>
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`px-3 py-2 rounded-md transition-colors flex items-center ${
+                      viewMode === 'grid'
+                        ? 'bg-neon-blue text-slate-900'
+                        : 'text-slate-300 hover:text-slate-100'
+                    }`}
+                  >
+                    <Grid className="w-4 h-4 mr-1" />
+                    <span className="text-sm">Grid</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -910,28 +927,54 @@ const ProjectsPage = () => {
           </p>
         </div>
       ) : (
-        <div className={viewMode === 'grid'
-          ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
-          : 'space-y-4'
-        }>
-          {getSortedProjects().map((project) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              user={user}
-              isTogglingStatus={togglingStatus[project.id]}
-              isTogglingTargetImage={togglingTargetImage[project.id]}
-              onDownloadComposite={() => handleDownloadComposite(project)}
-              onShare={() => handleShareUrl(project)}
-              onEdit={() => handleEditProject(project)}
-              onDelete={() => handleDeleteProject(project)}
-              onToggleStatus={() => handleToggleProjectStatus(project)}
-              onToggleTargetImage={() => handleToggleTargetImage(project)}
-              formatDate={formatDate}
-              viewMode={viewMode}
+        <>
+          {/* Select All Checkbox */}
+          <div className="flex items-center gap-3 mb-4 p-3 bg-slate-700/30 rounded-lg">
+            <input
+              type="checkbox"
+              checked={selectedProjects.size === projects.length && projects.length > 0}
+              onChange={toggleSelectAll}
+              className="w-5 h-5 text-neon-blue bg-slate-700 border-slate-600 rounded focus:ring-neon-blue focus:ring-2 cursor-pointer"
             />
-          ))}
-        </div>
+            <label className="text-sm font-medium text-slate-300 cursor-pointer" onClick={toggleSelectAll}>
+              Select All ({selectedProjects.size} selected)
+            </label>
+          </div>
+
+          <div className={viewMode === 'grid'
+            ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
+            : 'space-y-4'
+          }>
+            {getSortedProjects().map((project) => (
+              <div key={project.id} className="relative">
+                {/* Selection Checkbox */}
+                <div className="absolute top-2 left-2 z-10">
+                  <input
+                    type="checkbox"
+                    checked={selectedProjects.has(project.id)}
+                    onChange={() => toggleProjectSelection(project.id)}
+                    className="w-5 h-5 text-neon-blue bg-slate-700 border-slate-600 rounded focus:ring-neon-blue focus:ring-2 cursor-pointer"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+                <ProjectCard
+                  project={project}
+                  user={user}
+                  isTogglingStatus={togglingStatus[project.id]}
+                  isTogglingTargetImage={togglingTargetImage[project.id]}
+                  onDownloadComposite={() => handleDownloadComposite(project)}
+                  onShare={() => handleShareUrl(project)}
+                  onEdit={() => handleEditProject(project)}
+                  onDelete={() => handleDeleteProject(project)}
+                  onToggleStatus={() => handleToggleProjectStatus(project)}
+                  onToggleTargetImage={() => handleToggleTargetImage(project)}
+                  formatDate={formatDate}
+                  viewMode={viewMode}
+                />
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
 
@@ -943,6 +986,50 @@ const ProjectsPage = () => {
           onConfirm={confirmDeleteProject}
           onClose={closeDeleteModal}
         />
+      )}
+
+      {/* Group Delete Confirmation Modal */}
+      {showGroupDeleteModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full border border-slate-700">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-red-600/20 rounded-full flex items-center justify-center">
+                <Trash2 className="w-6 h-6 text-red-500" />
+              </div>
+              <h2 className="text-xl font-bold text-slate-100">Delete Multiple Campaigns</h2>
+            </div>
+            <p className="text-slate-300 mb-6">
+              Are you sure you want to delete <strong className="text-white">{selectedProjects.size}</strong> campaign{selectedProjects.size > 1 ? 's' : ''}? 
+              This action cannot be undone and will permanently delete all associated files and data.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={closeGroupDeleteModal}
+                disabled={isGroupDeleting}
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmGroupDelete}
+                disabled={isGroupDeleting}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isGroupDeleting ? (
+                  <>
+                    <LoadingSpinner size="sm" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete {selectedProjects.size} Campaign{selectedProjects.size > 1 ? 's' : ''}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Edit Project Modal */}
