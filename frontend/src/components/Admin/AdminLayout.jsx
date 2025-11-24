@@ -20,7 +20,7 @@ import {
 } from 'lucide-react'
 
 const AdminLayout = () => {
-  const { admin, logout } = useAdmin()
+  const { admin, logout, isAuthenticated } = useAdmin()
   const location = useLocation()
   const navigate = useNavigate()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -42,13 +42,14 @@ const AdminLayout = () => {
 
   return (
     <div className="min-h-screen bg-dark-mesh flex">
-      {/* Sidebar */}
-      <aside className={`
-        fixed inset-y-0 left-0 z-50 w-64 sm:w-72 bg-slate-900/95 backdrop-blur-sm border-r border-slate-700/50
-        transform transition-transform duration-300 ease-in-out
-        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:translate-x-0 lg:static lg:z-auto
-      `}>
+      {/* Sidebar - Only show when admin is authenticated */}
+      {isAuthenticated && (
+        <aside className={`
+          fixed inset-y-0 left-0 z-50 w-64 sm:w-72 bg-slate-900/95 backdrop-blur-sm border-r border-slate-700/50
+          transform transition-transform duration-300 ease-in-out
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          lg:translate-x-0 lg:static lg:z-auto
+        `}>
         <div className="flex flex-col h-full">
           {/* Logo and Header */}
           <div className="flex items-center justify-between p-3 sm:p-4 border-b border-slate-700/50">
@@ -108,9 +109,10 @@ const AdminLayout = () => {
           </div>
         </div>
       </aside>
+      )}
 
-      {/* Overlay for mobile */}
-      {isSidebarOpen && (
+      {/* Overlay for mobile - Only show when sidebar is open and admin is authenticated */}
+      {isAuthenticated && isSidebarOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={() => setIsSidebarOpen(false)}
@@ -119,21 +121,23 @@ const AdminLayout = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col lg:ml-0">
-        {/* Top Bar */}
-        <header className="bg-slate-900/95 backdrop-blur-sm border-b border-slate-700/50 sticky top-0 z-30">
-          <div className="flex items-center justify-between px-3 sm:px-4 py-3 sm:py-4">
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-2 text-slate-400 hover:text-slate-200"
-            >
-              <Menu className="h-5 w-5 sm:h-6 sm:w-6" />
-            </button>
-            <h2 className="text-lg sm:text-xl font-bold text-slate-100 truncate flex-1 text-center sm:text-left sm:ml-0 ml-4">
-              {navigation.find(item => isActive(item.href))?.name || 'Admin Panel'}
-            </h2>
-            <div className="w-10" /> {/* Spacer for mobile */}
-          </div>
-        </header>
+        {/* Top Bar - Only show when admin is authenticated */}
+        {isAuthenticated && (
+          <header className="bg-slate-900/95 backdrop-blur-sm border-b border-slate-700/50 sticky top-0 z-30">
+            <div className="flex items-center justify-between px-3 sm:px-4 py-3 sm:py-4">
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className="lg:hidden p-2 text-slate-400 hover:text-slate-200"
+              >
+                <Menu className="h-5 w-5 sm:h-6 sm:w-6" />
+              </button>
+              <h2 className="text-lg sm:text-xl font-bold text-slate-100 truncate flex-1 text-center sm:text-left sm:ml-0 ml-4">
+                {navigation.find(item => isActive(item.href))?.name || 'Admin Panel'}
+              </h2>
+              <div className="w-10" /> {/* Spacer for mobile */}
+            </div>
+          </header>
+        )}
 
         {/* Page Content */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8">

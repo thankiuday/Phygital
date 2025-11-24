@@ -263,14 +263,14 @@ const ProfessionalNav = () => {
               )}
               
               {!isAuthenticated && (
-                <div className="border-t border-slate-700/50 pt-4 space-y-2 px-2">
-                  <Link to="/login" onClick={() => setIsMobileMenuOpen(false)}>
-                    <button className="w-full px-5 py-3 text-base font-semibold rounded-lg bg-slate-800/50 text-slate-200 border border-slate-600/50 hover:bg-slate-700 hover:border-neon-blue/50 hover:text-neon-blue transition-all duration-300">
+                <div className="border-t border-slate-700/50 pt-4 px-2">
+                  <Link to="/login" onClick={() => setIsMobileMenuOpen(false)} className="block mb-3">
+                    <button className="w-full px-5 py-3 text-base font-semibold rounded-lg bg-gradient-to-r from-neon-blue to-neon-cyan text-white border border-neon-blue/30 hover:border-neon-cyan/50 hover:shadow-glow-cyan transition-all duration-300 shadow-md">
                       Login
                     </button>
                   </Link>
-                  <Link to="/register" onClick={() => setIsMobileMenuOpen(false)}>
-                    <button className="w-full px-5 py-3 text-base font-semibold rounded-lg bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink text-white hover:shadow-glow-lg transition-all duration-300 hover:scale-105 active:scale-95">
+                  <Link to="/register" onClick={() => setIsMobileMenuOpen(false)} className="block">
+                    <button className="w-full px-5 py-3 text-base font-semibold rounded-lg bg-gradient-to-r from-neon-purple to-neon-pink text-white hover:shadow-glow-lg transition-all duration-300 hover:scale-105 active:scale-95">
                       Sign Up
                     </button>
                   </Link>

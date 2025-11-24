@@ -294,22 +294,18 @@ const RegisterPage = () => {
               )}
             </div>
 
-            {/* Terms and Conditions */}
+            {/* User Certification & Agreement */}
             <div className="flex items-start gap-3 p-4 bg-slate-900/30 border border-slate-700/30 rounded-lg">
               <input
-                {...register('terms', { required: 'You must accept the terms and conditions' })}
+                {...register('terms', { required: 'You must accept the User Certification & Agreement' })}
                 type="checkbox"
                 id="terms"
                 className="mt-0.5 h-4 w-4 rounded border-slate-600 bg-slate-800 text-neon-blue focus:ring-neon-blue focus:ring-offset-0 cursor-pointer"
               />
               <label htmlFor="terms" className="text-sm text-slate-300 cursor-pointer flex-1">
-                I agree to the{' '}
-                <Link to="/terms" className="text-neon-blue hover:text-neon-cyan" target="_blank">
-                  Terms and Conditions
-                </Link>{' '}
-                and{' '}
-                <Link to="/privacy" className="text-neon-blue hover:text-neon-cyan" target="_blank">
-                  Privacy Policy
+                I certify and agree to all of the following (required to create an account):{' '}
+                <Link to="/certification" className="text-neon-blue hover:text-neon-cyan font-semibold underline" target="_blank">
+                  View Certification & Agreement
                 </Link>
               </label>
             </div>

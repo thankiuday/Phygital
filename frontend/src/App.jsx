@@ -38,6 +38,7 @@ import ScanPage from './pages/ScanPage'
 import ComingSoonPage from './pages/ComingSoon/ComingSoonPage'
 import NotFoundPage from './pages/NotFoundPage'
 import MaintenancePage from './pages/Maintenance/MaintenancePage'
+import CertificationPage from './pages/Legal/CertificationPage'
 
 // Admin Pages
 import AdminLoginPage from './pages/Admin/AdminLoginPage'
@@ -91,6 +92,7 @@ function App() {
           <Route path="pricing" element={<ComingSoonPage />} />
           <Route path="blog" element={<ComingSoonPage />} />
           <Route path="careers" element={<ComingSoonPage />} />
+          <Route path="certification" element={<CertificationPage />} />
           <Route path="terms" element={<ComingSoonPage />} />
           <Route path="privacy" element={<ComingSoonPage />} />
           <Route path="docs" element={<ComingSoonPage />} />

@@ -121,11 +121,35 @@ export const AuthProvider = ({ children }) => {
     try {
       dispatch({ type: AUTH_ACTIONS.LOAD_USER_START })
       
+      // Check if admin is logged in - if so, don't load user session
+      const adminToken = localStorage.getItem('adminToken')
+      if (adminToken) {
+        // Admin is logged in, clear any user token and don't load user
+        localStorage.removeItem('token')
+        dispatch({
+          type: AUTH_ACTIONS.LOAD_USER_FAILURE,
+          payload: null
+        })
+        return
+      }
+      
       const response = await api.get('/auth/profile')
+      const user = response.data.data.user
+      
+      // Check if user is an admin - if so, don't authenticate in user context
+      if (user.email === 'admin@phygital.zone' || user.role === 'admin') {
+        // This is an admin user, clear token and don't authenticate
+        localStorage.removeItem('token')
+        dispatch({
+          type: AUTH_ACTIONS.LOAD_USER_FAILURE,
+          payload: 'Admin users must use the admin login'
+        })
+        return
+      }
       
       dispatch({
         type: AUTH_ACTIONS.LOAD_USER_SUCCESS,
-        payload: response.data.data.user
+        payload: user
       })
     } catch (error) {
       console.error('Load user error:', error)
@@ -139,6 +163,18 @@ export const AuthProvider = ({ children }) => {
   // Load user on app start
   useEffect(() => {
     const token = localStorage.getItem('token')
+    const adminToken = localStorage.getItem('adminToken')
+    
+    // Don't load user if admin is logged in
+    if (adminToken) {
+      // Clear any user token if admin is logged in
+      if (token) {
+        localStorage.removeItem('token')
+      }
+      dispatch({ type: AUTH_ACTIONS.LOAD_USER_FAILURE, payload: null })
+      return
+    }
+    
     if (token) {
       loadUser()
     } else {
@@ -152,7 +188,31 @@ export const AuthProvider = ({ children }) => {
     try {
       dispatch({ type: AUTH_ACTIONS.LOGIN_START })
 
+      // Check if admin is logged in - if so, prevent user login
+      const adminToken = localStorage.getItem('adminToken')
+      if (adminToken) {
+        const errorMessage = 'Please logout from admin panel before logging in as a user'
+        dispatch({
+          type: AUTH_ACTIONS.LOGIN_FAILURE,
+          payload: errorMessage
+        })
+        toast.error(errorMessage)
+        return { success: false, error: errorMessage }
+      }
+
       const response = await api.post('/auth/login', { email, password })
+      const user = response.data.data.user
+
+      // Check if user is an admin - if so, prevent login in user context
+      if (user.email === 'admin@phygital.zone' || user.role === 'admin') {
+        const errorMessage = 'Admin users must use the admin login page'
+        dispatch({
+          type: AUTH_ACTIONS.LOGIN_FAILURE,
+          payload: errorMessage
+        })
+        toast.error(errorMessage)
+        return { success: false, error: errorMessage }
+      }
 
       dispatch({
         type: AUTH_ACTIONS.LOGIN_SUCCESS,
@@ -182,7 +242,40 @@ export const AuthProvider = ({ children }) => {
     try {
       dispatch({ type: AUTH_ACTIONS.REGISTER_START })
       
+      // Check if admin is logged in - if so, prevent user registration
+      const adminToken = localStorage.getItem('adminToken')
+      if (adminToken) {
+        const errorMessage = 'Please logout from admin panel before registering as a user'
+        dispatch({
+          type: AUTH_ACTIONS.REGISTER_FAILURE,
+          payload: errorMessage
+        })
+        toast.error(errorMessage)
+        return { 
+          success: false, 
+          error: errorMessage,
+          fieldErrors: {}
+        }
+      }
+      
       const response = await api.post('/auth/register', userData)
+      const user = response.data.data.user
+      
+      // Check if registered user is an admin (shouldn't happen, but safety check)
+      if (user.email === 'admin@phygital.zone' || user.role === 'admin') {
+        localStorage.removeItem('token')
+        const errorMessage = 'Admin accounts cannot be registered through user registration'
+        dispatch({
+          type: AUTH_ACTIONS.REGISTER_FAILURE,
+          payload: errorMessage
+        })
+        toast.error(errorMessage)
+        return { 
+          success: false, 
+          error: errorMessage,
+          fieldErrors: {}
+        }
+      }
       
       dispatch({
         type: AUTH_ACTIONS.REGISTER_SUCCESS,
@@ -251,13 +344,30 @@ export const AuthProvider = ({ children }) => {
       return null
     }
 
+    // Check if admin is logged in - if so, don't refresh user data
+    const adminToken = localStorage.getItem('adminToken')
+    if (adminToken) {
+      return null
+    }
+
     try {
       const response = await api.get('/auth/profile')
+      const user = response.data.data.user
+      
+      // Check if user is an admin - if so, clear user session
+      if (user.email === 'admin@phygital.zone' || user.role === 'admin') {
+        localStorage.removeItem('token')
+        dispatch({
+          type: AUTH_ACTIONS.LOGOUT
+        })
+        return null
+      }
+      
       dispatch({
         type: AUTH_ACTIONS.LOAD_USER_SUCCESS,
-        payload: response.data.data.user
+        payload: user
       })
-      return response.data.data.user
+      return user
     } catch (error) {
       // Only log errors if we're still authenticated (ignore logout scenarios)
       if (state.isAuthenticated) {
@@ -275,17 +385,41 @@ export const AuthProvider = ({ children }) => {
   // Handle OAuth callback
   const handleOAuthCallback = async (token) => {
     try {
+      // Check if admin is logged in - if so, prevent OAuth login
+      const adminToken = localStorage.getItem('adminToken')
+      if (adminToken) {
+        localStorage.removeItem('token')
+        const errorMessage = 'Please logout from admin panel before logging in as a user'
+        dispatch({
+          type: AUTH_ACTIONS.LOGIN_FAILURE,
+          payload: errorMessage
+        })
+        throw new Error(errorMessage)
+      }
+      
       // Store token in localStorage
       localStorage.setItem('token', token)
       
       // Fetch user profile with the token
       const response = await api.get('/auth/profile')
+      const user = response.data.data.user
+      
+      // Check if user is an admin - if so, prevent OAuth login in user context
+      if (user.email === 'admin@phygital.zone' || user.role === 'admin') {
+        localStorage.removeItem('token')
+        const errorMessage = 'Admin users must use the admin login page'
+        dispatch({
+          type: AUTH_ACTIONS.LOGIN_FAILURE,
+          payload: errorMessage
+        })
+        throw new Error(errorMessage)
+      }
       
       dispatch({
         type: AUTH_ACTIONS.LOGIN_SUCCESS,
         payload: {
           token,
-          user: response.data.data.user
+          user: user
         }
       })
       
@@ -296,7 +430,7 @@ export const AuthProvider = ({ children }) => {
       
       dispatch({
         type: AUTH_ACTIONS.LOGIN_FAILURE,
-        payload: error.response?.data?.message || 'OAuth authentication failed'
+        payload: error.response?.data?.message || error.message || 'OAuth authentication failed'
       })
       
       throw error
