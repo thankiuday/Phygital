@@ -46,6 +46,9 @@ const analyticsSchema = new mongoose.Schema({
     videoProgressMilestone: String, // '25', '50', '75', '100'
     videoPlayed: Boolean, // whether video was played
     videoCompleted: Boolean, // whether video was completed
+    videoIndex: Number, // Index in videos array
+    videoId: String, // Unique video identifier
+    videoUrl: String, // Video URL for reference
     
     // For page view duration
     timeSpent: Number, // seconds spent on page

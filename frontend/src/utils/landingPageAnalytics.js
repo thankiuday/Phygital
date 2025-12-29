@@ -5,6 +5,47 @@
 
 import { analyticsAPI } from './api'
 import { getCompleteLocation } from './geolocation'
+import { shouldTrackAnalytics, markAnalyticsFailed } from './analyticsDeduplication'
+
+/**
+ * Track QR scan for landing page (when user scans QR code and visits landing page)
+ */
+export const trackLandingPageScan = async (userId, projectId) => {
+  try {
+    // Check if we should track this scan (prevents duplicates)
+    if (!shouldTrackAnalytics('scan', userId, projectId)) {
+      console.log('⏭️ Scan already tracked for this session')
+      return
+    }
+
+    // Capture location for scan event
+    let locationData = null
+    try {
+      console.log('📍 Capturing location for landing page scan...')
+      locationData = await getCompleteLocation()
+      if (locationData) {
+        console.log('✅ Location captured for scan:', locationData)
+      }
+    } catch (locationError) {
+      console.log('ℹ️ Location not available for scan:', locationError.message)
+    }
+
+    // Prepare scan data with location
+    const scanData = {
+      scanType: 'landing_page',
+      platform: navigator.userAgent,
+      source: 'phygitalized_landing_page'
+    }
+
+    // Track scan event
+    await analyticsAPI.trackScan(userId, scanData, projectId)
+    console.log('✅ Landing page scan tracked:', { userId, projectId })
+  } catch (error) {
+    console.error('❌ Failed to track landing page scan:', error)
+    // Mark as failed so it can be retried
+    markAnalyticsFailed('scan', userId, projectId)
+  }
+}
 
 /**
  * Track landing page view with location
@@ -93,9 +134,9 @@ export const trackDocumentView = async (userId, projectId, documentUrl, action =
 /**
  * Track video play
  */
-export const trackVideoPlay = async (userId, projectId, videoUrl) => {
+export const trackVideoPlay = async (userId, projectId, videoUrl, videoIndex = null, videoId = null) => {
   try {
-    await analyticsAPI.trackVideoView(userId, 0, 0, projectId) // Initial play, progress 0
+    await analyticsAPI.trackVideoView(userId, 0, 0, projectId, videoIndex, videoId, videoUrl)
   } catch (error) {
     console.error('Failed to track video play:', error)
   }
@@ -115,9 +156,9 @@ export const trackVideoProgress = async (userId, projectId, progress, duration) 
 /**
  * Track video completion
  */
-export const trackVideoComplete = async (userId, projectId, duration) => {
+export const trackVideoComplete = async (userId, projectId, duration, videoIndex = null, videoId = null, videoUrl = null) => {
   try {
-    await analyticsAPI.trackVideoComplete(userId, projectId, duration)
+    await analyticsAPI.trackVideoComplete(userId, projectId, duration, videoIndex, videoId, videoUrl)
   } catch (error) {
     console.error('Failed to track video completion:', error)
   }
@@ -148,9 +189,9 @@ export const trackPageViewDuration = async (userId, projectId, timeSpent) => {
 /**
  * Track video progress milestone (25%, 50%, 75%, 100%)
  */
-export const trackVideoProgressMilestone = async (userId, projectId, milestone, progress, duration) => {
+export const trackVideoProgressMilestone = async (userId, projectId, milestone, progress, duration, videoIndex = null, videoId = null, videoUrl = null) => {
   try {
-    await analyticsAPI.trackVideoProgressMilestone(userId, projectId, milestone, progress, duration)
+    await analyticsAPI.trackVideoProgressMilestone(userId, projectId, milestone, progress, duration, videoIndex, videoId, videoUrl)
   } catch (error) {
     console.error('Failed to track video progress milestone:', error)
   }

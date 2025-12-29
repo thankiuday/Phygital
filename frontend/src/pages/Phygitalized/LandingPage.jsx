@@ -20,12 +20,15 @@ import {
   Phone,
   MessageCircle,
   Lock,
-  AlertCircle
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
 import LoadingSpinner from '../../components/UI/LoadingSpinner'
 import { phygitalizedAPI } from '../../utils/api'
 import ThemeRenderer from '../../components/Templates/ThemeRenderer'
 import {
+  trackLandingPageScan,
   trackLandingPageView,
   trackSocialMediaClick,
   trackContactClick,
@@ -57,6 +60,11 @@ const LandingPage = () => {
   const projectIdRef = useRef(null)
   const videoCleanupRef = useRef(null)
   const timeTrackingStartedRef = useRef(false)
+  const scanTrackedRef = useRef(false)
+  
+  // Multiple video support
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(0)
+  const [videos, setVideos] = useState([])
 
   useEffect(() => {
     const loadPageData = async () => {
@@ -113,9 +121,13 @@ const LandingPage = () => {
             pdfUrl: campaignData.uploadedFiles?.pdf?.url || 
                     campaignData.pdfUrl || 
                     campaignData.phygitalizedData?.pdfUrl,
+            // Include documents array for multiple PDFs
+            documents: campaignData.uploadedFiles?.documents || [],
             videoUrl: campaignData.uploadedFiles?.video?.url || 
                       campaignData.videoUrl || 
                       campaignData.phygitalizedData?.videoUrl,
+            // Include videos array for multiple videos
+            videos: campaignData.uploadedFiles?.videos || [],
             links: campaignData.phygitalizedData?.links || [],
             // Filter out empty social links - handle both string and formatted phone numbers
             socialLinks: Object.fromEntries(
@@ -170,6 +182,25 @@ const LandingPage = () => {
           // Extract userId and projectId for analytics
           userIdRef.current = campaignData.userId || null
           projectIdRef.current = pageId
+          
+          // Initialize videos array (check videos array first, fallback to single video)
+          const videosArray = campaignData.uploadedFiles?.videos || []
+          if (videosArray.length > 0) {
+            setVideos(videosArray)
+            setCurrentVideoIndex(0)
+          } else if (campaignData.uploadedFiles?.video?.url) {
+            // Convert single video to array format for consistency
+            setVideos([campaignData.uploadedFiles.video])
+            setCurrentVideoIndex(0)
+          } else if (transformedData.videoUrl || transformedData.fileUrl) {
+            // Fallback to videoUrl/fileUrl if available
+            const singleVideo = transformedData.videoUrl || transformedData.fileUrl
+            setVideos([{ url: singleVideo }])
+            setCurrentVideoIndex(0)
+          } else {
+            setVideos([])
+            setCurrentVideoIndex(0)
+          }
           
           setPageData(transformedData)
           setLoading(false)
@@ -245,9 +276,18 @@ const LandingPage = () => {
     loadPageData()
   }, [pageId])
 
-  // Track page view and start time tracking when page data is loaded
+  // Track scan, page view and start time tracking when page data is loaded
   useEffect(() => {
     if (!pageData || !userIdRef.current || !projectIdRef.current) return
+
+    // Track QR scan first (when user visits landing page from QR code scan)
+    if (!scanTrackedRef.current) {
+      scanTrackedRef.current = true
+      trackLandingPageScan(userIdRef.current, projectIdRef.current).catch(err => {
+        console.error('Failed to track scan:', err)
+        scanTrackedRef.current = false // Reset on error so it can retry
+      })
+    }
 
     // Track page view (async, includes location)
     trackLandingPageView(userIdRef.current, projectIdRef.current)
@@ -289,12 +329,17 @@ const LandingPage = () => {
       userIdRef.current,
       projectIdRef.current,
       async (eventType, milestone, progress, duration) => {
+        const currentVideo = videos[currentVideoIndex]
+        const videoUrl = currentVideo?.url || pageData.fileUrl
+        const videoId = currentVideo?.videoId || null
+        const videoIndex = videos.length > 1 ? currentVideoIndex : null
+        
         if (eventType === 'play') {
-          await trackVideoPlay(userIdRef.current, projectIdRef.current, pageData.fileUrl)
+          await trackVideoPlay(userIdRef.current, projectIdRef.current, videoUrl, videoIndex, videoId)
         } else if (eventType === 'milestone') {
-          await trackVideoProgressMilestone(userIdRef.current, projectIdRef.current, milestone.toString(), progress, duration)
+          await trackVideoProgressMilestone(userIdRef.current, projectIdRef.current, milestone.toString(), progress, duration, videoIndex, videoId, videoUrl)
         } else if (eventType === 'complete') {
-          await trackVideoComplete(userIdRef.current, projectIdRef.current, duration)
+          await trackVideoComplete(userIdRef.current, projectIdRef.current, duration, videoIndex, videoId, videoUrl)
         }
       }
     )
@@ -305,7 +350,7 @@ const LandingPage = () => {
         videoCleanupRef.current = null
       }
     }
-  }, [pageData, pageData?.fileUrl, pageData?.type])
+  }, [pageData, pageData?.fileUrl, pageData?.type, videos, currentVideoIndex])
 
   // Set up video progress tracking for qr-links-pdf-video
   useEffect(() => {
@@ -323,12 +368,17 @@ const LandingPage = () => {
       userIdRef.current,
       projectIdRef.current,
       async (eventType, milestone, progress, duration) => {
+        const currentVideo = videos[currentVideoIndex]
+        const videoUrl = currentVideo?.url || pageData.videoUrl
+        const videoId = currentVideo?.videoId || null
+        const videoIndex = videos.length > 1 ? currentVideoIndex : null
+        
         if (eventType === 'play') {
-          await trackVideoPlay(userIdRef.current, projectIdRef.current, pageData.videoUrl)
+          await trackVideoPlay(userIdRef.current, projectIdRef.current, videoUrl, videoIndex, videoId)
         } else if (eventType === 'milestone') {
-          await trackVideoProgressMilestone(userIdRef.current, projectIdRef.current, milestone.toString(), progress, duration)
+          await trackVideoProgressMilestone(userIdRef.current, projectIdRef.current, milestone.toString(), progress, duration, videoIndex, videoId, videoUrl)
         } else if (eventType === 'complete') {
-          await trackVideoComplete(userIdRef.current, projectIdRef.current, duration)
+          await trackVideoComplete(userIdRef.current, projectIdRef.current, duration, videoIndex, videoId, videoUrl)
         }
       }
     )
@@ -339,7 +389,7 @@ const LandingPage = () => {
         videoCleanupRef.current = null
       }
     }
-  }, [pageData, pageData?.videoUrl, pageData?.type])
+  }, [pageData, pageData?.videoUrl, pageData?.type, videos, currentVideoIndex])
 
   // Set up video progress tracking for qr-links-ar-video
   useEffect(() => {
@@ -357,12 +407,17 @@ const LandingPage = () => {
       userIdRef.current,
       projectIdRef.current,
       async (eventType, milestone, progress, duration) => {
+        const currentVideo = videos[currentVideoIndex]
+        const videoUrl = currentVideo?.url || pageData.videoUrl
+        const videoId = currentVideo?.videoId || null
+        const videoIndex = videos.length > 1 ? currentVideoIndex : null
+        
         if (eventType === 'play') {
-          await trackVideoPlay(userIdRef.current, projectIdRef.current, pageData.videoUrl)
+          await trackVideoPlay(userIdRef.current, projectIdRef.current, videoUrl, videoIndex, videoId)
         } else if (eventType === 'milestone') {
-          await trackVideoProgressMilestone(userIdRef.current, projectIdRef.current, milestone.toString(), progress, duration)
+          await trackVideoProgressMilestone(userIdRef.current, projectIdRef.current, milestone.toString(), progress, duration, videoIndex, videoId, videoUrl)
         } else if (eventType === 'complete') {
-          await trackVideoComplete(userIdRef.current, projectIdRef.current, duration)
+          await trackVideoComplete(userIdRef.current, projectIdRef.current, duration, videoIndex, videoId, videoUrl)
         }
       }
     )
@@ -373,7 +428,7 @@ const LandingPage = () => {
         videoCleanupRef.current = null
       }
     }
-  }, [pageData, pageData?.videoUrl, pageData?.type])
+  }, [pageData, pageData?.videoUrl, pageData?.type, videos, currentVideoIndex])
 
   const getSocialIcon = (platform) => {
     const platformLower = platform.toLowerCase()
@@ -664,18 +719,56 @@ const LandingPage = () => {
         {pageData.type === 'qr-links-video' && (
           <div className="space-y-6">
             {/* Video/Document */}
-            {pageData.fileType === 'video' && pageData.fileUrl && (
+            {pageData.fileType === 'video' && videos.length > 0 && (
               <div className="backdrop-blur-sm rounded-xl border border-slate-600/30 p-6 mb-6" style={{ backgroundColor: 'var(--theme-card, rgba(148, 163, 184, 0.1))' }}>
-                <div className="flex items-center mb-4">
-                  <Video className="w-6 h-6 mr-2" style={{ color: 'var(--theme-primary, #A855F7)' }} />
-                  <h2 className="text-xl font-semibold text-slate-100">Video Content</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <Video className="w-6 h-6 mr-2" style={{ color: 'var(--theme-primary, #A855F7)' }} />
+                    <h2 className="text-xl font-semibold text-slate-100">Video Content</h2>
+                  </div>
+                  {videos.length > 1 && (
+                    <span className="text-sm text-slate-400">
+                      Video {currentVideoIndex + 1} of {videos.length}
+                    </span>
+                  )}
                 </div>
-                <video
-                  ref={videoRef}
-                  src={pageData.fileUrl}
-                  controls
-                  className="w-full rounded-lg"
-                />
+                <div className="relative">
+                  <video
+                    ref={videoRef}
+                    src={videos[currentVideoIndex]?.url || videos[currentVideoIndex]?.fileUrl}
+                    controls
+                    className="w-full rounded-lg"
+                    key={currentVideoIndex} // Force re-render when video changes
+                  />
+                  {videos.length > 1 && (
+                    <div className="flex items-center justify-center gap-4 mt-4">
+                      <button
+                        onClick={() => {
+                          if (currentVideoIndex > 0) {
+                            setCurrentVideoIndex(currentVideoIndex - 1)
+                          }
+                        }}
+                        disabled={currentVideoIndex === 0}
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-100 rounded-lg transition-all"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                        Previous
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (currentVideoIndex < videos.length - 1) {
+                            setCurrentVideoIndex(currentVideoIndex + 1)
+                          }
+                        }}
+                        disabled={currentVideoIndex === videos.length - 1}
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-100 rounded-lg transition-all"
+                      >
+                        Next
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -860,19 +953,57 @@ const LandingPage = () => {
 
         {pageData.type === 'qr-links-pdf-video' && (
           <div className="space-y-6">
-            {/* Video - Display first if available */}
-            {pageData.videoUrl && (
+            {/* Video - Display with navigation if multiple videos */}
+            {videos.length > 0 && (
               <div className="backdrop-blur-sm rounded-xl border border-slate-600/30 p-6" style={{ backgroundColor: 'var(--theme-card, rgba(148, 163, 184, 0.1))' }}>
-                <div className="flex items-center mb-4">
-                  <Video className="w-6 h-6 mr-2" style={{ color: 'var(--theme-primary, #A855F7)' }} />
-                  <h2 className="text-xl font-semibold text-slate-100">Video Content</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <Video className="w-6 h-6 mr-2" style={{ color: 'var(--theme-primary, #A855F7)' }} />
+                    <h2 className="text-xl font-semibold text-slate-100">Video Content</h2>
+                  </div>
+                  {videos.length > 1 && (
+                    <span className="text-sm text-slate-400">
+                      Video {currentVideoIndex + 1} of {videos.length}
+                    </span>
+                  )}
                 </div>
-                <video
-                  ref={videoRefPdfVideo}
-                  src={pageData.videoUrl}
-                  controls
-                  className="w-full rounded-lg"
-                />
+                <div className="relative">
+                  <video
+                    ref={videoRefPdfVideo}
+                    src={videos[currentVideoIndex]?.url || videos[currentVideoIndex]?.fileUrl}
+                    controls
+                    className="w-full rounded-lg"
+                    key={currentVideoIndex} // Force re-render when video changes
+                  />
+                  {videos.length > 1 && (
+                    <div className="flex items-center justify-center gap-4 mt-4">
+                      <button
+                        onClick={() => {
+                          if (currentVideoIndex > 0) {
+                            setCurrentVideoIndex(currentVideoIndex - 1)
+                          }
+                        }}
+                        disabled={currentVideoIndex === 0}
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-100 rounded-lg transition-all"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                        Previous
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (currentVideoIndex < videos.length - 1) {
+                            setCurrentVideoIndex(currentVideoIndex + 1)
+                          }
+                        }}
+                        disabled={currentVideoIndex === videos.length - 1}
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-100 rounded-lg transition-all"
+                      >
+                        Next
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -1022,28 +1153,67 @@ const LandingPage = () => {
               </div>
             )}
 
-            {/* PDF - Display last if available */}
-            {pageData.pdfUrl && (
+            {/* PDF Documents - Display all documents if available */}
+            {((pageData.documents && pageData.documents.length > 0) || pageData.pdfUrl) && (
               <div className="backdrop-blur-sm rounded-xl border border-slate-600/30 p-6" style={{ backgroundColor: 'var(--theme-card, rgba(148, 163, 184, 0.1))' }}>
                 <div className="flex items-center mb-4">
                   <FileText className="w-6 h-6 mr-2" style={{ color: 'var(--theme-primary, #A855F7)' }} />
-                  <h2 className="text-xl font-semibold text-slate-100">PDF Document</h2>
+                  <h2 className="text-xl font-semibold text-slate-100">
+                    {pageData.documents && pageData.documents.length > 1 ? 'PDF Documents' : 'PDF Document'}
+                  </h2>
                 </div>
-                <a
-                  href={pageData.pdfUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => {
-                    if (userIdRef.current && projectIdRef.current) {
-                      trackDocumentView(userIdRef.current, projectIdRef.current, pageData.pdfUrl, 'view')
-                    }
-                  }}
-                  className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-neon-orange to-neon-pink text-white rounded-lg hover:shadow-glow-lg transition-all"
-                >
-                  <FileText className="w-5 h-5 mr-2" />
-                  Open PDF
-                  <ExternalLink className="w-4 h-4 ml-2" />
-                </a>
+                <div className="space-y-3">
+                  {/* Display all documents from array */}
+                  {pageData.documents && pageData.documents.length > 0 && pageData.documents.map((document, index) => (
+                    <a
+                      key={index}
+                      href={document.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => {
+                        if (userIdRef.current && projectIdRef.current) {
+                          trackDocumentView(userIdRef.current, projectIdRef.current, document.url, 'view')
+                        }
+                      }}
+                      className="block w-full px-4 py-3 bg-slate-800/50 rounded-lg border border-slate-600/30 hover:border-neon-orange/50 hover:bg-slate-800/70 transition-all"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center flex-1 min-w-0">
+                          <FileText className="w-5 h-5 mr-3 text-neon-orange flex-shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-slate-100 font-medium truncate">
+                              {document.originalName || document.filename || `Document ${index + 1}`}
+                            </p>
+                            {document.size && (
+                              <p className="text-xs text-slate-400 mt-1">
+                                {(document.size / 1024 / 1024).toFixed(2)} MB
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <ExternalLink className="w-4 h-4 text-slate-400 ml-3 flex-shrink-0" />
+                      </div>
+                    </a>
+                  ))}
+                  {/* Fallback: Display single PDF URL if no documents array */}
+                  {(!pageData.documents || pageData.documents.length === 0) && pageData.pdfUrl && (
+                    <a
+                      href={pageData.pdfUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => {
+                        if (userIdRef.current && projectIdRef.current) {
+                          trackDocumentView(userIdRef.current, projectIdRef.current, pageData.pdfUrl, 'view')
+                        }
+                      }}
+                      className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-neon-orange to-neon-pink text-white rounded-lg hover:shadow-glow-lg transition-all"
+                    >
+                      <FileText className="w-5 h-5 mr-2" />
+                      Open PDF
+                      <ExternalLink className="w-4 h-4 ml-2" />
+                    </a>
+                  )}
+                </div>
               </div>
             )}
           </div>

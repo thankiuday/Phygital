@@ -101,6 +101,40 @@ const globalErrorHandler = (err, req, res, next) => {
     });
   }
 
+  // Handle Multer errors
+  if (err.name === 'MulterError') {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({
+        status: 'error',
+        message: 'File size exceeds the maximum limit',
+        code: 'FILE_TOO_LARGE',
+        timestamp: new Date().toISOString()
+      });
+    }
+    if (err.code === 'LIMIT_FILE_COUNT') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Too many files uploaded',
+        code: 'TOO_MANY_FILES',
+        timestamp: new Date().toISOString()
+      });
+    }
+    if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Unexpected file field',
+        code: 'INVALID_FIELD_NAME',
+        timestamp: new Date().toISOString()
+      });
+    }
+    return res.status(400).json({
+      status: 'error',
+      message: 'File upload error',
+      code: 'UPLOAD_ERROR',
+      timestamp: new Date().toISOString()
+    });
+  }
+
   // Generic error response
   const errorResponse = {
     status: 'error',

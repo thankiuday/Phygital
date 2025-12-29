@@ -13,6 +13,7 @@ const fs = require('fs');
 const fsPromises = require('fs').promises;
 const { execFile } = require('child_process');
 const { v4: uuidv4 } = require('uuid');
+const uuid = uuidv4; // Alias for clarity
 // Image dimensions will be handled on the frontend
 const User = require('../models/User');
 const Analytics = require('../models/Analytics');
@@ -655,8 +656,7 @@ const upload = multer({
 const uploadDocuments = multer({
   storage: memoryStorage,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit per file
-    files: 20 // Allow up to 20 documents
+    fileSize: 10 * 1024 * 1024 // 10MB limit per file
   },
   fileFilter: function (req, file, cb) {
     // Allow PDF, Word docs, images, text files, spreadsheets, and presentations
@@ -690,6 +690,39 @@ const uploadDocuments = multer({
       cb(null, true);
     } else {
       cb(new Error('Invalid file type. Only PDF, DOC, DOCX, images (PNG, JPG, GIF, WEBP, BMP, SVG), text files (TXT, RTF), spreadsheets (XLS, XLSX, CSV), and presentations (PPT, PPTX) are allowed.'), false);
+    }
+  }
+});
+
+const uploadVideos = multer({
+  storage: memoryStorage,
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB limit per video (default for general uploads)
+    files: 5 // Allow up to 5 videos
+  },
+  fileFilter: function (req, file, cb) {
+    // Allow video files
+    if (file.mimetype.startsWith('video/') || file.originalname.match(/\.(mp4|mov|avi|webm|mkv|flv|wmv)$/i)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only video files (MP4, MOV, AVI, WEBM, MKV, FLV, WMV) are allowed.'), false);
+    }
+  }
+});
+
+// Multer configuration for QR Links Video campaigns (50MB limit per video)
+const uploadVideosQRLinks = multer({
+  storage: memoryStorage,
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB limit per video for QR Links campaigns
+    files: 5 // Allow up to 5 videos
+  },
+  fileFilter: function (req, file, cb) {
+    // Allow video files
+    if (file.mimetype.startsWith('video/') || file.originalname.match(/\.(mp4|mov|avi|webm|mkv|flv|wmv)$/i)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only video files (MP4, MOV, AVI, WEBM, MKV, FLV, WMV) are allowed.'), false);
     }
   }
 });
@@ -1266,11 +1299,11 @@ router.post('/video', authenticateToken, upload.single('video'), async (req, res
     
     // Prepare video data
     const videoData = {
-      filename: uploadResult.key,
+      filename: uploadResult.public_id,
       originalName: req.file.originalname,
       url: uploadResult.url,
       size: uploadResult.size,
-      duration: 0, // Would be calculated during compression
+      duration: uploadResult.duration || 0,
       uploadedAt: new Date(),
       compressed: false // Set to true after compression
     };
@@ -1279,13 +1312,27 @@ router.post('/video', authenticateToken, upload.single('video'), async (req, res
     let updateData = {};
     
     if (currentProject) {
-      // Store in project
+      // Store in project - maintain backward compatibility with single video
       updateData[`projects.${projectIndex}.uploadedFiles.video`] = videoData;
-      console.log(`📁 Updating project ${currentProject.id} with video data`);
+      // Optionally append to videos array if it exists, or create it with this video
+      const currentVideos = currentProject.uploadedFiles?.videos || [];
+      const videoDataWithId = {
+        ...videoData,
+        videoId: uuid() // Generate unique ID for analytics
+      };
+      updateData[`projects.${projectIndex}.uploadedFiles.videos`] = [...currentVideos, videoDataWithId];
+      console.log(`📁 Updating project ${currentProject.id} with video data (both video and videos array)`);
     } else {
       // Store at root level (backward compatibility)
       updateData['uploadedFiles.video'] = videoData;
-      console.log('📁 Updating root-level uploadedFiles (no current project)');
+      // Optionally append to videos array
+      const currentVideos = req.user.uploadedFiles?.videos || [];
+      const videoDataWithId = {
+        ...videoData,
+        videoId: uuid() // Generate unique ID for analytics
+      };
+      updateData['uploadedFiles.videos'] = [...currentVideos, videoDataWithId];
+      console.log('📁 Updating root-level uploadedFiles (both video and videos array)');
     }
     
     // Update user record
@@ -1312,7 +1359,7 @@ router.post('/video', authenticateToken, upload.single('video'), async (req, res
 
     // Log video upload activity
     await logVideoUpload(req.user._id, {
-      filename: uploadResult.key,
+      filename: uploadResult.public_id,
       originalName: req.file.originalname,
       size: uploadResult.size,
       mimetype: req.file.mimetype,
@@ -1337,6 +1384,242 @@ router.post('/video', authenticateToken, upload.single('video'), async (req, res
     res.status(500).json({
       status: 'error',
       message: 'Failed to upload video',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+/**
+ * POST /api/upload/videos
+ * Upload multiple video files (max 5)
+ * Stores videos in project's uploadedFiles.videos array
+ * Generates unique videoId for each video for analytics tracking
+ */
+router.post('/videos', authenticateToken, (req, res, next) => {
+  uploadVideos.array('videos', 5)(req, res, (err) => {
+    if (err) {
+      // Handle multer errors (e.g., file too large)
+      if (err.name === 'MulterError') {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          const fileSizeMB = Math.round(uploadVideos.limits?.fileSize / (1024 * 1024)) || 100;
+          return res.status(413).json({
+            status: 'error',
+            message: `Video file size exceeds the maximum limit of ${fileSizeMB}MB per file. Please compress your video or use a smaller file.`,
+            code: 'FILE_TOO_LARGE',
+            maxSizeMB: fileSizeMB
+          });
+        } else if (err.code === 'LIMIT_FILE_COUNT') {
+          return res.status(400).json({
+            status: 'error',
+            message: 'Too many files. Maximum 5 videos allowed.',
+            code: 'TOO_MANY_FILES'
+          });
+        } else if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+          return res.status(400).json({
+            status: 'error',
+            message: 'Unexpected file field. Please use the "videos" field name.',
+            code: 'INVALID_FIELD_NAME'
+          });
+        } else {
+          return res.status(400).json({
+            status: 'error',
+            message: `Upload error: ${err.message}`,
+            code: 'UPLOAD_ERROR'
+          });
+        }
+      }
+      // Handle file filter errors
+      if (err.message && err.message.includes('Invalid file type')) {
+        return res.status(400).json({
+          status: 'error',
+          message: err.message,
+          code: 'INVALID_FILE_TYPE'
+        });
+      }
+      // Handle other errors
+      return next(err);
+    }
+    next();
+  });
+}, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { projectId } = req.body;
+
+    console.log('📹 Multiple video upload request received:', {
+      userId,
+      projectId,
+      fileCount: req.files?.length || 0
+    });
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'No video files provided'
+      });
+    }
+
+    // Check Cloudinary connection
+    const cloudinaryConnected = await checkCloudinaryConnection();
+    if (!cloudinaryConnected) {
+      return res.status(500).json({
+        status: 'error',
+        message: 'File storage service unavailable'
+      });
+    }
+
+    // Find user and project if projectId is provided
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'User not found'
+      });
+    }
+
+    let project = null;
+    let projectIndex = -1;
+    if (projectId) {
+      projectIndex = user.projects.findIndex(p => p.id === projectId);
+      if (projectIndex !== -1) {
+        project = user.projects[projectIndex];
+        console.log(`📁 Storing videos in project: ${project.name} (${project.id})`);
+      }
+    } else if (user.currentProject) {
+      projectIndex = user.projects.findIndex(p => p.id === user.currentProject);
+      if (projectIndex !== -1) {
+        project = user.projects[projectIndex];
+        console.log(`📁 Storing videos in current project: ${project.name} (${project.id})`);
+      }
+    }
+
+    const uploadedVideos = [];
+
+    // Upload each video to Cloudinary
+    for (const file of req.files) {
+      try {
+        const uploadOptions = {
+          compress: false,
+          quality: req.body.quality || 'auto',
+          generatePreview: false
+        };
+
+        const uploadResult = await uploadVideoToCloudinary(file, userId, uploadOptions);
+
+        // Generate unique videoId for analytics tracking
+        const videoId = uuid();
+
+        const videoData = {
+          filename: uploadResult.public_id,
+          originalName: file.originalname,
+          url: uploadResult.url,
+          size: uploadResult.size || file.size,
+          duration: uploadResult.duration || 0,
+          uploadedAt: new Date(),
+          compressed: false,
+          videoId: videoId
+        };
+
+        uploadedVideos.push(videoData);
+
+        console.log('✅ Video uploaded:', {
+          originalName: file.originalname,
+          url: uploadResult.url,
+          size: file.size,
+          videoId: videoId
+        });
+      } catch (uploadError) {
+        console.error(`❌ Error uploading video ${file.originalname}:`, uploadError);
+        // Continue with other files
+      }
+    }
+
+    if (uploadedVideos.length === 0) {
+      return res.status(500).json({
+        status: 'error',
+        message: 'Failed to upload any videos'
+      });
+    }
+
+    // Prepare update data
+    let updateData = {};
+    
+    if (project) {
+      // Initialize videos array if it doesn't exist
+      const currentVideos = project.uploadedFiles?.videos || [];
+      const updatedVideos = [...currentVideos, ...uploadedVideos];
+      
+      updateData[`projects.${projectIndex}.uploadedFiles.videos`] = updatedVideos;
+      updateData[`projects.${projectIndex}.updatedAt`] = new Date();
+      
+      console.log('✅ Videos saved to project:', {
+        projectId: project.id,
+        newVideoCount: uploadedVideos.length,
+        totalVideos: updatedVideos.length
+      });
+    } else {
+      // Store at root level (backward compatibility)
+      const currentVideos = user.uploadedFiles?.videos || [];
+      const updatedVideos = [...currentVideos, ...uploadedVideos];
+      
+      updateData['uploadedFiles.videos'] = updatedVideos;
+      console.log('✅ Videos saved to root level:', {
+        newVideoCount: uploadedVideos.length,
+        totalVideos: updatedVideos.length
+      });
+    }
+
+    // Update user record
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      updateData,
+      { new: true }
+    ).select('-password');
+
+    // Log video upload activity
+    await logVideoUpload(userId, {
+      filename: uploadedVideos.map(v => v.filename).join(', '),
+      originalName: uploadedVideos.map(v => v.originalName).join(', '),
+      count: uploadedVideos.length,
+      urls: uploadedVideos.map(v => v.url)
+    }, {
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent')
+    }, project ? {
+      id: project.id,
+      name: project.name,
+      description: project.description
+    } : null);
+
+    res.status(200).json({
+      status: 'success',
+      message: `${uploadedVideos.length} video(s) uploaded successfully`,
+      data: {
+        videos: uploadedVideos,
+        projectId: project?.id || null,
+        user: updatedUser.getPublicProfile()
+      }
+    });
+
+  } catch (error) {
+    console.error('Multiple video upload error:', error);
+    
+    // Handle specific error types
+    if (error.name === 'MulterError') {
+      if (error.code === 'LIMIT_FILE_SIZE') {
+        const fileSizeMB = Math.round((uploadVideos.limits?.fileSize || 100 * 1024 * 1024) / (1024 * 1024));
+        return res.status(413).json({
+          status: 'error',
+          message: `Video file size exceeds the maximum limit of ${fileSizeMB}MB per file. Please compress your video or use a smaller file.`,
+          code: 'FILE_TOO_LARGE',
+          maxSizeMB: fileSizeMB
+        });
+      }
+    }
+    
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to upload videos',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
@@ -1525,18 +1808,31 @@ router.put('/project/:projectId/video', authenticateToken, upload.single('video'
     // Use optimized stream-based upload
     const uploadResult = await uploadVideoToCloudinary(req.file, userId, uploadOptions);
     
-    // Update project's video
-    project.uploadedFiles.video = {
+    // Update project's video (maintain backward compatibility)
+    const videoData = {
       filename: uploadResult.public_id,
       originalName: req.file.originalname,
-      size: req.file.size,
-      mimetype: req.file.mimetype,
-      url: uploadResult.url
+      url: uploadResult.url,
+      size: uploadResult.size || req.file.size,
+      duration: uploadResult.duration || 0,
+      uploadedAt: new Date(),
+      compressed: false
     };
+    
+    project.uploadedFiles.video = videoData;
+    
+    // Also append to videos array for multiple video support
+    const currentVideos = project.uploadedFiles?.videos || [];
+    const videoDataWithId = {
+      ...videoData,
+      videoId: uuid() // Generate unique ID for analytics
+    };
+    project.uploadedFiles.videos = [...currentVideos, videoDataWithId];
 
     console.log('🔄 Updating project video:', {
       projectId: project.id,
-      newVideo: project.uploadedFiles.video
+      newVideo: project.uploadedFiles.video,
+      totalVideos: project.uploadedFiles.videos.length
     });
     
     // Update project's updatedAt timestamp
@@ -1592,7 +1888,7 @@ router.put('/project/:projectId/video', authenticateToken, upload.single('video'
  * Upload multiple documents (PDF, DOC, DOCX, images, text files)
  * Stores documents in project's uploadedFiles.documents array
  */
-router.post('/documents', authenticateToken, uploadDocuments.array('documents', 20), async (req, res) => {
+router.post('/documents', authenticateToken, uploadDocuments.array('documents', 5), async (req, res) => {
   try {
     const userId = req.user._id;
     const { projectId } = req.body;

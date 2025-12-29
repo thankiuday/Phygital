@@ -209,8 +209,149 @@ const QRDesignCustomizer = ({
     <div className="w-full">
       {/* Main Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr,400px] gap-6 lg:gap-8">
-        {/* Design Options - Left Side */}
-        <div className="space-y-4">
+        {/* Live Preview - Top on Mobile, Right Side on Desktop */}
+        <div className="lg:order-2 lg:sticky lg:top-6 lg:self-start">
+          <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
+            {/* Preview Header with Toggle */}
+            <div className="p-4 border-b border-slate-700/50 bg-slate-700/30">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-base font-semibold text-slate-100">Live Preview</h3>
+                {previewUrl && (
+                  <div className="flex gap-2 bg-slate-800 p-1 rounded-lg border border-slate-600">
+                    <button
+                      onClick={() => setPreviewMode('preview')}
+                      className={`px-3 py-1.5 text-xs font-medium rounded transition-all ${
+                        previewMode === 'preview'
+                          ? 'bg-neon-blue text-white shadow-lg shadow-neon-blue/20'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      Preview
+                    </button>
+                    <button
+                      onClick={() => setPreviewMode('qrcode')}
+                      className={`px-3 py-1.5 text-xs font-medium rounded transition-all ${
+                        previewMode === 'qrcode'
+                          ? 'bg-neon-blue text-white shadow-lg shadow-neon-blue/20'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      QR code
+                    </button>
+                  </div>
+                )}
+              </div>
+              <p className="text-sm text-slate-400">Preview your QR code design in real-time</p>
+            </div>
+            
+            {/* Preview Content */}
+            <div className="p-6 bg-gradient-to-br from-slate-900/50 to-slate-800/30 min-h-[400px] lg:min-h-[500px] flex items-center justify-center">
+              {!previewUrl ? (
+                <div className="text-center py-12">
+                  <div className="mx-auto w-16 h-16 rounded-full bg-slate-700 flex items-center justify-center mb-4">
+                    <QrCode className="w-8 h-8 text-slate-500" />
+                  </div>
+                  <p className="text-slate-400 text-sm">Enter a URL to generate preview</p>
+                </div>
+              ) : isGeneratingPreview ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-600 border-t-neon-blue mx-auto mb-4"></div>
+                  <p className="text-slate-400 text-sm">Generating preview...</p>
+                </div>
+              ) : preview && previewMode === 'preview' ? (
+                <div className="relative w-full max-w-[280px] mx-auto">
+                  {/* iPhone Mockup Frame */}
+                  <div className="relative bg-white rounded-[2.5rem] p-2 shadow-2xl" style={{ width: '100%', maxWidth: '280px', minHeight: '560px' }}>
+                    {/* Status Bar */}
+                    <div className="flex justify-between items-center px-6 pt-2 pb-1">
+                      <span className="text-black text-xs font-semibold">9:41</span>
+                      <div className="flex items-center gap-1">
+                        <div className="w-4 h-2 border border-black rounded-sm">
+                          <div className="w-full h-full bg-black rounded-sm" style={{ width: '60%' }}></div>
+                        </div>
+                        <svg className="w-4 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/>
+                        </svg>
+                        <svg className="w-4 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M17.778 8.222c-4.296-4.296-11.26-4.296-15.556 0A1 1 0 01.808 6.808c5.076-5.076 13.308-5.076 18.384 0a1 1 0 01-1.414 1.414zM14.95 11.05a7 7 0 00-9.9 0 1 1 0 01-1.414-1.414 9 9 0 0112.728 0 1 1 0 01-1.414 1.414zM12.12 13.88a3 3 0 00-4.242 0 1 1 0 01-1.415-1.415 5 5 0 017.072 0 1 1 0 01-1.415 1.415zM9 16a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clipRule="evenodd"/>
+                        </svg>
+                        <div className="w-6 h-3 border border-black rounded-sm relative">
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-4 h-1.5 bg-black rounded-sm"></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Screen Content */}
+                    <div className="bg-white rounded-[2rem] overflow-hidden" style={{ minHeight: '520px' }}>
+                      <div className="flex flex-col items-center justify-center p-6 h-full min-h-[520px]">
+                        {/* QR Code */}
+                        <div className="mb-6">
+                          {preview ? (
+                            <img
+                              src={preview}
+                              alt="QR Code Preview"
+                              className="w-48 h-48 object-contain"
+                              onError={(e) => {
+                                console.error('Preview image failed to load');
+                                e.target.style.display = 'none';
+                              }}
+                            />
+                          ) : (
+                            <div className="w-48 h-48 bg-gray-200 rounded-lg flex items-center justify-center">
+                              <QrCode className="w-16 h-16 text-gray-400" />
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Scan Me Button */}
+                        <button 
+                          className="w-48 bg-black text-white font-semibold py-3 px-6 rounded-lg text-base shadow-lg"
+                          style={{ 
+                            backgroundColor: design.frame.style !== 'none' && design.frame.color 
+                              ? (Array.isArray(design.frame.color) ? design.frame.color[0] : design.frame.color)
+                              : '#000000',
+                            color: design.frame.textColor || '#FFFFFF'
+                          }}
+                        >
+                          {design.frame.text || 'Scan me!'}
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Home Indicator */}
+                    <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2">
+                      <div className="w-32 h-1 bg-black rounded-full opacity-30"></div>
+                    </div>
+                  </div>
+                </div>
+              ) : preview && previewMode === 'qrcode' ? (
+                <div className="flex items-center justify-center">
+                  <img
+                    src={preview}
+                    alt="QR Code"
+                    className="max-w-full max-h-[400px] lg:max-h-[500px] object-contain"
+                    onError={(e) => {
+                      console.error('Preview image failed to load');
+                      e.target.style.display = 'none';
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="mx-auto w-16 h-16 rounded-full bg-slate-700 flex items-center justify-center mb-4">
+                    <QrCode className="w-8 h-8 text-slate-500" />
+                  </div>
+                  <p className="text-slate-400 text-sm">Preview will appear here</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Design Options - Below Preview on Mobile, Left Side on Desktop */}
+        <div className="lg:order-1 space-y-4">
           {/* Section Title */}
           <div className="mb-4 sm:mb-6">
             <h2 className="text-xl sm:text-2xl font-bold text-slate-100 mb-1 sm:mb-2">3. Design the QR</h2>
@@ -758,147 +899,6 @@ const QRDesignCustomizer = ({
                 )}
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Live Preview - Right Side */}
-        <div className="lg:sticky lg:top-6 lg:self-start">
-          <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
-            {/* Preview Header with Toggle */}
-            <div className="p-4 border-b border-slate-700/50 bg-slate-700/30">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-base font-semibold text-slate-100">Live Preview</h3>
-                {previewUrl && (
-                  <div className="flex gap-2 bg-slate-800 p-1 rounded-lg border border-slate-600">
-                    <button
-                      onClick={() => setPreviewMode('preview')}
-                      className={`px-3 py-1.5 text-xs font-medium rounded transition-all ${
-                        previewMode === 'preview'
-                          ? 'bg-neon-blue text-white shadow-lg shadow-neon-blue/20'
-                          : 'text-slate-400 hover:text-slate-200'
-                      }`}
-                    >
-                      Preview
-                    </button>
-                    <button
-                      onClick={() => setPreviewMode('qrcode')}
-                      className={`px-3 py-1.5 text-xs font-medium rounded transition-all ${
-                        previewMode === 'qrcode'
-                          ? 'bg-neon-blue text-white shadow-lg shadow-neon-blue/20'
-                          : 'text-slate-400 hover:text-slate-200'
-                      }`}
-                    >
-                      QR code
-                    </button>
-                  </div>
-                )}
-              </div>
-              <p className="text-sm text-slate-400">Preview your QR code design in real-time</p>
-            </div>
-            
-            {/* Preview Content */}
-            <div className="p-6 bg-gradient-to-br from-slate-900/50 to-slate-800/30 min-h-[500px] flex items-center justify-center">
-              {!previewUrl ? (
-                <div className="text-center py-12">
-                  <div className="mx-auto w-16 h-16 rounded-full bg-slate-700 flex items-center justify-center mb-4">
-                    <QrCode className="w-8 h-8 text-slate-500" />
-                  </div>
-                  <p className="text-slate-400 text-sm">Enter a URL to generate preview</p>
-                </div>
-              ) : isGeneratingPreview ? (
-                <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-600 border-t-neon-blue mx-auto mb-4"></div>
-                  <p className="text-slate-400 text-sm">Generating preview...</p>
-                </div>
-              ) : preview && previewMode === 'preview' ? (
-                <div className="relative w-full max-w-[280px] mx-auto">
-                  {/* iPhone Mockup Frame */}
-                  <div className="relative bg-white rounded-[2.5rem] p-2 shadow-2xl" style={{ width: '100%', maxWidth: '280px', minHeight: '560px' }}>
-                    {/* Status Bar */}
-                    <div className="flex justify-between items-center px-6 pt-2 pb-1">
-                      <span className="text-black text-xs font-semibold">9:41</span>
-                      <div className="flex items-center gap-1">
-                        <div className="w-4 h-2 border border-black rounded-sm">
-                          <div className="w-full h-full bg-black rounded-sm" style={{ width: '60%' }}></div>
-                        </div>
-                        <svg className="w-4 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/>
-                        </svg>
-                        <svg className="w-4 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M17.778 8.222c-4.296-4.296-11.26-4.296-15.556 0A1 1 0 01.808 6.808c5.076-5.076 13.308-5.076 18.384 0a1 1 0 01-1.414 1.414zM14.95 11.05a7 7 0 00-9.9 0 1 1 0 01-1.414-1.414 9 9 0 0112.728 0 1 1 0 01-1.414 1.414zM12.12 13.88a3 3 0 00-4.242 0 1 1 0 01-1.415-1.415 5 5 0 017.072 0 1 1 0 01-1.415 1.415zM9 16a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clipRule="evenodd"/>
-                        </svg>
-                        <div className="w-6 h-3 border border-black rounded-sm relative">
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="w-4 h-1.5 bg-black rounded-sm"></div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Screen Content */}
-                    <div className="bg-white rounded-[2rem] overflow-hidden" style={{ minHeight: '520px' }}>
-                      <div className="flex flex-col items-center justify-center p-6 h-full min-h-[520px]">
-                        {/* QR Code */}
-                        <div className="mb-6">
-                          {preview ? (
-                            <img
-                              src={preview}
-                              alt="QR Code Preview"
-                              className="w-48 h-48 object-contain"
-                              onError={(e) => {
-                                console.error('Preview image failed to load');
-                                e.target.style.display = 'none';
-                              }}
-                            />
-                          ) : (
-                            <div className="w-48 h-48 bg-gray-200 rounded-lg flex items-center justify-center">
-                              <QrCode className="w-16 h-16 text-gray-400" />
-                            </div>
-                          )}
-                        </div>
-                        
-                        {/* Scan Me Button */}
-                        <button 
-                          className="w-48 bg-black text-white font-semibold py-3 px-6 rounded-lg text-base shadow-lg"
-                          style={{ 
-                            backgroundColor: design.frame.style !== 'none' && design.frame.color 
-                              ? (Array.isArray(design.frame.color) ? design.frame.color[0] : design.frame.color)
-                              : '#000000',
-                            color: design.frame.textColor || '#FFFFFF'
-                          }}
-                        >
-                          {design.frame.text || 'Scan me!'}
-                        </button>
-                      </div>
-                    </div>
-                    
-                    {/* Home Indicator */}
-                    <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2">
-                      <div className="w-32 h-1 bg-black rounded-full opacity-30"></div>
-                    </div>
-                  </div>
-                </div>
-              ) : preview && previewMode === 'qrcode' ? (
-                <div className="flex items-center justify-center">
-                  <img
-                    src={preview}
-                    alt="QR Code"
-                    className="max-w-full max-h-[500px] object-contain"
-                    onError={(e) => {
-                      console.error('Preview image failed to load');
-                      e.target.style.display = 'none';
-                    }}
-                  />
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <div className="mx-auto w-16 h-16 rounded-full bg-slate-700 flex items-center justify-center mb-4">
-                    <QrCode className="w-8 h-8 text-slate-500" />
-                  </div>
-                  <p className="text-slate-400 text-sm">Preview will appear here</p>
-                </div>
-              )}
-            </div>
           </div>
         </div>
       </div>

@@ -16,13 +16,46 @@ const memoryStorage = multer.memoryStorage()
 const upload = multer({
   storage: memoryStorage,
   limits: {
-    fileSize: 500 * 1024 * 1024 // 500MB max file size
+    fileSize: 500 * 1024 * 1024 // 500MB max file size (default for general uploads)
+  }
+})
+
+// Multer configuration for QR Links Video campaigns (50MB limit for videos)
+const uploadQRLinksVideo = multer({
+  storage: memoryStorage,
+  limits: {
+    fileSize: 50 * 1024 * 1024 // 50MB limit for QR Links Video campaigns
   }
 })
 
 // Upload file for phygitalized campaign
 // POST /api/phygitalized/upload/:variation
-router.post('/upload/:variation', authenticateToken, upload.single('file'), async (req, res) => {
+// For 'qr-links-video' variation, uses 50MB limit for videos
+router.post('/upload/:variation', authenticateToken, (req, res, next) => {
+  // Use 50MB limit for QR Links Video campaigns
+  const variation = req.params.variation;
+  const isQRLinksVideo = variation === 'qr-links-video' && req.body.fileType === 'video';
+  const multerConfig = isQRLinksVideo ? uploadQRLinksVideo : upload;
+  
+  multerConfig.single('file')(req, res, (err) => {
+    if (err) {
+      // Handle multer errors
+      if (err.name === 'MulterError') {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          const maxSizeMB = isQRLinksVideo ? 50 : 500;
+          return res.status(413).json({
+            success: false,
+            message: `File size exceeds the maximum limit of ${maxSizeMB}MB. Please compress your file or use a smaller file.`,
+            code: 'FILE_TOO_LARGE',
+            maxSizeMB: maxSizeMB
+          });
+        }
+      }
+      return next(err);
+    }
+    next();
+  });
+}, async (req, res) => {
   try {
     console.log('📤 Phygitalized file upload request:', {
       variation: req.params.variation,
@@ -360,10 +393,17 @@ router.get('/campaign/public/:projectId', async (req, res) => {
         videoUrl: project.videoUrl,
         pdfUrl: project.pdfUrl,
         // Uploaded files (for LandingPage to access)
-        uploadedFiles: project.uploadedFiles || {},
+        uploadedFiles: {
+          ...(project.uploadedFiles || {}),
+          // Include both single video (backward compatibility) and videos array
+          video: project.uploadedFiles?.video || null,
+          videos: project.uploadedFiles?.videos || [],
+          // Include documents array
+          documents: project.uploadedFiles?.documents || []
+        },
         // Social links
         socialLinks: project.socialLinks || {},
-        // Documents
+        // Documents (legacy, use uploadedFiles.documents instead)
         documents: project.documents || [],
         // Timestamps
         createdAt: project.createdAt,

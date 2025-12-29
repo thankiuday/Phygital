@@ -58,6 +58,15 @@ const QRLinksVideoPage = () => {
     }
   }, [user?.username, campaignName, user?.projects])
 
+  // Helper function to format file size
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
   const onFileDrop = useCallback(async (acceptedFiles) => {
     if (acceptedFiles.length === 0) return
 
@@ -66,6 +75,14 @@ const QRLinksVideoPage = () => {
 
     if (!isVideo) {
       toast.error('Please upload a video file (MP4, MOV, AVI, WEBM, MKV, FLV, etc.)')
+      return
+    }
+
+    // Check file size (50MB limit for QR Links Video campaigns)
+    const maxSize = 50 * 1024 * 1024 // 50MB
+    if (file.size > maxSize) {
+      const fileSizeMB = (file.size / 1024 / 1024).toFixed(2)
+      toast.error(`Video file size must be less than 50MB. Your file is ${fileSizeMB}MB. Please compress your video or use a shorter clip.`, { duration: 5000 })
       return
     }
 
@@ -103,10 +120,25 @@ const QRLinksVideoPage = () => {
         setIsUploading(false)
       }, 1000)
     } catch (error) {
-      setUploadProgress(0)
+      console.error('File upload error:', error)
+      
+      // Extract user-friendly error message
+      let errorMessage = 'Failed to upload video file'
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message
+      } else if (error.response?.data?.code === 'FILE_TOO_LARGE') {
+        const maxSizeMB = error.response.data.maxSizeMB || 50
+        errorMessage = `Video file size exceeds ${maxSizeMB}MB limit. Please compress your video or use a smaller file.`
+      } else if (error.response?.status === 413 || error.message?.includes('too large') || error.message?.includes('File too large')) {
+        errorMessage = 'Video file size exceeds 50MB limit. Please compress your video or use a smaller file.'
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+      
+      toast.error(errorMessage, { duration: 5000 })
       setIsUploading(false)
-      console.error('Upload error:', error)
-      toast.error('Failed to upload video')
+      setUploadProgress(0)
     }
   }, [projectId])
 

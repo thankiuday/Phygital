@@ -250,12 +250,12 @@ const SocialLinksInput = ({
                   
                   {/* Phone number fields with country code selector */}
                   {(platform.key === 'contactNumber' || platform.key === 'whatsappNumber') ? (
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
                       {/* Country Code Dropdown */}
                       <select
                         value={countryCodes_state[platform.key]}
                         onChange={(e) => handleCountryCodeChange(platform.key, e.target.value)}
-                        className="input px-2 py-2 text-sm flex-shrink-0 w-28"
+                        className="input px-3 sm:px-2 py-2.5 sm:py-2 text-base sm:text-sm flex-shrink-0 w-full sm:w-28 min-h-[44px] sm:min-h-0 touch-manipulation"
                       >
                         {countryCodes.map((country) => (
                           <option key={country.code} value={country.code}>
@@ -270,7 +270,7 @@ const SocialLinksInput = ({
                         value={val}
                         onChange={(e) => handleInputChange(platform.key, e.target.value)}
                         placeholder={platform.placeholder}
-                        className={`input flex-1 px-3 py-2 transition-all duration-200 ${
+                        className={`input flex-1 px-3 sm:px-3 py-2.5 sm:py-2 text-base sm:text-sm transition-all duration-200 min-h-[44px] sm:min-h-0 w-full sm:w-auto touch-manipulation ${
                           phoneErrors[platform.key] 
                             ? 'border-neon-red bg-red-900/20' 
                             : hasValue 
@@ -286,7 +286,7 @@ const SocialLinksInput = ({
                       value={val}
                       onChange={(e) => handleInputChange(platform.key, e.target.value)}
                       placeholder={platform.placeholder}
-                      className={`input w-full px-3 py-2 transition-all duration-200 ${
+                      className={`input w-full px-3 sm:px-3 py-2.5 sm:py-2 text-base sm:text-sm transition-all duration-200 min-h-[44px] sm:min-h-0 ${
                         hasValue ? 'border-neon-green bg-green-900/20' : ''
                       }`}
                     />

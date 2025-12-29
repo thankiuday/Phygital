@@ -185,6 +185,19 @@ export const uploadAPI = {
     headers: { 'Content-Type': 'multipart/form-data' },
     onUploadProgress: config.onUploadProgress
   }),
+  uploadVideos: (formData, projectId, campaignType = null) => {
+    // Append projectId to formData if provided
+    if (projectId) {
+      formData.append('projectId', projectId);
+    }
+    // Append campaignType if provided (for QR Links campaigns with 50MB limit)
+    if (campaignType) {
+      formData.append('campaignType', campaignType);
+    }
+    return uploadApi.post('/upload/videos', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
   updateVideo: (userId, formData) => uploadApi.put(`/upload/video/${userId}`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
@@ -263,8 +276,8 @@ export const analyticsAPI = {
   // Analytics tracking (now with project support)
   trackScan: (userId, scanData, projectId = null) => 
     api.post('/analytics/scan', { userId, scanData, projectId }),
-  trackVideoView: (userId, videoProgress, videoDuration, projectId = null, eventId = null) => 
-    api.post('/analytics/video-view', { userId, videoProgress, videoDuration, projectId, eventId }),
+  trackVideoView: (userId, videoProgress, videoDuration, projectId = null, videoIndex = null, videoId = null, videoUrl = null) => 
+    api.post('/analytics/video-view', { userId, videoProgress, videoDuration, projectId, videoIndex, videoId, videoUrl }),
   trackLinkClick: (userId, linkType, linkUrl, projectId = null, eventId = null) => 
     api.post('/analytics/link-click', { userId, linkType, linkUrl, projectId, eventId }),
   trackPageView: (userId, projectId = null, locationData = null) => 
@@ -284,8 +297,8 @@ export const analyticsAPI = {
     api.post('/analytics/social-media-click', { userId, projectId, platform, url }),
   trackDocumentView: (userId, projectId, documentUrl, action = 'view') =>
     api.post('/analytics/document-view', { userId, projectId, documentUrl, action }),
-  trackVideoComplete: (userId, projectId, duration) =>
-    api.post('/analytics/video-complete', { userId, projectId, duration }),
+  trackVideoComplete: (userId, projectId, duration, videoIndex = null, videoId = null, videoUrl = null) =>
+    api.post('/analytics/video-complete', { userId, projectId, duration, videoIndex, videoId, videoUrl }),
   trackPageViewDuration: (userId, projectId, timeSpent, locationData = null) =>
     api.post('/analytics/page-view-duration', { 
       userId, 
@@ -300,8 +313,8 @@ export const analyticsAPI = {
         country: locationData.country
       } : null
     }),
-  trackVideoProgressMilestone: (userId, projectId, milestone, progress, duration) =>
-    api.post('/analytics/video-progress-milestone', { userId, projectId, milestone, progress, duration }),
+  trackVideoProgressMilestone: (userId, projectId, milestone, progress, duration, videoIndex = null, videoId = null, videoUrl = null) =>
+    api.post('/analytics/video-progress-milestone', { userId, projectId, milestone, progress, duration, videoIndex, videoId, videoUrl }),
   getAnalytics: (userId, days = 30) => api.get(`/analytics/${userId}?days=${days}`),
   getDashboardAnalytics: (userId, period = '30d') => 
     api.get(`/analytics/dashboard/${userId}?period=${period}`),

@@ -102,7 +102,16 @@ router.post('/video-view',
     body('userId').isString().withMessage('Valid user ID is required'),
     body('projectId').optional().isString().withMessage('Project ID must be a string'),
     body('videoProgress').optional().isNumeric().withMessage('Video progress must be a number'),
-    body('videoDuration').optional().isNumeric().withMessage('Video duration must be a number')
+    body('videoDuration').optional().isNumeric().withMessage('Video duration must be a number'),
+    body('videoIndex').optional().isInt({ min: 0 }).withMessage('Video index must be a non-negative integer'),
+    body('videoId').optional({ nullable: true, values: 'null' }).custom((value) => {
+      if (value === null || value === undefined || value === '') return true;
+      return typeof value === 'string';
+    }).withMessage('Video ID must be a string or null'),
+    body('videoUrl').optional({ nullable: true, values: 'null' }).custom((value) => {
+      if (value === null || value === undefined || value === '') return true;
+      return typeof value === 'string';
+    }).withMessage('Video URL must be a string or null')
   ], 
   async (req, res) => {
   try {
@@ -122,8 +131,8 @@ router.post('/video-view',
       });
     }
     
-    const { userId, projectId, videoProgress = 0, videoDuration = 0 } = req.body;
-    console.log('✅ Video view validation passed:', { userId, projectId, videoProgress, videoDuration });
+    const { userId, projectId, videoProgress = 0, videoDuration = 0, videoIndex, videoId, videoUrl } = req.body;
+    console.log('✅ Video view validation passed:', { userId, projectId, videoProgress, videoDuration, videoIndex, videoId, videoUrl });
     
     // Validate if userId is a valid ObjectId format (24 hex characters)
     const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
@@ -146,13 +155,26 @@ router.post('/video-view',
     // Track detailed analytics with projectId
     // Note: Analytics.trackEvent() handles both user-level and project-level analytics updates
     console.log('📊 Tracking video view analytics...');
-    await Analytics.trackEvent(userId, 'videoView', {
+    const eventData = {
       videoProgress: parseFloat(videoProgress),
       videoDuration: parseFloat(videoDuration),
       userAgent: req.headers['user-agent'],
       ipAddress: req.ip || req.connection.remoteAddress,
       referrer: req.headers.referer
-    }, projectId);
+    };
+    
+    // Add video-specific tracking fields if provided
+    if (videoIndex !== undefined && videoIndex !== null) {
+      eventData.videoIndex = parseInt(videoIndex);
+    }
+    if (videoId) {
+      eventData.videoId = videoId;
+    }
+    if (videoUrl) {
+      eventData.videoUrl = videoUrl;
+    }
+    
+    await Analytics.trackEvent(userId, 'videoView', eventData, projectId);
     
     res.status(200).json({
       status: 'success',
@@ -1108,7 +1130,16 @@ router.post('/video-complete',
   [
     body('userId').isString().withMessage('User ID is required'),
     body('projectId').isString().withMessage('Project ID is required'),
-    body('duration').isNumeric().withMessage('Duration must be a number')
+    body('duration').isNumeric().withMessage('Duration must be a number'),
+    body('videoIndex').optional().isInt({ min: 0 }).withMessage('Video index must be a non-negative integer'),
+    body('videoId').optional({ nullable: true, values: 'null' }).custom((value) => {
+      if (value === null || value === undefined || value === '') return true;
+      return typeof value === 'string';
+    }).withMessage('Video ID must be a string or null'),
+    body('videoUrl').optional({ nullable: true, values: 'null' }).custom((value) => {
+      if (value === null || value === undefined || value === '') return true;
+      return typeof value === 'string';
+    }).withMessage('Video URL must be a string or null')
   ],
   async (req, res) => {
     try {
@@ -1121,7 +1152,7 @@ router.post('/video-complete',
         });
       }
 
-      const { userId, projectId, duration } = req.body;
+      const { userId, projectId, duration, videoIndex, videoId, videoUrl } = req.body;
 
       // Validate userId
       const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
@@ -1140,12 +1171,26 @@ router.post('/video-complete',
       }
 
       // Track video completion
-      await Analytics.trackEvent(userId, 'videoComplete', {
-        duration: parseFloat(duration),
+      const eventData = {
+        videoCompleted: true,
+        videoDuration: parseFloat(duration),
         userAgent: req.headers['user-agent'],
         ipAddress: req.ip || req.connection.remoteAddress,
         referrer: req.headers.referer
-      }, projectId);
+      };
+      
+      // Add video-specific tracking fields if provided
+      if (videoIndex !== undefined && videoIndex !== null) {
+        eventData.videoIndex = parseInt(videoIndex);
+      }
+      if (videoId) {
+        eventData.videoId = videoId;
+      }
+      if (videoUrl) {
+        eventData.videoUrl = videoUrl;
+      }
+      
+      await Analytics.trackEvent(userId, 'videoComplete', eventData, projectId);
 
       res.status(200).json({
         status: 'success',
@@ -1246,7 +1291,16 @@ router.post('/video-progress-milestone',
     body('projectId').isString().withMessage('Project ID is required'),
     body('milestone').isIn(['25', '50', '75', '100']).withMessage('Milestone must be 25, 50, 75, or 100'),
     body('progress').isNumeric().withMessage('Progress must be a number'),
-    body('duration').isNumeric().withMessage('Duration must be a number')
+    body('duration').isNumeric().withMessage('Duration must be a number'),
+    body('videoIndex').optional().isInt({ min: 0 }).withMessage('Video index must be a non-negative integer'),
+    body('videoId').optional({ nullable: true, values: 'null' }).custom((value) => {
+      if (value === null || value === undefined || value === '') return true;
+      return typeof value === 'string';
+    }).withMessage('Video ID must be a string or null'),
+    body('videoUrl').optional({ nullable: true, values: 'null' }).custom((value) => {
+      if (value === null || value === undefined || value === '') return true;
+      return typeof value === 'string';
+    }).withMessage('Video URL must be a string or null')
   ], 
   async (req, res) => {
     try {
@@ -1259,7 +1313,7 @@ router.post('/video-progress-milestone',
         });
       }
       
-      const { userId, projectId, milestone, progress, duration } = req.body;
+      const { userId, projectId, milestone, progress, duration, videoIndex, videoId, videoUrl } = req.body;
       
       // Validate if userId is a valid ObjectId format
       const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
@@ -1280,14 +1334,27 @@ router.post('/video-progress-milestone',
       }
       
       // Track video progress milestone
-      await Analytics.trackEvent(userId, 'videoProgressMilestone', {
+      const eventData = {
         videoProgressMilestone: milestone,
         videoProgress: parseFloat(progress),
         videoDuration: parseFloat(duration),
         userAgent: req.headers['user-agent'],
         ipAddress: req.ip || req.connection.remoteAddress,
         referrer: req.headers.referer
-      }, projectId);
+      };
+      
+      // Add video-specific tracking fields if provided
+      if (videoIndex !== undefined && videoIndex !== null) {
+        eventData.videoIndex = parseInt(videoIndex);
+      }
+      if (videoId) {
+        eventData.videoId = videoId;
+      }
+      if (videoUrl) {
+        eventData.videoUrl = videoUrl;
+      }
+      
+      await Analytics.trackEvent(userId, 'videoProgressMilestone', eventData, projectId);
       
       res.status(200).json({
         status: 'success',

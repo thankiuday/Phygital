@@ -183,6 +183,16 @@ const userSchema = new mongoose.Schema({
         uploadedAt: Date,
         compressed: Boolean
       },
+      videos: [{
+        filename: String,
+        originalName: String,
+        url: String,
+        size: Number,
+        duration: Number,
+        uploadedAt: Date,
+        compressed: Boolean,
+        videoId: String // Unique identifier for analytics
+      }],
       compositeDesign: {
         filename: String,
         originalName: String,
