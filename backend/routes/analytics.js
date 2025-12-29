@@ -654,8 +654,19 @@ router.post('/page-view', [
       });
     }
     
-    // Track page view with projectId
+    // Extract location data if provided
+    const scanLocation = req.body.scanLocation || null;
+    
+    // Track page view with projectId and location
     await Analytics.trackEvent(userId, 'pageView', {
+      scanLocation: scanLocation ? {
+        latitude: scanLocation.latitude,
+        longitude: scanLocation.longitude,
+        village: scanLocation.village,
+        city: scanLocation.city,
+        state: scanLocation.state,
+        country: scanLocation.country
+      } : undefined,
       userAgent: req.headers['user-agent'],
       ipAddress: req.ip || req.connection.remoteAddress,
       referrer: req.headers.referer
@@ -1173,7 +1184,7 @@ router.post('/page-view-duration',
         });
       }
       
-      const { userId, projectId, timeSpent } = req.body;
+      const { userId, projectId, timeSpent, scanLocation } = req.body;
       
       // Validate if userId is a valid ObjectId format
       const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
@@ -1193,9 +1204,17 @@ router.post('/page-view-duration',
         });
       }
       
-      // Track page view duration
+      // Track page view duration with location
       await Analytics.trackEvent(userId, 'pageViewDuration', {
         timeSpent: parseFloat(timeSpent),
+        scanLocation: scanLocation ? {
+          latitude: scanLocation.latitude,
+          longitude: scanLocation.longitude,
+          village: scanLocation.village,
+          city: scanLocation.city,
+          state: scanLocation.state,
+          country: scanLocation.country
+        } : undefined,
         userAgent: req.headers['user-agent'],
         ipAddress: req.ip || req.connection.remoteAddress,
         referrer: req.headers.referer

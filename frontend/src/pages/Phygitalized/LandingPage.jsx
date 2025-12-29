@@ -249,12 +249,14 @@ const LandingPage = () => {
   useEffect(() => {
     if (!pageData || !userIdRef.current || !projectIdRef.current) return
 
-    // Track page view
+    // Track page view (async, includes location)
     trackLandingPageView(userIdRef.current, projectIdRef.current)
 
-    // Start time tracking
+    // Start time tracking (async, includes location)
     if (!timeTrackingStartedRef.current) {
-      startTimeTracking(userIdRef.current, projectIdRef.current)
+      startTimeTracking(userIdRef.current, projectIdRef.current).catch(err => {
+        console.error('Failed to start time tracking:', err)
+      })
       timeTrackingStartedRef.current = true
     }
 

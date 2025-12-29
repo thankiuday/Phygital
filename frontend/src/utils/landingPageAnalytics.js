@@ -4,13 +4,27 @@
  */
 
 import { analyticsAPI } from './api'
+import { getCompleteLocation } from './geolocation'
 
 /**
- * Track landing page view
+ * Track landing page view with location
  */
 export const trackLandingPageView = async (userId, projectId) => {
   try {
-    await analyticsAPI.trackPageView(userId, projectId)
+    // Capture location for landing page view
+    let locationData = null
+    try {
+      console.log('📍 Capturing location for landing page view...')
+      locationData = await getCompleteLocation()
+      if (locationData) {
+        console.log('✅ Location captured for landing page:', locationData)
+      }
+    } catch (locationError) {
+      console.log('ℹ️ Location not available for landing page view:', locationError.message)
+    }
+
+    // Track page view with location data
+    await analyticsAPI.trackPageView(userId, projectId, locationData)
   } catch (error) {
     console.error('Failed to track page view:', error)
   }

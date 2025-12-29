@@ -267,16 +267,39 @@ export const analyticsAPI = {
     api.post('/analytics/video-view', { userId, videoProgress, videoDuration, projectId, eventId }),
   trackLinkClick: (userId, linkType, linkUrl, projectId = null, eventId = null) => 
     api.post('/analytics/link-click', { userId, linkType, linkUrl, projectId, eventId }),
-  trackPageView: (userId, projectId = null) => 
-    api.post('/analytics/page-view', { userId, projectId }),
+  trackPageView: (userId, projectId = null, locationData = null) => 
+    api.post('/analytics/page-view', { 
+      userId, 
+      projectId,
+      scanLocation: locationData ? {
+        latitude: locationData.latitude,
+        longitude: locationData.longitude,
+        village: locationData.village,
+        city: locationData.city,
+        state: locationData.state,
+        country: locationData.country
+      } : null
+    }),
   trackSocialMediaClick: (userId, projectId, platform, url) =>
     api.post('/analytics/social-media-click', { userId, projectId, platform, url }),
   trackDocumentView: (userId, projectId, documentUrl, action = 'view') =>
     api.post('/analytics/document-view', { userId, projectId, documentUrl, action }),
   trackVideoComplete: (userId, projectId, duration) =>
     api.post('/analytics/video-complete', { userId, projectId, duration }),
-  trackPageViewDuration: (userId, projectId, timeSpent) =>
-    api.post('/analytics/page-view-duration', { userId, projectId, timeSpent }),
+  trackPageViewDuration: (userId, projectId, timeSpent, locationData = null) =>
+    api.post('/analytics/page-view-duration', { 
+      userId, 
+      projectId, 
+      timeSpent,
+      scanLocation: locationData ? {
+        latitude: locationData.latitude,
+        longitude: locationData.longitude,
+        village: locationData.village,
+        city: locationData.city,
+        state: locationData.state,
+        country: locationData.country
+      } : null
+    }),
   trackVideoProgressMilestone: (userId, projectId, milestone, progress, duration) =>
     api.post('/analytics/video-progress-milestone', { userId, projectId, milestone, progress, duration }),
   getAnalytics: (userId, days = 30) => api.get(`/analytics/${userId}?days=${days}`),
