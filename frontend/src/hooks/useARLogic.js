@@ -314,42 +314,57 @@ export const useARLogic = ({
       let targetType = 'image file';
       let mindBuffer = null;
       
-      // Priority order: .mind file (best) > composite image > original design
+      // CRITICAL: Check for .mind file FIRST - but allow fallback to composite image if .mind file unavailable
+      // Replicate upload page logic: prefer .mind file, but allow composite image fallback
       if (projectData.mindTargetUrl) {
-        targetUrl = projectData.mindTargetUrl;
-        targetType = '.mind file';
-        addDebugMessage('🎯 Using .mind file for AR tracking (best performance)', 'info');
-      } else if (projectData.compositeDesignUrl) {
-        targetUrl = projectData.compositeDesignUrl;
-        addDebugMessage('🎯 Using composite design (design + QR code) for AR tracking', 'info');
-        addDebugMessage('⚠️ No .mind file available - using composite image (slower)', 'warning');
-      } else if (projectData.designUrl) {
-        addDebugMessage('❌ No composite design available - AR tracking will fail', 'error');
-        addDebugMessage('⚠️ Using original design image - QR code is not embedded', 'warning');
-        addDebugMessage('💡 Composite design (design + QR code) is required for AR tracking', 'info');
-        addDebugMessage('🔧 Please generate a composite design with QR code embedded', 'info');
+        addDebugMessage('🎯 Found .mind file URL - validating before use...', 'info');
         
-        // Check if we need composite generation
-        if (projectData.needsCompositeGeneration) {
-          addDebugMessage('🔄 Composite design generation is needed', 'info');
+        // Try to fetch and validate the .mind file
+        try {
+          const testBuffer = await fetchMindFile(projectData.mindTargetUrl, addDebugMessage);
+          // If we get here, the .mind file is valid binary format
+          targetUrl = projectData.mindTargetUrl;
+          targetType = '.mind file';
+          addDebugMessage('✅ Valid .mind file found - using for AR tracking (best performance)', 'success');
+        } catch (mindValidationError) {
+          // .mind file is invalid (likely JSON fallback) - fall back to composite image
+          addDebugMessage('⚠️ .mind file validation failed - file appears to be JSON fallback, not binary', 'warning');
+          addDebugMessage(`🔍 Validation error: ${mindValidationError.message}`, 'info');
+          addDebugMessage('🔄 Falling back to composite image for AR tracking', 'info');
+          
+          if (projectData.compositeDesignUrl) {
+            targetUrl = projectData.compositeDesignUrl;
+            targetType = 'image file';
+            addDebugMessage('✅ Using composite image as fallback (may have reduced tracking performance)', 'warning');
+          } else if (projectData.designUrl) {
+            targetUrl = projectData.designUrl;
+            targetType = 'image file';
+            addDebugMessage('✅ Using design image as fallback (may have reduced tracking performance)', 'warning');
+          } else {
+            addDebugMessage('❌ No valid .mind file and no composite/design image available', 'error');
+            setError('AR tracking requires a valid .mind file or composite image. Please ensure your campaign has a composite design.');
+            return false;
+          }
         }
-      }
-      
-      if (!targetUrl) {
-        throw new Error('No target image available');
-      }
-      
-      // Check if we have proper AR tracking setup
-      if (!projectData.mindTargetUrl && !projectData.compositeDesignUrl) {
-        addDebugMessage('❌ AR tracking will likely fail - no .mind file or composite design', 'error');
-        addDebugMessage('💡 Users need to scan the composite image (design + QR code)', 'info');
-        addDebugMessage('🔧 Please generate composite design and .mind file (Step 2: Save QR Position)', 'info');
-      } else if (!projectData.mindTargetUrl) {
-        addDebugMessage('❌ .mind file not available - cannot proceed', 'error');
-        addDebugMessage('💡 MindAR requires .mind files - PNG images cannot be used directly', 'warning');
-        addDebugMessage('🔧 Please complete Step 2: Save QR Position to generate .mind file', 'info');
-        setError('AR tracking requires a .mind file. Please go back to the upload page and complete Step 2: "Save QR Position" to generate the required .mind file.');
-        return false;
+      } else {
+        // No .mind file URL - use composite image or design image as fallback
+        if (projectData.compositeDesignUrl) {
+          addDebugMessage('⚠️ No .mind file available - using composite image for AR tracking', 'warning');
+          addDebugMessage('💡 .mind files provide better tracking performance, but composite images can work as fallback', 'info');
+          targetUrl = projectData.compositeDesignUrl;
+          targetType = 'image file';
+        } else if (projectData.designUrl) {
+          addDebugMessage('⚠️ No .mind file or composite - using design image for AR tracking', 'warning');
+          addDebugMessage('💡 This may have reduced tracking performance', 'info');
+          targetUrl = projectData.designUrl;
+          targetType = 'image file';
+        } else {
+          addDebugMessage('❌ No .mind file, composite design, or design image available', 'error');
+          addDebugMessage('💡 Users need to scan the composite image (design + QR code)', 'info');
+          addDebugMessage('🔧 Please generate composite design', 'info');
+          setError('No target image available for AR tracking. Please ensure a composite design is available.');
+          return false;
+        }
       }
 
       addDebugMessage(`🎯 Using target: ${targetType}`, 'info');
@@ -369,10 +384,11 @@ export const useARLogic = ({
       } else if (targetType === '.mind file') {
         addDebugMessage('🎯 Using .mind file target', 'info');
         try {
-          // Fetch .mind file as binary buffer
+          // Fetch .mind file as binary buffer (already validated above, but fetch again for use)
           mindBuffer = await fetchMindFile(targetUrl, addDebugMessage);
           addDebugMessage('✅ .mind file loaded successfully', 'success');
         } catch (mindError) {
+          // This should not happen since we validated above, but handle it anyway
           addDebugMessage(`❌ Failed to load .mind file: ${mindError.message}`, 'error');
           throw new Error(`MindAR .mind file failed to load: ${mindError.message}`);
         }
@@ -413,35 +429,92 @@ export const useARLogic = ({
         addDebugMessage(`📍 Blob URL: ${blobURL.substring(0, 50)}...`, 'info');
       } else {
         // For image files, we need to ensure MindAR processes them correctly
-        // The issue might be that MindAR is trying to process the image as a .mind file
-        mindarConfig.imageTargetSrc = targetUrl;
-        addDebugMessage('🔧 Using image URL for MindAR', 'info');
-        addDebugMessage('⚠️ Note: Image files are processed by MindAR internally', 'info');
+        // CRITICAL: When using an image file (not .mind), we must ensure MindAR knows it's an image
+        // and doesn't try to process it as a .mind file buffer
         
-        // Add specific image processing hints
-        if (targetUrl.includes('.png') || targetUrl.includes('.jpg') || targetUrl.includes('.jpeg')) {
-          addDebugMessage('🖼️ Detected image format - MindAR will handle conversion', 'info');
+        // Normalize the image URL to ensure it's clearly an image
+        let imageUrl = targetUrl;
+        
+        // If the URL might be confused with a .mind file, ensure it's clearly an image
+        if (imageUrl.includes('/raw/upload/') && !imageUrl.match(/\.(png|jpg|jpeg|webp)$/i)) {
+          // This might be a .mind file URL - don't use it as an image
+          addDebugMessage('⚠️ Warning: URL appears to be a .mind file, not an image', 'warning');
+          throw new Error('Cannot use .mind file URL as image. Please use compositeDesignUrl instead.');
         }
         
-        // Try to use a different approach for image files
-        // Some versions of MindAR require specific handling for images
+        // CRITICAL: Convert image URL to data URL to ensure MindAR treats it as an image, not a .mind file
+        // This prevents MindAR from trying to use addImageTargetsFromBuffer on an image URL
+        addDebugMessage('🔄 Converting image URL to data URL for safe MindAR processing...', 'info');
         try {
-          // Check if we can pre-process the image to avoid the buffer error
-          addDebugMessage('🔧 Attempting to pre-process image for MindAR compatibility...', 'info');
+          // Fetch image and convert to data URL
+          const imageResponse = await fetch(imageUrl);
+          if (!imageResponse.ok) {
+            throw new Error(`Failed to fetch image: ${imageResponse.status} ${imageResponse.statusText}`);
+          }
+          const imageBlob = await imageResponse.blob();
+          
+          // Validate it's actually an image
+          if (!imageBlob.type.startsWith('image/')) {
+            throw new Error(`URL does not point to an image: ${imageBlob.type}`);
+          }
+          
+          // Convert to data URL
+          const dataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(imageBlob);
+          });
+          
+          mindarConfig.imageTargetSrc = dataUrl;
+          addDebugMessage('✅ Image converted to data URL - MindAR will process as image', 'success');
+          addDebugMessage(`📊 Image type: ${imageBlob.type}, size: ${imageBlob.size} bytes`, 'info');
+        } catch (conversionError) {
+          addDebugMessage(`⚠️ Failed to convert image to data URL: ${conversionError.message}`, 'warning');
+          addDebugMessage('🔄 Falling back to direct image URL (may cause issues)', 'warning');
+          
+          // Fallback: Ensure Cloudinary image URLs have proper image format parameters
+          if (imageUrl.includes('cloudinary.com') && !imageUrl.includes('f_')) {
+            const separator = imageUrl.includes('?') ? '&' : '?';
+            imageUrl = `${imageUrl}${separator}f_png`; // Force PNG format
+            addDebugMessage('🔧 Added format parameter to Cloudinary URL', 'info');
+          }
+          
+          mindarConfig.imageTargetSrc = imageUrl;
+          addDebugMessage('🔧 Using image URL directly for MindAR', 'info');
+          addDebugMessage('⚠️ Note: Image files are processed by MindAR internally (may have reduced performance)', 'warning');
+        }
+        
+        // Add specific image processing hints
+        if (imageUrl.includes('.png') || imageUrl.includes('f_png') || imageUrl.includes('format=png')) {
+          addDebugMessage('🖼️ Detected PNG image format - MindAR will handle conversion', 'info');
+        } else if (imageUrl.includes('.jpg') || imageUrl.includes('.jpeg') || imageUrl.includes('f_jpg')) {
+          addDebugMessage('🖼️ Detected JPEG image format - MindAR will handle conversion', 'info');
+        }
+        
+        // Validate the image before passing to MindAR
+        try {
+          addDebugMessage('🔧 Validating image for MindAR compatibility...', 'info');
           
           // Create a temporary image element to validate the image
           const testImg = new Image();
           testImg.crossOrigin = 'anonymous';
           
           await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              reject(new Error('Image validation timeout'));
+            }, 10000);
+            
             testImg.onload = () => {
+              clearTimeout(timeout);
               addDebugMessage(`✅ Image validation successful: ${testImg.naturalWidth}x${testImg.naturalHeight}`, 'success');
               resolve();
             };
             testImg.onerror = () => {
+              clearTimeout(timeout);
               reject(new Error('Image validation failed'));
             };
-            testImg.src = targetUrl;
+            testImg.src = imageUrl;
           });
           
           addDebugMessage('🔧 Image pre-validation completed', 'success');
@@ -458,73 +531,72 @@ export const useARLogic = ({
       
       let mindar;
       try {
-        // For image files, try a different approach to avoid the buffer error
+        // MindAR requires .mind files for image targets
+        // If we only have an image file, we need to inform the user
         if (targetType === 'image file') {
-          addDebugMessage('🔧 Creating MindAR instance for image file...', 'info');
-          
-          // Try to create MindAR with a more specific configuration for images
-          const imageConfig = {
-            ...mindarConfig,
-            // Remove any buffer-related properties
-            imageTargetSrc: targetUrl
-          };
-          
-          // Add specific image processing options
-          if (window.MindARThree && window.MindARThree.MindARThree) {
-            mindar = new window.MindARThree.MindARThree(imageConfig);
-            mindarRef.current = mindar;
-            addDebugMessage('✅ MindAR instance created successfully for image', 'success');
-          } else {
-            throw new Error('MindARThree not available');
-          }
-        } else {
+          addDebugMessage('⚠️ Warning: Using image file without .mind file', 'warning');
+          addDebugMessage('💡 MindAR will attempt to process the image, but a .mind file is recommended', 'info');
+          addDebugMessage('🔧 For best performance, generate a .mind file from the composite image', 'info');
+        }
+        
+        // Create MindAR instance
+        if (window.MindARThree && window.MindARThree.MindARThree) {
           mindar = new window.MindARThree.MindARThree(mindarConfig);
           mindarRef.current = mindar;
           addDebugMessage('✅ MindAR instance created successfully', 'success');
+        } else {
+          throw new Error('MindARThree not available');
         }
       } catch (mindarError) {
         addDebugMessage(`❌ MindAR creation failed: ${mindarError.message}`, 'error');
         
-        // If it's a buffer error, try with a different approach
+        // If it's a buffer corruption error, handle it gracefully
         if (mindarError.message.includes('Extra') && mindarError.message.includes('byte')) {
-          addDebugMessage('🔄 Buffer error detected - trying alternative approach...', 'warning');
+          addDebugMessage('🔄 Buffer corruption error detected', 'error');
           addDebugMessage(`🔍 Error details: ${mindarError.message}`, 'info');
           
-          if (targetType === '.mind file' && mindBuffer) {
-            // For .mind files, try to validate and fix the buffer
-            addDebugMessage('🔧 Attempting to fix .mind buffer...', 'info');
+          // If we have a corrupted .mind file, try to regenerate it
+          if (targetType === '.mind file') {
+            addDebugMessage('❌ .mind file appears to be corrupted', 'error');
+            addDebugMessage('💡 The .mind file may need to be regenerated', 'info');
             
-            try {
-              // Check if buffer is valid
-              if (!isValidMindBuffer(mindBuffer)) {
-                throw new Error('Invalid .mind buffer format');
+            // If we have a composite image, suggest regenerating .mind file
+            if (projectData.compositeDesignUrl) {
+              addDebugMessage('🔄 Attempting to use composite image as fallback...', 'warning');
+              
+              // Update target to use composite image instead
+              targetUrl = projectData.compositeDesignUrl;
+              targetType = 'image file';
+              mindBuffer = null;
+              mindarConfig.imageTargetSrc = targetUrl;
+              
+              // Try again with image
+              try {
+                mindar = new window.MindARThree.MindARThree(mindarConfig);
+                mindarRef.current = mindar;
+                addDebugMessage('✅ MindAR instance created with fallback composite image', 'success');
+              } catch (fallbackError) {
+                addDebugMessage(`❌ Fallback also failed: ${fallbackError.message}`, 'error');
+                throw new Error(
+                  'AR tracking failed: .mind file is corrupted and image fallback also failed. ' +
+                  'Please regenerate the .mind file by going back to Step 2: Save QR Position.'
+                );
               }
-              
-              // Try with a fresh buffer copy
-              const freshBuffer = new Uint8Array(mindBuffer);
-              const fallbackConfig = {
-                ...mindarConfig,
-                imageTargetSrc: freshBuffer
-              };
-              
-              mindar = new window.MindARThree.MindARThree(fallbackConfig);
-              mindarRef.current = mindar;
-              addDebugMessage('✅ MindAR instance created with fresh .mind buffer', 'success');
-            } catch (bufferError) {
-              addDebugMessage(`❌ .mind buffer fix failed: ${bufferError.message}`, 'error');
-              throw new Error(`MindAR .mind file corrupted: ${mindarError.message}`);
+            } else {
+              throw new Error(
+                'AR tracking failed: .mind file is corrupted. ' +
+                'Please regenerate it by going back to Step 2: Save QR Position.'
+              );
             }
           } else {
-            // For image files, the issue is that MindAR requires a .mind file, not a PNG
-            addDebugMessage('❌ Buffer error: MindAR requires a .mind file, not an image file', 'error');
-            addDebugMessage('📋 A .mind file is a pre-compiled AR target that MindAR uses for tracking', 'info');
-            addDebugMessage('🔧 To fix this: Generate a .mind file from your image using MindAR CLI', 'info');
-            addDebugMessage('💡 Run: npx @hiukim/mind-ar-js-cli image-target --input image.png', 'info');
+            // Image file buffer error - MindAR is trying to process image as buffer
+            addDebugMessage('❌ Image processing error: MindAR requires a .mind file for reliable tracking', 'error');
+            addDebugMessage('💡 Please generate a .mind file from your composite image', 'info');
+            addDebugMessage('🔧 Go back to Step 2: Save QR Position to generate the .mind file', 'info');
             
             throw new Error(
-              'MindAR requires a .mind file for AR tracking. ' +
-              'Please generate a .mind file from your image using the MindAR CLI tool. ' +
-              'Run: npx @hiukim/mind-ar-js-cli image-target --input your-image.png'
+              'AR tracking requires a .mind file. ' +
+              'Please go back to Step 2: Save QR Position to generate the required .mind file.'
             );
           }
         } else {
@@ -1063,16 +1135,48 @@ export const useARLogic = ({
       addDebugMessage('🧪 Test command available: window.testTargetDetection()', 'info');
         
       } catch (startError) {
-        // Check if it's the buffer/mind file error
-        if (startError.message && startError.message.includes('Extra') && startError.message.includes('byte')) {
-          addDebugMessage('❌ MindAR failed to start: Invalid target format', 'error');
-          addDebugMessage('⚠️ PNG images cannot be used directly - .mind file required', 'warning');
-          addDebugMessage('💡 Please complete Step 2: Save QR Position to generate .mind file', 'info');
-          throw new Error(
-            'AR tracking requires a .mind file. Please go back to the upload page and complete Step 2: "Save QR Position" to generate the required .mind file for AR tracking.'
-          );
+        // Check if it's the buffer corruption error (happens when MindAR tries to process image as .mind file)
+        const isBufferError = startError.message && (
+          startError.message.includes('Extra') && startError.message.includes('byte') ||
+          startError.message.includes('RangeError') ||
+          startError.stack?.includes('addImageTargetsFromBuffer')
+        );
+        
+        if (isBufferError) {
+          addDebugMessage('❌ MindAR failed to start: Target format error', 'error');
+          addDebugMessage('🔍 Error type: Buffer corruption (image being processed as .mind file)', 'error');
+          
+          if (targetType === 'image file') {
+            addDebugMessage('⚠️ Image files require conversion to .mind format', 'warning');
+            addDebugMessage('💡 MindAR cannot reliably process images directly - .mind file required', 'info');
+            addDebugMessage('🔧 Solution: Generate .mind file from composite image', 'info');
+            addDebugMessage('📋 Go back to Step 2: Save QR Position to generate .mind file', 'info');
+            
+            setError(
+              'AR tracking requires a .mind file. ' +
+              'The composite image needs to be converted to a .mind file format. ' +
+              'Please go back to Step 2: Save QR Position to generate the required .mind file.'
+            );
+          } else if (targetType === '.mind file') {
+            addDebugMessage('⚠️ .mind file appears to be corrupted', 'error');
+            addDebugMessage('💡 The .mind file may need to be regenerated', 'info');
+            addDebugMessage('🔧 Solution: Regenerate .mind file from composite image', 'info');
+            
+            setError(
+              'AR tracking failed: The .mind file appears to be corrupted. ' +
+              'Please go back to Step 2: Save QR Position to regenerate the .mind file.'
+            );
+          } else {
+            setError(
+              'AR tracking failed: Invalid target format. ' +
+              'Please ensure a valid .mind file is generated from your composite image.'
+            );
+          }
+          
+          throw startError; // Re-throw to stop initialization
         } else {
           addDebugMessage(`❌ MindAR failed to start: ${startError.message}`, 'error');
+          addDebugMessage(`🔍 Error stack: ${startError.stack?.substring(0, 200)}...`, 'info');
           throw new Error(`MindAR start failed: ${startError.message}`);
         }
       }

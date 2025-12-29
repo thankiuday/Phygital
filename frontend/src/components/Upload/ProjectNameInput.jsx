@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { uploadAPI } from '../../utils/api';
 import { useNavigate } from 'react-router-dom';
+import { generateHumanReadableCampaignName } from '../../utils/campaignNameGenerator';
 import { FolderPlus, ArrowRight, Sparkles, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -12,11 +13,23 @@ const ProjectNameInput = ({ onProjectCreated, onCancel }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [isValid, setIsValid] = useState(false);
 
-  // Validate project name
+  // Validate project name - Less strict to allow auto-generated names with timestamps
   const validateProjectName = (name) => {
     const trimmed = name.trim();
-    return trimmed.length >= 2 && trimmed.length <= 50 && /^[a-zA-Z0-9\s\-_]+$/.test(trimmed);
+    // Allow letters, numbers, spaces, hyphens, underscores, apostrophes, commas, colons, parentheses, and periods
+    // This supports auto-generated names like "User's Campaign - Dec 26, 2025 1218" or "User's Campaign - Dec 26, 2025 1218 (2)"
+    return trimmed.length >= 2 && trimmed.length <= 50 && /^[a-zA-Z0-9\s\-_',:().]+$/.test(trimmed);
   };
+
+  // Auto-generate campaign name based on username with uniqueness check
+  useEffect(() => {
+    if (user?.username && !projectName) {
+      const existingProjects = user?.projects || []
+      const autoName = generateHumanReadableCampaignName(user.username, 'AR Video', existingProjects);
+      setProjectName(autoName);
+      setIsValid(validateProjectName(autoName));
+    }
+  }, [user?.username, projectName, user?.projects]);
 
   // Handle input change
   const handleInputChange = (e) => {
@@ -30,7 +43,7 @@ const ProjectNameInput = ({ onProjectCreated, onCancel }) => {
     e.preventDefault();
     
     if (!isValid) {
-      toast.error('Please enter a valid campaign name (2-50 characters, letters, numbers, spaces, hyphens, and underscores only)');
+      toast.error('Please enter a valid campaign name (2-50 characters, letters, numbers, spaces, hyphens, underscores, apostrophes, commas, colons, parentheses, and periods allowed)');
       return;
     }
 
@@ -38,9 +51,11 @@ const ProjectNameInput = ({ onProjectCreated, onCancel }) => {
       setIsCreating(true);
       
       // Create project in backend
+      // Set campaignType to 'qr-links-ar-video' since this upload page is accessed via QR Links AR Video navlink
       const response = await uploadAPI.createProject({
         name: projectName.trim(),
-        description: `Phygital project: ${projectName.trim()}`
+        description: `Phygital project: ${projectName.trim()}`,
+        campaignType: 'qr-links-ar-video'
       });
 
       // Update user with new project
@@ -102,7 +117,7 @@ const ProjectNameInput = ({ onProjectCreated, onCancel }) => {
                       ? 'border-neon-red bg-red-900/20'
                       : ''
                   }`}
-                  maxLength={50}
+                  maxLength={60}
                   autoFocus
                 />
                 {projectName && isValid && (
@@ -130,9 +145,9 @@ const ProjectNameInput = ({ onProjectCreated, onCancel }) => {
               <h4 className="font-semibold text-neon-blue mb-3 lg:mb-4 text-sm lg:text-base">💡 Naming Guidelines</h4>
               <ul className="text-sm lg:text-base text-slate-300 space-y-2">
                 <li>• 2-50 characters long</li>
-                <li>• Use letters, numbers, spaces, hyphens, and underscores</li>
+                <li>• Use letters, numbers, spaces, hyphens, underscores, apostrophes, commas, colons, parentheses, and periods</li>
                 <li>• Make it descriptive and memorable</li>
-                <li>• Examples: "Summer Campaign", "Product_Launch_2024"</li>
+                <li>• Examples: "Summer Campaign", "Product_Launch_2024", "John's Campaign - Dec 26, 2025"</li>
               </ul>
             </div>
 

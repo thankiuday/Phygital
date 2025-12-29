@@ -137,6 +137,10 @@ const userSchema = new mongoose.Schema({
     videoViews: { type: Number, default: 0 },
     linkClicks: { type: Number, default: 0 },
     arExperienceStarts: { type: Number, default: 0 },
+    socialMediaClicks: { type: Number, default: 0 },
+    documentViews: { type: Number, default: 0 },
+    documentDownloads: { type: Number, default: 0 },
+    videoCompletions: { type: Number, default: 0 },
     lastScanAt: Date,
     lastVideoViewAt: Date,
     lastArExperienceStartAt: Date
@@ -192,6 +196,109 @@ const userSchema = new mongoose.Schema({
         size: Number,
         uploadedAt: Date,
         generated: { type: Boolean, default: false }
+      },
+      // Phygitalized campaign files
+      document: {
+        filename: String,
+        originalName: String,
+        url: String,
+        size: Number,
+        uploadedAt: Date,
+        format: String,
+        resource_type: String
+      },
+      pdf: {
+        filename: String,
+        originalName: String,
+        url: String,
+        size: Number,
+        uploadedAt: Date,
+        format: String,
+        resource_type: String
+      },
+      documents: [{
+        filename: String,
+        originalName: String,
+        url: String,
+        size: Number,
+        mimetype: String,
+        format: String,
+        resource_type: String,
+        uploadedAt: Date
+      }]
+    },
+    
+    // Phygitalized campaign data
+    campaignType: { type: String }, // 'qr-link', 'qr-links', 'qr-links-video', etc.
+    phygitalizedData: {
+      fileUrl: String,
+      fileType: String, // 'video', 'document', 'pdf'
+      pdfUrl: String,
+      videoUrl: String,
+      designUrl: String, // Design image URL
+      compositeDesignUrl: String, // Composite design with QR code
+      documentUrls: [String], // Array of document URLs
+      phoneNumber: String, // Phone contact number
+      whatsappNumber: String, // WhatsApp contact number
+      qrPosition: { // QR code position on design
+        x: Number,
+        y: Number,
+        width: Number,
+        height: Number
+      },
+      links: [{
+        label: String,
+        url: String
+      }],
+      socialLinks: {
+        website: String,
+        instagram: String,
+        facebook: String,
+        twitter: String,
+        linkedin: String,
+        contactNumber: String,
+        whatsappNumber: String,
+        tiktok: String
+      },
+      qrCodeUrl: String,
+      landingPageUrl: String,
+      arExperienceUrl: String,
+      targetUrl: String, // For QR-Link type
+      templateId: { type: String, default: 'default' }, // Template ID for landing page theme
+      templateConfig: {
+        animationSpeed: { type: Number, default: 1 },
+        particleDensity: { type: Number, default: 1 },
+        colorVariations: mongoose.Schema.Types.Mixed,
+        customColors: mongoose.Schema.Types.Mixed
+      },
+      qrDesign: {
+        frame: {
+          style: String,
+          text: String,
+          textColor: String,
+          color: String,
+          backgroundColor: String,
+          transparentBackground: Boolean,
+          useGradient: Boolean
+        },
+        pattern: {
+          style: String,
+          color: String,
+          backgroundColor: String,
+          transparentBackground: Boolean,
+          useGradient: Boolean
+        },
+        corners: {
+          frameStyle: String,
+          dotStyle: String,
+          frameColor: String,
+          dotColor: String
+        },
+        logo: {
+          enabled: Boolean,
+          url: String,
+          size: Number
+        }
       }
     },
     
@@ -214,12 +321,29 @@ const userSchema = new mongoose.Schema({
       height: { type: Number, default: 100 }
     },
     
+    // QR Frame configuration
+    qrFrameConfig: {
+      frameType: { type: Number, default: 1, min: 1, max: 10 },
+      textContent: { type: String, default: 'SCAN ME' },
+      textStyle: {
+        bold: { type: Boolean, default: true },
+        italic: { type: Boolean, default: false },
+        color: { type: String, default: '#FFFFFF' },
+        gradient: { type: [String], default: null } // Array of color strings for gradient
+      },
+      transparentBackground: { type: Boolean, default: false } // Remove white background from QR scanner
+    },
+    
     // Project-specific analytics
     analytics: {
       totalScans: { type: Number, default: 0 },
       videoViews: { type: Number, default: 0 },
       linkClicks: { type: Number, default: 0 },
       arExperienceStarts: { type: Number, default: 0 },
+      socialMediaClicks: { type: Number, default: 0 },
+      documentViews: { type: Number, default: 0 },
+      documentDownloads: { type: Number, default: 0 },
+      videoCompletions: { type: Number, default: 0 },
       lastScanAt: Date,
       lastVideoViewAt: Date,
       lastArExperienceStartAt: Date

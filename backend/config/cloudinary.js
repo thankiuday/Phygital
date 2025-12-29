@@ -162,6 +162,14 @@ const uploadToCloudinaryBuffer = async (buffer, userId, type, filename, contentT
       resourceType = 'video';
     } else if (type === 'targets' || contentType === 'application/octet-stream' || finalFilename.endsWith('.mind')) {
       resourceType = 'raw'; // For .mind files and other binary files
+    } else if (type === 'documents') {
+      // For documents folder, check content type to determine resource type
+      if (contentType.startsWith('image/')) {
+        resourceType = 'image';
+      } else {
+        // PDFs, Word docs, text files, etc. should be 'raw'
+        resourceType = 'raw';
+      }
     }
     
     const uploadOptions = {
@@ -471,6 +479,151 @@ const uploadVideoToCloudinary = async (file, userId, options = {}) => {
 };
 
 /**
+ * Upload file to Cloudinary for Phygitalized campaigns
+ * @param {Object} file - File object from multer (or buffer)
+ * @param {String} userId - User ID (MongoDB ObjectId)
+ * @param {String} projectId - Project ID
+ * @param {String} variation - Campaign variation (QR-Link, QR-Links, QR-Links-Video, etc.)
+ * @param {String} fileType - File type (video, pdf, document)
+ * @returns {Object} Upload result with URL and metadata
+ */
+const uploadToPhygitalizedCloudinary = async (file, userId, projectId, variation, fileType) => {
+  try {
+    console.log('=== PHYGITALIZED CLOUDINARY UPLOAD ===');
+    console.log('User ID:', userId);
+    console.log('Project ID:', projectId);
+    console.log('Variation:', variation);
+    console.log('File type:', fileType);
+    console.log('File details:', {
+      originalname: file.originalname || 'buffer',
+      mimetype: file.mimetype || 'unknown',
+      size: file.size || (file.buffer ? file.buffer.length : 0)
+    });
+
+    // Validate inputs
+    if (!file || (!file.buffer && !Buffer.isBuffer(file))) {
+      throw new Error('Invalid file object - missing buffer');
+    }
+    
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+    
+    if (!projectId) {
+      throw new Error('Project ID is required');
+    }
+    
+    if (!variation) {
+      throw new Error('Variation is required');
+    }
+    
+    if (!fileType) {
+      throw new Error('File type is required');
+    }
+
+    // Sanitize variation name (remove special characters, replace spaces with hyphens)
+    const sanitizedVariation = variation.replace(/[^a-zA-Z0-9-]/g, '-').replace(/-+/g, '-');
+    
+    // Generate unique filename
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const fileExtension = file.originalname ? file.originalname.split('.').pop() : 
+                         (fileType === 'video' ? 'mp4' : 
+                          fileType === 'pdf' ? 'pdf' : 
+                          fileType === 'document' ? 'doc' : 'file');
+    const fileName = `${fileType}-${uniqueSuffix}.${fileExtension}`;
+
+    // Create folder path: Phygitalized/{variation}/{userId}/{projectId}/
+    const folderPath = `Phygitalized/${sanitizedVariation}/${userId}/${projectId}`;
+    
+    console.log('Uploading to Cloudinary with folder:', folderPath);
+    console.log('File name:', fileName);
+
+    // Determine resource type based on file type
+    // Priority: fileType parameter > mimetype detection
+    let resourceType = 'raw'; // default for PDF/DOC/text
+    
+    if (fileType === 'video') {
+      resourceType = 'video';
+    } else if (fileType === 'image') {
+      // Images explicitly marked as 'image' type (e.g., composite designs)
+      resourceType = 'image';
+    } else if (fileType === 'document') {
+      // Documents are always 'raw' regardless of mimetype (PDF, DOC, images, text, etc.)
+      resourceType = 'raw';
+    } else if (fileType === 'pdf') {
+      resourceType = 'raw';
+    } else if (file.mimetype && file.mimetype.startsWith('image/')) {
+      // Images without explicit fileType are treated as 'image' (for design uploads)
+      resourceType = 'image';
+    } else if (file.mimetype && (file.mimetype.includes('pdf') || file.mimetype.includes('document') || file.mimetype.includes('msword') || file.mimetype.startsWith('text/'))) {
+      resourceType = 'raw'; // PDF, DOC, and text files
+    }
+
+    // Upload options
+    const uploadOptions = {
+      folder: folderPath,
+      public_id: fileName.replace(`.${fileExtension}`, ''), // Remove extension for public_id
+      resource_type: resourceType,
+      format: fileExtension,
+      timeout: fileType === 'video' ? 600000 : 300000, // 10 minutes for videos, 5 minutes for others
+      chunk_size: fileType === 'video' ? 6000000 : undefined, // 6MB chunks for videos
+    };
+
+    // Add quality settings only for images
+    if (resourceType === 'image') {
+      uploadOptions.quality = 'auto';
+      uploadOptions.fetch_format = 'auto';
+    }
+
+    console.log('Upload options:', uploadOptions);
+
+    // Prepare file data for upload
+    let fileData;
+    if (file.buffer) {
+      // File from multer
+      fileData = `data:${file.mimetype || 'application/octet-stream'};base64,${file.buffer.toString('base64')}`;
+    } else if (Buffer.isBuffer(file)) {
+      // Direct buffer
+      fileData = `data:application/octet-stream;base64,${file.toString('base64')}`;
+    } else {
+      throw new Error('Invalid file format');
+    }
+
+    // Upload to Cloudinary
+    const result = await cloudinary.uploader.upload(fileData, uploadOptions);
+
+    console.log('✅ Phygitalized Cloudinary upload successful:', result.secure_url);
+
+    return {
+      url: result.secure_url,
+      public_id: result.public_id,
+      asset_id: result.asset_id,
+      size: result.bytes,
+      format: result.format,
+      width: result.width,
+      height: result.height,
+      duration: result.duration, // For videos
+      folder: result.folder,
+      created_at: result.created_at,
+      resource_type: result.resource_type
+    };
+
+  } catch (error) {
+    console.error('❌ Phygitalized Cloudinary upload failed:', error);
+    console.error('Upload error details:', {
+      message: error.message,
+      stack: error.stack,
+      userId: userId,
+      projectId: projectId,
+      variation: variation,
+      fileType: fileType,
+      fileSize: file?.size || (file?.buffer ? file.buffer.length : 0)
+    });
+    throw new Error(`Phygitalized Cloudinary upload failed: ${error.message}`);
+  }
+};
+
+/**
  * Upload QR Design to Cloudinary
  * @param {Buffer} buffer - QR code image buffer
  * @param {String} userId - User ID
@@ -557,6 +710,7 @@ module.exports = {
   uploadToCloudinaryBuffer,
   uploadVideoToCloudinary,
   uploadQRDesign,
+  uploadToPhygitalizedCloudinary,
   deleteFromCloudinary,
   checkCloudinaryConnection
 };

@@ -1,0 +1,72 @@
+{
+  "id": "diwali",
+  "name": "Diwali Festival",
+  "category": "festival",
+  "description": "Illuminate your landing page with fireworks, diyas, and the golden glow of Diwali",
+  "previewImage": "/templates/diwali-preview.png",
+  "colors": {
+    "primary": "#F59E0B",
+    "secondary": "#F97316",
+    "accent": "#FCD34D",
+    "background": "linear-gradient(to bottom, #4C1D95, #5B21B6, #6D28D9)",
+    "text": "#FFFFFF",
+    "card": "rgba(245, 158, 11, 0.15)"
+  },
+  "animations": {
+    "particles": true,
+    "snowfall": false,
+    "fireworks": true,
+    "colorSplash": false
+  },
+  "components": {
+    "background": {
+      "type": "gradient",
+      "value": "bg-gradient-to-b from-purple-900 via-purple-800 to-indigo-900"
+    },
+    "particles": {
+      "type": "sparkles",
+      "density": 40,
+      "speed": 1.2
+    },
+    "decorations": [
+      {
+        "type": "diya",
+        "position": "bottom",
+        "animation": "glow"
+      },
+      {
+        "type": "firework",
+        "position": "scattered",
+        "animation": "burst"
+      }
+    ]
+  },
+  "customizations": {
+    "animationSpeed": {
+      "min": 0.5,
+      "max": 2,
+      "default": 1.2,
+      "enabled": true
+    },
+    "particleDensity": {
+      "min": 0.3,
+      "max": 2,
+      "default": 1,
+      "enabled": true
+    },
+    "colorVariations": [
+      {
+        "name": "Golden Glow",
+        "primary": "#F59E0B",
+        "secondary": "#FCD34D"
+      },
+      {
+        "name": "Deep Purple",
+        "primary": "#7C3AED",
+        "secondary": "#A855F7"
+      }
+    ]
+  },
+  "defaultBackgroundColor": "linear-gradient(to bottom right, #0f172a, #1e293b, #0f172a)"
+}
+

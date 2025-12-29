@@ -1,13 +1,14 @@
 import React from 'react';
 import { CheckCircle, Circle, Lock } from 'lucide-react';
 
-const HorizontalLevelProgress = ({ currentLevel, completedLevels, totalLevels = 5 }) => {
+const HorizontalLevelProgress = ({ currentLevel, completedLevels, totalLevels = 6 }) => {
   const levels = [
     { id: 1, name: 'Design', icon: '🎨' },
     { id: 2, name: 'QR', icon: '📍' },
     { id: 3, name: 'Video', icon: '🎥' },
-    { id: 4, name: 'Social', icon: '🔗' },
-    { id: 5, name: 'Final', icon: '✨' }
+    { id: 4, name: 'Documents', icon: '📄' },
+    { id: 5, name: 'Social', icon: '🔗' },
+    { id: 6, name: 'Final', icon: '✨' }
   ];
 
   const getLevelStatus = (levelId) => {
@@ -47,7 +48,7 @@ const HorizontalLevelProgress = ({ currentLevel, completedLevels, totalLevels = 
           </div>
         </div>
         <p className="text-xs text-slate-400 italic">
-          Upload your design → Add your story → Publish to the world → Watch your audience connect.
+          Upload your design → Position QR code → Add video → Upload documents → Connect social links → Generate final design
         </p>
       </div>
 

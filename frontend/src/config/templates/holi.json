@@ -1,0 +1,73 @@
+{
+  "id": "holi",
+  "name": "Holi Colors",
+  "category": "festival",
+  "description": "Celebrate the festival of colors with vibrant splashes, floating particles, and rainbow gradients",
+  "previewImage": "/templates/holi-preview.png",
+  "colors": {
+    "primary": "#EC4899",
+    "secondary": "#3B82F6",
+    "accent": "#10B981",
+    "background": "linear-gradient(135deg, #EC4899, #3B82F6, #10B981, #FCD34D, #A855F7)",
+    "text": "#FFFFFF",
+    "card": "rgba(236, 72, 153, 0.2)"
+  },
+  "animations": {
+    "particles": true,
+    "snowfall": false,
+    "fireworks": false,
+    "colorSplash": true
+  },
+  "components": {
+    "background": {
+      "type": "animated-gradient",
+      "value": "bg-gradient-to-br from-pink-500 via-blue-500 to-green-500",
+      "animation": "color-shift"
+    },
+    "particles": {
+      "type": "color-powder",
+      "density": 60,
+      "speed": 1.5
+    },
+    "decorations": [
+      {
+        "type": "color-cloud",
+        "position": "scattered",
+        "animation": "float"
+      },
+      {
+        "type": "splash",
+        "position": "random",
+        "animation": "burst"
+      }
+    ]
+  },
+  "customizations": {
+    "animationSpeed": {
+      "min": 0.5,
+      "max": 2,
+      "default": 1.5,
+      "enabled": true
+    },
+    "particleDensity": {
+      "min": 0.3,
+      "max": 2,
+      "default": 1,
+      "enabled": true
+    },
+    "colorVariations": [
+      {
+        "name": "Vibrant Mix",
+        "primary": "#EC4899",
+        "secondary": "#3B82F6"
+      },
+      {
+        "name": "Warm Tones",
+        "primary": "#F97316",
+        "secondary": "#FCD34D"
+      }
+    ]
+  },
+  "defaultBackgroundColor": "linear-gradient(to bottom right, #0f172a, #1e293b, #0f172a)"
+}
+

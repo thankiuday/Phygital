@@ -166,9 +166,23 @@ const QRCodePage = () => {
         reader.readAsDataURL(response.data)
       })
 
-      // Generate sticker with gradient border and "SCAN ME" text
+      // Get frame config from project or use defaults
+      const frameConfig = selectedProject?.qrFrameConfig || {
+        frameType: 1,
+        textContent: 'SCAN ME',
+        textStyle: {
+          bold: true,
+          italic: false,
+          color: '#000000',
+          gradient: null
+        }
+      };
+
+      // Generate sticker with saved frame config
       const stickerDataUrl = await generateQRSticker(qrDataUrl, {
-        variant: 'purple',
+        frameType: frameConfig.frameType,
+        textContent: frameConfig.textContent,
+        textStyle: frameConfig.textStyle,
         qrSize: size,
         borderWidth: 4,
         padding: 16

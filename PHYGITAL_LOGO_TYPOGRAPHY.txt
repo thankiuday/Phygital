@@ -1,0 +1,188 @@
+═══════════════════════════════════════════════════════════════
+  PHYGITAL LOGO TYPOGRAPHY
+  Font Specifications for "Phygital" Text Logo
+═══════════════════════════════════════════════════════════════
+
+PRIMARY FONT FAMILY
+───────────────────────────────────────────────────────────────
+
+Font Name: Inter
+Source: Google Fonts
+URL: https://fonts.google.com/specimen/Inter
+
+Font Stack (Fallbacks):
+  • Primary: Inter
+  • Fallback 1: system-ui
+  • Fallback 2: sans-serif
+
+CSS Font Family:
+  font-family: 'Inter', system-ui, sans-serif;
+
+───────────────────────────────────────────────────────────────
+
+FONT WEIGHT
+───────────────────────────────────────────────────────────────
+
+Logo Text Weight: Bold (700)
+Font Weight Value: 700
+
+Available Weights (from Google Fonts):
+  • Light: 300
+  • Regular: 400
+  • Medium: 500
+  • Semi-Bold: 600
+  • Bold: 700 (USED IN LOGO)
+
+CSS Font Weight:
+  font-weight: 700;
+  OR
+  font-weight: bold;
+
+───────────────────────────────────────────────────────────────
+
+FONT SIZES (by Logo Size)
+───────────────────────────────────────────────────────────────
+
+The logo text size varies based on the logo size variant:
+
+Size: Small (sm)
+  • Font Size: text-base
+  • Size: 1rem
+  • Pixels: 16px
+  • Line Height: 1.5rem (24px)
+
+Size: Medium (md) - DEFAULT
+  • Font Size: text-xl
+  • Size: 1.25rem
+  • Pixels: 20px
+  • Line Height: 1.75rem (28px)
+
+Size: Large (lg)
+  • Font Size: text-2xl
+  • Size: 1.5rem
+  • Pixels: 24px
+  • Line Height: 2rem (32px)
+
+Size: Extra Large (xl)
+  • Font Size: text-3xl
+  • Size: 1.875rem
+  • Pixels: 30px
+  • Line Height: 2.25rem (36px)
+
+Size: 2X Large (2xl)
+  • Font Size: text-4xl
+  • Size: 2.25rem
+  • Pixels: 36px
+  • Line Height: 2.5rem (40px)
+
+───────────────────────────────────────────────────────────────
+
+RECOMMENDED LOGO TYPOGRAPHY
+───────────────────────────────────────────────────────────────
+
+For Standard Logo Design:
+  • Font: Inter Bold (700)
+  • Size: 2.25rem / 36px (or larger for main logo)
+  • Line Height: 1.2 (or auto)
+  • Letter Spacing: Normal (0)
+  • Text Transform: None (capitalize first letter only)
+
+───────────────────────────────────────────────────────────────
+
+TEXT STYLING
+───────────────────────────────────────────────────────────────
+
+Text Style: Bold
+Text Transform: None (keep original casing: "Phygital")
+Letter Spacing: Normal (0)
+Text Decoration: None
+Font Style: Normal (not italic)
+
+───────────────────────────────────────────────────────────────
+
+GOOGLE FONTS IMPORT
+───────────────────────────────────────────────────────────────
+
+To use Inter font in design software or web:
+
+Google Fonts Link:
+  https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap
+
+HTML Link Tag:
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+CSS @import:
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+───────────────────────────────────────────────────────────────
+
+DESIGN SOFTWARE SETTINGS
+───────────────────────────────────────────────────────────────
+
+For Adobe Illustrator/Photoshop:
+  • Font Family: Inter
+  • Font Style: Bold
+  • Font Weight: 700
+  • Font Size: 36pt (or as needed)
+  • Tracking: 0
+  • Leading: Auto or 1.2x font size
+
+For Figma:
+  • Font Family: Inter
+  • Font Weight: Bold (700)
+  • Font Size: 36px (or as needed)
+  • Letter Spacing: 0%
+  • Line Height: Auto
+
+For Canva:
+  • Search for "Inter" font
+  • Select "Inter Bold" or weight 700
+  • Size: 36px or larger
+
+───────────────────────────────────────────────────────────────
+
+FONT DOWNLOAD
+───────────────────────────────────────────────────────────────
+
+Download Inter font from:
+  • Google Fonts: https://fonts.google.com/specimen/Inter
+  • Select "Download family" to get all weights
+  • Or download individual weights as needed
+
+───────────────────────────────────────────────────────────────
+
+COMPLETE TYPOGRAPHY SPECIFICATION
+───────────────────────────────────────────────────────────────
+
+Font Family: Inter, system-ui, sans-serif
+Font Weight: 700 (Bold)
+Font Size: 36px (2.25rem) - Recommended for main logo
+Line Height: 1.2 (or 43.2px)
+Letter Spacing: 0px
+Text Transform: None
+Color: Gradient (see PHYGITAL_LOGO_COLORS.txt)
+
+CSS Example:
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 36px;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-transform: none;
+
+───────────────────────────────────────────────────────────────
+
+ALTERNATIVE FONT SIZES (if needed)
+───────────────────────────────────────────────────────────────
+
+Small Logo: 20px (1.25rem)
+Medium Logo: 24px (1.5rem)
+Large Logo: 30px (1.875rem)
+Extra Large Logo: 36px (2.25rem)
+Hero/Display Logo: 48px+ (3rem+)
+
+───────────────────────────────────────────────────────────────
+
+END OF TYPOGRAPHY SPECIFICATION
+═══════════════════════════════════════════════════════════════
+

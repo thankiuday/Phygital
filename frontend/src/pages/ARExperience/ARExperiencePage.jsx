@@ -28,6 +28,7 @@ import ProjectDisabledScreen from '../../components/AR/ProjectDisabledScreen';
 import CompositeImageOverlay from '../../components/AR/CompositeImageOverlay';
 import ScannerAnimation from '../../components/AR/ScannerAnimation';
 import DirectVideoPlayer from '../../components/AR/DirectVideoPlayer';
+import ThemeRenderer from '../../components/Templates/ThemeRenderer';
 
 const ARExperiencePage = () => {
   const { userId, projectId } = useParams();
@@ -175,15 +176,79 @@ const ARExperiencePage = () => {
     videoRef,
     startScanning,
     stopScanning,
-    toggleVideo,
-    toggleMute,
+    toggleVideo: originalToggleVideo,
+    toggleMute: originalToggleMute,
     restartAR
   } = arLogic;
 
+  // Wrap toggleVideo to track play/pause events
+  const toggleVideo = React.useCallback(async () => {
+    const wasPlaying = videoPlaying;
+    await originalToggleVideo();
+    
+    // Track video play/pause after state updates
+    setTimeout(() => {
+      if (videoRef?.current) {
+        const isNowPlaying = !videoRef.current.paused;
+        if (isNowPlaying && !wasPlaying) {
+          // Video was just played
+          trackAnalytics('videoView', {
+            videoProgress: 0,
+            videoDuration: videoRef.current.duration || 0
+          }).catch(err => console.error('Failed to track video play:', err));
+        }
+      }
+    }, 100);
+  }, [originalToggleVideo, videoPlaying, videoRef, trackAnalytics]);
+
+  // Wrap toggleMute to track mute/unmute events
+  const toggleMute = React.useCallback(() => {
+    const wasMuted = videoMuted;
+    originalToggleMute();
+    
+    // Track mute/unmute (optional - not critical, but good to have)
+    if (videoRef?.current) {
+      const isNowMuted = videoRef.current.muted;
+      if (isNowMuted !== wasMuted) {
+        // Mute state changed - could track this if needed in future
+        // For now, we'll just track the video interaction itself
+      }
+    }
+  }, [originalToggleMute, videoMuted, videoRef]);
+
   // Helpers: social/contact
   const socialLinks = projectData?.socialLinks || {};
-  const contactNumber = socialLinks?.contactNumber?.trim();
-  const whatsappNumber = socialLinks?.whatsappNumber?.trim();
+  // Check phygitalizedData first, then fall back to socialLinks
+  const phygitalizedData = projectData?.phygitalizedData || {};
+  const contactNumber = (phygitalizedData?.phoneNumber || socialLinks?.contactNumber)?.trim();
+  const whatsappNumber = (phygitalizedData?.whatsappNumber || socialLinks?.whatsappNumber)?.trim();
+  // Get documentUrls from multiple sources:
+  // 1. phygitalizedData.documentUrls (for phygitalized campaigns)
+  // 2. projectData.uploadedFiles.documents (for upload page projects)
+  // 3. projectData.documentUrls (backward compatibility)
+  const documentUrls = React.useMemo(() => {
+    const phygitalizedDocs = phygitalizedData?.documentUrls || [];
+    const uploadedDocs = projectData?.uploadedFiles?.documents || [];
+    const legacyDocs = projectData?.documentUrls || [];
+    
+    // Convert uploadedFiles.documents array to URLs array if needed
+    const uploadedDocUrls = uploadedDocs.map(doc => 
+      typeof doc === 'string' ? doc : doc.url
+    ).filter(Boolean);
+    
+    // Combine all sources, removing duplicates
+    const allDocs = [...phygitalizedDocs, ...uploadedDocUrls, ...legacyDocs];
+    return [...new Set(allDocs)]; // Remove duplicates
+  }, [phygitalizedData?.documentUrls, projectData?.uploadedFiles?.documents, projectData?.documentUrls]);
+  
+  // Debug: Log document URLs
+  React.useEffect(() => {
+    if (documentUrls && documentUrls.length > 0) {
+      console.log('📄 Documents found:', documentUrls);
+    } else {
+      console.log('📄 No documents found. phygitalizedData:', phygitalizedData, 'projectData.uploadedFiles.documents:', projectData?.uploadedFiles?.documents, 'projectData.documentUrls:', projectData?.documentUrls);
+    }
+  }, [documentUrls, phygitalizedData, projectData]);
 
   const sanitizeNumber = (num) => (num || '').replace(/[^0-9+]/g, '');
   
@@ -220,6 +285,10 @@ const ARExperiencePage = () => {
   const isHorizontal = videoAspectRatio > 1.2; // More sensitive detection for horizontal videos
   const paddingTopPercent = (100 / videoAspectRatio) * (isLandscape ? 1.15 : 1);
   
+  // Video progress tracking refs
+  const videoMilestonesTrackedRef = React.useRef(new Set()); // Track which milestones have been tracked for current play
+  const videoCompletedTrackedRef = React.useRef(false); // Track if completion has been tracked for current play
+  
   // Dynamic container height based on content and screen size
   const getContainerHeight = () => {
     if (showCompositeImage) {
@@ -253,6 +322,68 @@ const ARExperiencePage = () => {
       }
     } catch (_) {}
   }, [videoPlaying, targetDetected]);
+
+  // Track video progress milestones (25%, 50%, 75%, 100%)
+  useEffect(() => {
+    const video = videoRef?.current;
+    if (!video || !targetDetected || !projectData?.videoUrl) return;
+
+    const handleTimeUpdate = () => {
+      if (!video.duration || video.duration === 0) return;
+
+      const progress = (video.currentTime / video.duration) * 100;
+      const milestones = [25, 50, 75, 100];
+
+      milestones.forEach(milestone => {
+        if (progress >= milestone && !videoMilestonesTrackedRef.current.has(milestone)) {
+          videoMilestonesTrackedRef.current.add(milestone);
+          trackAnalytics('videoProgressMilestone', {
+            milestone: milestone.toString(),
+            progress: progress,
+            duration: video.duration
+          }).catch(err => console.error('Failed to track video milestone:', err));
+        }
+      });
+
+      // Track completion when video reaches 95% or more
+      if (progress >= 95 && !videoCompletedTrackedRef.current) {
+        videoCompletedTrackedRef.current = true;
+        trackAnalytics('videoComplete', {
+          duration: video.duration
+        }).catch(err => console.error('Failed to track video completion:', err));
+      }
+    };
+
+    video.addEventListener('timeupdate', handleTimeUpdate);
+    return () => {
+      video.removeEventListener('timeupdate', handleTimeUpdate);
+    };
+  }, [videoRef, targetDetected, projectData?.videoUrl, trackAnalytics]);
+
+  // Reset milestone tracking when video ends or restarts
+  useEffect(() => {
+    const video = videoRef?.current;
+    if (!video) return;
+
+    const handleVideoEnd = () => {
+      videoMilestonesTrackedRef.current.clear();
+      videoCompletedTrackedRef.current = false;
+    };
+
+    const handleVideoStart = () => {
+      // Reset on play start (new playback session)
+      videoMilestonesTrackedRef.current.clear();
+      videoCompletedTrackedRef.current = false;
+    };
+
+    video.addEventListener('ended', handleVideoEnd);
+    video.addEventListener('play', handleVideoStart);
+
+    return () => {
+      video.removeEventListener('ended', handleVideoEnd);
+      video.removeEventListener('play', handleVideoStart);
+    };
+  }, [videoRef]);
 
   // Auto-play on first detection
   const prevDetectedRef = React.useRef(false);
@@ -521,10 +652,15 @@ const ARExperiencePage = () => {
     );
   }
 
+  // Extract template info from project data
+  const templateId = projectData?.phygitalizedData?.templateId;
+  const templateConfig = projectData?.phygitalizedData?.templateConfig;
+
   return (
-    <div className="min-h-screen bg-dark-mesh">
+    <ThemeRenderer template={templateId} templateConfig={templateConfig}>
+      <div className="min-h-screen" style={{ background: 'transparent' }}>
       {/* Main Content - Responsive: mobile to tablet to desktop */}
-      <main className="w-full max-w-md md:max-w-2xl lg:max-w-4xl xl:max-w-5xl mx-auto bg-slate-900/95 backdrop-blur-sm min-h-screen px-4 md:px-6 lg:px-8 py-6 md:py-8 lg:py-12">
+      <main className="w-full max-w-md md:max-w-2xl lg:max-w-4xl xl:max-w-5xl mx-auto backdrop-blur-sm min-h-screen px-4 md:px-6 lg:px-8 py-6 md:py-8 lg:py-12" style={{ background: 'transparent' }}>
         {/* Video Container */}
         <div className="w-full"  style={{ margin: 0, padding: 0, boxSizing: 'border-box' }}>
           {/* Media Box - Enhanced responsiveness with proper height for composite image */}
@@ -591,6 +727,11 @@ const ARExperiencePage = () => {
                     if (aspectRatio && isFinite(aspectRatio)) {
                       setVideoAspectRatio(aspectRatio);
                     }
+                  }}
+                  onEnded={() => {
+                    // Reset milestone tracking when video ends
+                    videoMilestonesTrackedRef.current.clear();
+                    videoCompletedTrackedRef.current = false;
                   }}
                 />
                 
@@ -772,7 +913,7 @@ const ARExperiencePage = () => {
                   }
                 }}
               >
-                <div className="w-20 h-20 bg-gradient-to-r from-neon-blue to-neon-purple rounded-full flex items-center justify-center shadow-glow-blue hover:scale-110 transition-transform">
+                <div className="w-20 h-20 rounded-full flex items-center justify-center hover:scale-110 transition-transform" style={{ background: 'var(--theme-primary, linear-gradient(to right, #3B82F6, #8B5CF6))' }}>
                   <svg className="w-10 h-10 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M8 5v14l11-7z"/>
                   </svg>
@@ -803,8 +944,7 @@ const ARExperiencePage = () => {
           </div>
         </div>
 
-
-        {/* Contact Information */}
+        {/* Contact Information - FIRST */}
         {(() => {
           const hasContactInfo = !!(contactNumber || whatsappNumber);
           return hasContactInfo;
@@ -814,11 +954,12 @@ const ARExperiencePage = () => {
               {contactNumber && (
                 <a 
                   href={`tel:${sanitizeNumber(contactNumber)}`}
-                  className="flex-1 flex items-center justify-center space-x-3 bg-slate-800/80 border border-slate-600/30 rounded-lg md:rounded-xl px-4 md:px-6 py-3 md:py-4 hover:bg-slate-700/80 hover:border-neon-blue/50 active:bg-slate-600/90 focus:outline-none focus:ring-2 focus:ring-neon-green/30 transition-all duration-200 touch-manipulation backdrop-blur-md group"
+                  className="flex-1 flex items-center justify-center space-x-3 border border-slate-600/30 rounded-lg md:rounded-xl px-4 md:px-6 py-3 md:py-4 transition-all duration-200 touch-manipulation backdrop-blur-md group"
+                  style={{ backgroundColor: 'var(--theme-card, rgba(30, 41, 59, 0.8))' }}
                   aria-label="Call contact number"
                 >
                   <div className="w-5 h-5 md:w-6 md:h-6 flex items-center justify-center flex-shrink-0">
-                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 md:w-6 md:h-6 text-neon-blue group-hover:scale-110 transition-transform">
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 md:w-6 md:h-6 group-hover:scale-110 transition-transform" style={{ color: 'var(--theme-primary, #3B82F6)' }}>
                       <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
                     </svg>
                   </div>
@@ -830,11 +971,12 @@ const ARExperiencePage = () => {
                   href={`https://wa.me/${sanitizeNumber(whatsappNumber)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center space-x-3 bg-slate-800/80 border border-slate-600/30 rounded-lg md:rounded-xl px-4 md:px-6 py-3 md:py-4 hover:bg-slate-700/80 hover:border-green-500/50 active:bg-slate-600/90 focus:outline-none focus:ring-2 focus:ring-green-500/30 transition-all duration-200 touch-manipulation backdrop-blur-md group"
+                  className="flex-1 flex items-center justify-center space-x-3 border border-slate-600/30 rounded-lg md:rounded-xl px-4 md:px-6 py-3 md:py-4 transition-all duration-200 touch-manipulation backdrop-blur-md group"
+                  style={{ backgroundColor: 'var(--theme-card, rgba(30, 41, 59, 0.8))' }}
                   aria-label="Open WhatsApp chat"
                 >
                   <div className="w-5 h-5 md:w-6 md:h-6 flex items-center justify-center flex-shrink-0">
-                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 md:w-6 md:h-6 text-green-500 group-hover:scale-110 transition-transform">
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 md:w-6 md:h-6 group-hover:scale-110 transition-transform" style={{ color: 'var(--theme-secondary, #10B981)' }}>
                       <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488"/>
                     </svg>
                   </div>
@@ -845,7 +987,64 @@ const ARExperiencePage = () => {
           </div>
         )}
 
-        {/* Social Links */}
+        {/* Documents - SECOND */}
+        {documentUrls && documentUrls.length > 0 && (
+          <div className="mt-6 md:mt-8">
+            <h2 className="text-base md:text-lg font-bold text-slate-100 mb-4 md:mb-5 text-center">Documents</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 max-w-4xl mx-auto">
+              {documentUrls.map((docUrl, index) => {
+                const isPdf = docUrl.toLowerCase().includes('.pdf') || docUrl.toLowerCase().includes('pdf');
+                const isImage = docUrl.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/);
+                const fileName = docUrl.split('/').pop() || `Document ${index + 1}`;
+                
+                const handleDocumentClick = (e, action = 'view') => {
+                  // Track document view/download
+                  trackAnalytics(action === 'download' ? 'documentDownload' : 'documentView', {
+                    documentUrl: docUrl
+                  }).catch(err => console.error(`Failed to track document ${action}:`, err));
+                };
+                
+                return (
+                  <a
+                    key={index}
+                    href={docUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => handleDocumentClick(e, 'view')}
+                    onContextMenu={(e) => {
+                      // Track download on right-click (common way to download)
+                      handleDocumentClick(e, 'download');
+                    }}
+                    download={isPdf || isImage ? fileName : undefined}
+                    className="border border-slate-600/30 rounded-lg md:rounded-xl p-4 md:p-5 flex flex-col items-center justify-center space-y-2 md:space-y-3 transition-all duration-200 touch-manipulation backdrop-blur-md group"
+                    style={{ backgroundColor: 'var(--theme-card, rgba(30, 41, 59, 0.8))' }}
+                  >
+                    <div className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center">
+                      {isPdf ? (
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 md:w-10 md:h-10 group-hover:scale-110 transition-transform" style={{ color: 'var(--theme-primary, #EF4444)' }}>
+                          <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                        </svg>
+                      ) : isImage ? (
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 md:w-10 md:h-10 group-hover:scale-110 transition-transform" style={{ color: 'var(--theme-primary, #3B82F6)' }}>
+                          <path d="M21,19V5C21,3.89 20.1,3 19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19M19,19H5V5H19V19M13.96,12.29L11.21,15.83L9.25,13.47L6.5,17H17.5L13.96,12.29Z" />
+                        </svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 md:w-10 md:h-10 text-slate-400 group-hover:scale-110 transition-transform">
+                          <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                        </svg>
+                      )}
+                    </div>
+                    <span className="text-xs md:text-sm font-medium text-slate-100 text-center truncate w-full px-2">
+                      {fileName.length > 20 ? `${fileName.substring(0, 20)}...` : fileName}
+                    </span>
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Social Links - LAST */}
         {(() => {
           const hasSocialLinks = !!(
             socialLinks?.instagram ||
@@ -865,10 +1064,11 @@ const ARExperiencePage = () => {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => handleSocialClick('instagram', socialLinks.instagram)}
-                  className="bg-slate-800/80 border border-slate-600/30 rounded-lg md:rounded-xl p-4 md:p-5 flex flex-col items-center justify-center space-y-2 md:space-y-3 hover:bg-slate-700/80 hover:border-pink-500/50 active:bg-slate-600/90 focus:outline-none focus:ring-2 focus:ring-pink-500/30 transition-all duration-200 touch-manipulation backdrop-blur-md group"
+                  className="border border-slate-600/30 rounded-lg md:rounded-xl p-4 md:p-5 flex flex-col items-center justify-center space-y-2 md:space-y-3 transition-all duration-200 touch-manipulation backdrop-blur-md group"
+                  style={{ backgroundColor: 'var(--theme-card, rgba(30, 41, 59, 0.8))' }}
                 >
                   <div className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center">
-                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 md:w-10 md:h-10 text-pink-500 group-hover:scale-110 transition-transform"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 md:w-10 md:h-10 group-hover:scale-110 transition-transform" style={{ color: 'var(--theme-primary, #EC4899)' }}><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
                   </div>
                   <span className="text-xs md:text-sm font-medium text-slate-100 text-center">Instagram</span>
                 </a>
@@ -879,10 +1079,11 @@ const ARExperiencePage = () => {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => handleSocialClick('facebook', socialLinks.facebook)}
-                  className="bg-slate-800/80 border border-slate-600/30 rounded-lg md:rounded-xl p-4 md:p-5 flex flex-col items-center justify-center space-y-2 md:space-y-3 hover:bg-slate-700/80 hover:border-blue-500/50 active:bg-slate-600/90 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all duration-200 touch-manipulation backdrop-blur-md group"
+                  className="border border-slate-600/30 rounded-lg md:rounded-xl p-4 md:p-5 flex flex-col items-center justify-center space-y-2 md:space-y-3 transition-all duration-200 touch-manipulation backdrop-blur-md group"
+                  style={{ backgroundColor: 'var(--theme-card, rgba(30, 41, 59, 0.8))' }}
                 >
                   <div className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center">
-                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 md:w-10 md:h-10 text-blue-500 group-hover:scale-110 transition-transform"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 md:w-10 md:h-10 group-hover:scale-110 transition-transform" style={{ color: 'var(--theme-primary, #3B82F6)' }}><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
                   </div>
                   <span className="text-xs md:text-sm font-medium text-slate-100 text-center">Facebook</span>
                 </a>
@@ -893,10 +1094,11 @@ const ARExperiencePage = () => {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => handleSocialClick('website', socialLinks.website)}
-                  className="bg-slate-800/80 border border-slate-600/30 rounded-lg md:rounded-xl p-4 md:p-5 flex flex-col items-center justify-center space-y-2 md:space-y-3 hover:bg-slate-700/80 hover:border-cyan-500/50 active:bg-slate-600/90 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all duration-200 touch-manipulation backdrop-blur-md group"
+                  className="border border-slate-600/30 rounded-lg md:rounded-xl p-4 md:p-5 flex flex-col items-center justify-center space-y-2 md:space-y-3 transition-all duration-200 touch-manipulation backdrop-blur-md group"
+                  style={{ backgroundColor: 'var(--theme-card, rgba(30, 41, 59, 0.8))' }}
                 >
                   <div className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center">
-                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 md:w-10 md:h-10 text-cyan-500 group-hover:scale-110 transition-transform"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 md:w-10 md:h-10 group-hover:scale-110 transition-transform" style={{ color: 'var(--theme-primary, #06B6D4)' }}><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
                   </div>
                   <span className="text-xs md:text-sm font-medium text-slate-100 text-center">Website</span>
                 </a>
@@ -907,10 +1109,11 @@ const ARExperiencePage = () => {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => handleSocialClick('twitter', socialLinks.twitter)}
-                  className="bg-slate-800/80 border border-slate-600/30 rounded-lg md:rounded-xl p-4 md:p-5 flex flex-col items-center justify-center space-y-2 md:space-y-3 hover:bg-slate-700/80 hover:border-sky-500/50 active:bg-slate-600/90 focus:outline-none focus:ring-2 focus:ring-sky-500/30 transition-all duration-200 touch-manipulation backdrop-blur-md group"
+                  className="border border-slate-600/30 rounded-lg md:rounded-xl p-4 md:p-5 flex flex-col items-center justify-center space-y-2 md:space-y-3 transition-all duration-200 touch-manipulation backdrop-blur-md group"
+                  style={{ backgroundColor: 'var(--theme-card, rgba(30, 41, 59, 0.8))' }}
                 >
                   <div className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center">
-                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 md:w-10 md:h-10 text-sky-500 group-hover:scale-110 transition-transform"><path d="M22.46 6c-.77.35-1.6.58-2.46.69a4.3 4.3 0 001.88-2.37 8.59 8.59 0 01-2.72 1.04 4.29 4.29 0 00-7.31 3.92A12.18 12.18 0 013 5.16a4.28 4.28 0 001.33 5.72 4.26 4.26 0 01-1.94-.54v.06a4.29 4.29 0 003.44 4.2 4.3 4.3 0 01-1.93.07 4.29 4.29 0 004 2.97A8.61 8.61 0 012 19.54a12.14 12.14 0 006.57 1.92c7.88 0 12.2-6.53 12.2-12.2 0-.19-.01-.39-.02-.58A8.7 8.7 0 0024 5.55a8.5 8.5 0 01-2.54.7z"/></svg>
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 md:w-10 md:h-10 group-hover:scale-110 transition-transform" style={{ color: 'var(--theme-primary, #0EA5E9)' }}><path d="M22.46 6c-.77.35-1.6.58-2.46.69a4.3 4.3 0 001.88-2.37 8.59 8.59 0 01-2.72 1.04 4.29 4.29 0 00-7.31 3.92A12.18 12.18 0 013 5.16a4.28 4.28 0 001.33 5.72 4.26 4.26 0 01-1.94-.54v.06a4.29 4.29 0 003.44 4.2 4.3 4.3 0 01-1.93.07 4.29 4.29 0 004 2.97A8.61 8.61 0 012 19.54a12.14 12.14 0 006.57 1.92c7.88 0 12.2-6.53 12.2-12.2 0-.19-.01-.39-.02-.58A8.7 8.7 0 0024 5.55a8.5 8.5 0 01-2.54.7z"/></svg>
                   </div>
                   <span className="text-xs md:text-sm font-medium text-slate-100 text-center">Twitter</span>
                 </a>
@@ -921,10 +1124,11 @@ const ARExperiencePage = () => {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => handleSocialClick('linkedin', socialLinks.linkedin)}
-                  className="bg-slate-800/80 border border-slate-600/30 rounded-lg md:rounded-xl p-4 md:p-5 flex flex-col items-center justify-center space-y-2 md:space-y-3 hover:bg-slate-700/80 hover:border-indigo-500/50 active:bg-slate-600/90 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all duration-200 touch-manipulation backdrop-blur-md group"
+                  className="border border-slate-600/30 rounded-lg md:rounded-xl p-4 md:p-5 flex flex-col items-center justify-center space-y-2 md:space-y-3 transition-all duration-200 touch-manipulation backdrop-blur-md group"
+                  style={{ backgroundColor: 'var(--theme-card, rgba(30, 41, 59, 0.8))' }}
                 >
                     <div className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center">
-                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 md:w-10 md:h-10 text-indigo-500 group-hover:scale-110 transition-transform"><path d="M19 0h-14c-2.76 0-5 2.24-5 5v14c0 2.76 2.24 5 5 5h14c2.76 0 5-2.24 5-5v-14c0-2.76-2.24-5-5-5zm-11 19h-3v-10h3v10zm-1.5-11.27c-.97 0-1.75-.79-1.75-1.76s.78-1.76 1.75-1.76 1.75.79 1.75 1.76-.78 1.76-1.75 1.76zm13.5 11.27h-3v-5.6c0-1.34-.02-3.06-1.87-3.06s-2.16 1.46-2.16 2.97v5.69h-3v-10h2.88v1.37h.04c.4-.75 1.38-1.54 2.84-1.54 3.04 0 3.6 2 3.6 4.59v5.58z"/></svg>
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 md:w-10 md:h-10 group-hover:scale-110 transition-transform" style={{ color: 'var(--theme-primary, #6366F1)' }}><path d="M19 0h-14c-2.76 0-5 2.24-5 5v14c0 2.76 2.24 5 5 5h14c2.76 0 5-2.24 5-5v-14c0-2.76-2.24-5-5-5zm-11 19h-3v-10h3v10zm-1.5-11.27c-.97 0-1.75-.79-1.75-1.76s.78-1.76 1.75-1.76 1.75.79 1.75 1.76-.78 1.76-1.75 1.76zm13.5 11.27h-3v-5.6c0-1.34-.02-3.06-1.87-3.06s-2.16 1.46-2.16 2.97v5.69h-3v-10h2.88v1.37h.04c.4-.75 1.38-1.54 2.84-1.54 3.04 0 3.6 2 3.6 4.59v5.58z"/></svg>
                   </div>
                   <span className="text-xs md:text-sm font-medium text-slate-100 text-center">LinkedIn</span>
                 </a>
@@ -947,7 +1151,8 @@ const ARExperiencePage = () => {
         videoMuted={videoMuted}
         debugMessages={debugMessages}
       />
-    </div>
+      </div>
+    </ThemeRenderer>
   );
 };
 

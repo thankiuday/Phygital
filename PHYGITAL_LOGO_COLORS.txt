@@ -1,0 +1,109 @@
+═══════════════════════════════════════════════════════════════
+  PHYGITAL LOGO COLOR PALETTE
+  Brand Colors for "Phygital" Text Logo Design
+═══════════════════════════════════════════════════════════════
+
+PRIMARY GRADIENT COLORS (Used in "Phygital" Text)
+───────────────────────────────────────────────────────────────
+
+The "Phygital" text logo uses a HORIZONTAL GRADIENT (left to right):
+
+1. NEON BLUE (Start)
+   Hex: #00d4ff
+   RGB: rgb(0, 212, 255)
+
+2. NEON PURPLE (Middle)
+   Hex: #a855f7
+   RGB: rgb(168, 85, 247)
+
+3. NEON PINK (End)
+   Hex: #ec4899
+   RGB: rgb(236, 72, 153)
+
+───────────────────────────────────────────────────────────────
+
+GRADIENT SPECIFICATION
+───────────────────────────────────────────────────────────────
+
+Type: Linear Gradient (Horizontal, Left to Right)
+Direction: 0° (or "to right")
+
+Color Stops:
+  • 0%   → #00d4ff (Neon Blue)
+  • 50%  → #a855f7 (Neon Purple)
+  • 100% → #ec4899 (Neon Pink)
+
+CSS Code:
+  background: linear-gradient(to right, #00d4ff, #a855f7, #ec4899);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+
+───────────────────────────────────────────────────────────────
+
+QUICK REFERENCE TABLE
+───────────────────────────────────────────────────────────────
+
+Color Name      Hex Code    RGB                  Usage
+───────────────────────────────────────────────────────────────
+Neon Blue       #00d4ff     rgb(0, 212, 255)     Gradient Start
+Neon Purple     #a855f7     rgb(168, 85, 247)    Gradient Middle
+Neon Pink       #ec4899     rgb(236, 72, 153)    Gradient End
+Dark Background #0f172a     rgb(15, 23, 42)      Background
+
+───────────────────────────────────────────────────────────────
+
+DESIGN SOFTWARE SETTINGS
+───────────────────────────────────────────────────────────────
+
+For Adobe Illustrator/Photoshop:
+  • Gradient Type: Linear
+  • Angle: 0° (horizontal)
+  • Color Stops:
+      - Stop 1: #00d4ff at 0%
+      - Stop 2: #a855f7 at 50%
+      - Stop 3: #ec4899 at 100%
+
+For Figma:
+  • Create linear gradient
+  • Direction: Left to Right (0°)
+  • Stops:
+      - #00d4ff → 0%
+      - #a855f7 → 50%
+      - #ec4899 → 100%
+
+───────────────────────────────────────────────────────────────
+
+DESIGN NOTES
+───────────────────────────────────────────────────────────────
+
+✓ Gradient flows horizontally (left to right)
+✓ Modern, neon, cyberpunk aesthetic
+✓ Works best on dark backgrounds (#0f172a or darker)
+✓ Bold, modern sans-serif font recommended
+✓ Text should appear as glowing neon effect
+
+───────────────────────────────────────────────────────────────
+
+OPTIONAL GLOW EFFECTS
+───────────────────────────────────────────────────────────────
+
+If adding glow/shadow effects:
+  • Blue Glow:   rgba(0, 212, 255, 0.4)
+  • Purple Glow: rgba(168, 85, 247, 0.4)
+  • Pink Glow:   rgba(236, 72, 153, 0.4)
+
+───────────────────────────────────────────────────────────────
+
+ALTERNATIVE SIMPLER GRADIENT (Two Colors)
+───────────────────────────────────────────────────────────────
+
+If you prefer a simpler two-color gradient:
+  • Start: #00d4ff (Neon Blue)
+  • End:   #a855f7 (Neon Purple)
+
+───────────────────────────────────────────────────────────────
+
+END OF COLOR PALETTE
+═══════════════════════════════════════════════════════════════
+

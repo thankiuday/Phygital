@@ -1,0 +1,46 @@
+{
+  "id": "default",
+  "name": "Default Theme",
+  "category": "non-festival",
+  "description": "The classic dark theme with neon accents - your current default design",
+  "previewImage": "/templates/default-preview.png",
+  "colors": {
+    "primary": "#8B5CF6",
+    "secondary": "#EC4899",
+    "accent": "#00D4FF",
+    "background": "linear-gradient(to bottom right, #0F172A, #1E293B, #0F172A)",
+    "text": "#F1F5F9",
+    "card": "rgba(30, 41, 59, 0.5)"
+  },
+  "animations": {
+    "particles": false,
+    "snowfall": false,
+    "fireworks": false,
+    "colorSplash": false
+  },
+  "components": {
+    "background": {
+      "type": "gradient",
+      "value": "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900"
+    },
+    "particles": null,
+    "decorations": []
+  },
+  "customizations": {
+    "animationSpeed": {
+      "min": 0.5,
+      "max": 2,
+      "default": 1,
+      "enabled": false
+    },
+    "particleDensity": {
+      "min": 0.5,
+      "max": 2,
+      "default": 1,
+      "enabled": false
+    },
+    "colorVariations": []
+  },
+  "defaultBackgroundColor": "linear-gradient(to bottom right, #0f172a, #1e293b, #0f172a)"
+}
+

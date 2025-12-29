@@ -1,0 +1,72 @@
+{
+  "id": "christmas",
+  "name": "Christmas Wonderland",
+  "category": "festival",
+  "description": "Celebrate the festive season with falling snow, twinkling stars, and holiday cheer",
+  "previewImage": "/templates/christmas-preview.png",
+  "colors": {
+    "primary": "#DC2626",
+    "secondary": "#16A34A",
+    "accent": "#FBBF24",
+    "background": "linear-gradient(to bottom, #1E3A8A, #1E40AF, #1E3A8A)",
+    "text": "#FFFFFF",
+    "card": "rgba(220, 38, 38, 0.1)"
+  },
+  "animations": {
+    "particles": true,
+    "snowfall": true,
+    "fireworks": false,
+    "colorSplash": false
+  },
+  "components": {
+    "background": {
+      "type": "gradient",
+      "value": "bg-gradient-to-b from-blue-900 via-blue-800 to-blue-900"
+    },
+    "particles": {
+      "type": "snow",
+      "density": 50,
+      "speed": 1
+    },
+    "decorations": [
+      {
+        "type": "santa-hat",
+        "position": "top-right",
+        "animation": "float"
+      },
+      {
+        "type": "snowflake",
+        "position": "scattered",
+        "animation": "fall"
+      }
+    ]
+  },
+  "customizations": {
+    "animationSpeed": {
+      "min": 0.5,
+      "max": 2,
+      "default": 1,
+      "enabled": true
+    },
+    "particleDensity": {
+      "min": 0.3,
+      "max": 2,
+      "default": 1,
+      "enabled": true
+    },
+    "colorVariations": [
+      {
+        "name": "Classic Red & Green",
+        "primary": "#DC2626",
+        "secondary": "#16A34A"
+      },
+      {
+        "name": "Winter Blue",
+        "primary": "#3B82F6",
+        "secondary": "#60A5FA"
+      }
+    ]
+  },
+  "defaultBackgroundColor": "linear-gradient(to bottom right, #0f172a, #1e293b, #0f172a)"
+}
+

@@ -58,15 +58,19 @@ const generateQRCodeBuffer = async (data, size = 200) => {
 };
 
 /**
- * Generate QR sticker with gradient border and "SCAN ME" text
+ * Generate QR sticker with customizable frame and text
  * @param {Buffer} qrCodeBuffer - QR code image buffer
  * @param {Number} qrSize - QR code size in pixels (inner QR code size)
  * @param {Number} borderWidth - Border width in pixels (default: 4)
  * @param {Number} padding - Padding around QR code in pixels (default: 16)
  * @param {String} variant - Gradient variant: 'purple' (default), 'blue', 'green-blue', 'yellow-orange', 'orange-pink'
+ * @param {Object} frameConfig - Frame configuration object (optional)
+ * @param {Number} frameConfig.frameType - Frame type (1-9)
+ * @param {String} frameConfig.textContent - Text content (default: "SCAN ME")
+ * @param {Object} frameConfig.textStyle - Text styling options
  * @returns {Jimp} Jimp image object of the sticker
  */
-const generateQRSticker = async (qrCodeBuffer, qrSize, borderWidth = 4, padding = 16, variant = 'purple') => {
+const generateQRSticker = async (qrCodeBuffer, qrSize, borderWidth = 4, padding = 16, variant = 'purple', frameConfig = null) => {
   try {
     console.log('🎨 Generating QR sticker with design:', { qrSize, borderWidth, padding, variant });
     
@@ -102,15 +106,60 @@ const generateQRSticker = async (qrCodeBuffer, qrSize, borderWidth = 4, padding 
     
     const selectedGradient = gradients[variant] || gradients.purple;
     
-    // Calculate dimensions
+    // Get frame config or use defaults
+    const frameType = frameConfig?.frameType || 1;
+    const textContent = frameConfig?.textContent || 'SCAN ME';
+    const textStyle = frameConfig?.textStyle || { bold: true, italic: false, color: '#FFFFFF', gradient: null };
+    const transparentBackground = frameConfig?.transparentBackground || false;
+    
+    // Determine if label is on top (3, 4, 6, 9) or bottom (1, 2, 5)
+    const topLabelFrames = [3, 4, 6, 9];
+    const hasTopLabel = topLabelFrames.includes(frameType);
+    const labelHeight = 40; // Height for label/bar
+    const labelPadding = 8;
+    
+    // Calculate dimensions based on frame type
     const totalPadding = padding * 2;
     const totalBorder = borderWidth * 2;
-    const textHeight = 40; // Space for "SCAN ME" text inside border
-    const stickerWidth = qrSize + totalPadding + totalBorder;
-    const stickerHeight = qrSize + totalPadding + totalBorder + textHeight;
+    const textHeight = labelHeight;
+    
+    let stickerWidth, stickerHeight;
+    if (frameType === 10) {
+      // None - QR code only, no frame or text
+      stickerWidth = qrSize;
+      stickerHeight = qrSize;
+    } else if (frameType === 7) {
+      // Corner brackets only - minimal padding, no label
+      stickerWidth = qrSize + totalPadding;
+      stickerHeight = qrSize + totalPadding;
+    } else if (frameType === 8) {
+      // Label on right side
+      const labelWidth = qrSize * 0.8;
+      stickerWidth = qrSize + totalPadding + totalBorder + labelWidth;
+      stickerHeight = qrSize + totalPadding + totalBorder;
+    } else if (hasTopLabel) {
+      // Labels on top - need extra space above QR code
+      stickerWidth = qrSize + totalPadding + totalBorder;
+      stickerHeight = qrSize + totalPadding + totalBorder + labelHeight + (frameType === 4 ? labelPadding * 2 : 0);
+    } else {
+      // Labels on bottom (1, 2, 5)
+      stickerWidth = qrSize + totalPadding + totalBorder;
+      stickerHeight = qrSize + totalPadding + totalBorder + labelHeight;
+    }
     
     // Create sticker canvas
     const sticker = new Jimp(stickerWidth, stickerHeight, 0x00000000); // Transparent background
+    
+    let qrX, qrY;
+    
+    if (frameType === 10) {
+      // None - QR code only, no frame or text
+      qrX = 0;
+      qrY = 0;
+      // Just composite the QR code directly, no borders or backgrounds
+      sticker.composite(qrCodeImage, qrX, qrY);
+      return sticker; // Return early, no text to draw
+    }
     
     // Draw gradient border - create a simple horizontal gradient effect
     // Parse hex color to RGB components
@@ -147,29 +196,38 @@ const generateQRSticker = async (qrCodeBuffer, qrSize, borderWidth = 4, padding 
       }
     });
     
-    // Draw white background for QR code and text area
-    const whiteBgX = borderWidth;
-    const whiteBgY = borderWidth;
-    const whiteBgWidth = qrSize + totalPadding;
-    const whiteBgHeight = qrSize + totalPadding + textHeight;
-    const whiteBg = new Jimp(whiteBgWidth, whiteBgHeight, 0xFFFFFFFF);
-    sticker.composite(whiteBg, whiteBgX, whiteBgY);
+    // Draw white background for QR code and text area - skip if transparentBackground is true
+    if (!transparentBackground) {
+      const whiteBgX = borderWidth;
+      const whiteBgY = borderWidth;
+      const whiteBgWidth = qrSize + totalPadding;
+      const whiteBgHeight = qrSize + totalPadding + textHeight;
+      const whiteBg = new Jimp(whiteBgWidth, whiteBgHeight, 0xFFFFFFFF);
+      sticker.composite(whiteBg, whiteBgX, whiteBgY);
+    }
     
     // Composite QR code onto sticker
-    const qrX = borderWidth + padding;
-    const qrY = borderWidth + padding;
+    // For top labels (3, 4, 6, 9), move QR code down to make room for label
+    const topLabelOffset = hasTopLabel ? labelHeight + (frameType === 4 ? labelPadding * 2 : 0) : 0;
+    qrX = borderWidth + padding;
+    qrY = borderWidth + padding + topLabelOffset; // Move QR code down if label is on top
     sticker.composite(qrCodeImage, qrX, qrY);
     
     // Draw "SCAN ME" text with gradient color effect
     // Jimp doesn't support gradient text natively, so we'll use a color from the gradient
     try {
-      // Use a color from the gradient (prefer middle color for purple variant)
+      // Use frame config text color/gradient or fallback to variant gradient
       let textColorHex;
-      if (selectedGradient.text.length >= 3) {
-        // For 3-color gradients, use the middle color (purple)
+      if (textStyle.gradient && textStyle.gradient.length > 0) {
+        // Use gradient from frame config
+        textColorHex = textStyle.gradient.length >= 3 ? textStyle.gradient[1] : textStyle.gradient[0];
+      } else if (textStyle.color) {
+        // Use solid color from frame config
+        textColorHex = textStyle.color;
+      } else if (selectedGradient.text.length >= 3) {
+        // Fallback to variant gradient
         textColorHex = selectedGradient.text[1];
       } else {
-        // For 2-color gradients, use the first color
         textColorHex = selectedGradient.text[0];
       }
       
@@ -190,21 +248,33 @@ const generateQRSticker = async (qrCodeBuffer, qrSize, borderWidth = 4, padding 
         }
       }
       
-      // Calculate text dimensions
-      const textWidth = Jimp.measureText(font, 'SCAN ME');
-      const textHeightActual = Jimp.measureTextHeight(font, 'SCAN ME', textWidth);
+      // Calculate text dimensions using actual text content
+      const textWidth = Jimp.measureText(font, textContent);
+      const textHeightActual = Jimp.measureTextHeight(font, textContent, textWidth);
       
-      // Calculate text position - center horizontally and vertically in the text area
-      const textAreaY = borderWidth + padding + qrSize; // Start of text area
-      const textY = textAreaY + (textHeight / 2) - (textHeightActual / 2); // Center vertically in text area
-      const textX = (stickerWidth - textWidth) / 2; // Center horizontally
+      // Calculate text position based on frame type
+      let textAreaY, textX, textY;
+      
+      if (hasTopLabel) {
+        // Labels on top (3, 4, 6, 9)
+        textAreaY = borderWidth + (frameType === 4 ? labelPadding : 0);
+      } else if (frameType === 8) {
+        // Label on right side - will be rotated
+        textAreaY = borderWidth + padding;
+      } else {
+        // Labels on bottom (1, 2, 5)
+        textAreaY = borderWidth + padding + qrSize + topLabelOffset;
+      }
+      
+      textY = textAreaY + (textHeight / 2) - (textHeightActual / 2);
+      textX = (stickerWidth - textWidth) / 2;
       
       // Create a temporary image for the text (full width for proper centering)
       const textImg = new Jimp(stickerWidth, textHeight, 0x00000000); // Transparent
       
       // Print text centered in the temporary image
       textImg.print(font, 0, (textHeight - textHeightActual) / 2, {
-        text: 'SCAN ME',
+        text: textContent,
         alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
         alignmentY: Jimp.VERTICAL_ALIGN_MIDDLE
       }, stickerWidth, textHeight);
@@ -257,9 +327,10 @@ const generateQRSticker = async (qrCodeBuffer, qrSize, borderWidth = 4, padding 
  * @param {String} qrData - Data to encode in QR code
  * @param {Object} position - QR code position {x, y, width, height}
  * @param {String} outputPath - Path to save the final image
+ * @param {Object} frameConfig - Frame configuration (optional)
  * @returns {String} Path to the generated image
  */
-const overlayQRCode = async (designImagePath, qrData, position, outputPath) => {
+const overlayQRCode = async (designImagePath, qrData, position, outputPath, frameConfig = null) => {
   try {
     // Validate input parameters
     if (!designImagePath || typeof designImagePath !== 'string') {
@@ -364,14 +435,15 @@ const overlayQRCode = async (designImagePath, qrData, position, outputPath) => {
     const qrCodeBuffer = await generateQRCodeBuffer(qrData, qrCodeSize);
     console.log('✅ QR code generated, buffer size:', qrCodeBuffer.length);
     
-    // Generate QR sticker with gradient border and "SCAN ME" text
-    console.log('🎨 Generating QR sticker with design...');
+    // Generate QR sticker with frame config
+    console.log('🎨 Generating QR sticker with design...', frameConfig ? `Frame type: ${frameConfig.frameType}` : 'Default frame');
     const qrSticker = await generateQRSticker(
       qrCodeBuffer,
       qrCodeSize,
       borderWidth,
       padding,
-      'purple' // Default variant
+      'purple', // Default variant
+      frameConfig // Pass frame config
     );
     
     // Resize sticker to match the specified dimensions (user's positioned size)
@@ -415,9 +487,10 @@ const overlayQRCode = async (designImagePath, qrData, position, outputPath) => {
  * @param {String} qrData - Data to encode in QR code
  * @param {Object} position - QR code position
  * @param {String} userId - User ID for file naming
+ * @param {Object} frameConfig - Frame configuration (optional)
  * @returns {String} Path to the generated final design
  */
-const generateFinalDesign = async (designUrl, qrData, position, userId) => {
+const generateFinalDesign = async (designUrl, qrData, position, userId, frameConfig = null) => {
   try {
     console.log('🎨 Starting final design generation:', { designUrl, qrData, position, userId });
     
@@ -552,9 +625,9 @@ const generateFinalDesign = async (designUrl, qrData, position, userId) => {
       const outputPath = path.join(tempDir, `final-design-${userId}-${Date.now()}.${extension}`);
       console.log('📄 Output path:', outputPath, `(format: ${extension})`);
       
-      // Overlay QR code
-      console.log('🎨 Starting QR code overlay...');
-      const finalImagePath = await overlayQRCode(designImagePath, qrData, position, outputPath);
+      // Overlay QR code with frame config
+      console.log('🎨 Starting QR code overlay...', frameConfig ? `Frame type: ${frameConfig.frameType}` : 'Default frame');
+      const finalImagePath = await overlayQRCode(designImagePath, qrData, position, outputPath, frameConfig);
       console.log('✅ QR overlay completed:', finalImagePath);
       
       // Clean up temporary design file if it was downloaded from remote storage

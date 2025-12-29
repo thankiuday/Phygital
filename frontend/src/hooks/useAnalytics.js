@@ -19,7 +19,11 @@ export const useAnalytics = (userId, projectId, addDebugMessage) => {
         'linkClick': '/analytics/link-click',
         'ar-experience-start': '/analytics/ar-experience-start',
         'ar-experience-error': '/analytics/ar-experience-error',
-        'pageView': '/analytics/page-view'
+        'pageView': '/analytics/page-view',
+        'videoProgressMilestone': '/analytics/video-progress-milestone',
+        'videoComplete': '/analytics/video-complete',
+        'documentView': '/analytics/document-view',
+        'documentDownload': '/analytics/document-view'
       };
       
       const endpoint = eventEndpoints[event] || `/analytics/${event}`;
@@ -114,6 +118,30 @@ export const useAnalytics = (userId, projectId, addDebugMessage) => {
           linkType: data.linkType || 'unknown',
           linkUrl: data.linkUrl || '',
           eventId: data.eventId, // Include eventId for deduplication
+          userAgent: navigator.userAgent
+        };
+      } else if (event === 'videoProgressMilestone') {
+        requestBody = {
+          userId: userId || projectId,
+          projectId,
+          milestone: data.milestone, // '25', '50', '75', '100'
+          progress: data.progress || 0,
+          duration: data.duration || 0,
+          userAgent: navigator.userAgent
+        };
+      } else if (event === 'videoComplete') {
+        requestBody = {
+          userId: userId || projectId,
+          projectId,
+          duration: data.duration || 0,
+          userAgent: navigator.userAgent
+        };
+      } else if (event === 'documentView' || event === 'documentDownload') {
+        requestBody = {
+          userId: userId || projectId,
+          projectId,
+          documentUrl: data.documentUrl || '',
+          action: event === 'documentDownload' ? 'download' : 'view',
           userAgent: navigator.userAgent
         };
       }

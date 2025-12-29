@@ -4,7 +4,7 @@
  * Our story, mission, and the movement we're building
  */
 
-import React from 'react'
+import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { 
   Users, 
@@ -18,10 +18,12 @@ import {
   Eye,
   Quote,
   Rocket,
-  TrendingUp
+  TrendingUp,
+  X
 } from 'lucide-react'
 
 const AboutPage = () => {
+  const [selectedCoreValue, setSelectedCoreValue] = useState(null)
   const coreValues = [
     {
       icon: Heart,
@@ -86,26 +88,14 @@ const AboutPage = () => {
         </div>
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
-          <div className="mb-6 inline-block">
-            <span className="px-4 py-2 bg-gradient-to-r from-neon-blue/20 to-neon-purple/20 border border-neon-blue/30 rounded-full text-neon-blue text-sm font-medium backdrop-blur-sm">
-              About Phygital Zone
-            </span>
-          </div>
-          
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-slate-100 mb-6 leading-tight">
             We're Building More Than <br className="hidden sm:block" />
             <span className="text-gradient bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink bg-clip-text text-transparent">A Platform</span>
           </h1>
           
           <p className="text-xl sm:text-2xl text-slate-300 mb-8 max-w-4xl mx-auto leading-relaxed">
-            We're building a <span className="text-neon-pink font-semibold">movement</span> where physical and digital worlds merge into experiences that <span className="text-neon-blue font-semibold">move people</span>.
+            We're building a <span className="text-neon-pink font-semibold">movement</span> where physical and digital worlds merge into experiences that <span className="text-slate-100 font-semibold">move people</span>.
           </p>
-
-          <div className="inline-block px-6 py-3 bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-600/50">
-            <p className="text-neon-blue font-semibold">
-              A Product by Phygital
-            </p>
-          </div>
         </div>
 
         {/* Floating Elements */}
@@ -131,13 +121,13 @@ const AboutPage = () => {
 
           <div className="space-y-6 text-base sm:text-lg text-slate-300 leading-relaxed">
             <p>
-              Phygital Zone began with a <span className="text-neon-blue font-semibold">simple observation</span>: the world is filled with beautiful designs — posters, business cards, product packaging, art — but they often lack the ability to tell their complete story.
+              Phygital Zone began with a simple observation: the world is filled with beautiful designs — posters, business cards, product packaging, art — but they often lack the ability to tell their complete story.
             </p>
             <p>
-              We live between <span className="text-neon-purple font-semibold">two worlds</span> — one physical, one digital. Most tools force you to choose. We decided to <span className="text-neon-pink font-semibold">bridge them</span>.
+              We live between two worlds — one physical, one digital. Most tools force you to choose. We decided to bridge them.
             </p>
             <p>
-              What started as a technical solution evolved into something deeper: a platform that helps creators, brands, educators, and dreamers <span className="text-neon-green font-semibold">connect emotionally</span> with their audience.
+              What started as a technical solution evolved into something deeper: a platform that helps creators, brands, educators, and dreamers connect emotionally with their audience.
             </p>
             <p className="text-lg sm:text-xl font-semibold text-gradient bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink bg-clip-text text-transparent">
               Today, Phygital Zone is more than a tool — it's a movement redefining how we experience the world around us.
@@ -182,7 +172,7 @@ const AboutPage = () => {
       </section>
 
       {/* Core Values */}
-      <section className="py-20 bg-slate-900">
+      <section className="py-20 bg-slate-900 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-100 mb-4">
@@ -193,34 +183,105 @@ const AboutPage = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="flex flex-col md:flex-row gap-6">
             {coreValues.map((value, index) => {
               const Icon = value.icon
+              const isSelected = selectedCoreValue === index
               return (
                 <div
                   key={index}
-                  className="group relative p-8 bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 hover:border-neon-blue/50 transition-all duration-500 hover:scale-105 hover:shadow-glow-blue"
+                  onClick={() => setSelectedCoreValue(isSelected ? null : index)}
+                  className={`relative flex-1 min-w-0 p-6 bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 cursor-pointer transition-all duration-300 ${
+                    isSelected 
+                      ? 'ring-2 ring-neon-blue shadow-glow-blue border-neon-blue/50' 
+                      : 'hover:border-neon-blue/50'
+                  }`}
                 >
-                  <div className={`absolute inset-0 bg-gradient-to-br ${value.gradient} opacity-0 group-hover:opacity-10 rounded-2xl transition-opacity duration-500`}></div>
+                  <div className={`absolute inset-0 bg-gradient-to-br ${value.gradient} opacity-5 rounded-2xl`}></div>
                   
-                  <div className="relative z-10 flex items-start gap-6">
-                    <div className="flex-shrink-0 p-4 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl group-hover:shadow-glow transition-all duration-300">
-                      <Icon className="w-8 h-8 text-neon-blue group-hover:scale-110 transition-transform duration-300" />
+                  <div className="relative z-10 flex flex-col items-center text-center">
+                    <div className="mb-4 p-4 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl">
+                      <Icon className="w-8 h-8 text-neon-blue" />
                     </div>
-                    <div className="flex-1">
-                      <h3 className="text-2xl font-bold text-slate-100 mb-3">
-                        {value.title}
-                      </h3>
-                      <p className="text-slate-400 leading-relaxed">
-                        {value.description}
-                      </p>
-                    </div>
+                    <h3 className="text-xl font-bold text-slate-100 mb-3">
+                      {value.title}
+                    </h3>
+                    <p className="text-sm text-slate-400 leading-relaxed">
+                      {value.description}
+                    </p>
                   </div>
                 </div>
               )
             })}
           </div>
         </div>
+
+        {/* Side Panel for Detailed Core Value */}
+        {selectedCoreValue !== null && (
+          <>
+            {/* Backdrop */}
+            <div 
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden animate-fade-in"
+              onClick={() => setSelectedCoreValue(null)}
+            />
+            
+            {/* Side Panel */}
+            <div className="fixed top-0 right-0 h-full w-full md:w-96 bg-slate-900/95 backdrop-blur-md border-l border-slate-700/50 shadow-dark-large z-50 animate-slide-in-right">
+              <div className="h-full overflow-y-auto p-6 md:p-8">
+                {/* Close Button */}
+                <button
+                  onClick={() => setSelectedCoreValue(null)}
+                  className="absolute top-4 right-4 p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 hover:text-slate-100 transition-colors z-10"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                {/* Content */}
+                {selectedCoreValue !== null && (() => {
+                  const value = coreValues[selectedCoreValue]
+                  const Icon = value.icon
+                  return (
+                    <div className="animate-fade-in-up">
+                      <div className={`mb-6 inline-flex p-4 bg-gradient-to-br ${value.gradient} rounded-xl border border-slate-700/50`}>
+                        <Icon className="w-10 h-10 text-neon-blue" />
+                      </div>
+                      
+                      <h2 className="text-3xl font-bold text-slate-100 mb-4">
+                        {value.title}
+                      </h2>
+                      
+                      <div className="mb-6 p-4 bg-slate-800/30 rounded-xl border border-slate-700/50">
+                        <p className="text-slate-300 leading-relaxed text-lg">
+                          {value.description}
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        {/* Additional detailed content */}
+                        <div className="pt-6 border-t border-slate-700/50">
+                          <h3 className="text-lg font-semibold text-slate-200 mb-3">
+                            What This Means
+                          </h3>
+                          <p className="text-slate-400 leading-relaxed">
+                            {value.title === 'Emotion-First Design' && 
+                              'Every feature we build starts with a question: "How will this make someone feel?" We prioritize emotional impact over flashy technology. Our tools are designed to help you create connections that matter, not just interactions that happen. When you use Phygital Zone, you\'re not just adding QR codes — you\'re crafting experiences that resonate on a human level.'}
+                            {value.title === 'Accessibility for All' && 
+                              'Powerful technology shouldn\'t require a computer science degree. We\'ve built Phygital Zone to be intuitive enough for a small business owner, yet powerful enough for a creative agency. Our platform works on any device, requires no coding knowledge, and guides you through every step. Because the best technology is the kind that gets out of your way and lets you focus on what matters: your story.'}
+                            {value.title === 'Innovation with Purpose' && 
+                              'We don\'t add features just because we can. Every update, every new capability, serves one clear purpose: helping you tell better stories. We stay ahead of technology trends not to impress, but to ensure you always have the tools you need to connect with your audience in meaningful ways. Innovation is our means, not our end goal.'}
+                            {value.title === 'Community-Driven' && 
+                              'Phygital Zone isn\'t built in a vacuum. Your feedback, your use cases, your challenges — they all shape what we build next. We\'re not just creating a platform; we\'re growing a movement of creators who believe that physical and digital worlds can merge beautifully. Your voice matters, and we listen.'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+            </div>
+          </>
+        )}
       </section>
 
       {/* Journey/Milestones */}
@@ -230,22 +291,19 @@ const AboutPage = () => {
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-100 mb-4">
               Our Journey
             </h2>
-            <p className="text-xl text-slate-300">
-              The path that led us here
-            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {milestones.map((milestone, index) => {
               const Icon = milestone.icon
               return (
-                <div key={index} className="relative text-center group">
+                <div key={index} className="relative text-center">
                   {/* Connection Line */}
                   {index < milestones.length - 1 && (
                     <div className="hidden md:block absolute top-16 left-1/2 w-full h-0.5 bg-gradient-to-r from-neon-blue/50 to-transparent"></div>
                   )}
                   
-                  <div className="mb-6 mx-auto w-24 h-24 flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-neon-blue/30 rounded-2xl group-hover:border-neon-blue group-hover:shadow-glow-blue transition-all duration-300">
+                  <div className="mb-6 mx-auto w-24 h-24 flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-neon-blue/30 rounded-2xl transition-all duration-300">
                     <Icon className="w-12 h-12 text-neon-blue" />
                   </div>
                   

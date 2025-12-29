@@ -24,13 +24,21 @@ import QRCodePage from './pages/QRCode/QRCodePage'
 import QRScanPage from './pages/QRScan/QRScanPage'
 import ARExperiencePage from './pages/ARExperience/ARExperiencePage'
 import ARExperience3DPage from './pages/ARExperience/ARExperience3DPage'
-import AnalyticsPage from './pages/Analytics/AnalyticsPage'
+import QRLinksARVideoExperiencePage from './pages/ARExperience/QRLinksARVideoExperiencePage'
+import AnalyticsPage from './pages/Analytics/AnalyticsPageWrapper'
+import CampaignAnalyticsPage from './pages/Analytics/CampaignAnalyticsPage'
+import TemplatesPage from './pages/Templates/TemplatesPage'
 import ProfilePage from './pages/Profile/ProfilePage'
 import UserPage from './pages/User/UserPage'
 import HistoryPage from './pages/History/HistoryPage'
 import ProjectsPage from './pages/Projects/ProjectsPage' // New combined page
-import QRDesignsPage from './pages/QRDesigns/QRDesignsPage'
-import QRDesignHistoryPage from './pages/QRDesigns/QRDesignHistoryPage'
+import QRLinkPage from './pages/Phygitalized/QRLinkPage'
+import QRLinksPage from './pages/Phygitalized/QRLinksPage'
+import QRLinksVideoPage from './pages/Phygitalized/QRLinksVideoPage'
+import QRLinksPDFVideoPage from './pages/Phygitalized/QRLinksPDFVideoPage'
+import QRLinksARVideoPage from './pages/Phygitalized/QRLinksARVideoPage'
+import LandingPage from './pages/Phygitalized/LandingPage'
+import QRRedirectPage from './pages/Phygitalized/QRRedirectPage'
 import AboutPage from './pages/About/AboutPage'
 import ContactPage from './pages/Contact/ContactPage'
 import AIVideoPage from './pages/AIVideo/AIVideoPage'
@@ -98,11 +106,18 @@ function App() {
           <Route path="docs" element={<ComingSoonPage />} />
           <Route path="help" element={<ComingSoonPage />} />
           <Route path="user/:username" element={<UserPage />} />
+          <Route path="phygitalized/links/:pageId" element={<LandingPage />} />
+          <Route path="phygitalized/video/:pageId" element={<LandingPage />} />
+          <Route path="phygitalized/pdf-video/:pageId" element={<LandingPage />} />
+          <Route path="phygitalized/redirect/:projectId" element={<QRRedirectPage />} />
+          <Route path="ar-experience/:pageId" element={<LandingPage />} />
           <Route path="scan/:userId" element={<QRScanPage />} />
           <Route path="scan/project/:projectId" element={<QRScanPage />} />
           <Route path="scan/:id" element={<ScanPage />} />
           {/* New URL structure: /ar/user/{userId}/project/{projectId} */}
           <Route path="ar/user/:userId/project/:projectId" element={<ARExperiencePage />} />
+          {/* QR Links AR Video Experience - Full-screen camera */}
+          <Route path="ar/qr-links-ar-video/user/:userId/project/:projectId" element={<QRLinksARVideoExperiencePage />} />
           {/* Legacy routes for backward compatibility */}
           <Route path="ar/:userId" element={<ARExperiencePage />} />
           <Route path="ar/project/:projectId" element={<ARExperiencePage />} />
@@ -133,6 +148,11 @@ function App() {
               <AnalyticsPage />
             </ProtectedRoute>
           } />
+          <Route path="analytics/campaign/:projectId" element={
+            <ProtectedRoute>
+              <CampaignAnalyticsPage />
+            </ProtectedRoute>
+          } />
           <Route path="profile" element={
             <ProtectedRoute>
               <ProfilePage />
@@ -148,14 +168,34 @@ function App() {
               <ProjectsPage />
             </ProtectedRoute>
           } />
-          <Route path="qr-designs" element={
+          <Route path="templates" element={
             <ProtectedRoute>
-              <QRDesignsPage />
+              <TemplatesPage />
             </ProtectedRoute>
           } />
-          <Route path="qr-designs/history" element={
+          <Route path="phygitalized/qr-link" element={
             <ProtectedRoute>
-              <QRDesignHistoryPage />
+              <QRLinkPage />
+            </ProtectedRoute>
+          } />
+          <Route path="phygitalized/qr-links" element={
+            <ProtectedRoute>
+              <QRLinksPage />
+            </ProtectedRoute>
+          } />
+          <Route path="phygitalized/qr-links-video" element={
+            <ProtectedRoute>
+              <QRLinksVideoPage />
+            </ProtectedRoute>
+          } />
+          <Route path="phygitalized/qr-links-pdf-video" element={
+            <ProtectedRoute>
+              <QRLinksPDFVideoPage />
+            </ProtectedRoute>
+          } />
+          <Route path="phygitalized/qr-links-ar-video" element={
+            <ProtectedRoute>
+              <QRLinksARVideoPage />
             </ProtectedRoute>
           } />
         </Route>

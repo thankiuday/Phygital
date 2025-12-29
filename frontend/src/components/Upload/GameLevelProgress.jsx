@@ -1,13 +1,14 @@
 import React from 'react';
 import { CheckCircle, Circle, Lock } from 'lucide-react';
 
-const GameLevelProgress = ({ currentLevel, completedLevels, totalLevels = 5 }) => {
+const GameLevelProgress = ({ currentLevel, completedLevels, totalLevels = 6 }) => {
   const levels = [
     { id: 1, name: 'Upload Design', icon: '🎨', description: 'Upload your design image' },
     { id: 2, name: 'Set QR Position', icon: '📍', description: 'Position your QR code' },
     { id: 3, name: 'Upload Video', icon: '🎥', description: 'Add your video content' },
-    { id: 4, name: 'Add Social Links', icon: '🔗', description: 'Connect your social media' },
-    { id: 5, name: 'Final Design', icon: '✨', description: 'Generate your masterpiece' }
+    { id: 4, name: 'Upload Documents', icon: '📄', description: 'Add your documents' },
+    { id: 5, name: 'Add Social Links', icon: '🔗', description: 'Connect your social media' },
+    { id: 6, name: 'Final Design', icon: '✨', description: 'Generate your masterpiece' }
   ];
 
   const getLevelStatus = (levelId) => {

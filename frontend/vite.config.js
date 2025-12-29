@@ -75,7 +75,7 @@ export default defineConfig({
     'process.env': process.env
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom'],
+    include: ['react', 'react-dom', 'react-router-dom', 'qr-code-styling'],
     exclude: ['mindar-image-three', 'GLTFLoader', 'RoomEnvironment']
   }
 })

@@ -4,6 +4,7 @@ import { uploadAPI, qrAPI } from '../../../utils/api';
 import { generateQRSticker } from '../../../utils/qrStickerGenerator';
 import { QrCode, CheckCircle, AlertCircle, MapPin, MousePointer } from 'lucide-react';
 import MindFileGenerationLoader from '../../UI/MindFileGenerationLoader';
+import FrameCustomizer from '../../QR/FrameCustomizer';
 import toast from 'react-hot-toast';
 
 // Minimum dimensions for scannable QR code
@@ -11,6 +12,51 @@ import toast from 'react-hot-toast';
 // Height includes "SCAN ME" text (~40px), so minimum height ~160px
 const MIN_STICKER_WIDTH = 120;
 const MIN_STICKER_HEIGHT = 160;
+
+// Wrapper component to handle async QR data URL conversion
+const FrameCustomizerWrapper = ({ qrImageUrl, frameConfig, onFrameConfigChange }) => {
+  const [qrDataUrl, setQrDataUrl] = React.useState(null);
+
+  React.useEffect(() => {
+    const convertBlobToDataUrl = async () => {
+      if (qrImageUrl.startsWith('blob:')) {
+        try {
+          const response = await fetch(qrImageUrl);
+          const blob = await response.blob();
+          const dataUrl = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.readAsDataURL(blob);
+          });
+          setQrDataUrl(dataUrl);
+        } catch (error) {
+          console.error('Failed to convert blob URL:', error);
+        }
+      } else {
+        setQrDataUrl(qrImageUrl);
+      }
+    };
+    convertBlobToDataUrl();
+  }, [qrImageUrl]);
+
+  if (!qrDataUrl) {
+    return (
+      <div className="mb-6 bg-slate-800/50 border border-slate-600 rounded-xl p-4 sm:p-6">
+        <div className="text-center text-slate-400">Loading frame customizer...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-6 bg-slate-800/50 border border-slate-600 rounded-xl p-4 sm:p-6">
+      <FrameCustomizer
+        qrCodeDataUrl={qrDataUrl}
+        onFrameConfigChange={onFrameConfigChange}
+        initialConfig={frameConfig}
+      />
+    </div>
+  );
+};
 
 const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFromLevel1 = false, onLoadingStart, onLoadingEnd }) => {
   const { user, updateUser } = useAuth();
@@ -30,6 +76,43 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
   const [qrImageUrl, setQrImageUrl] = useState('');
   const [stickerImageUrl, setStickerImageUrl] = useState(null);
   const [stickerAspectRatio, setStickerAspectRatio] = useState(1); // Default to 1:1, will be updated when sticker is generated
+  const [frameConfig, setFrameConfig] = useState(() => {
+    // Load frame config from current project or user defaults
+    const project = user?.projects?.find(p => p.id === user?.currentProject);
+    const projectConfig = project?.qrFrameConfig;
+    
+    // If project has config, normalize color (convert black to white for default)
+    if (projectConfig) {
+      return {
+        ...projectConfig,
+        textStyle: {
+          ...(projectConfig.textStyle || {}),
+          // Normalize: if color is black, missing, or undefined, use white as default
+          color: (projectConfig.textStyle?.color && projectConfig.textStyle.color !== '#000000') 
+            ? projectConfig.textStyle.color 
+            : '#FFFFFF',
+          // Ensure other textStyle properties have defaults
+          bold: projectConfig.textStyle?.bold !== false,
+          italic: projectConfig.textStyle?.italic || false,
+          gradient: projectConfig.textStyle?.gradient || null
+        }
+      };
+    }
+    
+    // Default config with white color
+    return {
+      frameType: 1,
+      textContent: 'SCAN ME',
+      textStyle: {
+        bold: true,
+        italic: false,
+        color: '#FFFFFF',
+        gradient: null
+      },
+      transparentBackground: false
+    };
+  });
+  const [showFrameCustomizer, setShowFrameCustomizer] = useState(false);
   
   const imageRef = useRef(null);
   const qrRef = useRef(null);
@@ -107,7 +190,10 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         // Generate sticker with a reasonable QR size based on current position width
         const qrSize = Math.max(100, Math.round(qrPosition.width * 0.8)); // Use 80% of position width as QR size
         const stickerDataUrl = await generateQRSticker(qrDataUrl, {
-          variant: 'purple',
+          frameType: frameConfig.frameType,
+          textContent: frameConfig.textContent,
+          textStyle: frameConfig.textStyle,
+          transparentBackground: frameConfig.transparentBackground || false,
           qrSize: qrSize,
           borderWidth: 4,
           padding: 16
@@ -122,101 +208,107 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
     };
 
     generateSticker();
-  }, [qrImageUrl, qrPosition.width]);
+  }, [qrImageUrl, qrPosition.width, frameConfig]);
 
-  // Capture composite image (design + QR overlay)
-  const captureCompositeImage = React.useCallback(() => {
-    return new Promise((resolve, reject) => {
-      try {
-        
-        const imageElement = document.querySelector('img[alt="Design preview"]');
-        if (!imageElement) {
-          reject(new Error('Image not loaded'));
-          return;
-        }
-
-        // Create a new image with CORS enabled to avoid tainted canvas
-        const corsImage = new Image();
-        corsImage.crossOrigin = 'anonymous';
-        
-        corsImage.onload = () => {
-          try {
-            // Create a canvas to draw the composite image
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            // Set canvas dimensions to match the actual image
-            canvas.width = corsImage.naturalWidth || corsImage.width;
-            canvas.height = corsImage.naturalHeight || corsImage.height;
-            
-            console.log('Image dimensions:', {
-              natural: { width: corsImage.naturalWidth, height: corsImage.naturalHeight },
-              canvas: { width: canvas.width, height: canvas.height }
-            });
-            
-            // Draw the original image
-            ctx.drawImage(corsImage, 0, 0);
-            
-            // Calculate QR position on the actual image (using the stored position)
-            const actualQrX = qrPosition.x;
-            const actualQrY = qrPosition.y;
-            const actualQrWidth = qrPosition.width;
-            const actualQrHeight = qrPosition.height;
-            
-            
-            const drawPlaceholderAndResolve = () => {
-              // Draw QR code placeholder
-              ctx.fillStyle = 'rgba(59, 130, 246, 0.3)';
-              ctx.fillRect(actualQrX, actualQrY, actualQrWidth, actualQrHeight);
-              ctx.strokeStyle = 'rgba(59, 130, 246, 0.8)';
-              ctx.lineWidth = 2;
-              ctx.strokeRect(actualQrX, actualQrY, actualQrWidth, actualQrHeight);
-              ctx.fillStyle = 'rgba(59, 130, 246, 1)';
-              ctx.font = `${Math.max(12, actualQrWidth / 8)}px Arial`;
-              ctx.textAlign = 'center';
-              ctx.fillText('QR CODE', actualQrX + actualQrWidth / 2, actualQrY + actualQrHeight / 2);
-              const data = canvas.toDataURL('image/png', 1.0);
-              resolve(data);
-            };
-
-            if (qrImageUrl) {
-              const qrImg = new Image();
-              qrImg.crossOrigin = 'anonymous';
-              qrImg.onload = () => {
-                try {
-                  ctx.drawImage(qrImg, actualQrX, actualQrY, actualQrWidth, actualQrHeight);
-                  const data = canvas.toDataURL('image/png', 1.0);
-                  resolve(data);
-                } catch (e) {
-                  drawPlaceholderAndResolve();
-                }
-              };
-              qrImg.onerror = (e) => {
-                drawPlaceholderAndResolve();
-              };
-              qrImg.src = qrImageUrl;
-            } else {
-              drawPlaceholderAndResolve();
-            }
-          } catch (canvasError) {
-            console.error('Error processing canvas:', canvasError);
-            reject(canvasError);
-          }
-        };
-        
-        corsImage.onerror = (error) => {
-          // Fallback: Let the server generate the composite image
-          reject(new Error('CORS_FALLBACK'));
-        };
-        
-        // Load the image with CORS
-        corsImage.src = imageElement.src;
-        
-      } catch (error) {
-        reject(error);
+  // Capture composite image (design + QR sticker with custom frame)
+  const captureCompositeImage = React.useCallback(async () => {
+    try {
+      const imageElement = document.querySelector('img[alt="Design preview"]');
+      if (!imageElement) {
+        throw new Error('Image not loaded');
       }
-    });
-  }, [qrPosition]);
+
+      if (!qrImageUrl) {
+        throw new Error('QR code not loaded');
+      }
+
+      // Load design image with CORS
+      const designImage = await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Failed to load design image'));
+        img.src = imageElement.src;
+      });
+
+      // Convert QR blob URL to data URL if needed
+      let qrDataUrl = qrImageUrl;
+      if (qrImageUrl.startsWith('blob:')) {
+        const response = await fetch(qrImageUrl);
+        const blob = await response.blob();
+        qrDataUrl = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(blob);
+        });
+      }
+
+      // Calculate QR sticker size based on position dimensions
+      // The sticker should fit within qrPosition.width x qrPosition.height
+      // We'll use the width as the base and maintain aspect ratio
+      const qrSizeForSticker = Math.max(100, Math.round(qrPosition.width * 0.8));
+      
+      console.log('[Level QR] Generating QR sticker with frame config:', frameConfig);
+      console.log('[Level QR] QR sticker size:', qrSizeForSticker);
+      console.log('[Level QR] QR position:', qrPosition);
+
+      // Generate QR sticker with custom frame
+      const stickerDataUrl = await generateQRSticker(qrDataUrl, {
+        frameType: frameConfig.frameType,
+        textContent: frameConfig.textContent,
+        textStyle: frameConfig.textStyle,
+        transparentBackground: frameConfig.transparentBackground || false,
+        qrSize: qrSizeForSticker,
+        borderWidth: 4,
+        padding: 16
+      });
+
+      // Load the generated sticker
+      const stickerImage = await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Failed to load QR sticker'));
+        img.src = stickerDataUrl;
+      });
+
+      // Create canvas for composite image
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Set canvas dimensions to match the design image
+      canvas.width = designImage.naturalWidth || designImage.width;
+      canvas.height = designImage.naturalHeight || designImage.height;
+      
+      console.log('[Level QR] Composite canvas dimensions:', {
+        width: canvas.width,
+        height: canvas.height
+      });
+      
+      // Draw the design image
+      ctx.drawImage(designImage, 0, 0);
+      
+      // Calculate sticker position and size on the canvas
+      // The sticker should be drawn at qrPosition coordinates
+      const stickerX = qrPosition.x;
+      const stickerY = qrPosition.y;
+      const stickerWidth = qrPosition.width;
+      const stickerHeight = qrPosition.height;
+      
+      // Draw the QR sticker at the correct position
+      ctx.drawImage(stickerImage, stickerX, stickerY, stickerWidth, stickerHeight);
+      
+      // Convert to base64
+      const compositeDataUrl = canvas.toDataURL('image/png', 1.0);
+      
+      console.log('[Level QR] Composite image generated successfully');
+      return compositeDataUrl;
+      
+    } catch (error) {
+      console.error('[Level QR] Failed to capture composite image:', error);
+      throw error;
+    }
+  }, [qrPosition, qrImageUrl, frameConfig]);
 
   // Set the capture function when component mounts
   React.useEffect(() => {
@@ -906,10 +998,32 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       }
       
       
+      onLoadingStart('Generating composite design with custom frame...');
+      
+      // Generate composite image with custom frame on frontend
+      let compositeImageDataUrl = null;
+      try {
+        console.log('[Level QR] Generating composite image with custom frame...');
+        compositeImageDataUrl = await captureCompositeImage();
+        console.log('[Level QR] Composite image generated successfully');
+        
+        // Upload composite image to Cloudinary
+        onLoadingStart('Uploading composite design...');
+        await uploadAPI.saveCompositeDesign(compositeImageDataUrl, qrPosition);
+        console.log('[Level QR] Composite image uploaded successfully');
+      } catch (compositeError) {
+        console.error('[Level QR] Failed to generate/upload composite image:', compositeError);
+        // Continue with QR position save even if composite fails
+        toast.error('Failed to generate composite image, but QR position will still be saved');
+      }
+      
       onLoadingStart('Preparing your AR experience...');
       
-      // Always use server-side composite generation to ensure real QR is baked in
-      const response = await uploadAPI.setQRPosition(qrPosition);
+      // Save QR position and frame config
+      const response = await uploadAPI.setQRPosition({
+        ...qrPosition,
+        qrFrameConfig: frameConfig
+      });
       
       onLoadingStart('Verifying your AR experience...');
       
@@ -919,7 +1033,7 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
         updateUser(response.data.data.user);
       } else {
         console.log('Using fallback: updating qrPosition field only');
-        updateUser({ qrPosition });
+        updateUser({ qrPosition, qrFrameConfig: frameConfig });
       }
 
       // ===== CRITICAL: Verify .mind file generation before advancing =====
@@ -1517,6 +1631,20 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       </div>
 
 
+
+      {/* Frame Customization Toggle */}
+      <div className="mb-6 flex justify-center">
+        <button
+          onClick={() => setShowFrameCustomizer(!showFrameCustomizer)}
+          className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg border border-slate-600 transition-all duration-200 flex items-center gap-2"
+        >
+          <QrCode className="w-4 h-4" />
+          <span>{showFrameCustomizer ? 'Hide' : 'Customize'} Frame Style</span>
+        </button>
+      </div>
+
+      {/* Frame Customizer Panel */}
+      {showFrameCustomizer && qrImageUrl && <FrameCustomizerWrapper qrImageUrl={qrImageUrl} frameConfig={frameConfig} onFrameConfigChange={setFrameConfig} />}
 
       {/* Save Button */}
       <div className="text-center">

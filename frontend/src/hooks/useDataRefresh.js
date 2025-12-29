@@ -19,17 +19,22 @@ export const useDataRefresh = () => {
     }
 
     // Refresh user data when navigating to important pages
+    // Support both hash routing (#/analytics) and regular routing (/analytics)
     const importantPages = ['/dashboard', '/projects', '/analytics', '/profile'];
     const currentPath = location.pathname;
+    const hashPath = location.hash.replace('#', '') || location.pathname;
     
-    if (importantPages.includes(currentPath)) {
+    // Check both pathname and hash for hash routing support
+    const isImportantPage = importantPages.includes(currentPath) || importantPages.includes(hashPath);
+    
+    if (isImportantPage) {
       // Silently refresh user data to ensure consistency
       refreshUserData().catch(error => {
         // Only log errors, not successful refreshes
         console.error('Failed to refresh user data:', error);
       });
     }
-  }, [location.pathname, refreshUserData, isAuthenticated]);
+  }, [location.pathname, location.hash, refreshUserData, isAuthenticated]);
 };
 
 

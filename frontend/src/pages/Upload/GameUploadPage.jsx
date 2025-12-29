@@ -11,11 +11,12 @@ import {
   QrCode, 
   Share2, 
   Download,
-  Gamepad2,
+  Lightbulb,
   Sparkles,
   CheckCircle,
   AlertCircle,
-  Video
+  Video,
+  FileText
 } from 'lucide-react';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
 
@@ -144,7 +145,7 @@ const GameUploadPage = () => {
       {/* Header */}
       <div className="text-center mb-12">
         <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-button-gradient mb-6 shadow-glow-purple">
-          <Gamepad2 className="w-10 h-10 text-slate-100" />
+          <Lightbulb className="w-10 h-10 text-slate-100" />
         </div>
         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-100 mb-4">
           Phygital Creator
@@ -197,12 +198,12 @@ const GameUploadPage = () => {
             Ready to Start Your Journey?
           </h2>
           <p className="text-slate-300 text-lg">
-            Complete 5 exciting levels to create your masterpiece!
+            Complete 6 exciting levels to create your masterpiece!
           </p>
         </div>
 
         {/* Level Preview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
           <div className="text-center p-4 bg-slate-800/50 rounded-xl border border-slate-600/30 hover:border-neon-purple/50 transition-all duration-300">
             <div className="w-10 h-10 bg-neon-purple rounded-full flex items-center justify-center mx-auto mb-3 shadow-glow-purple">
               <Image className="w-5 h-5 text-slate-900" />
@@ -227,11 +228,19 @@ const GameUploadPage = () => {
             <p className="text-xs text-slate-300">Upload Video</p>
           </div>
           
+          <div className="text-center p-4 bg-slate-800/50 rounded-xl border border-slate-600/30 hover:border-neon-cyan/50 transition-all duration-300">
+            <div className="w-10 h-10 bg-neon-cyan rounded-full flex items-center justify-center mx-auto mb-3 shadow-glow-cyan">
+              <FileText className="w-5 h-5 text-slate-900" />
+            </div>
+            <h3 className="font-semibold text-slate-100 mb-1 text-sm">Level 4</h3>
+            <p className="text-xs text-slate-300">Upload Documents</p>
+          </div>
+          
           <div className="text-center p-4 bg-slate-800/50 rounded-xl border border-slate-600/30 hover:border-neon-green/50 transition-all duration-300">
             <div className="w-10 h-10 bg-neon-green rounded-full flex items-center justify-center mx-auto mb-3 shadow-glow-green">
               <Share2 className="w-5 h-5 text-slate-900" />
             </div>
-            <h3 className="font-semibold text-slate-100 mb-1 text-sm">Level 4</h3>
+            <h3 className="font-semibold text-slate-100 mb-1 text-sm">Level 5</h3>
             <p className="text-xs text-slate-300">Add Social Links</p>
           </div>
           
@@ -239,7 +248,7 @@ const GameUploadPage = () => {
             <div className="w-10 h-10 bg-neon-orange rounded-full flex items-center justify-center mx-auto mb-3 shadow-glow-orange">
               <Sparkles className="w-5 h-5 text-slate-900" />
             </div>
-            <h3 className="font-semibold text-slate-100 mb-1 text-sm">Level 5</h3>
+            <h3 className="font-semibold text-slate-100 mb-1 text-sm">Level 6</h3>
             <p className="text-xs text-slate-300">Final Design</p>
           </div>
         </div>
@@ -277,7 +286,7 @@ const GameUploadPage = () => {
             onClick={() => startJourney(false)}
             className="btn-primary inline-flex items-center px-8 py-4 font-semibold rounded-xl transform hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl"
           >
-            <Gamepad2 className="w-6 h-6 mr-3" />
+            <Lightbulb className="w-6 h-6 mr-3" />
             {currentProject ? 'Continue Campaign' : 'Start New Campaign'}
             <Sparkles className="w-6 h-6 ml-3" />
           </button>

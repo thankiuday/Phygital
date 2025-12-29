@@ -193,6 +193,15 @@ export const uploadAPI = {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
   },
+  uploadDocuments: (formData, projectId) => {
+    // Append projectId to formData if provided
+    if (projectId) {
+      formData.append('projectId', projectId);
+    }
+    return uploadApi.post('/upload/documents', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
 
   // Health check for backend connectivity
   healthCheck: () => api.get('/health'),
@@ -260,11 +269,31 @@ export const analyticsAPI = {
     api.post('/analytics/link-click', { userId, linkType, linkUrl, projectId, eventId }),
   trackPageView: (userId, projectId = null) => 
     api.post('/analytics/page-view', { userId, projectId }),
+  trackSocialMediaClick: (userId, projectId, platform, url) =>
+    api.post('/analytics/social-media-click', { userId, projectId, platform, url }),
+  trackDocumentView: (userId, projectId, documentUrl, action = 'view') =>
+    api.post('/analytics/document-view', { userId, projectId, documentUrl, action }),
+  trackVideoComplete: (userId, projectId, duration) =>
+    api.post('/analytics/video-complete', { userId, projectId, duration }),
+  trackPageViewDuration: (userId, projectId, timeSpent) =>
+    api.post('/analytics/page-view-duration', { userId, projectId, timeSpent }),
+  trackVideoProgressMilestone: (userId, projectId, milestone, progress, duration) =>
+    api.post('/analytics/video-progress-milestone', { userId, projectId, milestone, progress, duration }),
   getAnalytics: (userId, days = 30) => api.get(`/analytics/${userId}?days=${days}`),
   getDashboardAnalytics: (userId, period = '30d') => 
     api.get(`/analytics/dashboard/${userId}?period=${period}`),
   getProjectAnalytics: (userId, projectId, days = 30) => 
     api.get(`/analytics/project/${projectId}?userId=${userId}&days=${days}`),
+  getCampaignAnalytics: (projectId, period = '30d') =>
+    api.get(`/analytics/campaign/${projectId}?period=${period}`),
+  getEvents: (userId, options = {}) => {
+    const params = new URLSearchParams();
+    if (options.projectId) params.append('projectId', options.projectId);
+    if (options.campaignType) params.append('campaignType', options.campaignType);
+    if (options.period) params.append('period', options.period);
+    if (options.eventTypes) params.append('eventTypes', options.eventTypes);
+    return api.get(`/analytics/events/${userId}?${params.toString()}`);
+  },
 }
 
 export const userAPI = {
@@ -286,27 +315,94 @@ export const historyAPI = {
   getActivityHistory: (activityType, params = {}) => api.get(`/history/activity/${activityType}`, { params }),
 }
 
-export const qrDesignAPI = {
-  // QR Design operations
-  save: (designData) => api.post('/qr-design/save', designData),
-  getHistory: () => api.get('/qr-design/history'),
-  delete: (designId) => api.delete(`/qr-design/${designId}`),
-  download: (designId, format = 'png', size = 300) => 
-    api.get(`/qr-design/download/${designId}?format=${format}&size=${size}`, {
-      responseType: 'blob'
+
+export const templatesAPI = {
+  // Get all available templates
+  getTemplates: () => api.get('/templates'),
+  
+  // Get template by ID
+  getTemplate: (templateId) => api.get(`/templates/${templateId}`),
+  
+  // Apply template to campaign(s)
+  applyTemplate: (data) => api.post('/templates/apply', data),
+  
+  // Get user projects (for campaign selector)
+  getUserProjects: (userId) => api.get(`/projects/user/${userId}`)
+}
+
+export const phygitalizedAPI = {
+  // Upload file for Phygitalized campaign
+  uploadFile: (variation, projectId, file, fileType) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('projectId', projectId)
+    formData.append('fileType', fileType)
+    
+    // Use uploadApi for video files (longer timeout) and regular api for other files
+    const apiInstance = fileType === 'video' ? uploadApi : api
+    
+    return apiInstance.post(`/phygitalized/upload/${variation}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      },
+      // Add explicit timeout for video uploads (already set in uploadApi, but being explicit)
+      timeout: fileType === 'video' ? 720000 : 30000 // 12 minutes for videos, 30 seconds for others
     })
+  },
+  
+  // Get campaign data
+  getCampaign: (projectId) => api.get(`/phygitalized/campaign/${projectId}`),
+  
+  // Update campaign data
+  updateCampaign: (projectId, data) => {
+    // Use uploadApi for campaign updates since they may include .mind file generation which can take time
+    return uploadApi.put(`/phygitalized/campaign/${projectId}`, data)
+  },
+  
+  // Get public campaign data (for landing pages)
+  getPublicCampaign: (projectId) => api.get(`/phygitalized/campaign/public/${projectId}`),
+
+  // Delete a single campaign file (and clear it from DB)
+  // kind: 'video' | 'pdf' | 'document'
+  deleteCampaignFile: (projectId, kind) => api.delete(`/phygitalized/file/${projectId}`, { params: { kind } })
 }
 
 // Utility functions
 export const downloadFile = (blob, filename) => {
-  const url = window.URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  window.URL.revokeObjectURL(url)
+  try {
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    link.style.display = 'none' // Hide the link element
+    
+    // Append to body
+    document.body.appendChild(link)
+    
+    // Use requestAnimationFrame to ensure DOM is ready, then click
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        try {
+          link.click()
+          console.log(`✅ Download triggered for: ${filename}`)
+          
+          // Clean up after a short delay to ensure download starts
+          setTimeout(() => {
+            document.body.removeChild(link)
+            window.URL.revokeObjectURL(url)
+          }, 100)
+        } catch (clickError) {
+          console.error('❌ Error clicking download link:', clickError)
+          document.body.removeChild(link)
+          window.URL.revokeObjectURL(url)
+          throw clickError
+        }
+      }, 10) // Small delay to ensure link is fully attached
+    })
+  } catch (error) {
+    console.error('❌ Error in downloadFile:', error)
+    throw error
+  }
 }
 
 export const formatFileSize = (bytes) => {

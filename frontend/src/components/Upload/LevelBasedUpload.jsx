@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronRight, ChevronLeft, Upload, QrCode, Video, Share2, Download, Sparkles } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Upload, QrCode, Video, Share2, Download, Sparkles, FileText } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import PageTransitionLoader from '../UI/PageTransitionLoader';
 import MindFileGenerationLoader from '../UI/MindFileGenerationLoader';
@@ -7,6 +7,7 @@ import HorizontalLevelProgress from './HorizontalLevelProgress';
 import DesignUploadLevel from './Levels/DesignUploadLevel';
 import QRPositionLevel from './Levels/QRPositionLevel';
 import VideoUploadLevel from './Levels/VideoUploadLevel';
+import DocumentUploadLevel from './Levels/DocumentUploadLevel';
 import SocialLinksLevel from './Levels/SocialLinksLevel';
 import FinalDesignLevel from './Levels/FinalDesignLevel';
 import toast from 'react-hot-toast';
@@ -19,6 +20,7 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
     design: null,
     qrPosition: null,
     video: null,
+    documents: [],
     socialLinks: {},
     finalDesign: null,
     projectId: null
@@ -81,13 +83,20 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
     },
     {
       id: 4,
+      name: 'Upload Documents',
+      icon: FileText,
+      color: 'orange',
+      component: 'DocumentUpload'
+    },
+    {
+      id: 5,
       name: 'Add Social Links',
       icon: Share2,
       color: 'green',
       component: 'SocialLinks'
     },
     {
-      id: 5,
+      id: 6,
       name: 'Final Design',
       icon: Sparkles,
       color: 'yellow',
@@ -115,9 +124,13 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
           result = dataToCheck.video !== null && dataToCheck.video !== undefined;
           break;
         case 4: 
-          result = dataToCheck.socialLinks && Object.keys(dataToCheck.socialLinks).length > 0;
+          // Documents are optional - level is always complete (can be empty array)
+          result = true;
           break;
         case 5: 
+          result = dataToCheck.socialLinks && Object.keys(dataToCheck.socialLinks).length > 0;
+          break;
+        case 6: 
           result = dataToCheck.finalDesign !== null && dataToCheck.finalDesign !== undefined;
           break;
         default: 
@@ -149,10 +162,14 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
                    (user?.uploadedFiles?.video?.url !== null && user?.uploadedFiles?.video?.url !== undefined);
           break;
         case 4: 
+          // Documents are optional - level is always complete (can be empty array)
+          result = true;
+          break;
+        case 5: 
           result = (dataToCheck.socialLinks && Object.keys(dataToCheck.socialLinks).length > 0) || 
                    (user?.socialLinks && Object.values(user.socialLinks).some(link => link && link.trim() !== ''));
           break;
-        case 5: 
+        case 6: 
           result = dataToCheck.finalDesign !== null && dataToCheck.finalDesign !== undefined;
           break;
         default: 
@@ -175,8 +192,8 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
       setCurrentLevel(prev => {
         const nextLevel = prev + 1;
         console.log('Moving from level', prev, 'to level', nextLevel);
-        // Ensure we don't go beyond level 5
-        const finalLevel = Math.min(nextLevel, 5);
+        // Ensure we don't go beyond level 6
+        const finalLevel = Math.min(nextLevel, 6);
         console.log('Final level set to:', finalLevel);
         return finalLevel;
       });
@@ -223,11 +240,11 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
       });
     }
 
-    // Check if this is the final level completion (level 5)
-    if (currentLevel === 5) {
-      console.log('Final level (5) completed, triggering final completion flow');
+    // Check if this is the final level completion (level 6)
+    if (currentLevel === 6) {
+      console.log('Final level (6) completed, triggering final completion flow');
       handleFinalCompletion();
-    } else if (currentLevel < 5) {
+    } else if (currentLevel < 6) {
       // Auto-advance to next level if not the last level
       console.log('Auto-advancing to next level in 1 second...');
       setTimeout(() => {
@@ -237,7 +254,7 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
         if (forceStartFromLevel1) {
           console.log('Force start mode - directly advancing to next level');
           const nextLevel = currentLevel + 1;
-          const finalLevel = Math.min(nextLevel, 5);
+          const finalLevel = Math.min(nextLevel, 6);
           console.log('Directly setting level to:', finalLevel);
           setCurrentLevel(finalLevel);
         } else {
@@ -249,7 +266,7 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
           if (isCompleted) {
             console.log('Level completion check passed, advancing to next level');
             const nextLevel = currentLevel + 1;
-            const finalLevel = Math.min(nextLevel, 4);
+            const finalLevel = Math.min(nextLevel, 6);
             console.log('Directly setting level to:', finalLevel);
             setCurrentLevel(finalLevel);
           } else {
@@ -314,6 +331,8 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
     setLevelData({
       design: null,
       qrPosition: null,
+      video: null,
+      documents: [],
       socialLinks: {},
       finalDesign: null,
       projectId: null
@@ -327,11 +346,11 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
 
   // Debug function to manually set level (for development)
   const setLevel = (level) => {
-    if (level >= 1 && level <= 5) {
+    if (level >= 1 && level <= 6) {
       console.log('Manually setting level to:', level);
       setCurrentLevel(level);
     } else {
-      console.warn('Invalid level:', level, 'Must be between 1 and 5');
+      console.warn('Invalid level:', level, 'Must be between 1 and 6');
     }
   };
 
@@ -346,6 +365,7 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
             design: project.uploadedFiles?.design || null,
             qrPosition: project.qrPosition || null,
             video: project.uploadedFiles?.video || null,
+            documents: project.uploadedFiles?.documents || [],
             socialLinks: user.socialLinks || {}, // Social links remain at user level
             source: 'project'
           };
@@ -356,6 +376,7 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
         design: user?.uploadedFiles?.design || null,
         qrPosition: user?.qrPosition || null,
         video: user?.uploadedFiles?.video || null,
+        documents: user?.uploadedFiles?.documents || [],
         socialLinks: user?.socialLinks || {},
         source: 'root'
       };
@@ -381,6 +402,7 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
         design: projectData.design,
         qrPosition: projectData.qrPosition,
         video: projectData.video,
+        documents: projectData.documents || [],
         socialLinks: projectData.socialLinks,
         finalDesign: null, // This will be set when final design is generated
         projectId: currentProject?.id || null
@@ -408,13 +430,18 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
         startingLevel = 4;
       }
       
+      // Documents are optional - always mark as complete if we reach this point
+      // (user can skip or upload documents)
+      completedLevelsArray.push(4);
+      startingLevel = 5;
+      
       if (existingData.socialLinks && Object.values(existingData.socialLinks).some(link => link && link.trim() !== '')) {
-        completedLevelsArray.push(4);
-        startingLevel = 5;
+        completedLevelsArray.push(5);
+        startingLevel = 6;
       }
       
-      // Ensure startingLevel is within valid range (1-5)
-      startingLevel = Math.max(1, Math.min(startingLevel, 5));
+      // Ensure startingLevel is within valid range (1-6)
+      startingLevel = Math.max(1, Math.min(startingLevel, 6));
       console.log('Setting starting level to:', startingLevel, 'completed levels:', completedLevelsArray, 'based on user data:', existingData);
       setCurrentLevel(startingLevel);
       setCompletedLevels(completedLevelsArray);
@@ -436,7 +463,7 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
     console.log('Current user data:', user);
     
     const newCompletedLevels = [];
-    for (let i = 1; i <= 5; i++) { // Check all 5 levels
+    for (let i = 1; i <= 6; i++) { // Check all 6 levels
       const isCompleted = isLevelCompleted(i);
       console.log(`Level ${i} completed:`, isCompleted);
       if (isCompleted) {
@@ -448,11 +475,11 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
     setCompletedLevels(newCompletedLevels);
   }, [levelData, user, forceStartFromLevel1]);
 
-  // Safeguard: Ensure currentLevel never goes beyond 5
+  // Safeguard: Ensure currentLevel never goes beyond 6
   useEffect(() => {
-    if (currentLevel > 5) {
-      console.warn('Current level was', currentLevel, 'but should not exceed 5. Resetting to 5.');
-      setCurrentLevel(5);
+    if (currentLevel > 6) {
+      console.warn('Current level was', currentLevel, 'but should not exceed 6. Resetting to 6.');
+      setCurrentLevel(6);
     }
   }, [currentLevel]);
 
@@ -467,7 +494,7 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
         getLevelData: () => levelData,
         isLevelCompleted: (level) => isLevelCompleted(level),
         completeLevel: (level) => {
-          if (level >= 1 && level <= 5) {
+          if (level >= 1 && level <= 6) {
             setCurrentLevel(level);
             console.log('Jumped to level', level);
           }
@@ -514,6 +541,19 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
             onComplete={(video) => completeCurrentLevel({ video })}
             onCancel={() => setCurrentLevel(currentLevel - 1)}
             levelData={levelData}
+            user={user}
+            forceStartFromLevel1={forceStartFromLevel1}
+          />
+        );
+      case 'DocumentUpload':
+        return (
+          <DocumentUploadLevel 
+            onComplete={(documents) => completeCurrentLevel({ documents: documents.documents || [] })}
+            onCancel={() => setCurrentLevel(currentLevel - 1)}
+            levelData={{
+              ...levelData,
+              projectId: currentProject?.id || levelData?.projectId || null
+            }}
             user={user}
             forceStartFromLevel1={forceStartFromLevel1}
           />
@@ -616,10 +656,10 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
 
           <button
             onClick={animateToNextLevel}
-            disabled={currentLevel === 5 || !isLevelCompleted(currentLevel)}
+            disabled={currentLevel === 6 || !isLevelCompleted(currentLevel)}
             className={`
               flex items-center px-4 md:px-6 py-2 rounded-lg font-medium transition-all duration-300 text-sm md:text-base
-              ${currentLevel === 5 || !isLevelCompleted(currentLevel)
+              ${currentLevel === 6 || !isLevelCompleted(currentLevel)
                 ? 'text-gray-400 cursor-not-allowed'
                 : 'btn-primary transform hover:scale-105'
               }

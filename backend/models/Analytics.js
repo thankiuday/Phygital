@@ -25,7 +25,7 @@ const analyticsSchema = new mongoose.Schema({
   eventType: {
     type: String,
     required: true,
-    enum: ['scan', 'videoView', 'linkClick', 'pageView', 'videoComplete', 'arExperienceStart', 'arExperienceError', 'socialMediaClick']
+    enum: ['scan', 'videoView', 'linkClick', 'pageView', 'pageViewDuration', 'videoComplete', 'videoProgressMilestone', 'arExperienceStart', 'arExperienceError', 'socialMediaClick', 'documentView', 'documentDownload']
   },
   
   // Event details
@@ -43,6 +43,12 @@ const analyticsSchema = new mongoose.Schema({
     // For video events
     videoProgress: Number, // percentage watched
     videoDuration: Number, // total video duration
+    videoProgressMilestone: String, // '25', '50', '75', '100'
+    videoPlayed: Boolean, // whether video was played
+    videoCompleted: Boolean, // whether video was completed
+    
+    // For page view duration
+    timeSpent: Number, // seconds spent on page
     
     // For link clicks
     linkType: String, // instagram, facebook, etc.
@@ -222,49 +228,67 @@ analyticsSchema.statics.trackEvent = async function(userId, eventType, eventData
       } else if (eventType === 'arExperienceStart') {
         fieldToUpdate = 'analytics.arExperienceStarts';
         timestampField = 'analytics.lastArExperienceStartAt';
+      } else if (eventType === 'documentView') {
+        fieldToUpdate = 'analytics.documentViews';
+      } else if (eventType === 'documentDownload') {
+        fieldToUpdate = 'analytics.documentDownloads';
+      } else if (eventType === 'videoComplete') {
+        fieldToUpdate = 'analytics.videoCompletions';
+      } else if (eventType === 'pageViewDuration') {
+        // Don't increment a counter for duration, just track the event
+        fieldToUpdate = null;
+      } else if (eventType === 'videoProgressMilestone') {
+        // Don't increment a counter for milestones, just track the event
+        fieldToUpdate = null;
       }
       
-      console.log(`📊 Updating project analytics: userId=${userId}, projectId=${projectId}, field=${fieldToUpdate}, event=${eventType}`);
+      // Only update if we have a field to update
+      if (fieldToUpdate) {
+        console.log(`📊 Updating project analytics: userId=${userId}, projectId=${projectId}, field=${fieldToUpdate}, event=${eventType}`);
       
       // Convert userId to ObjectId if it's a string
       const userObjectId = typeof userId === 'string' && userId.match(/^[0-9a-fA-F]{24}$/)
         ? new mongoose.Types.ObjectId(userId)
         : userId;
       
-      // Build update object
-      const updateObj = {
-        $inc: { [`projects.$.${fieldToUpdate}`]: 1 },
-        $set: { 'projects.$.updatedAt': new Date() }
-      };
-      
-      // Add timestamp field if applicable
-      if (timestampField) {
-        updateObj.$set[`projects.$.${timestampField}`] = new Date();
-      }
-      
-      // Update the specific project's analytics
-      const updateResult = await User.findOneAndUpdate(
-        { _id: userObjectId, 'projects.id': projectId },
-        updateObj,
-        { new: true }
-      );
-      
-      if (updateResult) {
-        console.log(`✅ Project analytics updated successfully for project ${projectId}`);
-        // Debug: log the updated project
-        const updatedProject = updateResult.projects.find(p => p.id === projectId);
-        if (updatedProject) {
-          console.log(`📈 Project "${updatedProject.name}" analytics:`, updatedProject.analytics);
+        // Build update object
+        const updateObj = {
+          $inc: { [`projects.$.${fieldToUpdate}`]: 1 },
+          $set: { 'projects.$.updatedAt': new Date() }
+        };
+        
+        // Add timestamp field if applicable
+        if (timestampField) {
+          updateObj.$set[`projects.$.${timestampField}`] = new Date();
+        }
+        
+        // Update the specific project's analytics
+        const updateResult = await User.findOneAndUpdate(
+          { _id: userObjectId, 'projects.id': projectId },
+          updateObj,
+          { new: true }
+        );
+        
+        if (updateResult) {
+          console.log(`✅ Project analytics updated successfully for project ${projectId}`);
+          // Debug: log the updated project
+          const updatedProject = updateResult.projects.find(p => p.id === projectId);
+          if (updatedProject) {
+            console.log(`📈 Project "${updatedProject.name}" analytics:`, updatedProject.analytics);
+          }
+        } else {
+          console.warn(`⚠️ Failed to update project analytics - project not found: userId=${userId}, projectId=${projectId}`);
+          // Debug: try to find the user and list their projects
+          const debugUser = await User.findById(userObjectId);
+          if (debugUser) {
+            console.log(`👤 User found: ${debugUser.username}, Projects:`, debugUser.projects.map(p => ({ id: p.id, name: p.name })));
+          } else {
+            console.error(`❌ User not found with ID: ${userId}`);
+          }
         }
       } else {
-        console.warn(`⚠️ Failed to update project analytics - project not found: userId=${userId}, projectId=${projectId}`);
-        // Debug: try to find the user and list their projects
-        const debugUser = await User.findById(userObjectId);
-        if (debugUser) {
-          console.log(`👤 User found: ${debugUser.username}, Projects:`, debugUser.projects.map(p => ({ id: p.id, name: p.name })));
-        } else {
-          console.error(`❌ User not found with ID: ${userId}`);
-        }
+        // For pageViewDuration and videoProgressMilestone, just log the event
+        console.log(`📊 Tracking analytics event (no counter update): userId=${userId}, projectId=${projectId}, event=${eventType}`);
       }
     }
     
@@ -285,6 +309,12 @@ analyticsSchema.statics.trackEvent = async function(userId, eventType, eventData
     } else if (eventType === 'arExperienceStart') {
       globalFieldToUpdate = 'analytics.arExperienceStarts';
       globalTimestampField = 'analytics.lastArExperienceStartAt';
+    } else if (eventType === 'documentView') {
+      globalFieldToUpdate = 'analytics.documentViews';
+    } else if (eventType === 'documentDownload') {
+      globalFieldToUpdate = 'analytics.documentDownloads';
+    } else if (eventType === 'videoComplete') {
+      globalFieldToUpdate = 'analytics.videoCompletions';
     }
     
     // Build global update object

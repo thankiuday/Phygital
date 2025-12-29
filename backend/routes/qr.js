@@ -404,20 +404,36 @@ router.get('/user/:userIdentifier/project/:projectIdentifier', async (req, res) 
       hasDesign: !!project.uploadedFiles?.design?.url,
       hasVideo: !!project.uploadedFiles?.video?.url,
       hasComposite: !!project.uploadedFiles?.compositeDesign?.url,
+      hasPhygitalizedComposite: !!project.phygitalizedData?.compositeDesignUrl,
       hasMindTarget: !!project.uploadedFiles?.mindTarget?.url,
       compositeUrl: project.uploadedFiles?.compositeDesign?.url?.substring(0, 50) + '...',
-      mindTargetUrl: project.uploadedFiles?.mindTarget?.url?.substring(0, 50) + '...'
+      phygitalizedCompositeUrl: project.phygitalizedData?.compositeDesignUrl?.substring(0, 50) + '...',
+      mindTargetUrl: project.uploadedFiles?.mindTarget?.url?.substring(0, 50) + '...',
+      phygitalizedDataKeys: Object.keys(project.phygitalizedData || {})
     });
     
     // Process mindTarget URL to ensure raw binary download from Cloudinary
+    // For .mind files, we need raw binary without transformations
     let mindTargetUrl = project.uploadedFiles.mindTarget?.url || null;
     if (mindTargetUrl && mindTargetUrl.includes('cloudinary.com')) {
-      // Add fl_attachment flag to force binary download without any transformations
-      const urlParts = mindTargetUrl.split('/upload/');
-      if (urlParts.length === 2) {
-        mindTargetUrl = `${urlParts[0]}/upload/fl_attachment/${urlParts[1]}`;
-        console.log('🔧 Modified .mind URL for raw binary download:', mindTargetUrl);
+      // Ensure it's using raw resource type and no transformations
+      // Don't add fl_attachment as it might cause corruption - just ensure raw delivery
+      if (!mindTargetUrl.includes('/raw/upload/')) {
+        // If it's an image URL, convert to raw URL
+        const urlParts = mindTargetUrl.split('/upload/');
+        if (urlParts.length === 2) {
+          // Change from /image/upload/ to /raw/upload/ for .mind files
+          mindTargetUrl = `${urlParts[0]}/raw/upload/${urlParts[1]}`;
+          console.log('🔧 Modified .mind URL to raw resource type:', mindTargetUrl);
+        }
       }
+      // Remove any transformation flags that might corrupt the file
+      const urlObj = new URL(mindTargetUrl);
+      urlObj.searchParams.delete('f_auto');
+      urlObj.searchParams.delete('fl_immutable_cache');
+      urlObj.searchParams.delete('fl_attachment'); // Remove attachment flag as it might cause issues
+      mindTargetUrl = urlObj.toString();
+      console.log('🔧 Cleaned .mind URL (removed transformations):', mindTargetUrl.substring(0, 100) + '...');
     }
     
     // Use project-specific social links if available, otherwise fall back to user's global social links
@@ -432,28 +448,105 @@ router.get('/user/:userIdentifier/project/:projectIdentifier', async (req, res) 
       hasProjectSocialLinks: !!(project.socialLinks && Object.values(project.socialLinks).some(link => link))
     });
     
+    // Get composite design URL from multiple sources (priority: uploadedFiles > phygitalizedData)
+    // For phygitalized campaigns, check phygitalizedData first, then uploadedFiles
+    const compositeDesignUrl = project.phygitalizedData?.compositeDesignUrl || 
+                              project.uploadedFiles?.compositeDesign?.url || 
+                              null;
+    
+    // Debug: Log composite design URL sources
+    console.log('🔍 Composite design URL lookup:', {
+      fromPhygitalizedData: project.phygitalizedData?.compositeDesignUrl || 'not found',
+      fromUploadedFiles: project.uploadedFiles?.compositeDesign?.url || 'not found',
+      finalUrl: compositeDesignUrl || 'not found'
+    });
+    
+    // Get design URL (use composite if available, otherwise original design)
+    const designUrl = compositeDesignUrl || 
+                     project.uploadedFiles?.design?.url || 
+                     project.phygitalizedData?.designUrl || 
+                     null;
+    
     const data = {
       userId: user._id.toString(),
       projectId: project.id,
       projectUrlCode: project.urlCode,
       projectName: project.name,
       name: user.username,
-      designUrl: project.uploadedFiles.compositeDesign?.url || project.uploadedFiles.design.url,
-      compositeDesignUrl: project.uploadedFiles.compositeDesign?.url || null,
-      originalDesignUrl: project.uploadedFiles.design?.url || null,
-      videoUrl: project.uploadedFiles.video.url,
+      designUrl: designUrl,
+      compositeDesignUrl: compositeDesignUrl,
+      originalDesignUrl: project.uploadedFiles?.design?.url || project.phygitalizedData?.designUrl || null,
+      videoUrl: project.uploadedFiles?.video?.url || project.phygitalizedData?.videoUrl || null,
       mindTargetUrl: mindTargetUrl,
       socialLinks: socialLinks,
-      designDimensions: project.uploadedFiles.design?.dimensions || null,
-      qrPosition: project.qrPosition,
+      designDimensions: project.uploadedFiles?.design?.dimensions || null,
+      qrPosition: project.qrPosition || project.phygitalizedData?.qrPosition || null,
       arReady: !!project.uploadedFiles.mindTarget?.url,
       mindTargetGenerated: project.uploadedFiles.mindTarget?.generated || false,
-      hasCompositeDesign: !!hasCompositeDesign,
-      needsCompositeGeneration: !hasCompositeDesign && hasOriginalDesign,
+      hasCompositeDesign: !!compositeDesignUrl,
+      needsCompositeGeneration: !compositeDesignUrl && !!designUrl,
       projectStatus: project.status,
       projectDescription: project.description,
-      requiresTargetImage: project.requiresTargetImage !== undefined ? project.requiresTargetImage : true
+      requiresTargetImage: project.requiresTargetImage !== undefined ? project.requiresTargetImage : true,
+      // Include phygitalizedData for AR video campaigns (includes templateId and templateConfig)
+      phygitalizedData: project.phygitalizedData || {},
+      // Explicitly include template data for easier access
+      templateId: project.phygitalizedData?.templateId || 'default',
+      templateConfig: project.phygitalizedData?.templateConfig || {},
+      // Include uploadedFiles so frontend can access documents array
+      uploadedFiles: {
+        documents: project.uploadedFiles?.documents || []
+      },
+      // Get documentUrls from multiple sources:
+      // 1. phygitalizedData.documentUrls (for phygitalized campaigns)
+      // 2. uploadedFiles.documents (for upload page projects)
+      documentUrls: (() => {
+        const phygitalizedDocs = project.phygitalizedData?.documentUrls || [];
+        const uploadedDocs = project.uploadedFiles?.documents || [];
+        // Convert uploadedFiles.documents array to URLs array
+        const uploadedDocUrls = uploadedDocs.map(doc => 
+          typeof doc === 'string' ? doc : doc.url
+        ).filter(Boolean);
+        // Combine and remove duplicates
+        return [...new Set([...phygitalizedDocs, ...uploadedDocUrls])];
+      })(),
+      // Get contact information from multiple sources:
+      // 1. phygitalizedData (for phygitalized campaigns)
+      // 2. project.socialLinks (for upload page projects)
+      // 3. user.socialLinks (fallback)
+      phoneNumber: project.phygitalizedData?.phoneNumber || 
+                   project.socialLinks?.contactNumber || 
+                   user.socialLinks?.contactNumber || 
+                   null,
+      whatsappNumber: project.phygitalizedData?.whatsappNumber || 
+                      project.socialLinks?.whatsappNumber || 
+                      user.socialLinks?.whatsappNumber || 
+                      null
     };
+    
+    // Debug: Log document URLs and contact info
+    console.log('📄 Document URLs in response:', {
+      hasPhygitalizedData: !!project.phygitalizedData,
+      hasUploadedFilesDocuments: !!project.uploadedFiles?.documents,
+      uploadedFilesDocumentsCount: Array.isArray(project.uploadedFiles?.documents) ? project.uploadedFiles.documents.length : 0,
+      documentUrlsCount: Array.isArray(data.documentUrls) ? data.documentUrls.length : 0,
+      documentUrls: data.documentUrls,
+      phygitalizedDataDocumentUrls: project.phygitalizedData?.documentUrls,
+      uploadedFilesDocuments: project.uploadedFiles?.documents
+    });
+    
+    console.log('📞 Contact information in response:', {
+      phoneNumberFromPhygitalized: project.phygitalizedData?.phoneNumber,
+      phoneNumberFromProjectSocialLinks: project.socialLinks?.contactNumber,
+      phoneNumberFromUserSocialLinks: user.socialLinks?.contactNumber,
+      finalPhoneNumber: data.phoneNumber,
+      whatsappFromPhygitalized: project.phygitalizedData?.whatsappNumber,
+      whatsappFromProjectSocialLinks: project.socialLinks?.whatsappNumber,
+      whatsappFromUserSocialLinks: user.socialLinks?.whatsappNumber,
+      finalWhatsappNumber: data.whatsappNumber,
+      projectSocialLinks: project.socialLinks,
+      userSocialLinks: user.socialLinks
+    });
     
     console.log('📤 Sending response with mindTargetUrl:', data.mindTargetUrl || 'null');
     
@@ -920,8 +1013,10 @@ router.get('/download/:userId', async (req, res) => {
       });
     }
     
-    // Generate personalized URL - use AR route for AR experience
-    const personalizedUrl = `${process.env.FRONTEND_URL}/ar/${user._id}`;
+    // Generate personalized URL - use scan route for AR experience with hash routing
+    // Format: /ar/user/{userId}/project/{projectId} - use default project if no currentProject
+    const currentProjectId = user.currentProject || 'default';
+    const personalizedUrl = `${process.env.FRONTEND_URL}/#/ar/user/${user._id}/project/${currentProjectId}`;
     console.log('🔗 Personalized URL:', personalizedUrl);
     
     // Generate QR code using centralized function (includes watermark in margin)

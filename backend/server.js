@@ -16,13 +16,14 @@ require('dotenv').config();
 const authRoutes = require('./routes/auth');
 const uploadRoutes = require('./routes/upload');
 const qrRoutes = require('./routes/qr');
-const qrDesignRoutes = require('./routes/qrDesign');
-const analyticsRoutes = require('./routes/analytics');
+const analyticsRoutes = require('./routes/analytics')
+const templatesRoutes = require('./routes/templates');
 const userRoutes = require('./routes/user');
 const historyRoutes = require('./routes/history');
 const arExperienceRoutes = require('./routes/arExperience');
 const contactRoutes = require('./routes/contact');
 const adminRoutes = require('./routes/admin');
+const phygitalizedRoutes = require('./routes/phygitalized');
 
 const app = express();
 
@@ -199,13 +200,14 @@ connectDB();
 app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/qr', qrRoutes);
-app.use('/api/qr-design', qrDesignRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/templates', templatesRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/ar-experience', arExperienceRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/phygitalized', phygitalizedRoutes);
 
 // Health check endpoint with detailed status
 app.get('/api/health', async (req, res) => {
@@ -286,7 +288,6 @@ const startServer = async () => {
         '/api/auth',
         '/api/upload',
         '/api/qr',
-        '/api/qr-design',
         '/api/analytics',
         '/api/user',
         '/api/history',

@@ -17,13 +17,15 @@ import {
   MessageCircle,
   Sparkles,
   Heart,
-  Zap
+  Zap,
+  X
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { api } from '../../utils/api'
 
 const ContactPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [selectedContactInfo, setSelectedContactInfo] = useState(null)
 
   const {
     register,
@@ -96,13 +98,13 @@ const ContactPage = () => {
       icon: Heart,
       title: 'Personal Touch',
       description: 'Real humans, real conversations',
-      color: 'neon-pink'
+      color: 'neon-purple'
     },
     {
       icon: Zap,
       title: 'Solutions-Focused',
       description: 'We\'re here to make things happen',
-      color: 'neon-green'
+      color: 'neon-pink'
     }
   ]
 
@@ -185,7 +187,7 @@ const ContactPage = () => {
       </section>
 
       {/* Main Content */}
-      <section className="py-20 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <section className="py-20 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Contact Form */}
@@ -333,19 +335,39 @@ const ContactPage = () => {
                         )}
                       </button>
                     </form>
+
+                    {/* Email Us Directly Button */}
+                    <div className="mt-6 pt-6 border-t border-slate-700/50">
+                      <a 
+                        href="mailto:phygital.zone@gmail.com"
+                        className="group w-full px-8 py-4 bg-slate-800/50 backdrop-blur-sm text-slate-100 rounded-xl font-semibold text-lg border-2 border-slate-600/50 hover:border-neon-blue/50 transition-all duration-300 flex items-center justify-center gap-2"
+                      >
+                        <Mail className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                        Email Us Directly
+                      </a>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Contact Information */}
-            <div className="space-y-6">
+            <div className="space-y-6 relative">
               {/* Contact Info Cards */}
               <div className="space-y-4">
                 {contactInfo.map((info, index) => {
                   const Icon = info.icon
+                  const isSelected = selectedContactInfo === index
                   return (
-                    <div key={index} className="group relative p-6 bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 hover:border-neon-blue/50 transition-all duration-500 hover:scale-105">
+                    <div 
+                      key={index} 
+                      onClick={() => setSelectedContactInfo(isSelected ? null : index)}
+                      className={`group relative p-6 bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 transition-all duration-500 cursor-pointer ${
+                        isSelected 
+                          ? 'ring-2 ring-neon-blue shadow-glow-blue border-neon-blue/50' 
+                          : 'hover:border-neon-blue/50 hover:scale-105'
+                      }`}
+                    >
                       <div className={`absolute inset-0 bg-gradient-to-br ${info.gradient} opacity-0 group-hover:opacity-10 rounded-2xl transition-opacity duration-500`}></div>
                       
                       <div className="relative z-10 flex items-start gap-4">
@@ -361,6 +383,7 @@ const ContactPage = () => {
                               <a
                                 key={idx}
                                 href={info.link}
+                                onClick={(e) => e.stopPropagation()}
                                 className="text-sm text-slate-300 mb-1 hover:text-neon-blue transition-colors duration-200 block"
                               >
                                 {detail}
@@ -410,44 +433,92 @@ const ContactPage = () => {
             </div>
           </div>
         </div>
-      </section>
 
-      {/* CTA Section */}
-      <section className="relative py-20 sm:py-32 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-neon-blue/20 via-neon-purple/20 to-neon-pink/20 animate-gradient"></div>
-        <div className="absolute top-10 -left-20 md:left-10 w-64 h-64 md:w-96 md:h-96 bg-neon-blue/10 rounded-full blur-3xl animate-float"></div>
-        <div className="absolute bottom-10 -right-20 md:right-10 w-64 h-64 md:w-96 md:h-96 bg-neon-purple/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }}></div>
+        {/* Side Panel for Detailed Contact Info */}
+        {selectedContactInfo !== null && (
+          <>
+            {/* Backdrop */}
+            <div 
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden animate-fade-in"
+              onClick={() => setSelectedContactInfo(null)}
+            />
+            
+            {/* Side Panel */}
+            <div className="fixed top-0 right-0 h-full w-full md:w-96 bg-slate-900/95 backdrop-blur-md border-l border-slate-700/50 shadow-dark-large z-50 animate-slide-in-right">
+              <div className="h-full overflow-y-auto p-6 md:p-8">
+                {/* Close Button */}
+                <button
+                  onClick={() => setSelectedContactInfo(null)}
+                  className="absolute top-4 right-4 p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 hover:text-slate-100 transition-colors z-10"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
 
-        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="mb-8">
-            <div className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-neon-blue/20 to-neon-purple/20 border border-neon-blue/30 rounded-full backdrop-blur-sm">
-              <Sparkles className="w-5 h-5 text-neon-blue animate-pulse" />
-              <span className="text-neon-blue font-semibold">We're Here to Help</span>
+                {/* Content */}
+                {selectedContactInfo !== null && (() => {
+                  const info = contactInfo[selectedContactInfo]
+                  const Icon = info.icon
+                  return (
+                    <div className="animate-fade-in-up">
+                      <div className={`mb-6 inline-flex p-4 bg-gradient-to-br ${info.gradient} rounded-xl border border-slate-700/50`}>
+                        <Icon className="w-10 h-10 text-neon-blue" />
+                      </div>
+                      
+                      <h2 className="text-3xl font-bold text-slate-100 mb-4">
+                        {info.title}
+                      </h2>
+                      
+                      <div className="mb-6 p-4 bg-slate-800/30 rounded-xl border border-slate-700/50">
+                        <div className="space-y-3">
+                          {info.details.map((detail, idx) => (
+                            info.link ? (
+                              <a
+                                key={idx}
+                                href={info.link}
+                                className="text-lg text-slate-300 hover:text-neon-blue transition-colors duration-200 block font-semibold"
+                              >
+                                {detail}
+                              </a>
+                            ) : (
+                              <p key={idx} className="text-lg text-slate-300">
+                                {detail}
+                              </p>
+                            )
+                          ))}
+                        </div>
+                        <p className="text-sm text-slate-400 mt-4 pt-4 border-t border-slate-700/50">
+                          {info.description}
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        {/* Additional detailed content */}
+                        <div className="pt-6 border-t border-slate-700/50">
+                          <h3 className="text-lg font-semibold text-slate-200 mb-3">
+                            {info.title === 'Email Us' && 'How to Reach Us'}
+                          </h3>
+                          <p className="text-slate-400 leading-relaxed">
+                            {info.title === 'Email Us' && 
+                              'Send us an email at phygital.zone@gmail.com for any inquiries, support requests, or partnership opportunities. We typically respond within 24 hours during business days. For urgent matters, please include "URGENT" in your subject line.'}
+                            {info.title === 'Call Us' && 
+                              'Give us a call at (704) 966-7158 during our business hours. Our team is available to help you with technical support, account questions, or to discuss how Phygital Zone can help bring your vision to life. If we\'re unavailable, leave a voicemail and we\'ll get back to you as soon as possible.'}
+                            {info.title === 'Our Location' && 
+                              'We\'re based in South Carolina, United States. While we primarily operate as a digital platform, we\'re always open to meeting with partners, clients, and collaborators. If you\'re in the area and would like to schedule an in-person meeting, please reach out via email or phone to arrange a time.'}
+                            {info.title === 'Business Hours' && 
+                              'Our team is available Monday through Friday from 9AM to 6PM EST, and on Saturdays from 10AM to 4PM EST. We\'re closed on Sundays and major holidays. For support outside these hours, you can still send us an email and we\'ll respond as soon as we\'re back in the office.'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
             </div>
-          </div>
-
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-slate-100 mb-6">
-            Ready to Bring Your <br className="hidden sm:block" />
-            <span className="text-gradient bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink bg-clip-text text-transparent">
-              Vision to Life?
-            </span>
-          </h2>
-          
-          <p className="text-lg sm:text-xl text-slate-300 mb-12 max-w-2xl mx-auto">
-            Whether you have a question, need support, or want to explore what's possible — we're just a message away.
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <a 
-              href="mailto:phygital.zone@gmail.com"
-              className="group px-8 py-4 bg-gradient-to-r from-neon-blue to-neon-purple text-white rounded-xl font-semibold text-lg shadow-glow-blue hover:shadow-glow-purple transition-all duration-300 flex items-center gap-2"
-            >
-              <Mail className="w-5 h-5 group-hover:scale-110 transition-transform" />
-              Email Us Directly
-            </a>
-          </div>
-        </div>
+          </>
+        )}
       </section>
+
     </div>
   )
 }

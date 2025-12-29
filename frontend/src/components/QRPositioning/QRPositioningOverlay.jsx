@@ -35,6 +35,7 @@ const QRPositioningOverlay = ({
   
   const imageRef = useRef(null)
   const overlayRef = useRef(null)
+  const prevCaptureFunctionRef = useRef(null)
 
   // Calculate scale factor based on actual image dimensions
   const scaleX = imageDimensions.width / imageWidth
@@ -360,19 +361,6 @@ const QRPositioningOverlay = ({
     }
   }, [isDragging, isResizing, handlePointerMove, handlePointerUp])
 
-  // Expose capture function to parent
-  useEffect(() => {
-    if (onCaptureComposite) {
-      onCaptureComposite(captureCompositeImage);
-    }
-  }, [onCaptureComposite, captureCompositeImage])
-
-  // Reset to default position (with minimum scannable size)
-  const resetPosition = useCallback(() => {
-    onPositionChange({ x: 10, y: 10 })
-    onSizeChange({ width: MIN_STICKER_WIDTH, height: MIN_STICKER_HEIGHT })
-  }, [onPositionChange, onSizeChange])
-
   // Capture composite image (design + QR overlay)
   const captureCompositeImage = useCallback(() => {
     return new Promise((resolve, reject) => {
@@ -464,6 +452,21 @@ const QRPositioningOverlay = ({
       }
     });
   }, [imageRef, qrPosition, imageWidth, imageHeight, qrImageUrl]);
+
+  // Expose capture function to parent
+  // Use ref to track previous function to avoid calling callback unnecessarily
+  useEffect(() => {
+    if (onCaptureComposite && captureCompositeImage !== prevCaptureFunctionRef.current) {
+      prevCaptureFunctionRef.current = captureCompositeImage;
+      onCaptureComposite(captureCompositeImage);
+    }
+  }, [onCaptureComposite, captureCompositeImage]);
+
+  // Reset to default position (with minimum scannable size)
+  const resetPosition = useCallback(() => {
+    onPositionChange({ x: 10, y: 10 })
+    onSizeChange({ width: MIN_STICKER_WIDTH, height: MIN_STICKER_HEIGHT })
+  }, [onPositionChange, onSizeChange])
 
   return (
     <div className="relative inline-block">

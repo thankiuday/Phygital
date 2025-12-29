@@ -72,9 +72,31 @@ export const fetchMindFile = async (url, addDebugMessage) => {
   try {
     addDebugMessage(`🔄 Fetching .mind file from: ${url}`, 'info');
     
-    const res = await fetch(url, { 
+    // Ensure Cloudinary serves raw file without transformations
+    // If URL contains Cloudinary transformations, remove them
+    let fetchUrl = url;
+    if (url.includes('cloudinary.com')) {
+      // Remove any transformation parameters and ensure raw delivery
+      // Cloudinary raw files should be accessed directly without transformations
+      if (url.includes('/image/upload/')) {
+        // Replace /image/upload/ with /raw/upload/ for raw files
+        fetchUrl = url.replace('/image/upload/', '/raw/upload/');
+      } else if (!url.includes('/raw/upload/')) {
+        // If it's already a raw URL, ensure no transformations
+        const urlObj = new URL(url);
+        // Remove transformation parameters
+        urlObj.searchParams.delete('f_auto');
+        urlObj.searchParams.delete('fl_immutable_cache');
+        fetchUrl = urlObj.toString();
+      }
+    }
+    
+    addDebugMessage(`🔗 Fetching from: ${fetchUrl}`, 'info');
+    
+    const res = await fetch(fetchUrl, { 
       method: 'GET', 
       mode: 'cors',
+      cache: 'no-cache', // Ensure fresh fetch
       headers: {
         'Accept': 'application/octet-stream'
       }
@@ -84,10 +106,19 @@ export const fetchMindFile = async (url, addDebugMessage) => {
       throw new Error(`Failed to fetch .mind: ${res.status} ${res.statusText}`);
     }
     
+    // Get content type to verify it's binary
+    const contentType = res.headers.get('content-type');
+    addDebugMessage(`📦 Content-Type: ${contentType}`, 'info');
+    
     const buffer = await res.arrayBuffer(); // CRITICAL: arrayBuffer, not text
     addDebugMessage(`✅ Fetched .mind file: ${buffer.byteLength} bytes`, 'success');
     
-    // Validate buffer
+    // Validate buffer is not empty
+    if (!buffer || buffer.byteLength === 0) {
+      throw new Error('Fetched .mind file is empty');
+    }
+    
+    // Validate buffer type
     if (!isValidMindBuffer(buffer)) {
       throw new Error('Invalid .mind buffer format');
     }
@@ -97,7 +128,25 @@ export const fetchMindFile = async (url, addDebugMessage) => {
     addDebugMessage(`🔍 First 16 bytes: ${Array.from(u8.slice(0, 16)).map(b => b.toString(16).padStart(2, '0')).join(' ')}`, 'info');
     addDebugMessage(`🔍 Last 16 bytes: ${Array.from(u8.slice(-16)).map(b => b.toString(16).padStart(2, '0')).join(' ')}`, 'info');
     
-    return new Uint8Array(buffer); // MindAR expects binary buffer-like
+    // Basic validation: Check if buffer looks like a valid .mind file
+    // Valid .mind files typically start with specific byte patterns
+    // If it starts with '{' or '[', it might be JSON (corrupted/fallback file)
+    const firstByte = u8[0];
+    if (firstByte === 0x7B || firstByte === 0x5B) { // '{' or '['
+      addDebugMessage('⚠️ Warning: .mind file appears to be JSON format (might be corrupted fallback)', 'warning');
+      throw new Error('Invalid .mind file format: File appears to be JSON instead of binary .mind format');
+    }
+    
+    // Check file size - .mind files should be reasonable size (not too small, not too large)
+    if (buffer.byteLength < 100) {
+      throw new Error('Invalid .mind file: File is too small (likely corrupted)');
+    }
+    if (buffer.byteLength > 50 * 1024 * 1024) { // 50MB max
+      throw new Error('Invalid .mind file: File is too large (likely corrupted)');
+    }
+    
+    // Return Uint8Array for MindAR
+    return new Uint8Array(buffer);
   } catch (error) {
     addDebugMessage(`❌ Failed to fetch .mind file: ${error.message}`, 'error');
     throw error;

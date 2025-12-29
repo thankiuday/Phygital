@@ -15,8 +15,10 @@ const { execFile } = require('child_process');
 const { v4: uuidv4 } = require('uuid');
 // Image dimensions will be handled on the frontend
 const User = require('../models/User');
+const Analytics = require('../models/Analytics');
 const { authenticateToken } = require('../middleware/auth');
 const { uploadToCloudinary, uploadToCloudinaryBuffer, uploadVideoToCloudinary, deleteFromCloudinary, checkCloudinaryConnection } = require('../config/cloudinary');
+const cloudinary = require('cloudinary').v2;
 const os = require('os');
 const { generateFinalDesign, cleanupTempFile } = require('../services/qrOverlayService');
 const { 
@@ -35,6 +37,51 @@ const router = express.Router();
 
 // Configure multer for memory storage (for processing before S3 upload)
 const memoryStorage = multer.memoryStorage();
+
+// Helper function to extract Cloudinary public_id from URL
+const extractCloudinaryPublicId = (url) => {
+  try {
+    if (!url) return null;
+    
+    // For Cloudinary URLs: https://res.cloudinary.com/cloud_name/image/upload/v1234567890/phygital-zone/users/userId/type/filename
+    // Or: https://res.cloudinary.com/cloud_name/raw/upload/v1234567890/phygital-zone/users/userId/type/filename.ext
+    // We need to extract the public_id: phygital-zone/users/userId/type/filename (without extension)
+    if (url.includes('cloudinary.com')) {
+      const urlParts = url.split('/');
+      const uploadIndex = urlParts.findIndex(part => part === 'upload');
+      if (uploadIndex !== -1 && uploadIndex + 2 < urlParts.length) {
+        // Extract everything after 'upload/v1234567890/'
+        let publicId = urlParts.slice(uploadIndex + 2).join('/');
+        
+        // Remove query parameters if any (e.g., ?v=123)
+        if (publicId.includes('?')) {
+          publicId = publicId.split('?')[0];
+        }
+        
+        // Remove file extension(s) - handle cases like 'file.png.png' or 'file.mind' or 'file.pdf'
+        const parts = publicId.split('.');
+        if (parts.length > 1) {
+          publicId = parts.slice(0, -1).join('.');
+          // If it still ends with a common image extension, remove it again
+          const commonImageExts = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'];
+          const lastPart = parts[parts.length - 1].toLowerCase();
+          if (commonImageExts.includes(`.${lastPart}`)) {
+            const remainingParts = publicId.split('.');
+            if (remainingParts.length > 1) {
+              publicId = remainingParts.slice(0, -1).join('.');
+            }
+          }
+        }
+        
+        return publicId;
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('Error extracting Cloudinary public_id:', error);
+    return null;
+  }
+};
 
 /**
  * Generate composite image (design + QR code) and upload to Cloudinary
@@ -266,8 +313,10 @@ const generateMindTarget = async (imageBuffer, userId) => {
 
 // Project management routes
 router.post('/project', authenticateToken, [
-  body('name').trim().isLength({ min: 2, max: 50 }).withMessage('Project name must be 2-50 characters'),
-  body('description').optional().trim().isLength({ max: 200 }).withMessage('Description must be less than 200 characters')
+  body('name').trim().isLength({ min: 2, max: 60 }).withMessage('Project name must be 2-60 characters'),
+  body('description').optional().trim().isLength({ max: 200 }).withMessage('Description must be less than 200 characters'),
+  body('campaignType').optional().isString(),
+  body('phygitalizedData').optional().isObject()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -279,7 +328,7 @@ router.post('/project', authenticateToken, [
       });
     }
 
-    const { name, description } = req.body;
+    const { name, description, campaignType, phygitalizedData } = req.body;
     const userId = req.user.id;
 
     // Check if project name already exists for this user
@@ -325,6 +374,30 @@ router.post('/project', authenticateToken, [
       status: 'active'
     };
 
+    // Add Phygitalized-specific fields if provided
+    if (campaignType) {
+      newProject.campaignType = campaignType;
+    }
+
+    // Add Phygitalized data if provided
+    if (phygitalizedData) {
+      newProject.phygitalizedData = phygitalizedData;
+      
+      // Store file URLs in uploadedFiles if provided
+      if (phygitalizedData.fileUrls) {
+        newProject.uploadedFiles = {};
+        if (phygitalizedData.fileUrls.video) {
+          newProject.uploadedFiles.video = phygitalizedData.fileUrls.video;
+        }
+        if (phygitalizedData.fileUrls.pdf) {
+          newProject.uploadedFiles.pdf = phygitalizedData.fileUrls.pdf;
+        }
+        if (phygitalizedData.fileUrls.document) {
+          newProject.uploadedFiles.document = phygitalizedData.fileUrls.document;
+        }
+      }
+    }
+
     // Add project to user
     const user = await User.findByIdAndUpdate(
       userId,
@@ -362,6 +435,107 @@ router.post('/project', authenticateToken, [
     res.status(500).json({
       success: false,
       message: 'Internal server error'
+    });
+  }
+});
+
+/**
+ * PUT /api/upload/project/:projectId
+ * Update project data (name, description, phygitalizedData, etc.)
+ */
+router.put('/project/:projectId', authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const updateData = req.body;
+    const userId = req.user.id;
+
+    console.log('📝 Updating project:', {
+      projectId,
+      userId,
+      hasPhygitalizedData: !!updateData.phygitalizedData,
+      updateKeys: Object.keys(updateData)
+    });
+
+    // Find user and project
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    const projectIndex = user.projects.findIndex(p => p.id === projectId);
+    if (projectIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project not found'
+      });
+    }
+
+    // Build update object
+    const updateFields = {};
+
+    // Update name if provided
+    if (updateData.name) {
+      updateFields[`projects.${projectIndex}.name`] = updateData.name;
+    }
+
+    // Update description if provided
+    if (updateData.description !== undefined) {
+      updateFields[`projects.${projectIndex}.description`] = updateData.description;
+    }
+
+    // Update campaign type if provided
+    if (updateData.campaignType) {
+      updateFields[`projects.${projectIndex}.campaignType`] = updateData.campaignType;
+    }
+
+    // Update phygitalized data if provided
+    if (updateData.phygitalizedData) {
+      // Merge with existing phygitalizedData
+      const existingPhygitalizedData = user.projects[projectIndex].phygitalizedData || {};
+      updateFields[`projects.${projectIndex}.phygitalizedData`] = {
+        ...existingPhygitalizedData,
+        ...updateData.phygitalizedData
+      };
+    }
+
+    // Update the project
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $set: updateFields },
+      { new: true }
+    ).select('-password');
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found after update'
+      });
+    }
+
+    const updatedProject = updatedUser.projects.find(p => p.id === projectId);
+
+    console.log('✅ Project updated successfully:', {
+      projectId,
+      projectName: updatedProject?.name
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Project updated successfully',
+      data: {
+        project: updatedProject
+      }
+    });
+
+  } catch (error) {
+    console.error('Error updating project:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update project',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
@@ -473,6 +647,49 @@ const upload = multer({
       }
     } else {
       cb(new Error('Invalid field name'), false);
+    }
+  }
+});
+
+// Multer configuration for document uploads (multiple files, 10MB per file)
+const uploadDocuments = multer({
+  storage: memoryStorage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit per file
+    files: 20 // Allow up to 20 documents
+  },
+  fileFilter: function (req, file, cb) {
+    // Allow PDF, Word docs, images, text files, spreadsheets, and presentations
+    const allowedMimes = [
+      // PDFs
+      'application/pdf',
+      // Word Documents
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      // Images
+      'image/png',
+      'image/jpeg',
+      'image/jpg',
+      'image/gif',
+      'image/webp',
+      'image/bmp',
+      'image/svg+xml',
+      // Text Files
+      'text/plain',
+      'application/rtf',
+      // Spreadsheets
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/csv',
+      // Presentations
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    ];
+    
+    if (allowedMimes.includes(file.mimetype) || file.originalname.match(/\.(pdf|doc|docx|txt|rtf|png|jpg|jpeg|gif|webp|bmp|svg|xls|xlsx|csv|ppt|pptx)$/i)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only PDF, DOC, DOCX, images (PNG, JPG, GIF, WEBP, BMP, SVG), text files (TXT, RTF), spreadsheets (XLS, XLSX, CSV), and presentations (PPT, PPTX) are allowed.'), false);
     }
   }
 });
@@ -1371,6 +1588,168 @@ router.put('/project/:projectId/video', authenticateToken, upload.single('video'
 });
 
 /**
+ * POST /api/upload/documents
+ * Upload multiple documents (PDF, DOC, DOCX, images, text files)
+ * Stores documents in project's uploadedFiles.documents array
+ */
+router.post('/documents', authenticateToken, uploadDocuments.array('documents', 20), async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { projectId } = req.body;
+
+    console.log('📄 Document upload request received:', {
+      userId,
+      projectId,
+      fileCount: req.files?.length || 0
+    });
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'No documents provided'
+      });
+    }
+
+    // Find user and project if projectId is provided
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'User not found'
+      });
+    }
+
+    let project = null;
+    if (projectId) {
+      project = user.projects.find(p => p.id === projectId);
+      if (!project) {
+        return res.status(404).json({
+          status: 'error',
+          message: 'Project not found'
+        });
+      }
+    }
+
+    const uploadedDocuments = [];
+
+    // Upload each document to Cloudinary
+    for (const file of req.files) {
+      try {
+        // Determine resource type based on file type
+        const isImage = file.mimetype.startsWith('image/');
+        const isPdf = file.mimetype === 'application/pdf' || file.originalname.toLowerCase().endsWith('.pdf');
+        
+        // Generate unique filename
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const fileExtension = file.originalname.split('.').pop();
+        const fileName = `document-${uniqueSuffix}.${fileExtension}`;
+
+        // Determine resource type: 'image' for images, 'raw' for PDFs and other documents
+        let resourceType = 'raw'; // Default to raw for documents
+        if (isImage) {
+          resourceType = 'image';
+        }
+
+        // Upload to Cloudinary using uploadToCloudinaryBuffer
+        // For images, pass quality options; for raw files, pass empty options
+        const uploadOptions = isImage ? { quality: 'auto' } : {};
+        
+        // Create a custom upload function that forces the correct resource type
+        // We need to override the resource_type determination in uploadToCloudinaryBuffer
+        const uploadResult = await uploadToCloudinaryBuffer(
+          file.buffer,
+          userId,
+          'documents',
+          fileName,
+          file.mimetype,
+          uploadOptions
+        );
+
+        // Override resource_type if it was incorrectly determined
+        // uploadToCloudinaryBuffer might set it to 'image' based on the 'documents' type
+        // Force it to 'raw' for non-image files
+        let finalResourceType = uploadResult.resource_type;
+        if (!isImage && finalResourceType === 'image') {
+          // Re-upload with correct resource type if it was wrong
+          console.log(`⚠️ Resource type was incorrectly set to 'image' for ${file.originalname}, correcting to 'raw'`);
+          finalResourceType = 'raw';
+        } else if (isImage) {
+          finalResourceType = 'image';
+        } else {
+          finalResourceType = 'raw';
+        }
+
+        const documentData = {
+          filename: uploadResult.public_id,
+          originalName: file.originalname,
+          url: uploadResult.url,
+          size: uploadResult.size || file.size,
+          mimetype: file.mimetype,
+          format: uploadResult.format || fileExtension,
+          resource_type: finalResourceType,
+          uploadedAt: new Date()
+        };
+
+        uploadedDocuments.push(documentData);
+
+        console.log('✅ Document uploaded:', {
+          originalName: file.originalname,
+          url: uploadResult.url,
+          size: file.size,
+          resourceType: finalResourceType
+        });
+      } catch (uploadError) {
+        console.error(`❌ Error uploading document ${file.originalname}:`, uploadError);
+        // Continue with other files
+      }
+    }
+
+    if (uploadedDocuments.length === 0) {
+      return res.status(500).json({
+        status: 'error',
+        message: 'Failed to upload any documents'
+      });
+    }
+
+    // If projectId is provided, update project's documents array
+    if (project) {
+      // Initialize documents array if it doesn't exist
+      if (!project.uploadedFiles.documents) {
+        project.uploadedFiles.documents = [];
+      }
+      
+      // Add new documents to the array
+      project.uploadedFiles.documents.push(...uploadedDocuments);
+      project.updatedAt = new Date();
+      
+      await user.save();
+      
+      console.log('✅ Documents saved to project:', {
+        projectId: project.id,
+        documentCount: uploadedDocuments.length,
+        totalDocuments: project.uploadedFiles.documents.length
+      });
+    }
+
+    res.status(200).json({
+      status: 'success',
+      message: `${uploadedDocuments.length} document(s) uploaded successfully`,
+      data: {
+        documents: uploadedDocuments
+      }
+    });
+
+  } catch (error) {
+    console.error('Document upload error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to upload documents',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+/**
  * POST /api/upload/qr-position
  * Set QR code position on the design
  * Stores coordinates where QR code should be placed
@@ -1385,7 +1764,12 @@ router.post('/qr-position', authenticateToken, [
   body('x').isFloat({ min: 0 }).withMessage('X coordinate must be a positive number'),
   body('y').isFloat({ min: 0 }).withMessage('Y coordinate must be a positive number'),
   body('width').isFloat({ min: MIN_STICKER_WIDTH }).withMessage(`Width must be at least ${MIN_STICKER_WIDTH}px for reliable scanning`),
-  body('height').isFloat({ min: MIN_STICKER_HEIGHT }).withMessage(`Height must be at least ${MIN_STICKER_HEIGHT}px for reliable scanning`)
+  body('height').isFloat({ min: MIN_STICKER_HEIGHT }).withMessage(`Height must be at least ${MIN_STICKER_HEIGHT}px for reliable scanning`),
+  body('qrFrameConfig').optional().isObject().withMessage('QR frame config must be an object'),
+  body('qrFrameConfig.frameType').optional().isInt({ min: 1, max: 10 }).withMessage('Frame type must be between 1 and 10'),
+  body('qrFrameConfig.textContent').optional().isString().isLength({ max: 50 }).withMessage('Text content must be a string with max 50 characters'),
+  body('qrFrameConfig.textStyle').optional().isObject().withMessage('Text style must be an object'),
+  body('qrFrameConfig.transparentBackground').optional().isBoolean().withMessage('Transparent background must be a boolean')
 ], async (req, res) => {
   try {
     // Check for validation errors
@@ -1398,7 +1782,7 @@ router.post('/qr-position', authenticateToken, [
       });
     }
     
-    const { x, y, width, height } = req.body;
+    const { x, y, width, height, qrFrameConfig } = req.body;
     
     // Ensure values are numbers and enforce minimums
     const qrPositionData = {
@@ -1435,70 +1819,93 @@ router.post('/qr-position', authenticateToken, [
     // Store old QR position for history
     const oldQrPosition = req.user.qrPosition;
     
-    // Generate composite design on server side (optional - don't block QR position save)
+    // Check if custom frame config is provided (indicates frontend will generate composite)
+    const hasCustomFrame = qrFrameConfig && typeof qrFrameConfig === 'object' && 
+                          (qrFrameConfig.frameType !== 1 || 
+                           qrFrameConfig.textContent !== 'SCAN ME' ||
+                           qrFrameConfig.textStyle?.gradient ||
+                           (qrFrameConfig.textStyle?.color && qrFrameConfig.textStyle.color !== '#FFFFFF'));
+    
+    if (hasCustomFrame) {
+      console.log('⏭️ Skipping backend composite generation - custom frame detected, frontend will generate composite');
+    }
+    
+    // Generate composite design on server side (only if no custom frame)
+    // Note: If frontend already uploaded a composite, we'll detect it later and preserve it
     let compositeDesignData = null;
     let mindTargetData = null;
     
-    try {
-      console.log('Generating server-side composite design...');
+    if (!hasCustomFrame) {
+      try {
+        console.log('Generating server-side composite design...');
+        
+        // Generate QR data (user's scan URL for AR experience)
+        // Format: /ar/user/{userId}/project/{projectId}
+        const currentProjectId = user.currentProject || 'default';
+        const qrData = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/#/ar/user/${req.user._id}/project/${currentProjectId}`;
+        
+        // Get design URL from project or root level
+        let designUrl;
+        if (user.currentProject && user.projects) {
+          const currentProject = user.projects.find(p => p.id === user.currentProject);
+          designUrl = currentProject?.uploadedFiles?.design?.url;
+        }
+        
+        // Fallback to root-level design
+        if (!designUrl) {
+          designUrl = user.uploadedFiles?.design?.url;
+        }
+        
+        console.log('🎨 Using design URL for composite:', designUrl);
+        
+        // Use default frame config for backend generation (only supports basic frames)
+        const frameConfig = {
+          frameType: 1,
+          textContent: 'SCAN ME',
+          textStyle: { bold: true, italic: false, color: '#FFFFFF', gradient: null }
+        };
+        
+        console.log('🎨 Using default frame config for backend generation:', frameConfig);
+        
+        // Set a timeout for composite generation to avoid blocking QR position save
+        const compositePromise = generateFinalDesign(
+          designUrl,
+          qrData,
+          qrPositionData,
+          req.user._id.toString(),
+          frameConfig // Pass default frame config
+        );
       
-      // Generate QR data (user's scan URL for AR experience)
-      // Format: /ar/user/{userId}/project/{projectId}
-      const currentProjectId = user.currentProject || 'default';
-      const qrData = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/#/ar/user/${req.user._id}/project/${currentProjectId}`;
-      
-      // Get design URL from project or root level
-      let designUrl;
-      if (user.currentProject && user.projects) {
-        const currentProject = user.projects.find(p => p.id === user.currentProject);
-        designUrl = currentProject?.uploadedFiles?.design?.url;
-      }
-      
-      // Fallback to root-level design
-      if (!designUrl) {
-        designUrl = user.uploadedFiles?.design?.url;
-      }
-      
-      console.log('🎨 Using design URL for composite:', designUrl);
-      
-      // Set a timeout for composite generation to avoid blocking QR position save
-      const compositePromise = generateFinalDesign(
-        designUrl,
-        qrData,
-        qrPositionData,
-        req.user._id.toString()
-      );
-      
-      // Race between composite generation and timeout
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Composite generation timeout')), 30000)
-      );
-      
-      const finalDesignPath = await Promise.race([compositePromise, timeoutPromise]);
-      
-      // Upload the composite image to Cloudinary
-      const compositeImageBuffer = fs.readFileSync(finalDesignPath);
-      const compositeFilename = `composite-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.png`;
-      
-      // Upload to Cloudinary
-      const uploadResult = await uploadToCloudinaryBuffer(
-        compositeImageBuffer,
-        req.user._id,
-        'composite-image',
-        compositeFilename,
-        'image/png'
-      );
-      
-      compositeDesignData = {
-        filename: uploadResult.public_id,
-        originalName: `composite-design-${Date.now()}.png`,
-        url: uploadResult.url,
-        size: compositeImageBuffer.length,
-        uploadedAt: new Date(),
-        generated: true
-      };
-      
-      console.log('✅ Server-side composite design generated successfully:', uploadResult.url);
+        // Race between composite generation and timeout
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Composite generation timeout')), 30000)
+        );
+        
+        const finalDesignPath = await Promise.race([compositePromise, timeoutPromise]);
+        
+        // Upload the composite image to Cloudinary
+        const compositeImageBuffer = fs.readFileSync(finalDesignPath);
+        const compositeFilename = `composite-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.png`;
+        
+        // Upload to Cloudinary
+        const uploadResult = await uploadToCloudinaryBuffer(
+          compositeImageBuffer,
+          req.user._id,
+          'composite-image',
+          compositeFilename,
+          'image/png'
+        );
+        
+        compositeDesignData = {
+          filename: uploadResult.public_id,
+          originalName: `composite-design-${Date.now()}.png`,
+          url: uploadResult.url,
+          size: compositeImageBuffer.length,
+          uploadedAt: new Date(),
+          generated: true
+        };
+        
+        console.log('✅ Server-side composite design generated successfully:', uploadResult.url);
       
       // Generate .mind file from the composite image
       try {
@@ -1582,16 +1989,17 @@ router.post('/qr-position', authenticateToken, [
         console.log('⚠️ Continuing without .mind file - it can be generated later');
       }
       
-      // Clean up temporary composite file
-      cleanupTempFile(finalDesignPath);
-      
-    } catch (compositeError) {
-      console.error('Failed to generate server-side composite:', compositeError);
-      console.log('⚠️ Continuing without composite design - QR position will still be saved');
-      // Continue without composite design if generation fails
+        // Clean up temporary composite file
+        cleanupTempFile(finalDesignPath);
+        
+      } catch (compositeError) {
+        console.error('Failed to generate server-side composite:', compositeError);
+        console.log('⚠️ Continuing without composite design - QR position will still be saved');
+        // Continue without composite design if generation fails
+      }
     }
 
-    // Get current project information
+    // Get current project information (refresh to get latest composite if frontend uploaded it)
     const fullUser = await User.findById(req.user._id);
     let targetProject = null;
     let targetProjectIndex = -1;
@@ -1601,6 +2009,12 @@ router.post('/qr-position', authenticateToken, [
       if (targetProjectIndex !== -1) {
         targetProject = fullUser.projects[targetProjectIndex];
         console.log(`📁 Storing QR position in project: ${targetProject.name} (${targetProject.id})`);
+        
+        // Check for existing composite right before update (frontend may have uploaded it)
+        existingComposite = targetProject?.uploadedFiles?.compositeDesign;
+        if (existingComposite?.url) {
+          console.log(`✅ Found existing composite from frontend: ${existingComposite.url.substring(0, 50)}...`);
+        }
       }
     }
     
@@ -1616,9 +2030,31 @@ router.post('/qr-position', authenticateToken, [
     if (targetProject) {
       // Store in project
       updateData[`projects.${targetProjectIndex}.qrPosition`] = qrPositionData;
-      if (compositeDesignData) {
+      
+      // Store frame config if provided
+      if (qrFrameConfig) {
+        updateData[`projects.${targetProjectIndex}.qrFrameConfig`] = {
+          frameType: qrFrameConfig.frameType || 1,
+          textContent: qrFrameConfig.textContent || 'SCAN ME',
+          textStyle: {
+            bold: qrFrameConfig.textStyle?.bold !== false,
+            italic: qrFrameConfig.textStyle?.italic || false,
+            color: qrFrameConfig.textStyle?.color || '#FFFFFF',
+            gradient: qrFrameConfig.textStyle?.gradient || null
+          },
+          transparentBackground: qrFrameConfig.transparentBackground || false
+        };
+        console.log(`✅ Will store qrFrameConfig in project: frameType=${qrFrameConfig.frameType}`);
+      }
+      
+      // Only update composite if backend generated a new one
+      // If frontend already uploaded one, preserve it (don't overwrite)
+      if (compositeDesignData && !existingComposite?.url) {
         updateData[`projects.${targetProjectIndex}.uploadedFiles.compositeDesign`] = compositeDesignData;
         console.log(`✅ Will store compositeDesign in project: ${compositeDesignData.url}`);
+      } else if (existingComposite?.url) {
+        console.log(`✅ Preserving existing frontend-uploaded composite: ${existingComposite.url.substring(0, 50)}...`);
+        // Don't update compositeDesign - keep the existing one
       } else {
         console.log('⚠️ compositeDesignData is null - not storing');
       }
@@ -1731,8 +2167,34 @@ router.post('/save-composite-design', authenticateToken, [
     console.log('Composite image received:', !!compositeImage);
     console.log('Composite image length:', compositeImage ? compositeImage.length : 0);
     
-    // Check if user has uploaded design
-    if (!req.user.uploadedFiles.design.url) {
+    // Get full user with projects
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'User not found'
+      });
+    }
+    
+    // Check for design at project level or root level
+    let hasDesign = false;
+    let designUrl = null;
+    
+    if (user.currentProject && user.projects) {
+      const currentProject = user.projects.find(p => p.id === user.currentProject);
+      if (currentProject?.uploadedFiles?.design?.url) {
+        hasDesign = true;
+        designUrl = currentProject.uploadedFiles.design.url;
+      }
+    }
+    
+    // Fallback to root-level design
+    if (!hasDesign && user.uploadedFiles?.design?.url) {
+      hasDesign = true;
+      designUrl = user.uploadedFiles.design.url;
+    }
+    
+    if (!hasDesign) {
       console.log('ERROR: No design uploaded');
       return res.status(400).json({
         status: 'error',
@@ -1740,7 +2202,7 @@ router.post('/save-composite-design', authenticateToken, [
       });
     }
     
-    console.log('Original design URL:', req.user.uploadedFiles.design.url);
+    console.log('Original design URL:', designUrl);
     
     // Convert base64 image to buffer
     let imageBuffer;
@@ -1770,9 +2232,9 @@ router.post('/save-composite-design', authenticateToken, [
       });
     }
     
-    // Check S3 connection
-    const s3Connected = await checkS3Connection();
-    if (!s3Connected) {
+    // Check Cloudinary connection
+    const cloudinaryConnected = await checkCloudinaryConnection();
+    if (!cloudinaryConnected) {
       return res.status(500).json({
         status: 'error',
         message: 'File storage service unavailable'
@@ -1781,12 +2243,8 @@ router.post('/save-composite-design', authenticateToken, [
     
     // Generate unique filename for composite design
     const timestamp = Date.now();
-    const compositeImageKey = `users/${req.user._id}/designs/composite-${timestamp}.png`;
     
-    console.log('Uploading to S3 with key:', compositeImageKey);
-    console.log('S3 Bucket:', process.env.AWS_S3_BUCKET);
-    
-    // Upload composite image to S3
+    // Upload composite image to Cloudinary
     const uploadResult = await uploadToCloudinaryBuffer(
       imageBuffer,
       req.user._id,
@@ -1797,20 +2255,6 @@ router.post('/save-composite-design', authenticateToken, [
     
     console.log('Cloudinary Upload result:', uploadResult);
     
-    // Delete old composite design if exists
-    if (req.user.uploadedFiles.compositeDesign?.url) {
-      try {
-        await deleteFromCloudinary(req.user.uploadedFiles.compositeDesign.filename);
-        console.log('Old composite design deleted from Cloudinary');
-      } catch (error) {
-        console.error('Failed to delete old composite design:', error);
-        // Continue with update even if old file deletion fails
-      }
-    }
-    
-    // Store old QR position for history
-    const oldQrPosition = req.user.qrPosition;
-    
     // Enforce minimums on QR position before saving
     const validatedQrPosition = {
       x: parseFloat(qrPosition.x),
@@ -1819,42 +2263,107 @@ router.post('/save-composite-design', authenticateToken, [
       height: Math.max(MIN_STICKER_HEIGHT, parseFloat(qrPosition.height))
     };
     
-    // Note: .mind target generation is handled client-side via /save-mind-target endpoint
-
-    // Update user with composite design, optional mind target and QR position
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user._id,
-      {
-        qrPosition: validatedQrPosition,
-        'uploadedFiles.compositeDesign': {
-          filename: uploadResult.key,
-          originalName: `composite-design-${timestamp}.png`,
-          url: uploadResult.url,
-          size: imageBuffer.length,
-          uploadedAt: new Date()
-        },
-      },
-      { new: true }
-    ).select('-password');
+    // Prepare composite design data
+    const compositeDesignData = {
+      filename: uploadResult.public_id,
+      originalName: `composite-design-${timestamp}.png`,
+      url: uploadResult.url,
+      size: imageBuffer.length,
+      uploadedAt: new Date()
+    };
     
-    // Log activity in history
-    await logQRPositionUpdate(
-      req.user._id, 
-      qrPosition, 
-      oldQrPosition,
-      {
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent'),
-        compositeImageSaved: true
+    // Update at project level if currentProject exists, otherwise root level
+    let updatedUser;
+    let projectIndex = -1;
+    
+    if (user.currentProject && user.projects) {
+      projectIndex = user.projects.findIndex(p => p.id === user.currentProject);
+      if (projectIndex !== -1) {
+        const project = user.projects[projectIndex];
+        
+        // Delete old composite design from project if exists
+        if (project.uploadedFiles?.compositeDesign?.url) {
+          try {
+            const oldPublicId = project.uploadedFiles.compositeDesign.filename || 
+                              extractCloudinaryPublicId(project.uploadedFiles.compositeDesign.url);
+            if (oldPublicId) {
+              await cloudinary.uploader.destroy(oldPublicId, { invalidate: true });
+              console.log('Old project composite design deleted from Cloudinary');
+            }
+          } catch (error) {
+            console.error('Failed to delete old project composite design:', error);
+            // Continue with update even if old file deletion fails
+          }
+        }
+        
+        // Update project-level composite design
+        const updateData = {
+          [`projects.${projectIndex}.uploadedFiles.compositeDesign`]: compositeDesignData,
+          [`projects.${projectIndex}.qrPosition`]: validatedQrPosition
+        };
+        
+        updatedUser = await User.findByIdAndUpdate(
+          req.user._id,
+          { $set: updateData },
+          { new: true }
+        ).select('-password');
+        
+        console.log('✅ Composite design saved to project level');
       }
-    );
+    }
+    
+    // Fallback to root level if no project
+    if (!updatedUser) {
+      // Delete old composite design if exists
+      if (user.uploadedFiles?.compositeDesign?.url) {
+        try {
+          const oldPublicId = user.uploadedFiles.compositeDesign.filename || 
+                            extractCloudinaryPublicId(user.uploadedFiles.compositeDesign.url);
+          if (oldPublicId) {
+            await cloudinary.uploader.destroy(oldPublicId, { invalidate: true });
+            console.log('Old composite design deleted from Cloudinary');
+          }
+        } catch (error) {
+          console.error('Failed to delete old composite design:', error);
+          // Continue with update even if old file deletion fails
+        }
+      }
+      
+      // Store old QR position for history
+      const oldQrPosition = user.qrPosition;
+      
+      // Update root-level composite design
+      updatedUser = await User.findByIdAndUpdate(
+        req.user._id,
+        {
+          qrPosition: validatedQrPosition,
+          'uploadedFiles.compositeDesign': compositeDesignData
+        },
+        { new: true }
+      ).select('-password');
+      
+      console.log('✅ Composite design saved to root level');
+    }
+    
+    // Get the composite design URL from the response
+    let compositeDesignUrl = null;
+    if (projectIndex !== -1 && updatedUser.projects[projectIndex]?.uploadedFiles?.compositeDesign) {
+      compositeDesignUrl = updatedUser.projects[projectIndex].uploadedFiles.compositeDesign.url;
+    } else if (updatedUser.uploadedFiles?.compositeDesign) {
+      compositeDesignUrl = updatedUser.uploadedFiles.compositeDesign.url;
+    }
     
     res.status(200).json({
       status: 'success',
       message: 'Composite design saved successfully',
       data: {
-        qrPosition: updatedUser.qrPosition,
-        compositeDesign: updatedUser.uploadedFiles.compositeDesign,
+        qrPosition: projectIndex !== -1 
+          ? updatedUser.projects[projectIndex]?.qrPosition 
+          : updatedUser.qrPosition,
+        compositeDesign: {
+          url: compositeDesignUrl,
+          ...compositeDesignData
+        },
         user: updatedUser.getPublicProfile()
       }
     });
@@ -2604,7 +3113,8 @@ router.delete('/project/:projectId', authenticateToken, async (req, res) => {
         if (!url) return null;
         
         // For Cloudinary URLs: https://res.cloudinary.com/cloud_name/image/upload/v1234567890/phygital-zone/users/userId/type/filename
-        // We need to extract the public_id: phygital-zone/users/userId/type/filename
+        // Or: https://res.cloudinary.com/cloud_name/raw/upload/v1234567890/phygital-zone/users/userId/type/filename.ext
+        // We need to extract the public_id: phygital-zone/users/userId/type/filename (without extension)
         if (url.includes('cloudinary.com')) {
           const urlParts = url.split('/');
           const uploadIndex = urlParts.findIndex(part => part === 'upload');
@@ -2612,15 +3122,31 @@ router.delete('/project/:projectId', authenticateToken, async (req, res) => {
             // Extract everything after 'upload/v1234567890/'
             let publicId = urlParts.slice(uploadIndex + 2).join('/');
             
-            // Remove file extension(s) - handle cases like 'file.png.png' or 'file.mind'
+            // Remove query parameters if any (e.g., ?v=123)
+            if (publicId.includes('?')) {
+              publicId = publicId.split('?')[0];
+            }
+            
+            // Remove file extension(s) - handle cases like 'file.png.png' or 'file.mind' or 'file.pdf'
             // Split by '.' and keep all parts except the last one
             const parts = publicId.split('.');
             if (parts.length > 1) {
               // Remove last extension
               publicId = parts.slice(0, -1).join('.');
-              // If it still ends with an extension, remove it again (for cases like .png.png)
-              if (publicId.endsWith('.png') || publicId.endsWith('.jpg') || publicId.endsWith('.jpeg')) {
-                publicId = publicId.split('.').slice(0, -1).join('.');
+              // If it still ends with a common image extension, remove it again (for cases like .png.png)
+              const commonImageExts = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'];
+              const commonDocExts = ['.pdf', '.doc', '.docx', '.txt', '.rtf', '.xls', '.xlsx', '.csv', '.ppt', '.pptx'];
+              const lastExt = '.' + parts[parts.length - 1].toLowerCase();
+              
+              if (commonImageExts.includes(lastExt) || commonDocExts.includes(lastExt)) {
+                // Check if there's another extension before this one
+                const remainingParts = publicId.split('.');
+                if (remainingParts.length > 1) {
+                  const secondLastExt = '.' + remainingParts[remainingParts.length - 1].toLowerCase();
+                  if (commonImageExts.includes(secondLastExt) || commonDocExts.includes(secondLastExt)) {
+                    publicId = remainingParts.slice(0, -1).join('.');
+                  }
+                }
               }
             }
             
@@ -2674,6 +3200,163 @@ router.delete('/project/:projectId', authenticateToken, async (req, res) => {
       }
     }
     
+    // Check for Phygitalized campaign files (document, pdf, video)
+    // These are stored in uploadedFiles.document, uploadedFiles.pdf, or uploadedFiles.video
+    if (project.uploadedFiles?.document?.url) {
+      const documentPublicId = extractCloudinaryPublicId(project.uploadedFiles.document.url);
+      if (documentPublicId) {
+        // Determine resource type based on file extension or URL
+        const url = project.uploadedFiles.document.url.toLowerCase();
+        const resourceType = url.includes('.pdf') ? 'raw' : (url.includes('video/') ? 'video' : 'raw');
+        filesToDelete.push({ publicId: documentPublicId, type: resourceType, name: 'document' });
+        console.log('📄 Phygitalized document file to delete:', documentPublicId);
+      }
+    }
+    
+    if (project.uploadedFiles?.pdf?.url) {
+      const pdfPublicId = extractCloudinaryPublicId(project.uploadedFiles.pdf.url);
+      if (pdfPublicId) {
+        filesToDelete.push({ publicId: pdfPublicId, type: 'raw', name: 'pdf' });
+        console.log('📄 Phygitalized PDF file to delete:', pdfPublicId);
+      }
+    }
+    
+    // Check for Phygitalized video files (stored in uploadedFiles.video for Phygitalized campaigns)
+    // Only add if it's from Phygitalized folder structure (not regular upload)
+    if (project.uploadedFiles?.video?.url) {
+      const videoUrl = project.uploadedFiles.video.url;
+      // Check if it's from Phygitalized folder structure
+      if (videoUrl.includes('Phygitalized/')) {
+        const videoPublicId = extractCloudinaryPublicId(videoUrl);
+        if (videoPublicId) {
+          filesToDelete.push({ publicId: videoPublicId, type: 'video', name: 'phygitalized-video' });
+          console.log('🎥 Phygitalized video file to delete:', videoPublicId);
+        }
+      }
+    }
+    
+    // Check for documents array (upload page documents)
+    if (project.uploadedFiles?.documents && Array.isArray(project.uploadedFiles.documents)) {
+      console.log(`📄 Found ${project.uploadedFiles.documents.length} document(s) in project`);
+      project.uploadedFiles.documents.forEach((doc, index) => {
+        const docUrl = typeof doc === 'string' ? doc : doc.url;
+        const docData = typeof doc === 'object' ? doc : null;
+        
+        console.log(`📄 Processing document ${index + 1}:`, {
+          url: docUrl,
+          hasUrl: !!docUrl,
+          resourceType: docData?.resource_type,
+          filename: docData?.filename,
+          originalName: docData?.originalName
+        });
+        
+        if (docUrl) {
+          const docPublicId = extractCloudinaryPublicId(docUrl);
+          console.log(`📄 Extracted public_id for document ${index + 1}:`, docPublicId);
+          
+          if (docPublicId) {
+            // Determine resource type based on document data or URL
+            let resourceType = 'raw'; // Default to raw for documents
+            if (docData?.resource_type) {
+              resourceType = docData.resource_type;
+            } else {
+              const urlLower = docUrl.toLowerCase();
+              if (urlLower.includes('image/') || urlLower.match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/)) {
+                resourceType = 'image';
+              } else if (urlLower.includes('.pdf') || urlLower.includes('application/pdf')) {
+                resourceType = 'raw';
+              } else {
+                resourceType = 'raw';
+              }
+            }
+            
+            filesToDelete.push({ 
+              publicId: docPublicId, 
+              type: resourceType, 
+              name: `document-${index + 1}`,
+              originalName: docData?.originalName || `document-${index + 1}`
+            });
+            console.log(`✅ Added document ${index + 1} to deletion queue:`, {
+              publicId: docPublicId,
+              type: resourceType,
+              name: docData?.originalName || `document-${index + 1}`
+            });
+          } else {
+            console.warn(`⚠️ Could not extract public_id from document ${index + 1} URL:`, docUrl);
+          }
+        } else {
+          console.warn(`⚠️ Document ${index + 1} has no URL`);
+        }
+      });
+    } else {
+      console.log('ℹ️ No documents array found in project.uploadedFiles');
+    }
+    
+    // Check for files in phygitalizedData (fileUrl, pdfUrl, videoUrl)
+    if (project.phygitalizedData) {
+      // Check fileUrl (for qr-links-video campaigns)
+      if (project.phygitalizedData.fileUrl) {
+        const filePublicId = extractCloudinaryPublicId(project.phygitalizedData.fileUrl);
+        if (filePublicId) {
+          const fileType = project.phygitalizedData.fileType || 'raw';
+          const resourceType = fileType === 'video' ? 'video' : (fileType === 'document' ? 'raw' : 'raw');
+          filesToDelete.push({ publicId: filePublicId, type: resourceType, name: 'phygitalized-file' });
+          console.log('📄 Phygitalized fileUrl to delete:', filePublicId);
+        }
+      }
+      
+      // Check pdfUrl (for qr-links-pdf-video campaigns)
+      if (project.phygitalizedData.pdfUrl) {
+        const pdfPublicId = extractCloudinaryPublicId(project.phygitalizedData.pdfUrl);
+        if (pdfPublicId) {
+          filesToDelete.push({ publicId: pdfPublicId, type: 'raw', name: 'phygitalized-pdf' });
+          console.log('📄 Phygitalized pdfUrl to delete:', pdfPublicId);
+        }
+      }
+      
+      // Check videoUrl (for qr-links-pdf-video and qr-links-ar-video campaigns)
+      if (project.phygitalizedData.videoUrl) {
+        const videoPublicId = extractCloudinaryPublicId(project.phygitalizedData.videoUrl);
+        if (videoPublicId) {
+          filesToDelete.push({ publicId: videoPublicId, type: 'video', name: 'phygitalized-video-url' });
+          console.log('🎥 Phygitalized videoUrl to delete:', videoPublicId);
+        }
+      }
+      
+      // Check documentUrls array (for qr-links-ar-video campaigns with multiple documents)
+      if (project.phygitalizedData.documentUrls && Array.isArray(project.phygitalizedData.documentUrls)) {
+        project.phygitalizedData.documentUrls.forEach((docUrl, index) => {
+          if (docUrl) {
+            const docPublicId = extractCloudinaryPublicId(docUrl);
+            if (docPublicId) {
+              // Determine resource type based on URL
+              const url = docUrl.toLowerCase();
+              const resourceType = url.includes('.pdf') ? 'raw' : (url.includes('video/') ? 'video' : (url.match(/\.(jpg|jpeg|png|gif|webp)$/) ? 'image' : 'raw'));
+              filesToDelete.push({ publicId: docPublicId, type: resourceType, name: `phygitalized-document-${index}` });
+              console.log(`📄 Phygitalized document ${index + 1} to delete:`, docPublicId);
+            }
+          }
+        });
+      }
+      
+      // Check designUrl and compositeDesignUrl (for qr-links-ar-video campaigns)
+      if (project.phygitalizedData.designUrl) {
+        const designPublicId = extractCloudinaryPublicId(project.phygitalizedData.designUrl);
+        if (designPublicId) {
+          filesToDelete.push({ publicId: designPublicId, type: 'image', name: 'phygitalized-design' });
+          console.log('🖼️ Phygitalized designUrl to delete:', designPublicId);
+        }
+      }
+      
+      if (project.phygitalizedData.compositeDesignUrl) {
+        const compositePublicId = extractCloudinaryPublicId(project.phygitalizedData.compositeDesignUrl);
+        if (compositePublicId) {
+          filesToDelete.push({ publicId: compositePublicId, type: 'image', name: 'phygitalized-composite-design' });
+          console.log('🖼️ Phygitalized compositeDesignUrl to delete:', compositePublicId);
+        }
+      }
+    }
+    
     // Fallback: Check root-level files if project files not found (backward compatibility)
     if (filesToDelete.length === 0) {
       console.log('⚠️ No files found in project, checking root-level files...');
@@ -2719,9 +3402,9 @@ router.delete('/project/:projectId', authenticateToken, async (req, res) => {
     };
     
     for (const fileInfo of filesToDelete) {
-      const { publicId, type, name } = fileInfo;
+      const { publicId, type, name, originalName } = fileInfo;
       try {
-        console.log(`🗑️ Deleting ${name} (${type}): ${publicId}`);
+        console.log(`🗑️ Deleting ${name} (${type}): ${publicId}${originalName ? ` (${originalName})` : ''}`);
         
         // Use Cloudinary's destroy method with correct resource_type
         const cloudinary = require('cloudinary').v2;
@@ -2732,6 +3415,8 @@ router.delete('/project/:projectId', authenticateToken, async (req, res) => {
           invalidate: true
         });
         
+        console.log(`📊 Delete result for ${name}:`, deleteResult);
+        
         // If not found, try searching the folder to find the actual file
         if (deleteResult.result === 'not found') {
           console.log(`⚠️ Not found with public_id: ${publicId}, searching folder...`);
@@ -2739,22 +3424,29 @@ router.delete('/project/:projectId', authenticateToken, async (req, res) => {
           try {
             // Extract folder path from public_id
             const folderPath = publicId.split('/').slice(0, -1).join('/');
+            const baseName = publicId.split('/').pop();
+            
+            console.log(`🔍 Searching folder: ${folderPath} for file: ${baseName}`);
             
             // Search for files in that folder
             const searchResult = await cloudinary.api.resources({
               type: 'upload',
               prefix: folderPath,
               resource_type: type,
-              max_results: 10
+              max_results: 100 // Increased to find more files
             });
             
-            // Find file that matches the base name
-            const baseName = publicId.split('/').pop();
-            const matchingFile = searchResult.resources?.find(r => 
-              r.public_id === publicId || 
-              r.public_id.startsWith(publicId) ||
-              r.public_id.includes(baseName)
-            );
+            console.log(`📦 Found ${searchResult.resources?.length || 0} file(s) in folder`);
+            
+            // Find file that matches the base name (with or without extension)
+            const matchingFile = searchResult.resources?.find(r => {
+              const rBaseName = r.public_id.split('/').pop();
+              return r.public_id === publicId || 
+                     r.public_id.startsWith(publicId) ||
+                     rBaseName === baseName ||
+                     rBaseName.startsWith(baseName) ||
+                     rBaseName.includes(baseName.split('.')[0]); // Match without extension
+            });
             
             if (matchingFile) {
               console.log(`✅ Found file with actual public_id: ${matchingFile.public_id}`);
@@ -2763,32 +3455,203 @@ router.delete('/project/:projectId', authenticateToken, async (req, res) => {
                 resource_type: type,
                 invalidate: true
               });
+              console.log(`📊 Delete result with actual public_id:`, deleteResult);
+            } else {
+              console.warn(`⚠️ Could not find matching file in folder for: ${baseName}`);
+              // List all files found for debugging
+              if (searchResult.resources && searchResult.resources.length > 0) {
+                console.log(`📋 Files found in folder:`, searchResult.resources.map(r => r.public_id));
+              }
             }
           } catch (searchError) {
-            console.log(`⚠️ Could not search folder: ${searchError.message}`);
+            console.error(`❌ Could not search folder:`, searchError.message);
+            console.error(`❌ Search error details:`, searchError);
           }
         }
         
         if (deleteResult.result === 'ok' || deleteResult.result === 'not found') {
-          console.log(`✅ Successfully deleted ${name} from Cloudinary:`, deleteResult);
-          cloudinaryDeletionResults.successful.push({ publicId, name, type });
+          const status = deleteResult.result === 'ok' ? 'deleted' : 'not found (may already be deleted)';
+          console.log(`✅ ${status} ${name} from Cloudinary`);
+          cloudinaryDeletionResults.successful.push({ publicId, name, type, originalName });
         } else {
           console.warn(`⚠️ Unexpected result when deleting ${name}:`, deleteResult);
-          cloudinaryDeletionResults.failed.push({ publicId, name, type, error: `Unexpected result: ${deleteResult.result}` });
+          cloudinaryDeletionResults.failed.push({ 
+            publicId, 
+            name, 
+            type, 
+            originalName,
+            error: `Unexpected result: ${deleteResult.result}`,
+            details: deleteResult
+          });
         }
       } catch (error) {
         console.error(`❌ Failed to delete ${name} from Cloudinary:`, error.message);
-        cloudinaryDeletionResults.failed.push({ publicId, name, type, error: error.message });
+        console.error(`❌ Error details:`, {
+          message: error.message,
+          stack: error.stack,
+          publicId,
+          type,
+          name,
+          originalName
+        });
+        cloudinaryDeletionResults.failed.push({ 
+          publicId, 
+          name, 
+          type, 
+          originalName,
+          error: error.message,
+          errorDetails: error.stack
+        });
         // Continue with deletion even if Cloudinary deletion fails
       }
     }
     
+    // Delete entire Phygitalized folder for this project if it's a Phygitalized campaign
+    if (project.campaignType && project.campaignType.startsWith('qr-')) {
+      console.log(`🗑️ Deleting Phygitalized folder for campaign: ${project.campaignType}`);
+      try {
+        // Construct the folder path: Phygitalized/{variation}/{userId}/{projectId}
+        // Use the same variation mapping as in uploadToPhygitalizedCloudinary
+        const variationMap = {
+          'qr-link': 'QR-Link',
+          'qr-links': 'QR-Links',
+          'qr-links-video': 'QR-Links-Video',
+          'qr-links-pdf-video': 'QR-Links-PDF/Link-Video',
+          'qr-links-ar-video': 'QR-Links-AR Video'
+        };
+        const variation = variationMap[project.campaignType] || project.campaignType;
+        // Sanitize variation name (replace / with - for folder path, same as in uploadToPhygitalizedCloudinary)
+        const sanitizedVariation = variation.replace(/\//g, '-');
+        // Use user._id.toString() to match the folder structure used in uploads
+        const userIdString = user._id.toString();
+        const folderPrefix = `Phygitalized/${sanitizedVariation}/${userIdString}/${projectId}`;
+        
+        console.log(`🗑️ Deleting all files in Phygitalized folder: ${folderPrefix}`);
+        
+        const cloudinary = require('cloudinary').v2;
+        
+        // Delete all resources (images, videos, raw files) in the folder
+        const resourceTypes = ['image', 'video', 'raw'];
+        let totalDeleted = 0;
+        
+        for (const resourceType of resourceTypes) {
+          try {
+            // Search for all resources with this prefix
+            const searchResult = await cloudinary.api.resources({
+              type: 'upload',
+              prefix: folderPrefix,
+              resource_type: resourceType,
+              max_results: 500 // Maximum allowed
+            });
+            
+            if (searchResult.resources && searchResult.resources.length > 0) {
+              console.log(`📦 Found ${searchResult.resources.length} ${resourceType} file(s) in folder`);
+              
+              // Extract public_ids
+              const publicIds = searchResult.resources.map(r => r.public_id);
+              
+              // Delete in batches (Cloudinary allows up to 100 at a time)
+              const batchSize = 100;
+              for (let i = 0; i < publicIds.length; i += batchSize) {
+                const batch = publicIds.slice(i, i + batchSize);
+                try {
+                  const deleteResult = await cloudinary.api.delete_resources(batch, {
+                    resource_type: resourceType,
+                    invalidate: true
+                  });
+                  
+                  const deletedCount = deleteResult.deleted ? Object.keys(deleteResult.deleted).length : 0;
+                  totalDeleted += deletedCount;
+                  console.log(`✅ Deleted ${deletedCount} ${resourceType} file(s) from folder`);
+                  
+                  if (deleteResult.not_found && deleteResult.not_found.length > 0) {
+                    console.log(`⚠️ ${deleteResult.not_found.length} file(s) not found (may have been deleted already)`);
+                  }
+                } catch (batchError) {
+                  console.error(`❌ Error deleting batch of ${resourceType} files:`, batchError.message);
+                }
+              }
+            }
+          } catch (searchError) {
+            console.log(`⚠️ Could not search for ${resourceType} files in folder: ${searchError.message}`);
+          }
+        }
+        
+        if (totalDeleted > 0) {
+          console.log(`✅ Successfully deleted ${totalDeleted} file(s) from Phygitalized folder`);
+        } else {
+          console.log(`ℹ️ No files found in Phygitalized folder (may have been deleted already or folder doesn't exist)`);
+        }
+      } catch (folderDeleteError) {
+        console.error(`❌ Error deleting Phygitalized folder:`, folderDeleteError.message);
+        // Continue with project deletion even if folder deletion fails
+      }
+    }
+    
+    // Delete all analytics data for this project
+    console.log(`📊 Deleting analytics data for project: ${project.id}`);
+    let analyticsDeletedCount = 0;
+    try {
+      const analyticsDeleteResult = await Analytics.deleteMany({
+        userId: userId,
+        projectId: project.id
+      });
+      analyticsDeletedCount = analyticsDeleteResult.deletedCount;
+      console.log(`✅ Deleted ${analyticsDeletedCount} analytics records for project ${project.id}`);
+    } catch (analyticsError) {
+      console.error('⚠️ Error deleting analytics data:', analyticsError);
+      // Continue with project deletion even if analytics deletion fails
+    }
+    
+    // Delete AR Experience records associated with this project's mindTarget file
+    console.log(`🎯 Deleting AR Experience records for project: ${project.id}`);
+    let arExperienceDeletedCount = 0;
+    try {
+      // Match AR experiences by the mindFileUrl (mindTarget URL) from the project
+      const mindTargetUrl = project.uploadedFiles?.mindTarget?.url;
+      if (mindTargetUrl) {
+        const arExperienceDeleteResult = await ARExperience.deleteMany({
+          mindFileUrl: mindTargetUrl
+        });
+        arExperienceDeletedCount = arExperienceDeleteResult.deletedCount;
+        console.log(`✅ Deleted ${arExperienceDeletedCount} AR Experience records for project ${project.id}`);
+      } else {
+        console.log(`ℹ️ No mindTarget URL found for project ${project.id}, skipping AR Experience deletion`);
+      }
+    } catch (arError) {
+      console.error('⚠️ Error deleting AR Experience records:', arError);
+      // Continue with project deletion even if AR Experience deletion fails
+    }
+    
+    // Log what will be deleted from the project object
+    console.log(`🗑️ Deleting project data:`, {
+      projectId: project.id,
+      projectName: project.name,
+      campaignType: project.campaignType,
+      hasDesign: !!project.uploadedFiles?.design?.url,
+      hasVideo: !!project.uploadedFiles?.video?.url,
+      hasCompositeDesign: !!project.uploadedFiles?.compositeDesign?.url,
+      hasMindTarget: !!project.uploadedFiles?.mindTarget?.url,
+      documentsCount: project.uploadedFiles?.documents?.length || 0,
+      hasSocialLinks: !!(project.socialLinks && Object.values(project.socialLinks).some(link => link)),
+      socialLinks: project.socialLinks,
+      hasPhygitalizedData: !!project.phygitalizedData,
+      phygitalizedDataKeys: project.phygitalizedData ? Object.keys(project.phygitalizedData) : []
+    });
+    
     // Remove project from user's projects array
+    // This automatically removes all project data including:
+    // - uploadedFiles (design, video, compositeDesign, mindTarget, documents)
+    // - socialLinks
+    // - phygitalizedData
+    // - qrPosition
+    // - All other project properties
     user.projects.splice(projectIndex, 1);
     
     // If this was the current project, clear it
     if (user.currentProject === projectId) {
       user.currentProject = null;
+      console.log(`✅ Cleared currentProject reference (was: ${projectId})`);
     }
     
     // Clear uploaded files and QR position if this was the only project
@@ -2816,9 +3679,28 @@ router.delete('/project/:projectId', authenticateToken, async (req, res) => {
     });
     
     // Prepare response message based on deletion results
-    let responseMessage = 'Project deleted successfully';
+    let responseMessage = 'Campaign deleted successfully. All associated data has been removed:';
+    const deletedItems = [];
+    
+    // Count what was deleted
+    if (filesToDelete.length > 0) {
+      deletedItems.push(`${filesToDelete.length} file(s) from Cloudinary`);
+    }
+    if (analyticsDeletedCount > 0) {
+      deletedItems.push(`${analyticsDeletedCount} analytics record(s)`);
+    }
+    if (arExperienceDeletedCount > 0) {
+      deletedItems.push(`${arExperienceDeletedCount} AR experience record(s)`);
+    }
+    
+    // Always mention these are deleted (they're part of the project object)
+    deletedItems.push('original image, composite image, video, documents, and social links');
+    deletedItems.push('project data from MongoDB');
+    
+    responseMessage += ' ' + deletedItems.join(', ') + '.';
+    
     if (cloudinaryDeletionResults.failed.length > 0) {
-      responseMessage += ` (${cloudinaryDeletionResults.successful.length}/${filesToDelete.length} files deleted from Cloudinary)`;
+      responseMessage += ` (${cloudinaryDeletionResults.successful.length}/${filesToDelete.length} files successfully deleted from Cloudinary)`;
     }
 
     res.json({
@@ -2830,6 +3712,8 @@ router.delete('/project/:projectId', authenticateToken, async (req, res) => {
           name: project.name
         },
         deletedFiles: filesToDelete.length,
+        deletedAnalytics: analyticsDeletedCount,
+        deletedARExperiences: arExperienceDeletedCount,
         cloudinaryDeletion: {
           successful: cloudinaryDeletionResults.successful.length,
           failed: cloudinaryDeletionResults.failed.length,

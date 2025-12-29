@@ -9,7 +9,6 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
   Home, 
-  Upload, 
   BarChart3, 
   User, 
   LogOut,
@@ -20,7 +19,10 @@ import {
   X,
   ChevronDown,
   Sparkles,
-  QrCode
+  QrCode,
+  AlertCircle,
+  Plus,
+  Palette
 } from 'lucide-react';
 import ProfessionalButton from '../UI/ProfessionalButton';
 import Logo from '../UI/Logo';
@@ -30,7 +32,10 @@ const ProfessionalNav = () => {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isPhygitalizedMenuOpen, setIsPhygitalizedMenuOpen] = useState(false);
+  const [isMobilePhygitalizedOpen, setIsMobilePhygitalizedOpen] = useState(false);
   const userMenuRef = useRef(null);
+  const phygitalizedMenuRef = useRef(null);
 
   const navigation = [
     { name: 'AI Video', href: '/ai-video', icon: Sparkles, public: true, showBoth: true, isNew: true },
@@ -38,9 +43,21 @@ const ProfessionalNav = () => {
     { name: 'About', href: '/about', icon: Info, public: true },
     { name: 'Contact', href: '/contact', icon: Mail, public: true },
     { name: 'Dashboard', href: '/dashboard', icon: BarChart3, authOnly: true },
-    { name: 'Upload', href: '/upload', icon: Upload, authOnly: true },
+    { 
+      name: 'Phygitalized', 
+      icon: Plus, 
+      authOnly: true, 
+      hasSubmenu: true,
+      submenu: [
+        { name: 'QR-Link', href: '/phygitalized/qr-link' },
+        { name: 'QR-Links', href: '/phygitalized/qr-links' },
+        { name: 'QR-Links-Video', href: '/phygitalized/qr-links-video' },
+        { name: 'QR-Links-PDF/Link-Video', href: '/phygitalized/qr-links-pdf-video' },
+        { name: 'QR-Links-AR Video', href: '/upload' }
+      ]
+    },
     { name: 'Campaigns', href: '/projects', icon: FolderKanban, authOnly: true },
-    { name: 'QR Designs', href: '/qr-designs', icon: QrCode, authOnly: true },
+    { name: 'Templates', href: '/templates', icon: Palette, authOnly: true },
     { name: 'Analytics', href: '/analytics', icon: BarChart3, authOnly: true },
     { name: 'Profile', href: '/profile', icon: User, authOnly: true },
   ];
@@ -75,16 +92,19 @@ const ProfessionalNav = () => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setIsUserMenuOpen(false);
       }
+      if (phygitalizedMenuRef.current && !phygitalizedMenuRef.current.contains(event.target)) {
+        setIsPhygitalizedMenuOpen(false);
+      }
     };
 
-    if (isUserMenuOpen) {
+    if (isUserMenuOpen || isPhygitalizedMenuOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isUserMenuOpen]);
+  }, [isUserMenuOpen, isPhygitalizedMenuOpen]);
 
   return (
     <nav className="bg-slate-900/95 backdrop-blur-sm shadow-dark-large border-b border-slate-700/50 sticky top-0 z-40">
@@ -99,7 +119,51 @@ const ProfessionalNav = () => {
           <div className="hidden md:flex items-center space-x-1">
             {filteredNavigation.map((item) => {
               const Icon = item.icon;
-              const active = isActive(item.href);
+              const active = item.href ? isActive(item.href) : false;
+              
+              // Handle dropdown menu items
+              if (item.hasSubmenu) {
+                const isSubmenuActive = item.submenu?.some(subItem => isActive(subItem.href));
+                return (
+                  <div key={item.name} className="relative" ref={phygitalizedMenuRef}>
+                    <button
+                      onClick={() => setIsPhygitalizedMenuOpen(!isPhygitalizedMenuOpen)}
+                      className={`
+                        flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors relative
+                        ${isSubmenuActive || isPhygitalizedMenuOpen
+                          ? 'bg-primary-600/20 text-primary-400 border-b-2 border-primary-500' 
+                          : 'text-slate-300 hover:text-slate-100 hover:bg-slate-800/50'
+                        }
+                      `}
+                    >
+                      <Icon className="w-4 h-4 mr-2" />
+                      {item.name}
+                      <ChevronDown className={`w-4 h-4 ml-1 transition-transform duration-200 ${isPhygitalizedMenuOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    
+                    {isPhygitalizedMenuOpen && (
+                      <div className="absolute top-full left-0 mt-1 w-56 bg-slate-800/95 backdrop-blur-sm rounded-md shadow-dark-large border border-slate-700/50 py-1 z-50">
+                        {item.submenu.map((subItem) => (
+                          <Link
+                            key={subItem.name}
+                            to={subItem.href}
+                            onClick={() => setIsPhygitalizedMenuOpen(false)}
+                            className={`
+                              flex items-center px-4 py-2 text-sm transition-colors
+                              ${isActive(subItem.href)
+                                ? 'bg-primary-600/20 text-primary-400' 
+                                : 'text-slate-300 hover:bg-slate-700/50 hover:text-slate-100'
+                              }
+                            `}
+                          >
+                            {subItem.name}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
               
               return (
                 <Link
@@ -117,8 +181,8 @@ const ProfessionalNav = () => {
                   <Icon className={`w-4 h-4 mr-2 ${item.isNew ? 'animate-pulse' : ''}`} />
                   {item.name}
                   {item.isNew && (
-                    <span className="absolute -top-1 -right-1 px-1.5 py-0.5 text-[10px] font-bold bg-gradient-to-r from-neon-pink to-neon-orange text-white rounded-full animate-pulse">
-                      NEW
+                    <span className="ml-1.5 flex-shrink-0 z-10">
+                      <AlertCircle className="w-3.5 h-3.5 text-neon-orange animate-pulse" style={{ color: '#fb923c' }} />
                     </span>
                   )}
                 </Link>
@@ -205,7 +269,57 @@ const ProfessionalNav = () => {
             <div className="px-2 pt-2 pb-3 space-y-1">
               {filteredNavigation.map((item) => {
                 const Icon = item.icon;
-                const active = isActive(item.href);
+                const active = item.href ? isActive(item.href) : false;
+                
+                // Handle dropdown menu items in mobile
+                if (item.hasSubmenu) {
+                  const isSubmenuActive = item.submenu?.some(subItem => isActive(subItem.href));
+                  
+                  return (
+                    <div key={item.name}>
+                      <button
+                        onClick={() => setIsMobilePhygitalizedOpen(!isMobilePhygitalizedOpen)}
+                        className={`
+                          w-full flex items-center justify-between px-3 py-2 rounded-md text-base font-medium relative
+                          ${isSubmenuActive || isMobilePhygitalizedOpen
+                            ? 'bg-primary-600/20 text-primary-400' 
+                            : 'text-slate-300 hover:text-slate-100 hover:bg-slate-800/50'
+                          }
+                        `}
+                      >
+                        <div className="flex items-center">
+                          <Icon className="w-5 h-5 mr-3" />
+                          {item.name}
+                        </div>
+                        <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isMobilePhygitalizedOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                      
+                      {isMobilePhygitalizedOpen && (
+                        <div className="pl-8 space-y-1 mt-1">
+                          {item.submenu.map((subItem) => (
+                            <Link
+                              key={subItem.name}
+                              to={subItem.href}
+                              onClick={() => {
+                                setIsMobileMenuOpen(false);
+                                setIsMobilePhygitalizedOpen(false);
+                              }}
+                              className={`
+                                flex items-center px-3 py-2 rounded-md text-sm font-medium
+                                ${isActive(subItem.href)
+                                  ? 'bg-primary-600/20 text-primary-400' 
+                                  : 'text-slate-300 hover:text-slate-100 hover:bg-slate-800/50'
+                                }
+                              `}
+                            >
+                              {subItem.name}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
                 
                 return (
                   <Link
@@ -224,8 +338,8 @@ const ProfessionalNav = () => {
                     <Icon className={`w-5 h-5 mr-3 ${item.isNew ? 'animate-pulse' : ''}`} />
                     {item.name}
                     {item.isNew && (
-                      <span className="ml-2 px-2 py-0.5 text-[10px] font-bold bg-gradient-to-r from-neon-pink to-neon-orange text-white rounded-full animate-pulse">
-                        NEW
+                      <span className="ml-2 flex-shrink-0">
+                        <AlertCircle className="w-4 h-4 text-neon-orange animate-pulse" style={{ color: '#fb923c' }} />
                       </span>
                     )}
                   </Link>

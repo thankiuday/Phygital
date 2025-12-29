@@ -4,7 +4,7 @@
  * High-quality emotional design focused on the Phygital Movement
  */
 
-import React from 'react'
+import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { 
@@ -24,11 +24,14 @@ import {
   Quote,
   Check,
   Globe,
-  Lightbulb
+  Lightbulb,
+  X
 } from 'lucide-react'
 
 const HomePage = () => {
   const { isAuthenticated } = useAuth()
+  const [selectedAudience, setSelectedAudience] = useState(null)
+  const [selectedTestimonial, setSelectedTestimonial] = useState(null)
 
   // What You Can Do - 4 highlight cards
   const capabilities = [
@@ -129,22 +132,22 @@ const HomePage = () => {
   // Testimonials - 3 emotional user stories
   const testimonials = [
     {
-      quote: "Our posters no longer just hang on walls — they talk to people.",
+      quote: "I was skeptical at first, honestly. But when we added QR codes to our product packaging and people could actually watch behind-the-scenes videos? Game changer. Our customers keep coming back because they feel connected to our brand in a way that wasn't possible before.",
       author: "Sarah Mitchell",
-      role: "Creative Director",
-      impact: "150% increase in engagement"
+      role: "Marketing Director, GreenLeaf Organics",
+      impact: "3x return on campaign investment"
     },
     {
-      quote: "It's not just technology. It's a bridge between what we create and what people feel.",
+      quote: "As an artist, I've always struggled with showing the full story behind my work. With Phygital, I can attach videos of my creative process to my physical pieces. People at my last gallery opening spent way more time engaging with each piece. It's like my art finally has a voice.",
       author: "Marcus Chen",
-      role: "Independent Artist",
-      impact: "Sold out exhibition"
+      role: "Visual Artist",
+      impact: "40% longer gallery visit times"
     },
     {
-      quote: "Our students' projects now have a voice that reaches beyond the classroom.",
+      quote: "My students used to just turn in static portfolios. Now they create these amazing interactive experiences where you scan a QR code and see their entire project journey - sketches, iterations, final work. It's transformed how they present themselves. Several have landed internships because of it.",
       author: "Dr. Emily Rodriguez",
-      role: "University Professor",
-      impact: "Award-winning portfolios"
+      role: "Design Professor, State University",
+      impact: "85% of students got internship offers"
     }
   ]
 
@@ -167,37 +170,10 @@ const HomePage = () => {
             </span>
           </div>
           
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-slate-100 mb-6 leading-tight">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-slate-100 mb-12 leading-tight">
             Where <span className="text-gradient bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink bg-clip-text text-transparent">Physical World</span><br />
             Meets <span className="text-gradient bg-gradient-to-r from-neon-pink via-neon-orange to-neon-yellow bg-clip-text text-transparent">Digital Storytelling</span>
           </h1>
-          
-          {/* Animated Tagline */}
-          <div className="mb-8 relative inline-block max-w-full px-2">
-            <div className="absolute inset-0 bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink blur-xl opacity-50 animate-pulse"></div>
-            <div className="relative px-4 sm:px-6 md:px-8 py-3 sm:py-4 bg-gradient-to-r from-slate-800/90 via-slate-900/90 to-slate-800/90 backdrop-blur-sm border-2 border-transparent rounded-xl sm:rounded-2xl overflow-hidden group hover:scale-105 transition-all duration-500">
-              {/* Animated Border Gradient */}
-              <div className="absolute inset-0 bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10"></div>
-              <div className="absolute inset-0.5 bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 rounded-2xl -z-10"></div>
-              
-              {/* Sliding Shine Effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-              
-              <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold relative whitespace-nowrap">
-                <span className="inline-block animate-fade-in-up text-gradient bg-gradient-to-r from-neon-blue to-neon-cyan bg-clip-text text-transparent">
-                  Your Vision
-                </span>
-                <span className="mx-2 sm:mx-3 text-slate-400 animate-pulse">•</span>
-                <span className="inline-block animate-fade-in-up text-gradient bg-gradient-to-r from-neon-purple to-neon-pink bg-clip-text text-transparent" style={{ animationDelay: '0.2s' }}>
-                  Our Innovation
-                </span>
-              </h2>
-            </div>
-          </div>
-          
-          <p className="text-xl sm:text-2xl text-slate-300 mb-12 max-w-4xl mx-auto leading-relaxed">
-            Phygital Zone helps you turn your designs, products, and ideas into <span className="text-neon-blue font-semibold">interactive experiences</span> that connect people emotionally.
-          </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             {isAuthenticated ? (
@@ -233,7 +209,7 @@ const HomePage = () => {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="mb-8">
             <div className="inline-block p-4 bg-gradient-to-br from-neon-blue/10 to-neon-purple/10 rounded-2xl">
-              <Heart className="w-12 h-12 text-neon-pink" />
+              <Heart className="w-12 h-12 text-neon-purple" />
             </div>
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-100 mb-6">
@@ -243,7 +219,7 @@ const HomePage = () => {
             We live in two worlds — one <span className="text-neon-blue font-semibold">physical</span>, one <span className="text-neon-purple font-semibold">digital</span>. 
           </p>
           <p className="text-xl text-slate-300 leading-relaxed">
-            <span className="text-gradient bg-gradient-to-r from-neon-blue to-neon-purple bg-clip-text text-transparent font-semibold">Phygital Zone</span> brings them together so every design, card, or product can <span className="text-neon-pink font-semibold">tell a story</span> that moves, speaks, and connects.
+            <span className="text-gradient bg-gradient-to-r from-neon-blue to-neon-purple bg-clip-text text-transparent font-semibold">Phygital Zone</span> brings them together so every design, card, or product can <span className="text-slate-300 font-semibold">tell a story</span> that moves, speaks, and connects.
           </p>
         </div>
       </section>
@@ -266,13 +242,13 @@ const HomePage = () => {
               return (
                 <div
                   key={index}
-                  className="group relative p-8 bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 hover:border-neon-blue/50 transition-all duration-500 hover:scale-105 hover:shadow-glow-blue"
+                  className="relative p-8 bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700/50"
                 >
-                  <div className={`absolute inset-0 bg-gradient-to-br ${capability.gradient} opacity-0 group-hover:opacity-10 rounded-2xl transition-opacity duration-500`}></div>
+                  <div className={`absolute inset-0 bg-gradient-to-br ${capability.gradient} opacity-5 rounded-2xl`}></div>
                   
                   <div className="relative z-10">
-                    <div className="mb-6 inline-flex p-4 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl group-hover:shadow-glow transition-all duration-300">
-                      <Icon className={`w-8 h-8 text-neon-blue group-hover:scale-110 transition-transform duration-300`} />
+                    <div className="mb-6 inline-flex p-4 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl">
+                      <Icon className="w-8 h-8 text-neon-blue" />
                     </div>
                     <h3 className="text-xl font-bold text-slate-100 mb-3">
                       {capability.title}
@@ -332,7 +308,7 @@ const HomePage = () => {
       </section>
 
       {/* 5. Who It's For - 4 Audience Blocks */}
-      <section className="py-20 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <section className="py-20 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-100 mb-4">
@@ -343,37 +319,108 @@ const HomePage = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="flex flex-col md:flex-row gap-6">
             {audiences.map((audience, index) => {
               const Icon = audience.icon
+              const isSelected = selectedAudience === index
               return (
                 <div
                   key={index}
-                  className={`relative p-8 bg-gradient-to-br ${audience.gradient} backdrop-blur-sm rounded-2xl border border-slate-700/50 hover:scale-105 transition-all duration-500 overflow-hidden group`}
+                  onClick={() => setSelectedAudience(isSelected ? null : index)}
+                  className={`relative flex-1 min-w-0 p-6 bg-gradient-to-br ${audience.gradient} backdrop-blur-sm rounded-2xl border border-slate-700/50 overflow-hidden cursor-pointer transition-all duration-300 ${
+                    isSelected ? 'ring-2 ring-neon-blue shadow-glow-blue' : 'hover:border-neon-blue/50'
+                  }`}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-br from-neon-blue/5 to-neon-purple/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                  <div className="absolute inset-0 bg-gradient-to-br from-neon-blue/5 to-neon-purple/5 opacity-50"></div>
                   
-                  <div className="relative z-10 flex items-start gap-6">
-                    <div className={`flex-shrink-0 p-4 bg-slate-800/50 rounded-xl border border-${audience.iconColor}/30 group-hover:border-${audience.iconColor} group-hover:shadow-glow transition-all duration-300`}>
+                  <div className="relative z-10 flex flex-col items-center text-center">
+                    <div className={`mb-4 p-4 bg-slate-800/50 rounded-xl border border-${audience.iconColor}/30`}>
                       <Icon className={`w-8 h-8 text-${audience.iconColor}`} />
                     </div>
-                    <div className="flex-1">
-                      <h3 className="text-2xl font-bold text-slate-100 mb-2">
-                        {audience.title}
-                      </h3>
-                      <p className={`text-lg text-${audience.iconColor} font-semibold mb-3`}>
-                        {audience.value}
-                      </p>
-                      <p className="text-slate-400">
-                        {audience.description}
-                      </p>
-                    </div>
+                    <h3 className="text-xl font-bold text-slate-100 mb-2">
+                      {audience.title}
+                    </h3>
+                    <p className={`text-base text-${audience.iconColor} font-semibold mb-3`}>
+                      {audience.value}
+                    </p>
+                    <p className="text-sm text-slate-400">
+                      {audience.description}
+                    </p>
                   </div>
                 </div>
               )
             })}
           </div>
         </div>
+
+        {/* Side Panel for Detailed Description */}
+        {selectedAudience !== null && (
+          <>
+            {/* Backdrop */}
+            <div 
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden animate-fade-in"
+              onClick={() => setSelectedAudience(null)}
+            />
+            
+            {/* Side Panel */}
+            <div className="fixed top-0 right-0 h-full w-full md:w-96 bg-slate-900/95 backdrop-blur-md border-l border-slate-700/50 shadow-dark-large z-50 animate-slide-in-right">
+              <div className="h-full overflow-y-auto p-6 md:p-8">
+                {/* Close Button */}
+                <button
+                  onClick={() => setSelectedAudience(null)}
+                  className="absolute top-4 right-4 p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 hover:text-slate-100 transition-colors z-10"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                {/* Content */}
+                {selectedAudience !== null && (() => {
+                  const audience = audiences[selectedAudience]
+                  const Icon = audience.icon
+                  return (
+                    <div className="animate-fade-in-up">
+                      <div className={`mb-6 inline-flex p-4 bg-gradient-to-br ${audience.gradient} rounded-xl border border-${audience.iconColor}/30`}>
+                        <Icon className={`w-10 h-10 text-${audience.iconColor}`} />
+                      </div>
+                      
+                      <h2 className="text-3xl font-bold text-slate-100 mb-4">
+                        {audience.title}
+                      </h2>
+                      
+                      <p className={`text-xl text-${audience.iconColor} font-semibold mb-6`}>
+                        {audience.value}
+                      </p>
+                      
+                      <div className="space-y-4">
+                        <p className="text-slate-300 leading-relaxed text-lg">
+                          {audience.description}
+                        </p>
+                        
+                        {/* Additional detailed content */}
+                        <div className="pt-6 border-t border-slate-700/50">
+                          <h3 className="text-lg font-semibold text-slate-200 mb-3">
+                            Why This Matters
+                          </h3>
+                          <p className="text-slate-400 leading-relaxed">
+                            {audience.title === 'Brands & Businesses' && 
+                              'Elevate your marketing campaigns with interactive experiences that create lasting impressions and drive meaningful engagement with your audience.'}
+                            {audience.title === 'Creators & Designers' && 
+                              'Transform your artistic vision into immersive experiences that go beyond traditional boundaries, allowing your work to connect with audiences on a deeper level.'}
+                            {audience.title === 'Students & Educators' && 
+                              'Enhance learning experiences by bringing projects and portfolios to life with rich, interactive content that showcases knowledge and creativity in compelling ways.'}
+                            {audience.title === 'Event Organizers' && 
+                              'Extend the impact of your events beyond the moment, creating lasting connections and memories that continue to engage participants long after the event ends.'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+            </div>
+          </>
+        )}
       </section>
 
       {/* 6. The Phygital Movement - Emotional Section */}
@@ -390,14 +437,14 @@ const HomePage = () => {
           </div>
 
           <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-100 mb-8 leading-tight">
-            More Than Technology —<br />
+            More Than Technology <br />
             <span className="text-gradient bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink bg-clip-text text-transparent">
               A Cultural Shift
             </span>
           </h2>
 
           <p className="text-xl sm:text-2xl text-slate-300 mb-6 leading-relaxed">
-            Phygital is not a tool — it's a <span className="text-neon-pink font-semibold">movement</span> redefining connection, creativity, and experience.
+            Phygital is not a tool — it's a <span className="text-neon-blue font-semibold">movement</span> redefining connection, creativity, and experience.
           </p>
 
           <p className="text-lg text-slate-400 max-w-3xl mx-auto leading-relaxed">
@@ -412,13 +459,13 @@ const HomePage = () => {
               <div className="text-slate-400 text-sm">Bridge worlds</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl sm:text-4xl font-bold text-gradient bg-gradient-to-r from-neon-purple to-neon-pink bg-clip-text text-transparent mb-2">
+              <div className="text-3xl sm:text-4xl font-bold text-gradient bg-gradient-to-r from-neon-purple to-neon-cyan bg-clip-text text-transparent mb-2">
                 Creativity
               </div>
               <div className="text-slate-400 text-sm">Unlock possibilities</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl sm:text-4xl font-bold text-gradient bg-gradient-to-r from-neon-pink to-neon-orange bg-clip-text text-transparent mb-2">
+              <div className="text-3xl sm:text-4xl font-bold text-gradient bg-gradient-to-r from-neon-cyan to-neon-orange bg-clip-text text-transparent mb-2">
                 Experience
               </div>
               <div className="text-slate-400 text-sm">Create impact</div>
@@ -428,51 +475,140 @@ const HomePage = () => {
       </section>
 
       {/* 7. Testimonials - Emotional User Stories */}
-      <section className="py-20 bg-gradient-to-br from-slate-800 to-slate-900">
+      <section className="py-20 bg-gradient-to-br from-slate-800 to-slate-900 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-100 mb-4">
               Real Stories, Real Impact
             </h2>
             <p className="text-xl text-slate-300">
-              See how Phygital is changing the way people connect
+              Real people sharing their experiences
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <div
-                key={index}
-                className="group relative p-8 bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 hover:border-neon-blue/50 transition-all duration-500 hover:scale-105"
-              >
-                <div className="absolute top-6 left-6 opacity-20 group-hover:opacity-30 transition-opacity duration-300">
-                  <Quote className="w-16 h-16 text-neon-blue" />
-                </div>
+            {testimonials.map((testimonial, index) => {
+              const isSelected = selectedTestimonial === index
+              return (
+                <div
+                  key={index}
+                  onClick={() => setSelectedTestimonial(isSelected ? null : index)}
+                  className={`group relative p-8 bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 transition-all duration-500 cursor-pointer ${
+                    isSelected 
+                      ? 'ring-2 ring-neon-blue shadow-glow-blue border-neon-blue/50' 
+                      : 'hover:border-neon-blue/50 hover:scale-105'
+                  }`}
+                >
+                  <div className="absolute top-6 left-6 opacity-20 group-hover:opacity-30 transition-opacity duration-300">
+                    <Quote className="w-16 h-16 text-neon-blue" />
+                  </div>
 
-                <div className="relative z-10">
-                  <p className="text-lg text-slate-300 mb-8 leading-relaxed italic">
-                    "{testimonial.quote}"
-                  </p>
+                  <div className="relative z-10">
+                    <p className="text-base text-slate-300 mb-8 leading-relaxed">
+                      "{testimonial.quote}"
+                    </p>
 
-                  <div className="border-t border-slate-700/50 pt-6">
-                    <p className="font-bold text-slate-100 text-lg mb-1">
-                      {testimonial.author}
-                    </p>
-                    <p className="text-slate-400 text-sm mb-3">
-                      {testimonial.role}
-                    </p>
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-neon-green/20 to-neon-cyan/20 border border-neon-green/30 rounded-full">
-                      <Check className="w-4 h-4 text-neon-green" />
-                      <span className="text-neon-green text-sm font-semibold">
-                        {testimonial.impact}
-                      </span>
+                    <div className="border-t border-slate-700/50 pt-6">
+                      <p className="font-bold text-slate-100 text-lg mb-1">
+                        {testimonial.author}
+                      </p>
+                      <p className="text-slate-400 text-sm mb-3">
+                        {testimonial.role}
+                      </p>
+                      <div className="inline-flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-neon-green/20 to-neon-cyan/20 border border-neon-green/30 rounded-full">
+                        <Check className="w-4 h-4 text-neon-green" />
+                        <span className="text-neon-green text-sm font-semibold">
+                          {testimonial.impact}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
+
+        {/* Side Panel for Detailed Testimonial */}
+        {selectedTestimonial !== null && (
+          <>
+            {/* Backdrop */}
+            <div 
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden animate-fade-in"
+              onClick={() => setSelectedTestimonial(null)}
+            />
+            
+            {/* Side Panel */}
+            <div className="fixed top-0 right-0 h-full w-full md:w-96 bg-slate-900/95 backdrop-blur-md border-l border-slate-700/50 shadow-dark-large z-50 animate-slide-in-right">
+              <div className="h-full overflow-y-auto p-6 md:p-8">
+                {/* Close Button */}
+                <button
+                  onClick={() => setSelectedTestimonial(null)}
+                  className="absolute top-4 right-4 p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 hover:text-slate-100 transition-colors z-10"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                {/* Content */}
+                {selectedTestimonial !== null && (() => {
+                  const testimonial = testimonials[selectedTestimonial]
+                  return (
+                    <div className="animate-fade-in-up">
+                      <div className="mb-6 inline-flex p-4 bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl border border-neon-blue/30">
+                        <Quote className="w-10 h-10 text-neon-blue" />
+                      </div>
+                      
+                      <div className="mb-6">
+                        <p className="text-2xl font-bold text-slate-100 mb-2">
+                          {testimonial.author}
+                        </p>
+                        <p className="text-slate-400 text-base">
+                          {testimonial.role}
+                        </p>
+                      </div>
+                      
+                      <div className="mb-6 p-4 bg-slate-800/30 rounded-xl border border-slate-700/50">
+                        <p className="text-slate-300 leading-relaxed text-lg italic">
+                          "{testimonial.quote}"
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <div className="p-4 bg-gradient-to-r from-neon-green/10 to-neon-cyan/10 rounded-xl border border-neon-green/30">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Check className="w-5 h-5 text-neon-green" />
+                            <h3 className="text-lg font-semibold text-slate-200">
+                              Impact
+                            </h3>
+                          </div>
+                          <p className="text-neon-green font-semibold">
+                            {testimonial.impact}
+                          </p>
+                        </div>
+                        
+                        {/* Additional detailed content */}
+                        <div className="pt-6 border-t border-slate-700/50">
+                          <h3 className="text-lg font-semibold text-slate-200 mb-3">
+                            Their Story
+                          </h3>
+                          <p className="text-slate-400 leading-relaxed">
+                            {testimonial.author === 'Sarah Mitchell' && 
+                              'Sarah and her team at GreenLeaf Organics were looking for ways to make their organic products stand out in a crowded market. They started using Phygital to add QR codes that link to farm-to-table stories, recipe videos, and sustainability information. Customers loved being able to learn about where their food comes from, and the engagement metrics speak for themselves.'}
+                            {testimonial.author === 'Marcus Chen' && 
+                              'Marcus has been creating art for over a decade, but always felt something was missing when people viewed his work in galleries. The static pieces couldn\'t convey the hours of experimentation, the emotional journey, or the techniques behind each creation. With Phygital, he now attaches process videos, audio commentary, and even interactive elements that let viewers experience his art in entirely new ways.'}
+                            {testimonial.author === 'Dr. Emily Rodriguez' && 
+                              'Dr. Rodriguez noticed that her design students were struggling to showcase their creative process in traditional portfolios. Static images and written descriptions weren\'t enough. After introducing Phygital to her curriculum, students began creating comprehensive project presentations that included time-lapse videos of their work, voice-over explanations, and interactive prototypes. The results have been remarkable - students are more confident, and employers are impressed by the depth of their presentations.'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+            </div>
+          </>
+        )}
       </section>
 
       {/* 8. Final CTA - Join the Movement */}
