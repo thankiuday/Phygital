@@ -7,12 +7,54 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { body, validationResult } = require('express-validator');
+const NodeCache = require('node-cache');
 const User = require('../models/User');
 const Analytics = require('../models/Analytics');
 const { authenticateToken } = require('../middleware/auth');
 const { preventDuplicateAnalytics } = require('../middleware/analyticsDeduplication');
 
 const router = express.Router();
+
+// Initialize cache with 30 second default TTL
+const analyticsCache = new NodeCache({ 
+  stdTTL: 30, // Default TTL: 30 seconds
+  checkperiod: 10, // Check for expired keys every 10 seconds
+  useClones: false // Better performance for large objects
+});
+
+/**
+ * Cache helper function
+ * @param {string} cacheKey - Unique cache key
+ * @param {Function} fetchFn - Function that returns a Promise with the data to cache
+ * @param {number} ttl - Time to live in seconds (default: 30)
+ * @returns {Promise} - Cached or freshly fetched data
+ */
+function getCachedOrFetch(cacheKey, fetchFn, ttl = 30) {
+  const cached = analyticsCache.get(cacheKey);
+  if (cached) {
+    console.log(`✅ Cache hit: ${cacheKey}`);
+    return Promise.resolve(cached);
+  }
+  
+  console.log(`❌ Cache miss: ${cacheKey}`);
+  return fetchFn().then(data => {
+    analyticsCache.set(cacheKey, data, ttl);
+    return data;
+  });
+}
+
+/**
+ * Invalidate cache for a user
+ * @param {string} userId - User ID to invalidate cache for
+ */
+function invalidateUserCache(userId) {
+  const keys = analyticsCache.keys();
+  const userKeys = keys.filter(key => key.includes(`:${userId}:`) || key.includes(`:${userId}`));
+  if (userKeys.length > 0) {
+    analyticsCache.del(userKeys);
+    console.log(`🗑️ Invalidated ${userKeys.length} cache entries for user ${userId}`);
+  }
+}
 
 /**
  * POST /api/analytics/scan
@@ -72,6 +114,9 @@ router.post('/scan',
         os: scanData.os || 'unknown'
       }
     }, projectId);
+    
+    // Invalidate cache for this user
+    invalidateUserCache(userId);
     
     res.status(200).json({
       status: 'success',
@@ -176,6 +221,9 @@ router.post('/video-view',
     
     await Analytics.trackEvent(userId, 'videoView', eventData, projectId);
     
+    // Invalidate cache for this user
+    invalidateUserCache(userId);
+    
     res.status(200).json({
       status: 'success',
       message: 'Video view tracked successfully',
@@ -266,6 +314,9 @@ router.post('/link-click',
       ipAddress: req.ip || req.connection.remoteAddress,
       referrer: req.headers.referer
     }, projectId);
+    
+    // Invalidate cache for this user
+    invalidateUserCache(userId);
     
     res.status(200).json({
       status: 'success',
@@ -360,6 +411,7 @@ router.get('/:userId', authenticateToken, async (req, res) => {
  * GET /api/analytics/dashboard/:userId
  * Get dashboard analytics for a specific user
  * Returns formatted data for dashboard display
+ * Cached for 30 seconds to reduce database load
  */
 router.get('/dashboard/:userId', authenticateToken, async (req, res) => {
   try {
@@ -380,56 +432,59 @@ router.get('/dashboard/:userId', authenticateToken, async (req, res) => {
     else if (period === '30d') days = 30;
     else if (period === '90d') days = 90;
     
-    // Validate if userId is a valid ObjectId format (24 hex characters)
-    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
+    // Create cache key
+    const cacheKey = `analytics:dashboard:${userId}:${period}`;
     
-    // Find user by ID or username
-    let user;
-    if (isValidObjectId) {
-      user = await User.findById(userId);
-    } else {
-      user = await User.findOne({ username: userId });
-    }
-    
-    if (!user) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'User not found'
-      });
-    }
-    
-    // Get detailed analytics with time filter
-    const detailedAnalytics = await Analytics.getUserAnalytics(userId, days);
-    
-    // Calculate engagement metrics using filtered data
-    const filteredScans = detailedAnalytics.summary.find(s => s.eventType === 'scan')?.count || 0;
-    const filteredVideoViews = detailedAnalytics.summary.find(s => s.eventType === 'videoView')?.count || 0;
-    const filteredLinkClicks = detailedAnalytics.summary.find(s => s.eventType === 'linkClick')?.count || 0;
-    
-    const totalInteractions = filteredScans + filteredVideoViews + filteredLinkClicks;
-    const engagementRate = filteredScans > 0 ? 
-      ((filteredVideoViews + filteredLinkClicks) / filteredScans * 100).toFixed(2) : 0;
-    
-    // Prepare dashboard data with filtered analytics
-    const dashboardData = {
-      overview: {
-        totalScans: filteredScans,
-        totalVideoViews: filteredVideoViews,
-        totalLinkClicks: filteredLinkClicks,
-        totalInteractions,
-        engagementRate: parseFloat(engagementRate)
-      },
-      recentActivity: {
-        lastScanAt: user.analytics.lastScanAt,
-        lastVideoViewAt: user.analytics.lastVideoViewAt
-      },
-      trends: detailedAnalytics.dailyBreakdown,
-      period: {
-        days,
-        startDate: new Date(Date.now() - days * 24 * 60 * 60 * 1000),
-        endDate: new Date()
+    // Get cached or fetch data
+    const dashboardData = await getCachedOrFetch(cacheKey, async () => {
+      // Validate if userId is a valid ObjectId format (24 hex characters)
+      const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
+      
+      // Find user by ID or username
+      let user;
+      if (isValidObjectId) {
+        user = await User.findById(userId);
+      } else {
+        user = await User.findOne({ username: userId });
       }
-    };
+      
+      if (!user) {
+        throw new Error('User not found');
+      }
+      
+      // Get detailed analytics with time filter
+      const detailedAnalytics = await Analytics.getUserAnalytics(userId, days);
+      
+      // Calculate engagement metrics using filtered data
+      const filteredScans = detailedAnalytics.summary.find(s => s.eventType === 'scan')?.count || 0;
+      const filteredVideoViews = detailedAnalytics.summary.find(s => s.eventType === 'videoView')?.count || 0;
+      const filteredLinkClicks = detailedAnalytics.summary.find(s => s.eventType === 'linkClick')?.count || 0;
+      
+      const totalInteractions = filteredScans + filteredVideoViews + filteredLinkClicks;
+      const engagementRate = filteredScans > 0 ? 
+        ((filteredVideoViews + filteredLinkClicks) / filteredScans * 100).toFixed(2) : 0;
+      
+      // Prepare dashboard data with filtered analytics
+      return {
+        overview: {
+          totalScans: filteredScans,
+          totalVideoViews: filteredVideoViews,
+          totalLinkClicks: filteredLinkClicks,
+          totalInteractions,
+          engagementRate: parseFloat(engagementRate)
+        },
+        recentActivity: {
+          lastScanAt: user.analytics.lastScanAt,
+          lastVideoViewAt: user.analytics.lastVideoViewAt
+        },
+        trends: detailedAnalytics.dailyBreakdown,
+        period: {
+          days,
+          startDate: new Date(Date.now() - days * 24 * 60 * 60 * 1000),
+          endDate: new Date()
+        }
+      };
+    }, 30); // 30 second cache TTL
     
     res.status(200).json({
       status: 'success',
@@ -438,6 +493,12 @@ router.get('/dashboard/:userId', authenticateToken, async (req, res) => {
     
   } catch (error) {
     console.error('Dashboard analytics error:', error);
+    if (error.message === 'User not found') {
+      return res.status(404).json({
+        status: 'error',
+        message: 'User not found'
+      });
+    }
     res.status(500).json({
       status: 'error',
       message: 'Failed to fetch dashboard analytics',
@@ -447,9 +508,284 @@ router.get('/dashboard/:userId', authenticateToken, async (req, res) => {
 });
 
 /**
+ * GET /api/analytics/dashboard-complete/:userId
+ * Get complete dashboard analytics including both dashboard data and events
+ * Returns combined data in single response to reduce API calls
+ * Cached for 30 seconds
+ */
+router.get('/dashboard-complete/:userId', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { period = '30d', campaignType = 'all', projectId, eventTypes } = req.query;
+    
+    // Verify user can only access their own analytics
+    if (userId !== req.user._id.toString()) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Unauthorized to access these analytics'
+      });
+    }
+    
+    // Parse period
+    let days = 30;
+    if (period === '7d') days = 7;
+    else if (period === '30d') days = 30;
+    else if (period === '90d') days = 90;
+    
+    // Create cache key
+    const cacheKey = `analytics:complete:${userId}:${period}:${campaignType}:${projectId || 'all'}:${eventTypes || 'all'}`;
+    
+    // Get cached or fetch data
+    const completeData = await getCachedOrFetch(cacheKey, async () => {
+      // Fetch dashboard data
+      const dashboardPromise = (async () => {
+        const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
+        let user;
+        if (isValidObjectId) {
+          user = await User.findById(userId);
+        } else {
+          user = await User.findOne({ username: userId });
+        }
+        
+        if (!user) {
+          throw new Error('User not found');
+        }
+        
+        const detailedAnalytics = await Analytics.getUserAnalytics(userId, days);
+        const filteredScans = detailedAnalytics.summary.find(s => s.eventType === 'scan')?.count || 0;
+        const filteredVideoViews = detailedAnalytics.summary.find(s => s.eventType === 'videoView')?.count || 0;
+        const filteredLinkClicks = detailedAnalytics.summary.find(s => s.eventType === 'linkClick')?.count || 0;
+        const totalInteractions = filteredScans + filteredVideoViews + filteredLinkClicks;
+        const engagementRate = filteredScans > 0 ? 
+          ((filteredVideoViews + filteredLinkClicks) / filteredScans * 100).toFixed(2) : 0;
+        
+        return {
+          overview: {
+            totalScans: filteredScans,
+            totalVideoViews: filteredVideoViews,
+            totalLinkClicks: filteredLinkClicks,
+            totalInteractions,
+            engagementRate: parseFloat(engagementRate)
+          },
+          recentActivity: {
+            lastScanAt: user.analytics.lastScanAt,
+            lastVideoViewAt: user.analytics.lastVideoViewAt
+          },
+          trends: detailedAnalytics.dailyBreakdown,
+          period: {
+            days,
+            startDate: new Date(Date.now() - days * 24 * 60 * 60 * 1000),
+            endDate: new Date()
+          }
+        };
+      })();
+      
+      // Fetch events data
+      const eventsPromise = (async () => {
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - days);
+        
+        const matchStage = {
+          userId: new mongoose.Types.ObjectId(userId),
+          timestamp: { $gte: startDate }
+        };
+        
+        if (projectId) {
+          matchStage.projectId = projectId;
+        }
+        
+        if (eventTypes) {
+          const types = eventTypes.split(',');
+          matchStage.eventType = { $in: types };
+        }
+        
+        let projectIdsFilter = null;
+        if (campaignType && campaignType !== 'all') {
+          const user = await User.findById(userId).select('projects');
+          if (user && user.projects) {
+            const filteredProjectIds = user.projects
+              .filter(p => p.campaignType === campaignType)
+              .map(p => p.id);
+            
+            if (filteredProjectIds.length > 0) {
+              projectIdsFilter = filteredProjectIds;
+            } else {
+              return {
+                events: {
+                  scan: [],
+                  videoView: [],
+                  linkClick: [],
+                  arExperienceStart: [],
+                  arExperienceError: [],
+                  socialMediaClick: [],
+                  documentView: [],
+                  documentDownload: []
+                },
+                totalEvents: 0
+              };
+            }
+          }
+        }
+        
+        if (projectIdsFilter) {
+          matchStage.projectId = { $in: projectIdsFilter };
+        }
+        
+        const pipeline = [
+          { $match: matchStage },
+          { $sort: { timestamp: -1 } },
+          { $limit: 1000 },
+          {
+            $group: {
+              _id: '$eventType',
+              events: {
+                $push: {
+                  eventType: '$eventType',
+                  eventData: '$eventData',
+                  timestamp: '$timestamp',
+                  projectId: '$projectId',
+                  deviceInfo: '$deviceInfo'
+                }
+              }
+            }
+          }
+        ];
+        
+        const groupedEvents = await Analytics.aggregate(pipeline);
+        
+        const eventsByType = {
+          scan: [],
+          videoView: [],
+          linkClick: [],
+          arExperienceStart: [],
+          arExperienceError: [],
+          socialMediaClick: [],
+          documentView: [],
+          documentDownload: []
+        };
+        
+        groupedEvents.forEach(group => {
+          const eventType = group._id;
+          if (eventsByType.hasOwnProperty(eventType)) {
+            eventsByType[eventType] = group.events;
+          }
+        });
+        
+        const totalEvents = Object.values(eventsByType).reduce((sum, events) => sum + events.length, 0);
+        
+        return {
+          events: eventsByType,
+          totalEvents
+        };
+      })();
+      
+      // Calculate per-project analytics
+      const projectsPromise = (async () => {
+        const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
+        let user;
+        if (isValidObjectId) {
+          user = await User.findById(userId).select('projects');
+        } else {
+          user = await User.findOne({ username: userId }).select('projects');
+        }
+        
+        if (!user || !user.projects || user.projects.length === 0) {
+          return [];
+        }
+        
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - days);
+        
+        // Get project IDs, optionally filtered by campaignType
+        let projectIds = user.projects.map(p => p.id);
+        if (campaignType && campaignType !== 'all') {
+          projectIds = user.projects
+            .filter(p => p.campaignType === campaignType)
+            .map(p => p.id);
+        }
+        
+        if (projectIds.length === 0) {
+          return [];
+        }
+        
+        // Get all events for these projects
+        const allEvents = await Analytics.find({
+          userId: new mongoose.Types.ObjectId(userId),
+          projectId: { $in: projectIds },
+          timestamp: { $gte: startDate }
+        }).select('projectId eventType eventData timestamp');
+        
+        // Group events by projectId
+        const eventsByProject = {};
+        allEvents.forEach(event => {
+          const pid = event.projectId;
+          if (!eventsByProject[pid]) {
+            eventsByProject[pid] = [];
+          }
+          eventsByProject[pid].push(event);
+        });
+        
+        // Calculate analytics for each project
+        const projectsAnalytics = projectIds.map(projectId => {
+          const events = eventsByProject[projectId] || [];
+          
+          const totalScans = events.filter(e => e.eventType === 'scan').length;
+          const totalVideoViews = events.filter(e => e.eventType === 'videoView').length;
+          const totalLinkClicks = events.filter(e => e.eventType === 'linkClick').length;
+          
+          // Calculate average time spent
+          const durationEvents = events.filter(e => e.eventType === 'pageViewDuration');
+          const totalTimeSpent = durationEvents.reduce((sum, e) => sum + (e.eventData?.timeSpent || 0), 0);
+          const averageTimeSpent = durationEvents.length > 0 ? Math.round(totalTimeSpent / durationEvents.length) : 0;
+          
+          return {
+            projectId,
+            totalScans,
+            videoViews: totalVideoViews,
+            linkClicks: totalLinkClicks,
+            averageTimeSpent
+          };
+        });
+        
+        return projectsAnalytics;
+      })();
+      
+      // Fetch all in parallel
+      const [dashboard, events, projects] = await Promise.all([dashboardPromise, eventsPromise, projectsPromise]);
+      
+      return {
+        dashboard,
+        events,
+        projects
+      };
+    }, 30); // 30 second cache TTL
+    
+    res.status(200).json({
+      status: 'success',
+      data: completeData
+    });
+    
+  } catch (error) {
+    console.error('Dashboard complete error:', error);
+    if (error.message === 'User not found') {
+      return res.status(404).json({
+        status: 'error',
+        message: 'User not found'
+      });
+    }
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch complete analytics',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+/**
  * GET /api/analytics/events/:userId
  * Get detailed events for charts and analytics
  * Returns all event types with full details for visualization
+ * Optimized with MongoDB aggregation and caching
  */
 router.get('/events/:userId', authenticateToken, async (req, res) => {
   try {
@@ -470,74 +806,132 @@ router.get('/events/:userId', authenticateToken, async (req, res) => {
     else if (period === '30d') days = 30;
     else if (period === '90d') days = 90;
     
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
+    // Create cache key
+    const cacheKey = `analytics:events:${userId}:${period}:${campaignType || 'all'}:${projectId || 'all'}:${eventTypes || 'all'}`;
     
-    // Build query
-    const query = {
-      userId: new mongoose.Types.ObjectId(userId),
-      timestamp: { $gte: startDate }
-    };
-    
-    // Add projectId filter if provided
-    if (projectId) {
-      query.projectId = projectId;
-    }
-    
-    // Add event type filter if provided
-    if (eventTypes) {
-      const types = eventTypes.split(',');
-      query.eventType = { $in: types };
-    }
-    
-    // Get events
-    let events = await Analytics.find(query)
-      .select('eventType eventData timestamp projectId deviceInfo')
-      .sort({ timestamp: -1 })
-      .limit(10000); // Limit to prevent memory issues
-    
-    // If campaignType filter is provided, filter by project campaignType
-    if (campaignType && campaignType !== 'all') {
-      const user = await User.findById(userId);
-      if (user && user.projects) {
-        const filteredProjectIds = user.projects
-          .filter(p => p.campaignType === campaignType)
-          .map(p => p.id);
-        
-        events = events.filter(e => filteredProjectIds.includes(e.projectId));
+    // Get cached or fetch data
+    const result = await getCachedOrFetch(cacheKey, async () => {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+      
+      // Build aggregation pipeline
+      const matchStage = {
+        userId: new mongoose.Types.ObjectId(userId),
+        timestamp: { $gte: startDate }
+      };
+      
+      // Add projectId filter if provided
+      if (projectId) {
+        matchStage.projectId = projectId;
       }
-    }
-    
-    // Group events by type
-    const eventsByType = {
-      scan: [],
-      videoView: [],
-      linkClick: [],
-      arExperienceStart: [],
-      arExperienceError: [],
-      socialMediaClick: [],
-      documentView: [],
-      documentDownload: []
-    };
-    
-    events.forEach(event => {
-      const type = event.eventType;
-      if (eventsByType.hasOwnProperty(type)) {
-        eventsByType[type].push(event);
+      
+      // Add event type filter if provided
+      if (eventTypes) {
+        const types = eventTypes.split(',');
+        matchStage.eventType = { $in: types };
       }
-    });
-    
-    res.status(200).json({
-      status: 'success',
-      data: {
+      
+      // If campaignType filter is provided, get project IDs first using aggregation
+      let projectIdsFilter = null;
+      if (campaignType && campaignType !== 'all') {
+        const user = await User.findById(userId).select('projects');
+        if (user && user.projects) {
+          const filteredProjectIds = user.projects
+            .filter(p => p.campaignType === campaignType)
+            .map(p => p.id);
+          
+          if (filteredProjectIds.length > 0) {
+            projectIdsFilter = filteredProjectIds;
+          } else {
+            // No projects match, return empty result
+            return {
+              events: {
+                scan: [],
+                videoView: [],
+                linkClick: [],
+                arExperienceStart: [],
+                arExperienceError: [],
+                socialMediaClick: [],
+                documentView: [],
+                documentDownload: []
+              },
+              totalEvents: 0,
+              period: {
+                days,
+                startDate,
+                endDate: new Date()
+              }
+            };
+          }
+        }
+      }
+      
+      // Add campaignType project filter to match stage
+      if (projectIdsFilter) {
+        matchStage.projectId = { $in: projectIdsFilter };
+      }
+      
+      // Use aggregation to group events by type and limit results
+      // This is more efficient than fetching all records and filtering in memory
+      const pipeline = [
+        { $match: matchStage },
+        { $sort: { timestamp: -1 } },
+        { $limit: 1000 }, // Limit to 1000 most recent events (reduced from 10000)
+        {
+          $group: {
+            _id: '$eventType',
+            events: {
+              $push: {
+                eventType: '$eventType',
+                eventData: '$eventData',
+                timestamp: '$timestamp',
+                projectId: '$projectId',
+                deviceInfo: '$deviceInfo'
+              }
+            }
+          }
+        }
+      ];
+      
+      const groupedEvents = await Analytics.aggregate(pipeline);
+      
+      // Initialize eventsByType
+      const eventsByType = {
+        scan: [],
+        videoView: [],
+        linkClick: [],
+        arExperienceStart: [],
+        arExperienceError: [],
+        socialMediaClick: [],
+        documentView: [],
+        documentDownload: []
+      };
+      
+      // Populate eventsByType from aggregation results
+      groupedEvents.forEach(group => {
+        const eventType = group._id;
+        if (eventsByType.hasOwnProperty(eventType)) {
+          eventsByType[eventType] = group.events;
+        }
+      });
+      
+      // Calculate total events
+      const totalEvents = Object.values(eventsByType).reduce((sum, events) => sum + events.length, 0);
+      
+      return {
         events: eventsByType,
-        totalEvents: events.length,
+        totalEvents,
         period: {
           days,
           startDate,
           endDate: new Date()
         }
-      }
+      };
+    }, 60); // 60 second cache TTL for events
+    
+    res.status(200).json({
+      status: 'success',
+      data: result
     });
     
   } catch (error) {
@@ -618,6 +1012,9 @@ router.post('/ar-experience-start',
       timestamp: new Date(timestamp)
     }, projectId);
     
+    // Invalidate cache for this user
+    invalidateUserCache(userId);
+    
     res.status(200).json({
       status: 'success',
       message: 'AR experience start tracked successfully',
@@ -641,10 +1038,12 @@ router.post('/ar-experience-start',
  * Track page view event
  * Logs when users visit the personalized page
  */
-router.post('/page-view', [
-  body('userId').isString().withMessage('Valid user ID is required'),
-  body('projectId').optional().isString().withMessage('Project ID must be a string')
-], async (req, res) => {
+router.post('/page-view', 
+  preventDuplicateAnalytics('pageView'),
+  [
+    body('userId').isString().withMessage('Valid user ID is required'),
+    body('projectId').optional().isString().withMessage('Project ID must be a string')
+  ], async (req, res) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
@@ -693,6 +1092,9 @@ router.post('/page-view', [
       ipAddress: req.ip || req.connection.remoteAddress,
       referrer: req.headers.referer
     }, projectId);
+    
+    // Invalidate cache for this user
+    invalidateUserCache(userId);
     
     res.status(200).json({
       status: 'success',
@@ -811,10 +1213,10 @@ router.get('/locations/:userId', authenticateToken, async (req, res) => {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - parseInt(days));
     
-    // Build query
+    // Build query - include both scan and pageView events since both can have location data
     const query = {
       userId: new mongoose.Types.ObjectId(userId),
-      eventType: 'scan',
+      eventType: { $in: ['scan', 'pageView'] },
       timestamp: { $gte: startDate },
       'eventData.scanLocation': { $exists: true, $ne: null }
     };
@@ -824,11 +1226,11 @@ router.get('/locations/:userId', authenticateToken, async (req, res) => {
       query.projectId = projectId;
     }
     
-    // Get all scan events with location data
+    // Get all events (scan and pageView) with location data
     const locationEvents = await Analytics.find(query)
-      .select('timestamp eventData.scanLocation projectId')
+      .select('timestamp eventData.scanLocation projectId eventType')
       .sort({ timestamp: -1 })
-      .limit(1000); // Limit to most recent 1000 scans
+      .limit(1000); // Limit to most recent 1000 events
     
     // Group by location
     const locationGroups = {};
@@ -1040,6 +1442,9 @@ router.post('/social-media-click',
         referrer: req.headers.referer
       }, projectId);
 
+      // Invalidate cache for this user
+      invalidateUserCache(userId);
+
       res.status(200).json({
         status: 'success',
         message: 'Social media click tracked successfully'
@@ -1105,6 +1510,9 @@ router.post('/document-view',
         ipAddress: req.ip || req.connection.remoteAddress,
         referrer: req.headers.referer
       }, projectId);
+
+      // Invalidate cache for this user
+      invalidateUserCache(userId);
 
       res.status(200).json({
         status: 'success',
@@ -1457,7 +1865,20 @@ router.get('/campaign/:projectId', authenticateToken, async (req, res) => {
     const socialBreakdown = {};
     socialClicks.forEach(event => {
       // Check both platform and linkType for backward compatibility
-      const platform = event.eventData?.platform || event.eventData?.linkType || 'unknown';
+      let platform = event.eventData?.platform || event.eventData?.linkType || 'unknown';
+      
+      // Normalize platform names for better display
+      if (platform === 'contactNumber') {
+        platform = 'Phone Number';
+      } else if (platform === 'whatsappNumber') {
+        platform = 'WhatsApp';
+      } else if (platform && typeof platform === 'string') {
+        // Capitalize first letter of each word for other platforms
+        platform = platform.split(/(?=[A-Z])/).map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        ).join(' ');
+      }
+      
       socialBreakdown[platform] = (socialBreakdown[platform] || 0) + 1;
     });
     

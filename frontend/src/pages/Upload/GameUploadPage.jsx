@@ -1,10 +1,11 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useAuth } from '../../contexts/AuthContext';
 import { uploadAPI } from '../../utils/api';
 import LevelBasedUpload from '../../components/Upload/LevelBasedUpload';
 import ProjectNameInput from '../../components/Upload/ProjectNameInput';
 import toast from 'react-hot-toast';
+import { useSearchParams } from 'react-router-dom';
 import { 
   Upload, 
   Image, 
@@ -22,12 +23,56 @@ import LoadingSpinner from '../../components/UI/LoadingSpinner';
 
 const GameUploadPage = () => {
   const { user, updateUser } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [showProjectInput, setShowProjectInput] = useState(false);
   const [showGameMode, setShowGameMode] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [forceStartFromLevel1, setForceStartFromLevel1] = useState(false);
   const [currentProject, setCurrentProject] = useState(null);
+  const [isLoadingUpgrade, setIsLoadingUpgrade] = useState(false);
+
+  // Check for upgrade mode from URL params
+  useEffect(() => {
+    const handleUpgradeMode = async () => {
+      const isUpgrade = searchParams.get('upgrade') === 'true';
+      const upgradeProjectId = searchParams.get('projectId');
+      const upgradeFromType = searchParams.get('fromType');
+
+      if (isUpgrade && upgradeProjectId && user?.projects) {
+        try {
+          setIsLoadingUpgrade(true);
+          
+          // Find the project in user's projects
+          const project = user.projects.find(p => p.id === upgradeProjectId);
+          
+          if (project) {
+            // Set the project as current project
+            setCurrentProject(project);
+            // Start game mode with existing project (LevelBasedUpload will pre-fill data)
+            setForceStartFromLevel1(false); // Don't force start from level 1, use existing data
+            setShowGameMode(true);
+            
+            toast.success(`Upgrading from ${upgradeFromType || 'previous campaign'} to QR Links AR Video!`);
+            
+            // Clear URL params
+            setSearchParams({});
+          } else {
+            toast.error('Project not found');
+          }
+        } catch (error) {
+          console.error('Error loading upgrade project:', error);
+          toast.error('Failed to load upgrade project');
+        } finally {
+          setIsLoadingUpgrade(false);
+        }
+      }
+    };
+
+    if (user) {
+      handleUpgradeMode();
+    }
+  }, [user, searchParams, setSearchParams]);
 
   // Handle completion of the game-like flow
   const handleGameCompletion = async (levelData) => {
@@ -109,6 +154,18 @@ const GameUploadPage = () => {
     
     setShowGameMode(true);
   };
+
+  // Show loading state while loading upgrade data
+  if (isLoadingUpgrade) {
+    return (
+      <div className="min-h-screen bg-dark-mesh flex items-center justify-center">
+        <div className="text-center">
+          <LoadingSpinner size="lg" />
+          <p className="mt-4 text-slate-300">Loading upgrade data...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Show project input page
   if (showProjectInput) {

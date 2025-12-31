@@ -265,6 +265,11 @@ const AnalyticsPage = () => {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState(null)
   
+  // Request deduplication: track in-flight requests
+  const inFlightRequestRef = useRef(null)
+  const abortControllerRef = useRef(null)
+  const fetchAnalyticsRef = useRef(null) // Ref to store latest fetchAnalytics function
+  
   console.log('✅ AnalyticsPage hooks initialized', { userId: user?._id })
   
   // Auto-refresh data when navigating to this page
@@ -315,19 +320,35 @@ const AnalyticsPage = () => {
       return
     }
 
+    // Request deduplication: Check if same request is already in flight
+    const requestKey = `${user._id}:${selectedPeriod}:${selectedCampaignType}`
+    if (inFlightRequestRef.current === requestKey && isFetchingRef.current) {
+      console.log('⏸️ Duplicate request prevented:', requestKey)
+      return inFlightRequestRef.current
+    }
+
+    // Cancel any previous in-flight request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+
     // Prevent concurrent fetches
     if (isFetchingRef.current) {
       return
     }
 
-    // Throttle: don't fetch more than once per 2 seconds for silent refreshes
+    // Throttle: don't fetch more than once per 5 seconds for silent refreshes (increased from 2s)
     const now = Date.now()
-    if (now - lastFetchTimeRef.current < 2000 && silent) {
+    if (now - lastFetchTimeRef.current < 5000 && silent) {
       return
     }
 
     isFetchingRef.current = true
     lastFetchTimeRef.current = now
+    inFlightRequestRef.current = requestKey
+    
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController()
 
     try {
       if (!silent) {
@@ -338,58 +359,52 @@ const AnalyticsPage = () => {
 
       console.log('📊 Fetching analytics...', { userId: user._id, period: selectedPeriod, campaignType: selectedCampaignType })
 
-      // Fetch dashboard analytics with timeout
-      const analyticsPromise = analyticsAPI.getDashboardAnalytics(user._id, selectedPeriod)
+      // Use combined endpoint to fetch both dashboard and events in single request
+      // Add abort signal for request cancellation
+      const completePromise = analyticsAPI.getDashboardComplete(user._id, {
+        period: selectedPeriod,
+        campaignType: selectedCampaignType
+      })
+      
+      // Check if request was aborted
+      if (abortControllerRef.current?.signal.aborted) {
+        throw new Error('Request aborted')
+      }
+      
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Request timeout')), 15000)
+        setTimeout(() => reject(new Error('Request timeout')), 20000)
       )
       
-      const analyticsResponse = await Promise.race([analyticsPromise, timeoutPromise])
-      console.log('✅ Dashboard analytics fetched:', analyticsResponse.data)
+      const completeResponse = await Promise.race([completePromise, timeoutPromise])
       
-      const analyticsData = analyticsResponse.data?.data || analyticsResponse.data || {}
+      // Check again if request was aborted after promise resolves
+      if (abortControllerRef.current?.signal.aborted) {
+        throw new Error('Request aborted')
+      }
+      console.log('✅ Complete analytics fetched:', completeResponse.data)
+      
+      const responseData = completeResponse.data?.data || completeResponse.data || {}
+      const analyticsData = responseData.dashboard || {}
+      const eventsData = responseData.events || { events: {} }
+      const projectsData = responseData.projects || []
+      
+      // Add projects array to analyticsData for use in ProjectAnalyticsCard
+      if (projectsData.length > 0) {
+        analyticsData.projects = projectsData
+      }
       
       if (mountedRef.current) {
         setAnalytics(analyticsData)
+        setEvents(eventsData)
         setLastRefresh(Date.now())
-        // Clear loading state immediately after analytics fetch completes
-        // Don't wait for events fetch - it's non-blocking
         if (!silent) {
-          console.log('✅ Clearing loading state after analytics fetch')
+          console.log('✅ Analytics and events loaded')
           setIsLoading(false)
         }
       }
       
       // Return analytics data for promise chaining
       const returnData = analyticsData
-
-      // Fetch detailed events for charts (non-blocking, don't wait for it)
-      // Start the fetch but don't await it - let it complete in background
-      Promise.resolve().then(async () => {
-        try {
-          const eventsPromise = analyticsAPI.getEvents(user._id, {
-            campaignType: selectedCampaignType,
-            period: selectedPeriod
-          })
-          const eventsTimeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Events request timeout')), 10000)
-          )
-          
-          const eventsResponse = await Promise.race([eventsPromise, eventsTimeoutPromise])
-          console.log('✅ Events fetched:', eventsResponse.data)
-          
-          if (mountedRef.current) {
-            setEvents(eventsResponse.data?.data || eventsResponse.data)
-          }
-        } catch (eventsError) {
-          console.warn('⚠️ Failed to fetch detailed events:', eventsError)
-          // Continue without events - charts will show empty states
-          // Set empty events object so charts don't break
-          if (mountedRef.current) {
-            setEvents({ events: {} })
-          }
-        }
-      })
 
       // Don't call loadUser() here - it causes infinite loops
       // User data is already up-to-date from the context
@@ -402,6 +417,12 @@ const AnalyticsPage = () => {
       // Return analytics data
       return returnData
     } catch (error) {
+      // Don't show error if request was aborted (user changed filters)
+      if (error.message === 'Request aborted' || error.name === 'AbortError') {
+        console.log('ℹ️ Request aborted (filter changed)')
+        return null
+      }
+      
       console.error('❌ Failed to fetch analytics:', error)
       console.error('Error details:', {
         message: error.message,
@@ -426,9 +447,15 @@ const AnalyticsPage = () => {
         setIsRefreshing(false)
       }
       isFetchingRef.current = false
+      inFlightRequestRef.current = null
       console.log('✅ Analytics fetch finally block - loading cleared')
     }
   }, [user?._id, selectedPeriod, selectedCampaignType])
+  
+  // Store latest fetchAnalytics in ref for use in effects
+  useEffect(() => {
+    fetchAnalyticsRef.current = fetchAnalytics
+  }, [fetchAnalytics])
 
 
   // Initial load - only run once when user is available
@@ -457,6 +484,7 @@ const AnalyticsPage = () => {
   }, [user?._id]) // Only depend on user._id to prevent re-triggers
 
   // When filters change, fetch again (but only after initial load completes)
+  // Debounced to prevent rapid successive requests
   useEffect(() => {
     // Skip if initial load hasn't completed yet
     if (!user?._id || !initialLoadDoneRef.current || !filtersInitializedRef.current) {
@@ -464,23 +492,72 @@ const AnalyticsPage = () => {
       return
     }
     
-    console.log('🔄 Filter change detected, fetching analytics...')
-    fetchAnalytics(false) // Not silent when filters change
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Debounce filter changes: wait 500ms before fetching
+    const debounceTimer = setTimeout(() => {
+      console.log('🔄 Filter change detected (debounced), fetching analytics...')
+      if (fetchAnalyticsRef.current) {
+        fetchAnalyticsRef.current(false) // Not silent when filters change, using ref
+      }
+    }, 500)
+    
+    return () => {
+      clearTimeout(debounceTimer)
+    }
   }, [selectedPeriod, selectedCampaignType]) // Only depend on filters
 
-  // Real-time auto-refresh every 5 seconds (more frequent for live updates)
+  // Optimized auto-refresh: 30 seconds interval with Page Visibility API
+  // Only polls when tab is visible to reduce unnecessary requests
   useEffect(() => {
     if (!user?._id) return
 
-    const refreshInterval = setInterval(() => {
-      if (mountedRef.current && !isFetchingRef.current) {
-        fetchAnalytics(true) // Silent refresh
-      }
-    }, 5000) // Refresh every 5 seconds for real-time feel
+    let refreshInterval = null
 
-    return () => clearInterval(refreshInterval)
-  }, [user?._id, fetchAnalytics])
+    const startPolling = () => {
+      // Clear any existing interval
+      if (refreshInterval) {
+        clearInterval(refreshInterval)
+      }
+      
+      // Only start polling if tab is visible
+      if (!document.hidden) {
+        refreshInterval = setInterval(() => {
+          if (mountedRef.current && !isFetchingRef.current && !document.hidden && fetchAnalyticsRef.current) {
+            fetchAnalyticsRef.current(true) // Silent refresh using ref
+          }
+        }, 30000) // Refresh every 30 seconds (reduced from 5s)
+      }
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Tab is hidden - stop polling
+        if (refreshInterval) {
+          clearInterval(refreshInterval)
+          refreshInterval = null
+        }
+      } else {
+        // Tab is visible - start/resume polling
+        startPolling()
+        // Immediately fetch fresh data when tab becomes visible
+        if (mountedRef.current && !isFetchingRef.current && fetchAnalyticsRef.current) {
+          fetchAnalyticsRef.current(true)
+        }
+      }
+    }
+
+    // Start initial polling
+    startPolling()
+
+    // Listen for visibility changes
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      if (refreshInterval) {
+        clearInterval(refreshInterval)
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [user?._id]) // Removed fetchAnalytics from dependencies to prevent infinite loops
 
 
   // Get time since last refresh
@@ -539,36 +616,59 @@ const AnalyticsPage = () => {
   ]
 
   // Safety check: if we have analytics data, don't show loader even if isLoading is true
+  // Use a ref to track if we've already cleared loading to prevent loops
+  const loadingClearedRef = useRef(false)
   useEffect(() => {
-    const hasAnalyticsData = analytics !== null && analytics !== undefined && typeof analytics === 'object'
-    if (hasAnalyticsData && isLoading) {
+    const hasAnalyticsData = analytics !== null && analytics !== undefined && typeof analytics === 'object' && Object.keys(analytics).length > 0
+    if (hasAnalyticsData && isLoading && !loadingClearedRef.current) {
       console.log('⚠️ Safety: Clearing loading state because analytics data exists')
+      loadingClearedRef.current = true
       setIsLoading(false)
+    }
+    // Reset flag when analytics becomes empty
+    if (!hasAnalyticsData) {
+      loadingClearedRef.current = false
     }
   }, [analytics, isLoading])
 
   // Show loading only if we're actually loading, user is available, AND we don't have analytics yet
   // Add timeout fallback to prevent infinite loading
   const [forceShow, setForceShow] = useState(false)
+  const timeoutRef = useRef(null)
   
   useEffect(() => {
-    const hasAnalyticsData = analytics !== null && analytics !== undefined && typeof analytics === 'object'
-    if (isLoading && user?._id && !hasAnalyticsData) {
-      const timeout = setTimeout(() => {
+    const hasAnalyticsData = analytics !== null && analytics !== undefined && typeof analytics === 'object' && Object.keys(analytics).length > 0
+    
+    // Clear any existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
+    
+    if (isLoading && user?._id && !hasAnalyticsData && !forceShow) {
+      timeoutRef.current = setTimeout(() => {
         console.log('⏱️ Force showing content after 3s timeout')
         setForceShow(true)
         setIsLoading(false)
         // Set empty analytics if still null after timeout
-        if (!analytics) {
+        if (!analytics || Object.keys(analytics).length === 0) {
           setAnalytics({})
         }
       }, 3000)
-      
-      return () => clearTimeout(timeout)
-    } else {
-      setForceShow(false)
+    } else if (hasAnalyticsData || !isLoading) {
+      // If we have data or not loading, don't force show
+      if (forceShow) {
+        setForceShow(false)
+      }
     }
-  }, [isLoading, user?._id, analytics])
+    
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+        timeoutRef.current = null
+      }
+    }
+  }, [isLoading, user?._id]) // Removed analytics from deps to prevent loops - only depend on isLoading and user
 
   // Don't show loader if we have analytics data OR if forceShow is true OR if loading has been cleared
   // Also check if analytics is an object (even if empty) - that means fetch completed

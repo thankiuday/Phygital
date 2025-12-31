@@ -4327,4 +4327,152 @@ router.patch('/project/:projectId/toggle-target-image', authenticateToken, async
   }
 });
 
+/**
+ * DELETE /api/upload/file
+ * Delete a file from Cloudinary by public_id
+ * Query params: publicId (required), resourceType (optional, 'image' | 'video' | 'raw' | 'auto')
+ */
+router.delete('/file', authenticateToken, async (req, res) => {
+  try {
+    const { publicId, resourceType = 'auto' } = req.query
+
+    if (!publicId) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'publicId is required'
+      })
+    }
+
+    console.log(`🗑️ Deleting file from Cloudinary: ${publicId} (type: ${resourceType})`)
+
+    // Determine resource type if auto
+    let finalResourceType = resourceType
+    if (resourceType === 'auto') {
+      // Try to determine from public_id (check extension or use raw as default)
+      if (publicId.match(/\.(mp4|mov|avi|webm|mkv|flv|wmv)$/i)) {
+        finalResourceType = 'video'
+      } else if (publicId.match(/\.(png|jpg|jpeg|gif|webp|bmp|svg)$/i)) {
+        finalResourceType = 'image'
+      } else {
+        finalResourceType = 'raw' // Default for PDFs and other documents
+      }
+    }
+
+    // Delete from Cloudinary
+    const cloudinary = require('cloudinary').v2
+    const deleteResult = await cloudinary.uploader.destroy(publicId, {
+      resource_type: finalResourceType,
+      invalidate: true
+    })
+
+    if (deleteResult.result === 'ok' || deleteResult.result === 'not found') {
+      const status = deleteResult.result === 'ok' ? 'deleted' : 'not found (may already be deleted)'
+      console.log(`✅ ${status} file from Cloudinary: ${publicId}`)
+      
+      return res.status(200).json({
+        status: 'success',
+        message: `File ${status}`,
+        data: { publicId, resourceType: finalResourceType, result: deleteResult.result }
+      })
+    } else {
+      console.warn(`⚠️ Unexpected result when deleting file:`, deleteResult)
+      return res.status(500).json({
+        status: 'error',
+        message: 'Failed to delete file',
+        data: { publicId, resourceType: finalResourceType, result: deleteResult.result }
+      })
+    }
+  } catch (error) {
+    console.error('❌ Error deleting file from Cloudinary:', error)
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to delete file',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    })
+  }
+})
+
+/**
+ * GET /api/upload/project/:projectId/upgrade-to-ar-data
+ * Get existing campaign data formatted for AR Video upgrade
+ * Returns data that can be pre-filled in LevelBasedUpload component
+ */
+router.get('/project/:projectId/upgrade-to-ar-data', authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params
+
+    console.log('📋 Getting upgrade data for AR Video:', { projectId })
+
+    // Find user and project
+    const user = await User.findById(req.user._id)
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      })
+    }
+
+    const project = user.projects.find(p => p.id === projectId)
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project not found'
+      })
+    }
+
+    // Extract existing data for pre-filling
+    const upgradeData = {
+      design: project.uploadedFiles?.design || null,
+      qrPosition: project.qrPosition || project.phygitalizedData?.qrPosition || null,
+      video: project.uploadedFiles?.video || null,
+      videos: project.uploadedFiles?.videos || [],
+      documents: project.uploadedFiles?.documents || [],
+      socialLinks: project.phygitalizedData?.socialLinks || project.socialLinks || {},
+      links: project.phygitalizedData?.links || [],
+      campaignType: project.campaignType,
+      projectId: project.id,
+      projectName: project.name
+    }
+
+    // If videos array is empty but single video exists, convert it
+    if (upgradeData.videos.length === 0 && upgradeData.video) {
+      upgradeData.videos = [upgradeData.video]
+    }
+
+    // If documents array is empty but PDF exists, convert it
+    if (upgradeData.documents.length === 0 && project.phygitalizedData?.pdfUrl) {
+      upgradeData.documents = [{
+        url: project.phygitalizedData.pdfUrl,
+        filename: project.phygitalizedData.pdfUrl.split('/').pop(),
+        originalName: project.phygitalizedData.pdfUrl.split('/').pop(),
+        size: 0,
+        uploadedAt: new Date()
+      }]
+    }
+
+    console.log('✅ Upgrade data prepared:', {
+      projectId,
+      hasDesign: !!upgradeData.design,
+      hasQRPosition: !!upgradeData.qrPosition,
+      videosCount: upgradeData.videos.length,
+      documentsCount: upgradeData.documents.length,
+      hasSocialLinks: Object.keys(upgradeData.socialLinks).length > 0,
+      linksCount: upgradeData.links.length
+    })
+
+    res.json({
+      success: true,
+      data: upgradeData
+    })
+
+  } catch (error) {
+    console.error('❌ Error getting upgrade data:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get upgrade data',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    })
+  }
+})
+
 module.exports = router;

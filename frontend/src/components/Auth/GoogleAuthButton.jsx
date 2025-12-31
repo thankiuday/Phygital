@@ -6,10 +6,16 @@
 
 import React from 'react'
 
-const GoogleAuthButton = ({ mode = 'signin' }) => {
+const GoogleAuthButton = ({ mode = 'signin', onValidationError, shouldValidate = false }) => {
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
   
   const handleGoogleAuth = () => {
+    // Validate if validation is required (e.g., terms acceptance for signup)
+    if (shouldValidate && onValidationError) {
+      onValidationError()
+      return
+    }
+    
     // Redirect to backend Google OAuth route
     // Remove /api prefix if VITE_API_URL already includes it
     const baseUrl = apiUrl.endsWith('/api') ? apiUrl.slice(0, -4) : apiUrl

@@ -152,7 +152,13 @@ export const AuthProvider = ({ children }) => {
         payload: user
       })
     } catch (error) {
-      console.error('Load user error:', error)
+      // Only log network errors in development mode
+      if (import.meta.env.DEV) {
+        console.error('Load user error:', error)
+      } else if (error.response) {
+        // Only log non-network errors in production
+        console.error('Load user error:', error.response?.data?.message || 'Failed to load user')
+      }
       dispatch({
         type: AUTH_ACTIONS.LOAD_USER_FAILURE,
         payload: error.response?.data?.message || 'Failed to load user'
@@ -224,7 +230,13 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true }
     } catch (error) {
-      console.error('Login error:', error)
+      // Only log network errors in development mode
+      if (import.meta.env.DEV) {
+        console.error('Login error:', error)
+      } else if (error.response) {
+        // Only log non-network errors in production
+        console.error('Login error:', error.response?.data?.message || error.message || 'Login failed')
+      }
       const errorMessage = error.response?.data?.message || error.message || 'Login failed'
 
       dispatch({

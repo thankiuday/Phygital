@@ -27,6 +27,7 @@ const RegisterPage = () => {
   } = useForm()
 
   const password = watch('password')
+  const termsAccepted = watch('terms')
 
   // Password strength indicators
   const getPasswordStrength = (pwd) => {
@@ -349,7 +350,16 @@ const RegisterPage = () => {
 
           {/* Google Sign Up */}
           <div className="mt-6">
-            <GoogleAuthButton mode="signup" />
+            <GoogleAuthButton 
+              mode="signup" 
+              onValidationError={() => {
+                setError('terms', { 
+                  type: 'manual', 
+                  message: 'You must accept the User Certification & Agreement to sign up with Google' 
+                })
+              }}
+              shouldValidate={!termsAccepted}
+            />
           </div>
 
           {/* Divider */}

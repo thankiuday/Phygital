@@ -57,7 +57,6 @@ const ProfessionalNav = () => {
       ]
     },
     { name: 'Campaigns', href: '/projects', icon: FolderKanban, authOnly: true },
-    { name: 'Templates', href: '/templates', icon: Palette, authOnly: true },
     { name: 'Analytics', href: '/analytics', icon: BarChart3, authOnly: true },
     { name: 'Profile', href: '/profile', icon: User, authOnly: true },
   ];

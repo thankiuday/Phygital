@@ -12,6 +12,7 @@ import ProtectedRoute from './components/Auth/ProtectedRoute'
 import AdminProtectedRoute from './components/Admin/AdminProtectedRoute'
 import AdminLayout from './components/Admin/AdminLayout'
 import LoadingSpinner from './components/UI/LoadingSpinner'
+import ConnectionStatusBanner from './components/UI/ConnectionStatusBanner'
 
 // Pages
 import HomePage from './pages/HomePage'
@@ -86,6 +87,7 @@ function App() {
 
   return (
     <div className="App">
+      <ConnectionStatusBanner />
       <Routes>
         {/* Public Routes - Project-specific QR scan routes added */}
         <Route path="/" element={<Layout />}>

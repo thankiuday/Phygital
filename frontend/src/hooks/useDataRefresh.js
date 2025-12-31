@@ -4,13 +4,20 @@
  * Ensures data consistency across the application
  */
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export const useDataRefresh = () => {
   const location = useLocation();
   const { refreshUserData, isAuthenticated } = useAuth();
+  const refreshUserDataRef = useRef(refreshUserData);
+  const lastPathRef = useRef('');
+
+  // Store latest refreshUserData in ref to prevent dependency issues
+  useEffect(() => {
+    refreshUserDataRef.current = refreshUserData;
+  }, [refreshUserData]);
 
   useEffect(() => {
     // Only refresh if user is authenticated
@@ -23,18 +30,28 @@ export const useDataRefresh = () => {
     const importantPages = ['/dashboard', '/projects', '/analytics', '/profile'];
     const currentPath = location.pathname;
     const hashPath = location.hash.replace('#', '') || location.pathname;
+    const currentLocation = `${currentPath}${hashPath}`;
+    
+    // Only refresh if location actually changed (prevent loops)
+    if (currentLocation === lastPathRef.current) {
+      return;
+    }
+    
+    lastPathRef.current = currentLocation;
     
     // Check both pathname and hash for hash routing support
     const isImportantPage = importantPages.includes(currentPath) || importantPages.includes(hashPath);
     
     if (isImportantPage) {
       // Silently refresh user data to ensure consistency
-      refreshUserData().catch(error => {
-        // Only log errors, not successful refreshes
-        console.error('Failed to refresh user data:', error);
-      });
+      if (refreshUserDataRef.current) {
+        refreshUserDataRef.current().catch(error => {
+          // Only log errors, not successful refreshes
+          console.error('Failed to refresh user data:', error);
+        });
+      }
     }
-  }, [location.pathname, location.hash, refreshUserData, isAuthenticated]);
+  }, [location.pathname, location.hash, isAuthenticated]); // Removed refreshUserData from deps
 };
 
 

@@ -42,11 +42,18 @@ import {
   TrendingUp,
   Sparkles,
   MoreVertical,
-  Plus
+  Plus,
+  FileText,
+  Palette
 } from 'lucide-react'
 import LoadingSpinner from '../../components/UI/LoadingSpinner'
 import { useDropzone } from 'react-dropzone'
 import toast from 'react-hot-toast'
+import { getAllTemplates } from '../../config/templates'
+import { templatesAPI } from '../../utils/api'
+import TemplateCard from '../../components/Templates/TemplateCard'
+import TemplatePreviewModal from '../../components/Templates/TemplatePreviewModal'
+import CampaignUpgradeModal from '../../components/Projects/CampaignUpgradeModal'
 
 const ProjectsPage = () => {
   const { user, loadUser, updateUser, refreshUserData } = useAuth()
@@ -84,11 +91,34 @@ const ProjectsPage = () => {
   const [togglingStatus, setTogglingStatus] = useState({}) // Map of projectId -> boolean
   const [togglingTargetImage, setTogglingTargetImage] = useState({}) // Map of projectId -> boolean
   
+  // Template selection state
+  const [selectedProjectForTemplate, setSelectedProjectForTemplate] = useState(null)
+  const [showTemplateModal, setShowTemplateModal] = useState(false)
+  const [applyingTemplate, setApplyingTemplate] = useState(false)
+  const [selectedTemplate, setSelectedTemplate] = useState(null)
+  const [selectedTemplateConfig, setSelectedTemplateConfig] = useState(null)
+  const [showTemplatePreviewModal, setShowTemplatePreviewModal] = useState(false)
+  const [templates, setTemplates] = useState([])
+  
   // Edit modal state
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingProject, setEditingProject] = useState(null)
   const [editFormData, setEditFormData] = useState({
+    // Single file fields (for backward compatibility with other campaign types)
     video: null,
+    pdf: null,
+    document: null,
+    // Array fields for multiple file uploads (for qr-links-video and qr-links-pdf-video)
+    videos: [],
+    pdfFiles: [],
+    documents: [],
+    // File removal flags
+    removeVideo: false,
+    removePdf: false,
+    removeDocument: false,
+    // Files to remove (array indices)
+    videosToRemove: [],
+    documentsToRemove: [],
     socialLinks: {
       instagram: '',
       facebook: '',
@@ -115,6 +145,12 @@ const ProjectsPage = () => {
   const [projectToDelete, setProjectToDelete] = useState(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
+  // Upgrade modal state
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [pendingUpgradeType, setPendingUpgradeType] = useState(null)
+  const [upgradingCampaign, setUpgradingCampaign] = useState(null)
+  const [isUpgrading, setIsUpgrading] = useState(false)
+
   // Handle country code change
   const handleCountryCodeChange = (field, newCountryCode) => {
     setCountryCodesState(prev => ({ ...prev, [field]: newCountryCode }));
@@ -125,6 +161,172 @@ const ProjectsPage = () => {
       setPhoneErrors(prev => ({ ...prev, [field]: validation.error }));
     }
   };
+
+  // Get available upgrades for a campaign type
+  const getAvailableUpgrades = (currentType) => {
+    const upgrades = []
+    
+    if (currentType === 'qr-link') {
+      upgrades.push('qr-links', 'qr-links-video', 'qr-links-pdf-video', 'qr-links-ar-video')
+    } else if (currentType === 'qr-links') {
+      upgrades.push('qr-links-video', 'qr-links-pdf-video', 'qr-links-ar-video')
+    } else if (currentType === 'qr-links-video') {
+      upgrades.push('qr-links-pdf-video', 'qr-links-ar-video')
+    } else if (currentType === 'qr-links-pdf-video') {
+      upgrades.push('qr-links-ar-video')
+    }
+    
+    return upgrades
+  }
+
+  // Detect if upgrade is needed based on action
+  const detectUpgradeNeeded = (currentType, action) => {
+    if (currentType === 'qr-link' && action === 'add-second-link') {
+      return 'qr-links'
+    }
+    if (currentType === 'qr-link' && action === 'add-video') {
+      return 'qr-links-video'
+    }
+    if (currentType === 'qr-links' && action === 'add-video') {
+      return 'qr-links-video'
+    }
+    if (currentType === 'qr-links-video' && action === 'add-pdf') {
+      return 'qr-links-pdf-video'
+    }
+    return null
+  }
+
+  // Handle upgrade request - shows upgrade modal
+  const handleUpgradeRequest = (project, newCampaignType) => {
+    setUpgradingCampaign(project)
+    setPendingUpgradeType(newCampaignType)
+    setShowUpgradeModal(true)
+  }
+
+  // Handle upgrade confirmation - executes the upgrade
+  const handleUpgradeConfirm = async () => {
+    if (!upgradingCampaign || !pendingUpgradeType) return
+
+    try {
+      setIsUpgrading(true)
+
+      // Handle AR Video upgrade separately (redirect to LevelBasedUpload)
+      if (pendingUpgradeType === 'qr-links-ar-video') {
+        await handleARVideoUpgrade(upgradingCampaign)
+        return
+      }
+
+      // Handle simple upgrades (in edit modal)
+      await handleSimpleUpgrade(upgradingCampaign, pendingUpgradeType)
+    } catch (error) {
+      console.error('Upgrade error:', error)
+      toast.error(error.response?.data?.message || 'Failed to upgrade campaign')
+    } finally {
+      setIsUpgrading(false)
+      setShowUpgradeModal(false)
+      setUpgradingCampaign(null)
+      setPendingUpgradeType(null)
+    }
+  }
+
+  // Handle simple upgrades (QR Link -> QR Links, QR Links -> QR Links Video, etc.)
+  const handleSimpleUpgrade = async (project, newCampaignType) => {
+    try {
+      const projectId = project.id
+      
+      // Prepare upgrade data based on current campaign data
+      const userProject = user?.projects?.find(p => p.id === projectId)
+      const upgradeData = {
+        currentType: project.campaignType,
+        existingData: {
+          links: userProject?.phygitalizedData?.links || [],
+          socialLinks: userProject?.phygitalizedData?.socialLinks || userProject?.socialLinks || {},
+          videos: userProject?.uploadedFiles?.videos || [],
+          documents: userProject?.uploadedFiles?.documents || []
+        }
+      }
+
+      // Call backend upgrade API
+      const response = await phygitalizedAPI.upgradeCampaign(projectId, newCampaignType, upgradeData)
+      
+      if (response.data?.success) {
+        toast.success(`Campaign upgraded from ${project.campaignType} to ${newCampaignType}!`)
+        
+        // Refresh user data and projects
+        await refreshUserData()
+        await loadUser()
+        await loadProjects()
+        
+        // If upgraded to qr-links, generate and download new QR code
+        if (newCampaignType === 'qr-links') {
+          try {
+            // Construct landing page URL directly (we know campaignType and projectId)
+            // Format: /phygitalized/links/{projectId}
+            const baseUrl = window.location.origin
+            const landingPageUrl = `${baseUrl}/#/phygitalized/links/${projectId}`
+            
+            console.log('🔄 Generating QR code for upgraded campaign:', {
+              projectId,
+              projectName: project.name,
+              landingPageUrl,
+              campaignType: newCampaignType
+            })
+            
+            // Generate QR code
+            const qrCodeDataUrl = await generateQRCode(landingPageUrl, {
+              size: 512,
+              margin: 2
+            })
+            
+            // Download QR code automatically
+            const downloadSuccess = downloadQRCodeFile(qrCodeDataUrl, project.name, 'qr-links')
+            
+            if (downloadSuccess) {
+              toast.success('New QR code downloaded!')
+            } else {
+              toast.error('Failed to download QR code')
+            }
+          } catch (error) {
+            console.error('❌ Failed to generate/download QR code after upgrade:', error)
+            // Don't block upgrade success - just log the error
+            toast.error('Upgrade successful, but QR code download failed. Please generate manually.')
+          }
+        }
+        
+        // Close edit modal if open
+        if (showEditModal) {
+          setShowEditModal(false)
+          setEditingProject(null)
+        }
+      }
+    } catch (error) {
+      console.error('Simple upgrade error:', error)
+      throw error
+    }
+  }
+
+  // Handle AR Video upgrade - redirects to LevelBasedUpload
+  const handleARVideoUpgrade = async (project) => {
+    try {
+      const projectId = project.id
+      
+      // Get upgrade data from backend
+      const response = await uploadAPI.getUpgradeToArData(projectId)
+      
+      if (response.data?.success) {
+        // Navigate to upload page with upgrade params
+        const upgradeParams = new URLSearchParams({
+          upgrade: 'true',
+          projectId: projectId,
+          fromType: project.campaignType
+        })
+        window.location.href = `/#/upload?${upgradeParams.toString()}`
+      }
+    } catch (error) {
+      console.error('AR Video upgrade error:', error)
+      throw error
+    }
+  }
 
   // Handle edit project - moved here to avoid hoisting issues
   const handleEditProject = useCallback((project) => {
@@ -137,15 +339,45 @@ const ProjectsPage = () => {
 
     // ✅ Phygitalized campaigns: use phygitalizedData instead of legacy project.socialLinks/video
     if (userProject?.campaignType?.startsWith('qr-') || project?.campaignType?.startsWith('qr-')) {
+      const campaignType = userProject?.campaignType || project?.campaignType
+      
+      // Initialize file arrays from existing project data
+      let existingVideos = []
+      let existingDocuments = []
+      
+      if (campaignType === 'qr-links-pdf-video') {
+        // Load existing documents and videos arrays
+        existingDocuments = userProject?.uploadedFiles?.documents || []
+        existingVideos = userProject?.uploadedFiles?.videos || []
+      } else if (campaignType === 'qr-links-video') {
+        // Load existing videos array
+        existingVideos = userProject?.uploadedFiles?.videos || []
+        // Fallback to single video for backward compatibility
+        if (existingVideos.length === 0 && userProject?.uploadedFiles?.video?.url) {
+          existingVideos = [userProject.uploadedFiles.video]
+        }
+      }
+      
       setEditFormData({
-        // replacement files
+        // Single file fields (for backward compatibility)
         video: null,
         pdf: null,
         document: null,
+        // Array fields for multiple file uploads
+        videos: [],
+        pdfFiles: [],
+        documents: [],
+        // Existing files (for display in modal)
+        existingVideos: existingVideos,
+        existingDocuments: existingDocuments,
+        // File removal flags (for single file removal)
         removeVideo: false,
         removePdf: false,
         removeDocument: false,
-        // editable data
+        // Files to remove (array indices for multiple files)
+        videosToRemove: [],
+        documentsToRemove: [],
+        // Editable data
         links: userProject?.phygitalizedData?.links || [],
         socialLinks: userProject?.phygitalizedData?.socialLinks || {}
       })
@@ -520,6 +752,25 @@ const ProjectsPage = () => {
     }
   }
 
+  // Helper function to download QR code file
+  const downloadQRCodeFile = (qrCodeDataUrl, projectName, suffix = '') => {
+    try {
+      const link = document.createElement('a')
+      link.href = qrCodeDataUrl
+      const filename = suffix 
+        ? `qr-code-${projectName.replace(/\s+/g, '-').toLowerCase()}-${suffix}.png`
+        : `${projectName.replace(/\s+/g, '-').toLowerCase()}-qr-code.png`
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      return true
+    } catch (error) {
+      console.error('Download error:', error)
+      return false
+    }
+  }
+
   // Download QR code
   const handleDownloadQR = async (project) => {
     const projectId = project.id
@@ -531,15 +782,12 @@ const ProjectsPage = () => {
     }
 
     try {
-      // Create a temporary link to download the data URL
-      const link = document.createElement('a')
-      link.href = qrUrl
-      link.download = `${project.name}-qr-code.png`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      
-      toast.success('QR code downloaded!')
+      const success = downloadQRCodeFile(qrUrl, project.name)
+      if (success) {
+        toast.success('QR code downloaded!')
+      } else {
+        toast.error('Failed to download QR code')
+      }
     } catch (error) {
       console.error('Download error:', error)
       toast.error('Failed to download QR code')
@@ -694,18 +942,237 @@ const ProjectsPage = () => {
         if (editFormData.removeDocument) await phygitalizedAPI.deleteCampaignFile(projectId, 'document')
 
         const fileUrlsPayload = {}
-        const phygitalizedDataPayload = {
-          links: (editFormData.links || []).map(l => ({
+        
+        // Get current project data to preserve existing links
+        // Note: user object should already be fresh, but we use it as-is
+        const userProject = user?.projects?.find(p => p.id === projectId)
+        let existingLinks = userProject?.phygitalizedData?.links || []
+        
+        // Fallback: Check for original link URL if links array is empty or for qr-links campaigns
+        // This handles cases where the upgrade didn't properly add the original link
+        if (existingLinks.length === 0 || campaignType === 'qr-links') {
+          const originalLinkUrl = userProject?.phygitalizedData?.linkUrl || 
+                                  userProject?.targetUrl ||
+                                  userProject?.phygitalizedData?.redirectUrl
+          
+          if (originalLinkUrl) {
+            // Normalize URL for comparison (same logic as below)
+            const normalizeUrl = (url) => {
+              try {
+                const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`)
+                return urlObj.hostname + urlObj.pathname.replace(/\/$/, '')
+              } catch {
+                return url.replace(/^https?:\/\//, '').replace(/\/$/, '').toLowerCase()
+              }
+            }
+            
+            const normalizedOriginal = normalizeUrl(originalLinkUrl)
+            
+            // Check if original link exists in array
+            const originalExists = existingLinks.some(link => {
+              if (!link || !link.url) return false
+              return normalizeUrl(link.url) === normalizedOriginal
+            })
+            
+            console.log('🔍 Save: Checking for original link URL:', {
+              originalLinkUrl,
+              normalizedOriginal,
+              originalExists,
+              existingLinksCount: existingLinks.length
+            })
+            
+            // Add original link if it doesn't exist
+            if (!originalExists) {
+              const originalLink = {
+                label: 'Link 1',
+                url: originalLinkUrl.startsWith('http://') || originalLinkUrl.startsWith('https://') 
+                  ? originalLinkUrl 
+                  : `https://${originalLinkUrl}`
+              }
+              
+              // Put original link first
+              existingLinks = [originalLink, ...existingLinks]
+              
+              console.log('✅ Save: Added original link to existing links:', {
+                originalLink,
+                totalLinks: existingLinks.length,
+                allLinks: existingLinks.map(l => ({ label: l.label, url: l.url }))
+              })
+            } else {
+              console.log('ℹ️ Save: Original link already exists in existing links')
+            }
+          }
+        }
+        
+        // For QR Links campaigns, combine social links with custom links (same as QRLinksPage)
+        let finalLinks = []
+        if (campaignType === 'qr-links' || campaignType === 'qr-links-video' || campaignType === 'qr-links-pdf-video') {
+          // Convert social links to links array format (exclude contactNumber and whatsappNumber)
+          const contactInfoKeys = new Set(['contactNumber', 'whatsappNumber'])
+          const socialLinksArray = Object.entries(editFormData.socialLinks || {})
+            .filter(([key, value]) => {
+              // Exclude contact info keys and empty values
+              if (contactInfoKeys.has(key)) return false
+              return value && typeof value === 'string' && value.trim() !== ''
+            })
+            .map(([key, value]) => ({
+              label: key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1').trim(),
+              url: value.startsWith('http://') || value.startsWith('https://')
+                ? value
+                : `https://${value}`
+            }))
+          
+          // Get custom links from form data (should include existing links that were initialized)
+          const customLinksFromForm = (editFormData.links || []).map(l => ({
             label: l.label || 'Link',
             url: (l.url || '').startsWith('http://') || (l.url || '').startsWith('https://')
               ? l.url
               : `https://${l.url}`
-          })),
+          }))
+          
+          // Normalize URLs for comparison (remove trailing slashes, convert to lowercase)
+          const normalizeUrl = (url) => {
+            try {
+              const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`)
+              return urlObj.hostname + urlObj.pathname.replace(/\/$/, '')
+            } catch {
+              return url.replace(/^https?:\/\//, '').replace(/\/$/, '').toLowerCase()
+            }
+          }
+          
+          // Use a Map to deduplicate by URL
+          const linksMap = new Map()
+          
+          // IMPORTANT: Add existing links FIRST to preserve them (these come from the upgrade)
+          existingLinks.forEach(link => {
+            const normalized = normalizeUrl(link.url || '')
+            if (normalized && !linksMap.has(normalized)) {
+              linksMap.set(normalized, {
+                label: link.label || 'Link',
+                url: (link.url || '').startsWith('http://') || (link.url || '').startsWith('https://')
+                  ? link.url
+                  : `https://${link.url}`
+              })
+            }
+          })
+          
+          // Then add custom links from form (these can add new links or update existing ones)
+          customLinksFromForm.forEach(link => {
+            const normalized = normalizeUrl(link.url)
+            if (normalized) {
+              linksMap.set(normalized, link) // Overwrite if duplicate (form data takes precedence)
+            }
+          })
+          
+          // Finally, add social links (these take precedence if duplicate - user's active choice)
+          socialLinksArray.forEach(link => {
+            const normalized = normalizeUrl(link.url)
+            if (normalized) {
+              linksMap.set(normalized, link) // Overwrite if duplicate
+            }
+          })
+          
+          // Convert back to array - preserve order: existing links first, then custom, then social
+          finalLinks = Array.from(linksMap.values())
+          
+          console.log('✅ Save: Final merged links array:', {
+            totalLinks: finalLinks.length,
+            finalLinks: finalLinks.map(l => ({ label: l.label, url: l.url }))
+          })
+        } else {
+          // For other campaign types, just use custom links
+          finalLinks = (editFormData.links || []).map(l => ({
+            label: l.label || 'Link',
+            url: (l.url || '').startsWith('http://') || (l.url || '').startsWith('https://')
+              ? l.url
+              : `https://${l.url}`
+          }))
+        }
+        
+        const phygitalizedDataPayload = {
+          links: finalLinks,
           socialLinks: editFormData.socialLinks || {}
         }
 
-        // Upload replacements if provided
+        // Helper function to delete files from Cloudinary
+        const deleteFileFromCloudinary = async (file) => {
+          if (!file || !file.filename) return
+          try {
+            // Determine resource type based on file type/format/URL
+            let resourceType = 'auto'
+            
+            // Check format field first
+            if (file.format) {
+              const format = file.format.toLowerCase()
+              if (format === 'pdf' || format === 'doc' || format === 'docx' || format === 'txt') {
+                resourceType = 'raw'
+              } else if (['mp4', 'mov', 'avi', 'webm', 'mkv', 'flv', 'wmv'].includes(format)) {
+                resourceType = 'video'
+              } else if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'].includes(format)) {
+                resourceType = 'image'
+              }
+            }
+            
+            // Fallback: check URL or filename extension
+            if (resourceType === 'auto') {
+              const urlOrFilename = file.url || file.filename || ''
+              if (urlOrFilename.match(/\.(mp4|mov|avi|webm|mkv|flv|wmv)$/i)) {
+                resourceType = 'video'
+              } else if (urlOrFilename.match(/\.(png|jpg|jpeg|gif|webp|bmp|svg)$/i)) {
+                resourceType = 'image'
+              } else {
+                resourceType = 'raw' // Default for PDFs and other documents
+              }
+            }
+            
+            await uploadAPI.deleteFile(file.filename, resourceType)
+            console.log('🗑️ File deleted from Cloudinary:', file.filename, `(type: ${resourceType})`)
+          } catch (error) {
+            console.error('Error deleting file from Cloudinary:', error)
+            // Continue even if deletion fails - file will be removed from DB
+          }
+        }
+
+        // Handle multiple file uploads for qr-links-video and qr-links-pdf-video
         if (campaignType === 'qr-links-video') {
+          // Delete removed videos from Cloudinary
+          if (editFormData.videosToRemove?.length > 0 && editFormData.existingVideos) {
+            for (const index of editFormData.videosToRemove) {
+              const fileToDelete = editFormData.existingVideos[index]
+              if (fileToDelete) {
+                await deleteFileFromCloudinary(fileToDelete)
+              }
+            }
+          }
+
+          // Filter out removed videos from existing array
+          const remainingVideos = (editFormData.existingVideos || []).filter((_, index) => 
+            !(editFormData.videosToRemove || []).includes(index)
+          )
+
+          // Upload new videos if any
+          let newlyUploadedVideos = []
+          if (editFormData.videos?.length > 0) {
+            const formData = new FormData()
+            editFormData.videos.forEach(file => {
+              formData.append('videos', file)
+            })
+            const uploadResponse = await uploadAPI.uploadVideos(formData, projectId, 'qr-links-video')
+            if (uploadResponse.data?.status === 'success' && uploadResponse.data?.data?.videos) {
+              newlyUploadedVideos = uploadResponse.data.data.videos
+            }
+          }
+
+          // Combine remaining existing videos with newly uploaded ones
+          const finalVideos = [...remainingVideos, ...newlyUploadedVideos]
+          if (finalVideos.length > 0) {
+            fileUrlsPayload.videos = finalVideos
+          } else if (remainingVideos.length === 0 && newlyUploadedVideos.length === 0) {
+            // If all videos were removed, set empty array
+            fileUrlsPayload.videos = []
+          }
+          
+          // Handle single video replacement for backward compatibility
           const file = editFormData.video || editFormData.document || editFormData.pdf
           if (file) {
             const mime = file.type || ''
@@ -729,6 +1196,81 @@ const ProjectsPage = () => {
         }
 
         if (campaignType === 'qr-links-pdf-video') {
+          // Delete removed documents from Cloudinary
+          if (editFormData.documentsToRemove?.length > 0 && editFormData.existingDocuments) {
+            for (const index of editFormData.documentsToRemove) {
+              const fileToDelete = editFormData.existingDocuments[index]
+              if (fileToDelete) {
+                await deleteFileFromCloudinary(fileToDelete)
+              }
+            }
+          }
+
+          // Delete removed videos from Cloudinary
+          if (editFormData.videosToRemove?.length > 0 && editFormData.existingVideos) {
+            for (const index of editFormData.videosToRemove) {
+              const fileToDelete = editFormData.existingVideos[index]
+              if (fileToDelete) {
+                await deleteFileFromCloudinary(fileToDelete)
+              }
+            }
+          }
+
+          // Filter out removed documents from existing array
+          const remainingDocuments = (editFormData.existingDocuments || []).filter((_, index) => 
+            !(editFormData.documentsToRemove || []).includes(index)
+          )
+
+          // Filter out removed videos from existing array
+          const remainingVideos = (editFormData.existingVideos || []).filter((_, index) => 
+            !(editFormData.videosToRemove || []).includes(index)
+          )
+
+          // Upload new documents if any
+          let newlyUploadedDocuments = []
+          if (editFormData.pdfFiles?.length > 0) {
+            const formData = new FormData()
+            editFormData.pdfFiles.forEach(file => {
+              formData.append('documents', file)
+            })
+            const uploadResponse = await uploadAPI.uploadDocuments(formData, projectId)
+            if (uploadResponse.data?.status === 'success' && uploadResponse.data?.data?.documents) {
+              newlyUploadedDocuments = uploadResponse.data.data.documents
+            }
+          }
+
+          // Upload new videos if any
+          let newlyUploadedVideos = []
+          if (editFormData.videos?.length > 0) {
+            const formData = new FormData()
+            editFormData.videos.forEach(file => {
+              formData.append('videos', file)
+            })
+            const uploadResponse = await uploadAPI.uploadVideos(formData, projectId, 'qr-links-pdf-video')
+            if (uploadResponse.data?.status === 'success' && uploadResponse.data?.data?.videos) {
+              newlyUploadedVideos = uploadResponse.data.data.videos
+            }
+          }
+
+          // Combine remaining existing files with newly uploaded ones
+          const finalDocuments = [...remainingDocuments, ...newlyUploadedDocuments]
+          const finalVideos = [...remainingVideos, ...newlyUploadedVideos]
+
+          if (finalDocuments.length > 0) {
+            fileUrlsPayload.documents = finalDocuments
+          } else if (remainingDocuments.length === 0 && newlyUploadedDocuments.length === 0) {
+            // If all documents were removed, set empty array
+            fileUrlsPayload.documents = []
+          }
+
+          if (finalVideos.length > 0) {
+            fileUrlsPayload.videos = finalVideos
+          } else if (remainingVideos.length === 0 && newlyUploadedVideos.length === 0) {
+            // If all videos were removed, set empty array
+            fileUrlsPayload.videos = []
+          }
+          
+          // Handle single file replacements for backward compatibility
           if (editFormData.pdf) {
             const upPdf = await phygitalizedAPI.uploadFile(variation, projectId, editFormData.pdf, 'pdf')
             const pdfUrl = upPdf.data?.data?.file?.url
@@ -789,6 +1331,30 @@ const ProjectsPage = () => {
         toast.success('Campaign updated successfully!')
         setShowEditModal(false)
         setEditingProject(null)
+        setEditFormData({
+          video: null,
+          pdf: null,
+          document: null,
+          videos: [],
+          pdfFiles: [],
+          documents: [],
+          existingVideos: [],
+          existingDocuments: [],
+          removeVideo: false,
+          removePdf: false,
+          removeDocument: false,
+          videosToRemove: [],
+          documentsToRemove: [],
+          socialLinks: {
+            instagram: '',
+            facebook: '',
+            twitter: '',
+            linkedin: '',
+            website: '',
+            contactNumber: '',
+            whatsappNumber: ''
+          }
+        })
         await loadUser()
         await loadProjects()
       } catch (err) {
@@ -890,6 +1456,18 @@ const ProjectsPage = () => {
       setEditingProject(null)
       setEditFormData({
         video: null,
+        pdf: null,
+        document: null,
+        videos: [],
+        pdfFiles: [],
+        documents: [],
+        existingVideos: [],
+        existingDocuments: [],
+        removeVideo: false,
+        removePdf: false,
+        removeDocument: false,
+        videosToRemove: [],
+        documentsToRemove: [],
         socialLinks: {
           instagram: '',
           facebook: '',
@@ -974,6 +1552,18 @@ const ProjectsPage = () => {
     setEditingProject(null)
     setEditFormData({
       video: null,
+      pdf: null,
+      document: null,
+      videos: [],
+      pdfFiles: [],
+      documents: [],
+      existingVideos: [],
+      existingDocuments: [],
+      removeVideo: false,
+      removePdf: false,
+      removeDocument: false,
+      videosToRemove: [],
+      documentsToRemove: [],
       socialLinks: {
         instagram: '',
         facebook: '',
@@ -1145,6 +1735,67 @@ const ProjectsPage = () => {
     } finally {
       setTogglingTargetImage(prev => ({ ...prev, [projectId]: false }))
     }
+  }
+
+  // Handle change template button click
+  const handleChangeTemplate = (project) => {
+    setSelectedProjectForTemplate(project)
+    const allTemplates = getAllTemplates()
+    setTemplates(allTemplates)
+    setShowTemplateModal(true)
+  }
+
+  // Handle template preview click
+  const handleTemplateClick = (template) => {
+    setSelectedTemplate(template)
+    setShowTemplatePreviewModal(true)
+  }
+
+  // Handle apply template to project
+  const handleApplyTemplateToProject = async (template, templateConfig) => {
+    if (!selectedProjectForTemplate) return
+    
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      `Apply "${template.name}" template to "${selectedProjectForTemplate.name}" campaign?`
+    )
+    if (!confirmed) return
+    
+    setApplyingTemplate(true)
+    try {
+      const response = await templatesAPI.applyTemplate({
+        templateId: template.id,
+        projectIds: [selectedProjectForTemplate.id],
+        templateConfig: templateConfig || {}
+      })
+      
+      if (response.data?.success) {
+        toast.success(`Template applied successfully!`)
+        setShowTemplateModal(false)
+        setShowTemplatePreviewModal(false)
+        setSelectedProjectForTemplate(null)
+        setSelectedTemplate(null)
+        setSelectedTemplateConfig(null)
+        await loadUser()
+        await loadProjects()
+      } else {
+        throw new Error(response.data?.message || 'Failed to apply template')
+      }
+    } catch (error) {
+      console.error('Failed to apply template:', error)
+      toast.error(error.response?.data?.message || 'Failed to apply template')
+    } finally {
+      setApplyingTemplate(false)
+    }
+  }
+
+  // Close template modal
+  const closeTemplateModal = () => {
+    setShowTemplateModal(false)
+    setSelectedProjectForTemplate(null)
+    setSelectedTemplate(null)
+    setSelectedTemplateConfig(null)
+    setShowTemplatePreviewModal(false)
   }
 
   if (loading) {
@@ -1466,6 +2117,7 @@ const ProjectsPage = () => {
                     onEdit={() => handleEditProject(project)}
                     onDelete={() => handleDeleteProject(project)}
                     onToggleStatus={() => handleToggleProjectStatus(project)}
+                    onChangeTemplate={handleChangeTemplate}
                     formatDate={formatDate}
                     viewMode={viewMode}
                     getLandingPageUrl={getLandingPageUrl}
@@ -1489,6 +2141,8 @@ const ProjectsPage = () => {
             onChange={setEditFormData}
             onSave={handleSaveProject}
             onClose={closeEditModal}
+            onUpgradeRequest={handleUpgradeRequest}
+            getAvailableUpgrades={getAvailableUpgrades}
           />
         ) : (
           <EditProjectModal
@@ -1586,6 +2240,86 @@ const ProjectsPage = () => {
           </div>
         </div>
       )}
+
+      {/* Template Selection Modal */}
+      {showTemplateModal && selectedProjectForTemplate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="relative w-full max-w-6xl max-h-[90vh] bg-slate-800 rounded-xl border border-slate-600/50 shadow-2xl overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-slate-700/50">
+              <div>
+                <h2 className="text-xl font-bold text-slate-100">Change Template</h2>
+                <p className="text-sm text-slate-400 mt-1">
+                  Select a template for "{selectedProjectForTemplate.name}"
+                </p>
+              </div>
+              <button
+                onClick={closeTemplateModal}
+                className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+                disabled={applyingTemplate}
+              >
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+
+            {/* Templates Grid */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {templates.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {templates.map((template) => (
+                    <TemplateCard
+                      key={template.id}
+                      template={template}
+                      appliedCampaigns={[]}
+                      onClick={() => handleTemplateClick(template)}
+                      onApply={() => handleTemplateClick(template)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Sparkles className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                  <p className="text-slate-400 text-lg">No templates available</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Template Preview Modal */}
+      {showTemplatePreviewModal && selectedTemplate && selectedProjectForTemplate && (
+        <TemplatePreviewModal
+          template={selectedTemplate}
+          isOpen={showTemplatePreviewModal}
+          onClose={() => {
+            setShowTemplatePreviewModal(false)
+            setSelectedTemplate(null)
+            setSelectedTemplateConfig(null)
+          }}
+          onApply={(templateConfig) => {
+            setSelectedTemplateConfig(templateConfig || {})
+            handleApplyTemplateToProject(selectedTemplate, templateConfig)
+          }}
+        />
+      )}
+
+      {/* Campaign Upgrade Modal */}
+      {showUpgradeModal && upgradingCampaign && pendingUpgradeType && (
+        <CampaignUpgradeModal
+          isOpen={showUpgradeModal}
+          onClose={() => {
+            setShowUpgradeModal(false)
+            setUpgradingCampaign(null)
+            setPendingUpgradeType(null)
+          }}
+          currentType={upgradingCampaign.campaignType}
+          newType={pendingUpgradeType}
+          onConfirm={handleUpgradeConfirm}
+          isUpgrading={isUpgrading}
+          existingData={upgradingCampaign}
+        />
+      )}
     </div>
   )
 }
@@ -1600,6 +2334,7 @@ const ProjectCard = ({
   onEdit,
   onDelete,
   onToggleStatus,
+  onChangeTemplate,
   formatDate,
   viewMode,
   getLandingPageUrl
@@ -1811,6 +2546,18 @@ const ProjectCard = ({
             <Edit3 className="w-4 h-4 sm:mr-2" />
             <span className={viewMode === 'list' ? 'hidden sm:inline' : ''}>Edit</span>
           </button>
+          {(project.phygitalizedData || project.campaignType?.startsWith('qr-')) && onChangeTemplate && (
+            <button
+              onClick={() => onChangeTemplate(project)}
+              className={`px-4 py-2.5 bg-gradient-to-r from-neon-purple to-purple-500 text-slate-900 text-sm font-semibold rounded-lg hover:from-purple-400 hover:to-purple-400 transition-all duration-200 flex items-center justify-center shadow-glow-purple hover:scale-105 active:scale-95 ${
+                viewMode === 'list' ? 'sm:px-3 sm:py-2' : 'flex-1 sm:flex-initial'
+              }`}
+              title="Change template theme"
+            >
+              <Palette className="w-4 h-4 sm:mr-2" />
+              <span className={viewMode === 'list' ? 'hidden sm:inline' : ''}>Template</span>
+            </button>
+          )}
           <button
             onClick={onDownloadComposite}
             disabled={!project.hasCompositeDesign}
@@ -2238,7 +2985,7 @@ const EditProjectModal = ({
 }
 
 // Phygitalized Edit Modal (dynamic by campaignType)
-const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, onClose }) => {
+const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, onClose, onUpgradeRequest, getAvailableUpgrades }) => {
   const campaignType = project?.campaignType || ''
 
   const setField = (patch) => onChange(prev => ({ ...prev, ...patch }))
@@ -2249,13 +2996,208 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
     setField({ links: next })
   }
 
-  const addLink = () => setField({ links: [...(formData.links || []), { label: '', url: '' }] })
+  const addLink = () => {
+    // Check if upgrade is needed (qr-link -> qr-links when adding second link)
+    if (campaignType === 'qr-link') {
+      const currentLinks = formData.links || []
+      const existingLinks = project?.phygitalizedData?.links || []
+      const totalLinks = currentLinks.length + existingLinks.length
+      
+      // If this would be the second link, trigger upgrade
+      if (totalLinks >= 1) {
+        if (onUpgradeRequest) {
+          onUpgradeRequest(project, 'qr-links')
+          return
+        }
+      }
+    }
+    
+    setField({ links: [...(formData.links || []), { label: '', url: '' }] })
+  }
+  
   const removeLink = (idx) => setField({ links: (formData.links || []).filter((_, i) => i !== idx) })
 
   const showLinks = campaignType === 'qr-links' || campaignType === 'qr-links-video' || campaignType === 'qr-links-pdf-video'
   const showVideo = campaignType === 'qr-links-video' || campaignType === 'qr-links-pdf-video' || campaignType === 'qr-links-ar-video'
   const showPdf = campaignType === 'qr-links-pdf-video'
   const showDocument = campaignType === 'qr-links-video'
+
+  // Helper function to format file size
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
+  // Handle PDF drop
+  const onPdfDrop = useCallback((acceptedFiles) => {
+    if (acceptedFiles.length === 0) return
+
+    // Check if upgrade is needed (qr-links-video -> qr-links-pdf-video)
+    if (campaignType === 'qr-links-video') {
+      if (onUpgradeRequest) {
+        onUpgradeRequest(project, 'qr-links-pdf-video')
+        return
+      }
+    }
+
+    const validFiles = []
+    const errors = []
+    const existingCount = (formData.existingDocuments || []).length
+    const newFilesCount = (formData.pdfFiles || []).length
+    const currentTotal = existingCount + newFilesCount
+    
+    acceptedFiles.forEach(file => {
+      if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+        errors.push(`"${file.name}" is not a PDF file`)
+        return
+      }
+      
+      // Check if file is already selected (by name and size)
+      const isDuplicate = (formData.pdfFiles || []).some(f => f.name === file.name && f.size === file.size)
+      if (isDuplicate) {
+        errors.push(`"${file.name}" is already selected`)
+        return
+      }
+      
+      // Check file limit (max 5 total)
+      if (currentTotal + validFiles.length >= 5) {
+        errors.push('Maximum 5 PDF files allowed')
+        return
+      }
+      
+      validFiles.push(file)
+    })
+
+    if (errors.length > 0) {
+      toast.error(errors[0])
+    }
+
+    if (validFiles.length === 0) return
+
+    setField({ pdfFiles: [...(formData.pdfFiles || []), ...validFiles] })
+    toast.success(`${validFiles.length} PDF file(s) added`)
+  }, [formData, onChange])
+
+  // Handle video drop
+  const onVideoDrop = useCallback((acceptedFiles) => {
+    if (acceptedFiles.length === 0) return
+
+    // Check if upgrade is needed
+    if (campaignType === 'qr-link' || campaignType === 'qr-links') {
+      if (onUpgradeRequest) {
+        const upgradeType = campaignType === 'qr-link' ? 'qr-links-video' : 'qr-links-video'
+        onUpgradeRequest(project, upgradeType)
+        return
+      }
+    }
+
+    const validFiles = []
+    const errors = []
+    const maxSize = 50 * 1024 * 1024 // 50MB limit
+    const existingCount = (formData.existingVideos || []).length
+    const newFilesCount = (formData.videos || []).length
+    const currentTotal = existingCount + newFilesCount
+    
+    acceptedFiles.forEach(file => {
+      const isVideo = file.type.startsWith('video/') || 
+                     /\.(mp4|mov|avi|webm|mkv|flv|wmv)$/i.test(file.name)
+      
+      if (!isVideo) {
+        errors.push(`"${file.name}" is not a video file`)
+        return
+      }
+      
+      // Check file size (50MB limit)
+      if (file.size > maxSize) {
+        const fileSizeMB = (file.size / 1024 / 1024).toFixed(2)
+        errors.push(`"${file.name}" is ${fileSizeMB}MB. Maximum file size is 50MB per video.`)
+        return
+      }
+      
+      // Check if file is already selected
+      const isDuplicate = (formData.videos || []).some(f => f.name === file.name && f.size === file.size)
+      if (isDuplicate) {
+        errors.push(`"${file.name}" is already selected`)
+        return
+      }
+      
+      // Check file limit (max 5 total)
+      if (currentTotal + validFiles.length >= 5) {
+        errors.push('Maximum 5 video files allowed')
+        return
+      }
+      
+      validFiles.push(file)
+    })
+
+    if (errors.length > 0) {
+      toast.error(errors[0])
+    }
+
+    if (validFiles.length === 0) return
+
+    setField({ videos: [...(formData.videos || []), ...validFiles] })
+    toast.success(`${validFiles.length} video file(s) added`)
+  }, [formData, onChange])
+
+  // PDF dropzone
+  const { getRootProps: getPdfRootProps, getInputProps: getPdfInputProps, isDragActive: isPdfDragActive } = useDropzone({
+    onDrop: onPdfDrop,
+    accept: {
+      'application/pdf': ['.pdf']
+    },
+    maxFiles: 5,
+    multiple: true,
+    disabled: isSaving
+  })
+
+  // Video dropzone
+  const { getRootProps: getVideoRootProps, getInputProps: getVideoInputProps, isDragActive: isVideoDragActive } = useDropzone({
+    onDrop: onVideoDrop,
+    accept: {
+      'video/*': ['.mp4', '.mov', '.avi', '.webm', '.mkv', '.flv', '.wmv']
+    },
+    maxFiles: 5,
+    multiple: true,
+    disabled: isSaving
+  })
+
+  // Remove newly selected PDF
+  const removePdfFile = (index) => {
+    const newPdfFiles = (formData.pdfFiles || []).filter((_, i) => i !== index)
+    setField({ pdfFiles: newPdfFiles })
+  }
+
+  // Remove newly selected video
+  const removeVideoFile = (index) => {
+    const newVideos = (formData.videos || []).filter((_, i) => i !== index)
+    setField({ videos: newVideos })
+  }
+
+  // Mark existing document for removal
+  const markDocumentForRemoval = (index) => {
+    const toRemove = new Set(formData.documentsToRemove || [])
+    if (toRemove.has(index)) {
+      toRemove.delete(index)
+    } else {
+      toRemove.add(index)
+    }
+    setField({ documentsToRemove: Array.from(toRemove) })
+  }
+
+  // Mark existing video for removal
+  const markVideoForRemoval = (index) => {
+    const toRemove = new Set(formData.videosToRemove || [])
+    if (toRemove.has(index)) {
+      toRemove.delete(index)
+    } else {
+      toRemove.add(index)
+    }
+    setField({ videosToRemove: Array.from(toRemove) })
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 sm:p-4">
@@ -2268,6 +3210,39 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
         </div>
 
         <div className="px-4 py-4 space-y-6">
+          {/* Available Upgrades Section */}
+          {getAvailableUpgrades && getAvailableUpgrades(campaignType).length > 0 && (
+            <div className="card border-neon-purple/30 bg-gradient-to-br from-neon-purple/10 to-neon-pink/10">
+              <div className="card-header">
+                <h4 className="text-sm font-semibold text-slate-100 flex items-center">
+                  <Sparkles className="w-4 h-4 mr-2 text-neon-purple" />
+                  Available Upgrades
+                </h4>
+                <p className="text-xs text-slate-300">Enhance your campaign with additional features</p>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-3">
+                {getAvailableUpgrades(campaignType).map((upgradeType) => {
+                  const upgradeLabels = {
+                    'qr-links': 'QR Links',
+                    'qr-links-video': 'QR Links Video',
+                    'qr-links-pdf-video': 'QR Links PDF/Video',
+                    'qr-links-ar-video': 'QR Links AR Video'
+                  }
+                  return (
+                    <button
+                      key={upgradeType}
+                      onClick={() => onUpgradeRequest && onUpgradeRequest(project, upgradeType)}
+                      disabled={isSaving}
+                      className="px-3 py-2 text-xs font-semibold text-slate-100 bg-gradient-to-r from-neon-purple/80 to-neon-pink/80 hover:from-neon-purple hover:to-neon-pink rounded-lg transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Upgrade to {upgradeLabels[upgradeType] || upgradeType}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Contact + Social links (selection UI like upload) */}
           <div className="card">
             <SocialLinksInput
@@ -2327,61 +3302,196 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
             <div className="card">
               <div className="card-header">
                 <h4 className="text-sm font-semibold text-slate-100">Files</h4>
-                <p className="text-xs text-slate-300">Replace or remove existing assets (old asset will be deleted).</p>
+                <p className="text-xs text-slate-300">Add additional files or remove existing ones. Maximum 5 files per type.</p>
               </div>
 
-              <div className="space-y-4">
-                {showVideo && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-slate-200">Video</p>
-                      <label className="flex items-center gap-2 text-xs text-slate-300">
-                        <input
-                          type="checkbox"
-                          checked={!!formData.removeVideo}
-                          onChange={(e) => setField({ removeVideo: e.target.checked })}
-                          disabled={isSaving}
-                        />
-                        Remove existing video
-                      </label>
-                    </div>
-                    <input
-                      type="file"
-                      accept="video/*"
-                      onChange={(e) => setField({ video: e.target.files?.[0] || null })}
-                      disabled={isSaving}
-                      className="input w-full"
-                    />
-                    {formData.video && <p className="text-xs text-slate-400">Selected: {formData.video.name}</p>}
-                  </div>
-                )}
-
+              <div className="space-y-6">
+                {/* PDF Upload Section (for qr-links-pdf-video) */}
                 {showPdf && (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <p className="text-sm text-slate-200">PDF</p>
-                      <label className="flex items-center gap-2 text-xs text-slate-300">
-                        <input
-                          type="checkbox"
-                          checked={!!formData.removePdf}
-                          onChange={(e) => setField({ removePdf: e.target.checked })}
-                          disabled={isSaving}
-                        />
-                        Remove existing PDF
+                      <label className="text-sm font-medium text-slate-200 flex items-center">
+                        <FileText className="w-4 h-4 mr-2 text-neon-orange" />
+                        PDF Documents
+                        {(() => {
+                          const existingCount = (formData.existingDocuments || []).length
+                          const newCount = (formData.pdfFiles || []).length
+                          const total = existingCount + newCount - (formData.documentsToRemove?.length || 0)
+                          return <span className="text-slate-400 ml-2">({total}/5)</span>
+                        })()}
                       </label>
                     </div>
-                    <input
-                      type="file"
-                      accept="application/pdf"
-                      onChange={(e) => setField({ pdf: e.target.files?.[0] || null })}
-                      disabled={isSaving}
-                      className="input w-full"
-                    />
-                    {formData.pdf && <p className="text-xs text-slate-400">Selected: {formData.pdf.name}</p>}
+
+                    {/* Existing PDFs */}
+                    {(formData.existingDocuments || []).length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs text-slate-400 font-medium">Existing Documents:</p>
+                        {(formData.existingDocuments || []).map((doc, index) => {
+                          const isMarkedForRemoval = (formData.documentsToRemove || []).includes(index)
+                          return (
+                            <div key={index} className={`p-3 bg-slate-800/50 rounded-lg border ${isMarkedForRemoval ? 'border-red-600/50 opacity-60' : 'border-slate-600/30'}`}>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center flex-1 min-w-0">
+                                  <FileText className="w-4 h-4 mr-2 text-neon-orange flex-shrink-0" />
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-slate-100 text-sm truncate">{doc.filename || doc.originalName || 'PDF Document'}</p>
+                                    {doc.size && <p className="text-xs text-slate-400">{formatFileSize(doc.size)}</p>}
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => markDocumentForRemoval(index)}
+                                  disabled={isSaving}
+                                  className={`px-2 py-1 text-xs rounded ${isMarkedForRemoval ? 'bg-red-600/20 text-red-400' : 'bg-slate-700/50 text-slate-300 hover:bg-red-600/20 hover:text-red-400'} transition-colors`}
+                                >
+                                  {isMarkedForRemoval ? 'Undo' : 'Remove'}
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {/* New PDFs */}
+                    {(formData.pdfFiles || []).length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs text-slate-400 font-medium">New Documents to Upload:</p>
+                        {(formData.pdfFiles || []).map((file, index) => (
+                          <div key={index} className="p-3 bg-slate-800/50 rounded-lg border border-slate-600/30">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center flex-1 min-w-0">
+                                <FileText className="w-4 h-4 mr-2 text-neon-orange flex-shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-slate-100 text-sm truncate">{file.name}</p>
+                                  <p className="text-xs text-slate-400">{formatFileSize(file.size)}</p>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => removePdfFile(index)}
+                                disabled={isSaving}
+                                className="p-1 hover:bg-slate-700/50 rounded transition-colors"
+                              >
+                                <X className="w-4 h-4 text-slate-400" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* PDF Dropzone */}
+                    <div
+                      {...getPdfRootProps()}
+                      className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
+                        isPdfDragActive
+                          ? 'border-neon-blue bg-neon-blue/10'
+                          : 'border-slate-600/50 hover:border-slate-500/50 bg-slate-800/30'
+                      } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <input {...getPdfInputProps()} />
+                      <FileText className="w-8 h-8 mx-auto mb-2 text-slate-400" />
+                      <p className="text-sm text-slate-300">
+                        {isPdfDragActive ? 'Drop PDF files here' : 'Drag & drop PDF files or click to browse'}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-1">Maximum 5 PDF files ({(formData.existingDocuments || []).length + (formData.pdfFiles || []).length}/5)</p>
+                    </div>
                   </div>
                 )}
 
-                {showDocument && (
+                {/* Video Upload Section */}
+                {showVideo && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-slate-200 flex items-center">
+                        <Video className="w-4 h-4 mr-2 text-neon-blue" />
+                        Videos
+                        {(() => {
+                          const existingCount = (formData.existingVideos || []).length
+                          const newCount = (formData.videos || []).length
+                          const total = existingCount + newCount - (formData.videosToRemove?.length || 0)
+                          return <span className="text-slate-400 ml-2">({total}/5)</span>
+                        })()}
+                      </label>
+                    </div>
+
+                    {/* Existing Videos */}
+                    {(formData.existingVideos || []).length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs text-slate-400 font-medium">Existing Videos:</p>
+                        {(formData.existingVideos || []).map((video, index) => {
+                          const isMarkedForRemoval = (formData.videosToRemove || []).includes(index)
+                          return (
+                            <div key={index} className={`p-3 bg-slate-800/50 rounded-lg border ${isMarkedForRemoval ? 'border-red-600/50 opacity-60' : 'border-slate-600/30'}`}>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center flex-1 min-w-0">
+                                  <Video className="w-4 h-4 mr-2 text-neon-blue flex-shrink-0" />
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-slate-100 text-sm truncate">{video.filename || video.originalName || 'Video'}</p>
+                                    {video.size && <p className="text-xs text-slate-400">{formatFileSize(video.size)}</p>}
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => markVideoForRemoval(index)}
+                                  disabled={isSaving}
+                                  className={`px-2 py-1 text-xs rounded ${isMarkedForRemoval ? 'bg-red-600/20 text-red-400' : 'bg-slate-700/50 text-slate-300 hover:bg-red-600/20 hover:text-red-400'} transition-colors`}
+                                >
+                                  {isMarkedForRemoval ? 'Undo' : 'Remove'}
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {/* New Videos */}
+                    {(formData.videos || []).length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs text-slate-400 font-medium">New Videos to Upload:</p>
+                        {(formData.videos || []).map((file, index) => (
+                          <div key={index} className="p-3 bg-slate-800/50 rounded-lg border border-slate-600/30">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center flex-1 min-w-0">
+                                <Video className="w-4 h-4 mr-2 text-neon-blue flex-shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-slate-100 text-sm truncate">{file.name}</p>
+                                  <p className="text-xs text-slate-400">{formatFileSize(file.size)}</p>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => removeVideoFile(index)}
+                                disabled={isSaving}
+                                className="p-1 hover:bg-slate-700/50 rounded transition-colors"
+                              >
+                                <X className="w-4 h-4 text-slate-400" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Video Dropzone */}
+                    <div
+                      {...getVideoRootProps()}
+                      className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
+                        isVideoDragActive
+                          ? 'border-neon-blue bg-neon-blue/10'
+                          : 'border-slate-600/50 hover:border-slate-500/50 bg-slate-800/30'
+                      } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <input {...getVideoInputProps()} />
+                      <Video className="w-8 h-8 mx-auto mb-2 text-slate-400" />
+                      <p className="text-sm text-slate-300">
+                        {isVideoDragActive ? 'Drop video files here' : 'Drag & drop video files or click to browse'}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-1">Maximum 5 videos, 50MB each ({(formData.existingVideos || []).length + (formData.videos || []).length}/5)</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Document Upload Section (for qr-links-video - single document, backward compatibility) */}
+                {showDocument && !showVideo && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <p className="text-sm text-slate-200">Document (PDF/DOC/DOCX)</p>

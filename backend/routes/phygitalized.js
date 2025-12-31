@@ -479,4 +479,248 @@ router.get('/ar/:pageId', async (req, res) => {
   }
 })
 
+// Upgrade campaign type
+// POST /api/phygitalized/upgrade-campaign
+router.post('/upgrade-campaign', authenticateToken, async (req, res) => {
+  try {
+    const { projectId, newCampaignType, upgradeData = {} } = req.body
+
+    console.log('🔄 Upgrading campaign:', {
+      projectId,
+      newCampaignType,
+      currentType: upgradeData.currentType
+    })
+
+    // Validate inputs
+    if (!projectId || !newCampaignType) {
+      return res.status(400).json({
+        success: false,
+        message: 'Project ID and new campaign type are required'
+      })
+    }
+
+    // Valid campaign types
+    const validTypes = ['qr-link', 'qr-links', 'qr-links-video', 'qr-links-pdf-video', 'qr-links-ar-video']
+    if (!validTypes.includes(newCampaignType)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid campaign type'
+      })
+    }
+
+    // Find user and project
+    const user = await User.findById(req.user._id)
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      })
+    }
+
+    const projectIndex = user.projects.findIndex(p => p.id === projectId)
+    if (projectIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project not found'
+      })
+    }
+
+    const project = user.projects[projectIndex]
+    const currentType = project.campaignType || upgradeData.currentType
+
+    // Validate upgrade path
+    const upgradePaths = {
+      'qr-link': ['qr-links', 'qr-links-video', 'qr-links-pdf-video', 'qr-links-ar-video'],
+      'qr-links': ['qr-links-video', 'qr-links-pdf-video', 'qr-links-ar-video'],
+      'qr-links-video': ['qr-links-pdf-video', 'qr-links-ar-video'],
+      'qr-links-pdf-video': ['qr-links-ar-video']
+    }
+
+    if (!upgradePaths[currentType] || !upgradePaths[currentType].includes(newCampaignType)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot upgrade from ${currentType} to ${newCampaignType}`
+      })
+    }
+
+    // Prepare update fields
+    const updateFields = {}
+    const existingData = upgradeData.existingData || {}
+    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
+
+    // Update campaign type
+    updateFields[`projects.${projectIndex}.campaignType`] = newCampaignType
+
+    // Initialize phygitalizedData if it doesn't exist
+    const currentPhygitalizedData = project.phygitalizedData || {}
+    const updatedPhygitalizedData = { ...currentPhygitalizedData }
+
+    // Handle data migration based on upgrade path
+    if (currentType === 'qr-link' && newCampaignType === 'qr-links') {
+      // Check multiple locations for original URL
+      const linkUrl = project.phygitalizedData?.linkUrl || 
+                      project.targetUrl || 
+                      project.phygitalizedData?.redirectUrl
+      
+      console.log('🔄 Upgrade: Checking for original link URL:', {
+        projectId,
+        linkUrl,
+        hasPhygitalizedLinkUrl: !!project.phygitalizedData?.linkUrl,
+        hasTargetUrl: !!project.targetUrl,
+        hasRedirectUrl: !!project.phygitalizedData?.redirectUrl,
+        existingLinks: updatedPhygitalizedData.links?.length || 0
+      })
+      
+      if (linkUrl) {
+        // Normalize URL for comparison (remove trailing slashes, convert to lowercase)
+        const normalizeUrl = (url) => {
+          try {
+            const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`)
+            return urlObj.hostname + urlObj.pathname.replace(/\/$/, '')
+          } catch {
+            return url.replace(/^https?:\/\//, '').replace(/\/$/, '').toLowerCase()
+          }
+        }
+        
+        // Get existing links (if any)
+        const existingLinks = updatedPhygitalizedData.links || []
+        const normalizedLinkUrl = normalizeUrl(linkUrl)
+        
+        // Check if original link already exists in array
+        const linkExists = existingLinks.some(link => {
+          if (!link || !link.url) return false
+          return normalizeUrl(link.url) === normalizedLinkUrl
+        })
+        
+        console.log('🔄 Upgrade: Link check result:', {
+          linkUrl,
+          normalizedLinkUrl,
+          linkExists,
+          existingLinksCount: existingLinks.length
+        })
+        
+        // Add original link if it doesn't exist, or ensure links array is initialized
+        if (!linkExists) {
+          const originalLink = {
+            label: 'Link 1',
+            url: linkUrl.startsWith('http://') || linkUrl.startsWith('https://') 
+              ? linkUrl 
+              : `https://${linkUrl}`
+          }
+          
+          // Put original link first, then existing links
+          updatedPhygitalizedData.links = [originalLink, ...existingLinks]
+          
+          console.log('✅ Upgrade: Added original link to links array:', {
+            originalLink,
+            totalLinks: updatedPhygitalizedData.links.length,
+            allLinks: updatedPhygitalizedData.links.map(l => ({ label: l.label, url: l.url }))
+          })
+        } else {
+          // Ensure links array exists even if link already exists
+          if (!updatedPhygitalizedData.links) {
+            updatedPhygitalizedData.links = existingLinks
+          }
+          console.log('ℹ️ Upgrade: Original link already exists in links array')
+        }
+      } else {
+        console.log('⚠️ Upgrade: No original link URL found in project data')
+      }
+
+      // Generate landing page URL
+      updateFields[`projects.${projectIndex}.landingPageUrl`] = `${baseUrl}/#/phygitalized/links/${projectId}`
+    }
+
+    // For upgrades to qr-links-video, preserve links and add video support
+    if (newCampaignType === 'qr-links-video') {
+      // Preserve links if they exist
+      if (existingData.links && existingData.links.length > 0) {
+        updatedPhygitalizedData.links = existingData.links
+      } else if (currentType === 'qr-link') {
+        // Convert single link to array
+        const linkUrl = project.phygitalizedData?.linkUrl || project.targetUrl
+        if (linkUrl) {
+          updatedPhygitalizedData.links = [{
+            label: 'Link 1',
+            url: linkUrl
+          }]
+        }
+      }
+
+      // Generate landing page URL
+      updateFields[`projects.${projectIndex}.landingPageUrl`] = `${baseUrl}/#/phygitalized/video/${projectId}`
+    }
+
+    // For upgrades to qr-links-pdf-video, preserve all existing data
+    if (newCampaignType === 'qr-links-pdf-video') {
+      // Preserve links
+      if (existingData.links && existingData.links.length > 0) {
+        updatedPhygitalizedData.links = existingData.links
+      } else if (currentPhygitalizedData.links) {
+        updatedPhygitalizedData.links = currentPhygitalizedData.links
+      }
+
+      // Preserve videos
+      if (existingData.videos && existingData.videos.length > 0) {
+        if (!project.uploadedFiles) {
+          updateFields[`projects.${projectIndex}.uploadedFiles`] = {}
+        }
+        updateFields[`projects.${projectIndex}.uploadedFiles.videos`] = existingData.videos
+      }
+
+      // Generate landing page URL
+      updateFields[`projects.${projectIndex}.landingPageUrl`] = `${baseUrl}/#/phygitalized/pdf-video/${projectId}`
+    }
+
+    // Preserve social links in all upgrades
+    if (existingData.socialLinks && Object.keys(existingData.socialLinks).length > 0) {
+      updatedPhygitalizedData.socialLinks = existingData.socialLinks
+    } else if (project.socialLinks && Object.keys(project.socialLinks).length > 0) {
+      updatedPhygitalizedData.socialLinks = project.socialLinks
+    }
+
+    // Update phygitalizedData
+    updateFields[`projects.${projectIndex}.phygitalizedData`] = updatedPhygitalizedData
+
+    // Update the project
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: updateFields },
+      { new: true }
+    ).select('-password')
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found after update'
+      })
+    }
+
+    const updatedProject = updatedUser.projects.find(p => p.id === projectId)
+
+    console.log('✅ Campaign upgraded successfully:', {
+      projectId,
+      fromType: currentType,
+      toType: newCampaignType,
+      projectName: updatedProject?.name
+    })
+
+    res.json({
+      success: true,
+      message: `Campaign upgraded from ${currentType} to ${newCampaignType}`,
+      data: {
+        project: updatedProject
+      }
+    })
+
+  } catch (error) {
+    console.error('❌ Error upgrading campaign:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to upgrade campaign',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    })
+  }
+})
+
 module.exports = router

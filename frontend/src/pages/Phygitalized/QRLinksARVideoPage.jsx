@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useCallback, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useDropzone } from 'react-dropzone'
 import { generateQRCode, uploadAPI, phygitalizedAPI } from '../../utils/api'
 import { downloadQRCode, generateAdvancedQRCode } from '../../utils/qrGenerator'
@@ -40,10 +40,17 @@ const MIN_STICKER_HEIGHT = 160
 const QRLinksARVideoPage = () => {
   const { user, updateUser } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  
+  // Check for upgrade mode
+  const isUpgradeMode = searchParams.get('upgrade') === 'true'
+  const upgradeProjectId = searchParams.get('projectId')
+  const upgradeFromType = searchParams.get('fromType')
   
   // Step management
   const [currentStep, setCurrentStep] = useState(1)
   const [qrGenerated, setQrGenerated] = useState(false)
+  const [isLoadingUpgradeData, setIsLoadingUpgradeData] = useState(false)
   
   // Step 1: Campaign Name
   const [campaignName, setCampaignName] = useState('')
@@ -89,14 +96,76 @@ const QRLinksARVideoPage = () => {
   const [projectId, setProjectId] = useState(null)
   const [compositeDesignUrl, setCompositeDesignUrl] = useState('')
 
+  // Load upgrade data if in upgrade mode
+  useEffect(() => {
+    const loadUpgradeData = async () => {
+      if (isUpgradeMode && upgradeProjectId && user) {
+        try {
+          setIsLoadingUpgradeData(true)
+          const response = await uploadAPI.getUpgradeToArData(upgradeProjectId)
+          
+          if (response.data?.success && response.data?.data) {
+            const upgradeData = response.data.data
+            
+            // Pre-fill campaign name
+            if (upgradeData.projectName) {
+              setCampaignName(upgradeData.projectName)
+            }
+            
+            // Pre-fill design
+            if (upgradeData.design?.url) {
+              setDesignUrl(upgradeData.design.url)
+            }
+            
+            // Pre-fill QR position
+            if (upgradeData.qrPosition) {
+              setQrPosition(upgradeData.qrPosition)
+              setQrPositionSet(true)
+            }
+            
+            // Pre-fill videos
+            if (upgradeData.videos && upgradeData.videos.length > 0) {
+              // Note: Videos will be loaded when step is reached
+              // For now, we store the URLs for later use
+            }
+            
+            // Pre-fill documents
+            if (upgradeData.documents && upgradeData.documents.length > 0) {
+              // Note: Documents will be loaded when step is reached
+            }
+            
+            // Pre-fill social links
+            if (upgradeData.socialLinks) {
+              setSocialLinks(upgradeData.socialLinks)
+            }
+            
+            // Set project ID
+            if (upgradeData.projectId) {
+              setProjectId(upgradeData.projectId)
+            }
+            
+            toast.success(`Upgrading from ${upgradeFromType || 'previous campaign'} to QR Links AR Video!`)
+          }
+        } catch (error) {
+          console.error('Error loading upgrade data:', error)
+          toast.error('Failed to load upgrade data')
+        } finally {
+          setIsLoadingUpgradeData(false)
+        }
+      }
+    }
+    
+    loadUpgradeData()
+  }, [isUpgradeMode, upgradeProjectId, upgradeFromType, user])
+
   // Auto-generate campaign name with uniqueness check
   useEffect(() => {
-    if (user?.username && !campaignName) {
+    if (user?.username && !campaignName && !isUpgradeMode) {
       const existingProjects = user?.projects || []
       const autoName = generateHumanReadableCampaignName(user.username, 'QR Links AR Video', existingProjects)
       setCampaignName(autoName)
     }
-  }, [user?.username, campaignName, user?.projects])
+  }, [user?.username, campaignName, user?.projects, isUpgradeMode])
 
   // Design upload dropzone
   const onDesignDrop = useCallback(async (acceptedFiles) => {

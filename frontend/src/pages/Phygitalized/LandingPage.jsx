@@ -61,6 +61,7 @@ const LandingPage = () => {
   const videoCleanupRef = useRef(null)
   const timeTrackingStartedRef = useRef(false)
   const scanTrackedRef = useRef(false)
+  const pageViewTrackedRef = useRef(false)
   
   // Multiple video support
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0)
@@ -113,6 +114,104 @@ const LandingPage = () => {
             foundFileType = campaignData.phygitalizedData.fileType || foundFileType
           }
           
+          // Get base links from phygitalizedData
+          const baseLinks = campaignData.phygitalizedData?.links || []
+          
+          // Get social links and filter out contact info
+          const contactInfoKeys = new Set(['contactNumber', 'whatsappNumber'])
+          const socialLinks = Object.fromEntries(
+            Object.entries(campaignData.phygitalizedData?.socialLinks || {})
+              .filter(([key, value]) => {
+                if (!value) return false
+                // Handle string values
+                if (typeof value === 'string') {
+                  return value.trim() !== ''
+                }
+                // Handle other types (shouldn't happen, but be safe)
+                return !!value
+              })
+          )
+          
+          // Convert social links (excluding contact info) to links array format
+          const socialLinksAsCustomLinks = Object.entries(socialLinks)
+            .filter(([key]) => !contactInfoKeys.has(key))
+            .map(([key, value]) => ({
+              label: key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1').trim(),
+              url: value.startsWith('http://') || value.startsWith('https://') ? value : `https://${value}`
+            }))
+          
+          // Combine social links with custom links (ensure we preserve all links)
+          // Use a Map to deduplicate by URL
+          const normalizeUrl = (url) => {
+            try {
+              const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`)
+              return urlObj.hostname + urlObj.pathname.replace(/\/$/, '')
+            } catch {
+              return url.replace(/^https?:\/\//, '').replace(/\/$/, '').toLowerCase()
+            }
+          }
+          
+          const linksMap = new Map()
+          
+          // First add base links (from upgrade, custom links, etc.)
+          baseLinks.forEach(link => {
+            if (link && link.url) {
+              const normalized = normalizeUrl(link.url)
+              if (!linksMap.has(normalized)) {
+                linksMap.set(normalized, {
+                  label: link.label || 'Link',
+                  url: (link.url || '').startsWith('http://') || (link.url || '').startsWith('https://')
+                    ? link.url
+                    : `https://${link.url}`
+                })
+              }
+            }
+          })
+          
+          // Then add social links (they can add new links or update existing ones)
+          socialLinksAsCustomLinks.forEach(link => {
+            if (link && link.url) {
+              const normalized = normalizeUrl(link.url)
+              linksMap.set(normalized, link) // Overwrite if duplicate
+            }
+          })
+          
+          // Convert back to array
+          let combinedLinks = Array.from(linksMap.values())
+          
+          // Fallback: Check for original link URL if no links found or for qr-links campaigns
+          // This ensures we display the original link even if it wasn't properly migrated
+          if (combinedLinks.length === 0 || campaignData.campaignType === 'qr-links') {
+            const originalLinkUrl = campaignData.phygitalizedData?.linkUrl || 
+                                    campaignData.targetUrl ||
+                                    campaignData.phygitalizedData?.redirectUrl
+            
+            if (originalLinkUrl) {
+              // Check if original link already exists
+              const originalExists = combinedLinks.some(link => {
+                if (!link || !link.url) return false
+                return normalizeUrl(link.url) === normalizeUrl(originalLinkUrl)
+              })
+              
+              if (!originalExists) {
+                const originalLink = {
+                  label: 'Link 1',
+                  url: originalLinkUrl.startsWith('http://') || originalLinkUrl.startsWith('https://') 
+                    ? originalLinkUrl 
+                    : `https://${originalLinkUrl}`
+                }
+                
+                // Add original link first
+                combinedLinks = [originalLink, ...combinedLinks]
+                
+                console.log('✅ LandingPage: Added fallback original link:', {
+                  originalLink,
+                  totalLinks: combinedLinks.length
+                })
+              }
+            }
+          }
+          
           const transformedData = {
             type: campaignData.type || campaignData.campaignType || 'qr-links-video', // Use campaignType as fallback
             fileUrl: foundFileUrl,
@@ -128,20 +227,9 @@ const LandingPage = () => {
                       campaignData.phygitalizedData?.videoUrl,
             // Include videos array for multiple videos
             videos: campaignData.uploadedFiles?.videos || [],
-            links: campaignData.phygitalizedData?.links || [],
+            links: combinedLinks, // Use combined links (base links + social links)
             // Filter out empty social links - handle both string and formatted phone numbers
-            socialLinks: Object.fromEntries(
-              Object.entries(campaignData.phygitalizedData?.socialLinks || {})
-                .filter(([key, value]) => {
-                  if (!value) return false
-                  // Handle string values
-                  if (typeof value === 'string') {
-                    return value.trim() !== ''
-                  }
-                  // Handle other types (shouldn't happen, but be safe)
-                  return !!value
-                })
-            ),
+            socialLinks: socialLinks, // Keep social links separate for contact info display
             // Add template data
             templateId: campaignData.phygitalizedData?.templateId || 'default',
             templateConfig: campaignData.phygitalizedData?.templateConfig || {}
@@ -151,7 +239,11 @@ const LandingPage = () => {
             rawCampaignData: campaignData,
             type: transformedData.type,
             fileUrl: transformedData.fileUrl,
-            fileType: transformedData.fileType,
+            fileType: foundFileType,
+            baseLinks: baseLinks,
+            socialLinksAsCustomLinks: socialLinksAsCustomLinks,
+            combinedLinks: combinedLinks,
+            linksCount: combinedLinks.length,
             uploadedFiles: campaignData.uploadedFiles,
             uploadedFilesVideo: campaignData.uploadedFiles?.video,
             uploadedFilesPdf: campaignData.uploadedFiles?.pdf,
@@ -164,6 +256,7 @@ const LandingPage = () => {
             finalVideoUrl: transformedData.videoUrl,
             finalPdfUrl: transformedData.pdfUrl,
             phygitalizedData: campaignData.phygitalizedData,
+            phygitalizedDataLinks: campaignData.phygitalizedData?.links,
             phygitalizedDataSocialLinks: campaignData.phygitalizedData?.socialLinks,
             templateId: campaignData.phygitalizedData?.templateId,
             templateConfig: campaignData.phygitalizedData?.templateConfig,
@@ -289,8 +382,14 @@ const LandingPage = () => {
       })
     }
 
-    // Track page view (async, includes location)
-    trackLandingPageView(userIdRef.current, projectIdRef.current)
+    // Track page view only once per page load (async, includes location)
+    if (!pageViewTrackedRef.current) {
+      pageViewTrackedRef.current = true
+      trackLandingPageView(userIdRef.current, projectIdRef.current).catch(err => {
+        console.error('Failed to track page view:', err)
+        pageViewTrackedRef.current = false // Reset on error so it can retry
+      })
+    }
 
     // Start time tracking (async, includes location)
     if (!timeTrackingStartedRef.current) {

@@ -90,12 +90,14 @@ analyticsSchema.index({ timestamp: -1 });
 analyticsSchema.index({ userId: 1, timestamp: -1 });
 
 // Static method to get analytics summary for a user
+// Optimized: Combined both aggregations into a single pipeline using $facet
 analyticsSchema.statics.getUserAnalytics = async function(userId, days = 30) {
   try {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
     
-    const analytics = await this.aggregate([
+    // Use $facet to run both aggregations in a single query
+    const result = await this.aggregate([
       {
         $match: {
           userId: new mongoose.Types.ObjectId(userId),
@@ -103,52 +105,58 @@ analyticsSchema.statics.getUserAnalytics = async function(userId, days = 30) {
         }
       },
       {
-        $group: {
-          _id: '$eventType',
-          count: { $sum: 1 },
-          lastOccurrence: { $max: '$timestamp' }
+        $facet: {
+          // Summary aggregation
+          summary: [
+            {
+              $group: {
+                _id: '$eventType',
+                count: { $sum: 1 },
+                lastOccurrence: { $max: '$timestamp' }
+              }
+            }
+          ],
+          // Daily breakdown aggregation
+          dailyBreakdown: [
+            {
+              $group: {
+                _id: {
+                  date: { $dateToString: { format: '%Y-%m-%d', date: '$timestamp' } },
+                  eventType: '$eventType'
+                },
+                count: { $sum: 1 }
+              }
+            },
+            {
+              $sort: { '_id.date': 1 }
+            }
+          ]
         }
       }
     ]);
     
-    // Get daily breakdown
-    const dailyBreakdown = await this.aggregate([
-      {
-        $match: {
-          userId: new mongoose.Types.ObjectId(userId),
-          timestamp: { $gte: startDate }
-        }
-      },
-      {
-        $group: {
-          _id: {
-            date: { $dateToString: { format: '%Y-%m-%d', date: '$timestamp' } },
-            eventType: '$eventType'
-          },
-          count: { $sum: 1 }
-        }
-      },
-      {
-        $sort: { '_id.date': 1 }
-      }
-    ]);
+    // Extract results from facet
+    const facetResult = result[0] || { summary: [], dailyBreakdown: [] };
     
     return {
-      summary: analytics,
-      dailyBreakdown: dailyBreakdown
+      summary: facetResult.summary || [],
+      dailyBreakdown: facetResult.dailyBreakdown || []
     };
   } catch (error) {
+    console.error('getUserAnalytics error:', error);
     throw new Error('Failed to fetch analytics data');
   }
 };
 
 // Static method to get analytics for a specific project
+// Optimized: Combined both aggregations into a single pipeline using $facet
 analyticsSchema.statics.getProjectAnalytics = async function(userId, projectId, days = 30) {
   try {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
     
-    const analytics = await this.aggregate([
+    // Use $facet to run both aggregations in a single query
+    const result = await this.aggregate([
       {
         $match: {
           userId: new mongoose.Types.ObjectId(userId),
@@ -157,42 +165,45 @@ analyticsSchema.statics.getProjectAnalytics = async function(userId, projectId, 
         }
       },
       {
-        $group: {
-          _id: '$eventType',
-          count: { $sum: 1 },
-          lastOccurrence: { $max: '$timestamp' }
+        $facet: {
+          // Summary aggregation
+          summary: [
+            {
+              $group: {
+                _id: '$eventType',
+                count: { $sum: 1 },
+                lastOccurrence: { $max: '$timestamp' }
+              }
+            }
+          ],
+          // Daily breakdown aggregation
+          dailyBreakdown: [
+            {
+              $group: {
+                _id: {
+                  date: { $dateToString: { format: '%Y-%m-%d', date: '$timestamp' } },
+                  eventType: '$eventType'
+                },
+                count: { $sum: 1 }
+              }
+            },
+            {
+              $sort: { '_id.date': 1 }
+            }
+          ]
         }
       }
     ]);
     
-    // Get daily breakdown for the project
-    const dailyBreakdown = await this.aggregate([
-      {
-        $match: {
-          userId: new mongoose.Types.ObjectId(userId),
-          projectId: projectId,
-          timestamp: { $gte: startDate }
-        }
-      },
-      {
-        $group: {
-          _id: {
-            date: { $dateToString: { format: '%Y-%m-%d', date: '$timestamp' } },
-            eventType: '$eventType'
-          },
-          count: { $sum: 1 }
-        }
-      },
-      {
-        $sort: { '_id.date': 1 }
-      }
-    ]);
+    // Extract results from facet
+    const facetResult = result[0] || { summary: [], dailyBreakdown: [] };
     
     return {
-      summary: analytics,
-      dailyBreakdown: dailyBreakdown
+      summary: facetResult.summary || [],
+      dailyBreakdown: facetResult.dailyBreakdown || []
     };
   } catch (error) {
+    console.error('getProjectAnalytics error:', error);
     throw new Error('Failed to fetch project analytics data');
   }
 };

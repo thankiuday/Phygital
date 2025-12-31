@@ -6,6 +6,7 @@
 
 import axios from 'axios'
 import toast from 'react-hot-toast'
+import { setConnectionStatus, markConnectionFailed, setLastSuccessTime } from './connectionStatus'
 
 // Create axios instance
 const api = axios.create({
@@ -25,6 +26,42 @@ const uploadApi = axios.create({
     'Content-Type': 'application/json',
   },
 })
+
+// Error toast debouncing
+let lastErrorToast = null
+let lastErrorToastTime = 0
+const ERROR_TOAST_DEBOUNCE_MS = 3000 // 3 seconds
+
+/**
+ * Show error toast with debouncing
+ */
+const showErrorToast = (message) => {
+  const now = Date.now()
+  // Only show if different message or >3 seconds since last error toast
+  if (message !== lastErrorToast || now - lastErrorToastTime > ERROR_TOAST_DEBOUNCE_MS) {
+    lastErrorToast = message
+    lastErrorToastTime = now
+    toast.error(message)
+  }
+}
+
+/**
+ * Get context-aware network error message
+ */
+const getNetworkErrorMessage = (error) => {
+  // Handle specific error codes (ERR_NETWORK is the most common when backend is down)
+  if (error.code === 'ERR_NETWORK' || error.code === 'ECONNREFUSED') {
+    return 'Service is currently starting up. Please try again in a moment.'
+  }
+  if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+    return 'Request timed out. The service may be busy. Please try again.'
+  }
+  if (error.message?.includes('Network Error') || error.message?.includes('Failed to fetch')) {
+    // If backend is not started, show startup message instead of blaming user's connection
+    return 'Service is currently starting up. Please try again in a moment.'
+  }
+  return 'Service temporarily unavailable. Please try again in a moment.'
+}
 
 // Request interceptor to add auth token
 api.interceptors.request.use(
@@ -63,6 +100,9 @@ uploadApi.interceptors.request.use(
 // Response interceptor for error handling
 api.interceptors.response.use(
   (response) => {
+    // Mark connection as successful
+    setLastSuccessTime(Date.now())
+    setConnectionStatus('connected')
     return response
   },
   (error) => {
@@ -70,11 +110,27 @@ api.interceptors.response.use(
     if (!error.response) {
       // Don't show toast for static asset requests (favicon, manifest, etc.)
       const url = error.config?.url || ''
-      if (!url.includes('favicon') && !url.includes('manifest') && !url.includes('.svg') && !url.includes('.png') && !url.includes('.ico')) {
-        toast.error('Network error. Please check your connection.')
+      const isStaticAsset = url.includes('favicon') || url.includes('manifest') || url.includes('.svg') || url.includes('.png') || url.includes('.ico')
+      
+      if (!isStaticAsset) {
+        // Mark connection as failed
+        markConnectionFailed()
+        
+        // Get context-aware error message
+        const errorMessage = getNetworkErrorMessage(error)
+        showErrorToast(errorMessage)
+        
+        // Only log in development mode
+        if (import.meta.env.DEV) {
+          console.error('Network error:', error.code || error.message, error.config?.url)
+        }
       }
       return Promise.reject(error)
     }
+
+    // Mark connection as successful (we got a response, even if it's an error)
+    setLastSuccessTime(Date.now())
+    setConnectionStatus('connected')
 
     // Handle authentication errors
     if (error.response.status === 401) {
@@ -91,7 +147,7 @@ api.interceptors.response.use(
 
     // Handle server errors
     if (error.response.status >= 500) {
-      toast.error('Server error. Please try again later.')
+      showErrorToast('Server error. Please try again later.')
       return Promise.reject(error)
     }
 
@@ -112,6 +168,9 @@ api.interceptors.response.use(
 // Response interceptor for upload API
 uploadApi.interceptors.response.use(
   (response) => {
+    // Mark connection as successful
+    setLastSuccessTime(Date.now())
+    setConnectionStatus('connected')
     return response
   },
   (error) => {
@@ -123,9 +182,23 @@ uploadApi.interceptors.response.use(
 
     // Handle network errors
     if (!error.response) {
-      toast.error('Network error. Please check your connection.')
+      // Mark connection as failed
+      markConnectionFailed()
+      
+      // Get context-aware error message
+      const errorMessage = getNetworkErrorMessage(error)
+      showErrorToast(errorMessage)
+      
+      // Only log in development mode
+      if (import.meta.env.DEV) {
+        console.error('Upload network error:', error.code || error.message, error.config?.url)
+      }
       return Promise.reject(error)
     }
+
+    // Mark connection as successful (we got a response, even if it's an error)
+    setLastSuccessTime(Date.now())
+    setConnectionStatus('connected')
 
     // Handle authentication errors
     if (error.response.status === 401) {
@@ -137,7 +210,7 @@ uploadApi.interceptors.response.use(
 
     // Handle server errors
     if (error.response.status >= 500) {
-      toast.error('Server error. Please try again later.')
+      showErrorToast('Server error. Please try again later.')
       return Promise.reject(error)
     }
 
@@ -233,6 +306,9 @@ export const uploadAPI = {
   previewFinalDesign: () => api.get('/upload/preview-final-design'),
   saveMindTarget: (mindTargetBase64) => uploadApi.post('/upload/save-mind-target', { mindTargetBase64 }),
   createARExperience: () => api.post('/upload/create-ar-experience'),
+  
+  // Get upgrade data for AR Video upgrade
+  getUpgradeToArData: (projectId) => api.get(`/upload/project/${projectId}/upgrade-to-ar-data`),
 }
 
 export const arExperienceAPI = {
@@ -322,6 +398,14 @@ export const analyticsAPI = {
     api.get(`/analytics/project/${projectId}?userId=${userId}&days=${days}`),
   getCampaignAnalytics: (projectId, period = '30d') =>
     api.get(`/analytics/campaign/${projectId}?period=${period}`),
+  getDashboardComplete: (userId, options = {}) => {
+    const params = new URLSearchParams();
+    if (options.period) params.append('period', options.period);
+    if (options.campaignType) params.append('campaignType', options.campaignType || 'all');
+    if (options.projectId) params.append('projectId', options.projectId);
+    if (options.eventTypes) params.append('eventTypes', options.eventTypes);
+    return api.get(`/analytics/dashboard-complete/${userId}?${params.toString()}`);
+  },
   getEvents: (userId, options = {}) => {
     const params = new URLSearchParams();
     if (options.projectId) params.append('projectId', options.projectId);
@@ -400,7 +484,14 @@ export const phygitalizedAPI = {
 
   // Delete a single campaign file (and clear it from DB)
   // kind: 'video' | 'pdf' | 'document'
-  deleteCampaignFile: (projectId, kind) => api.delete(`/phygitalized/file/${projectId}`, { params: { kind } })
+  deleteCampaignFile: (projectId, kind) => api.delete(`/phygitalized/file/${projectId}`, { params: { kind } }),
+
+  // Delete a file from Cloudinary by public_id/filename
+  deleteFile: (publicId, resourceType = 'auto') => api.delete('/upload/file', { params: { publicId, resourceType } }),
+  
+  // Upgrade campaign type
+  upgradeCampaign: (projectId, newCampaignType, upgradeData = {}) => 
+    api.post('/phygitalized/upgrade-campaign', { projectId, newCampaignType, upgradeData })
 }
 
 // Utility functions

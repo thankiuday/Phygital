@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { phygitalizedAPI, analyticsAPI } from '../../utils/api'
 import { getUserLocation, reverseGeocode } from '../../utils/geolocation'
 import { getDeviceInfo } from '../../utils/deviceInfo'
@@ -13,10 +13,12 @@ import LoadingSpinner from '../../components/UI/LoadingSpinner'
 
 const QRRedirectPage = () => {
   const { projectId } = useParams()
+  const navigate = useNavigate()
   const [targetUrl, setTargetUrl] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [countdown, setCountdown] = useState(1)
+  const [isUpgradedCampaign, setIsUpgradedCampaign] = useState(false)
   const userIdRef = useRef(null)
   const scanTrackedRef = useRef(false)
   const pageViewTrackedRef = useRef(false)
@@ -35,7 +37,28 @@ const QRRedirectPage = () => {
           // Store userId for analytics tracking
           userIdRef.current = campaignData.userId
           
-          // Extract target URL for qr-link campaigns
+          // Check campaign type to see if it was upgraded from qr-link to qr-links
+          const campaignType = campaignData.campaignType || campaignData.type
+          
+          console.log('🔍 QRRedirectPage: Checking campaign type:', {
+            projectId,
+            campaignType,
+            isQRLinks: campaignType === 'qr-links'
+          })
+          
+          // If campaign was upgraded to qr-links, redirect to landing page instead of original URL
+          if (campaignType === 'qr-links') {
+            console.log('✅ QRRedirectPage: Campaign upgraded to qr-links, redirecting to landing page')
+            setIsUpgradedCampaign(true)
+            setTargetUrl('landing-page') // Set a flag value to trigger redirect effect
+            setLoading(false)
+            
+            // Track analytics immediately after data is loaded
+            trackQRLinkAnalytics(campaignData.userId, projectId)
+            return
+          }
+          
+          // Original behavior for qr-link campaigns: extract target URL
           const url = campaignData.phygitalizedData?.targetUrl || campaignData.phygitalizedData?.url
           
           if (!url) {
@@ -169,7 +192,14 @@ const QRRedirectPage = () => {
 
       // Redirect after 1 second
       const redirectTimer = setTimeout(() => {
-        window.location.href = targetUrl
+        if (isUpgradedCampaign) {
+          // Redirect to phygitalized landing page for upgraded campaigns
+          console.log('🔀 QRRedirectPage: Redirecting to landing page for upgraded campaign')
+          navigate(`/phygitalized/links/${projectId}`)
+        } else {
+          // Redirect to original target URL for qr-link campaigns
+          window.location.href = targetUrl
+        }
       }, 1000)
 
       return () => {
@@ -177,7 +207,7 @@ const QRRedirectPage = () => {
         clearInterval(countdownInterval)
       }
     }
-  }, [targetUrl, loading])
+  }, [targetUrl, loading, isUpgradedCampaign, navigate, projectId])
 
   if (loading) {
     return (
