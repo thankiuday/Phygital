@@ -6,35 +6,36 @@
 import React from 'react'
 import { X, ArrowRight, Check, Sparkles, Video, FileText, Link as LinkIcon, Zap } from 'lucide-react'
 import LoadingSpinner from '../UI/LoadingSpinner'
+import { getCampaignTypeDisplayName, getCampaignTypeDescription } from '../../utils/campaignTypeNames'
 
 const CAMPAIGN_TYPE_INFO = {
   'qr-link': {
-    name: 'QR Link',
-    description: 'Single link redirect',
+    name: getCampaignTypeDisplayName('qr-link'),
+    description: getCampaignTypeDescription('qr-link'),
     icon: LinkIcon,
     color: 'blue'
   },
   'qr-links': {
-    name: 'QR Links',
-    description: 'Multiple links with landing page',
+    name: getCampaignTypeDisplayName('qr-links'),
+    description: getCampaignTypeDescription('qr-links'),
     icon: LinkIcon,
     color: 'purple'
   },
   'qr-links-video': {
-    name: 'QR Links Video',
-    description: 'Multiple links + videos with landing page',
+    name: getCampaignTypeDisplayName('qr-links-video'),
+    description: getCampaignTypeDescription('qr-links-video'),
     icon: Video,
     color: 'indigo'
   },
   'qr-links-pdf-video': {
-    name: 'QR Links PDF/Video',
-    description: 'Multiple links + PDFs + videos with landing page',
+    name: getCampaignTypeDisplayName('qr-links-pdf-video'),
+    description: getCampaignTypeDescription('qr-links-pdf-video'),
     icon: FileText,
     color: 'orange'
   },
   'qr-links-ar-video': {
-    name: 'QR Links AR Video',
-    description: 'Full AR experience with design, videos, documents, and links',
+    name: getCampaignTypeDisplayName('qr-links-ar-video'),
+    description: getCampaignTypeDescription('qr-links-ar-video'),
     icon: Sparkles,
     color: 'yellow'
   }

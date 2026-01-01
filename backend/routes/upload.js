@@ -3469,13 +3469,44 @@ router.delete('/project/:projectId', authenticateToken, async (req, res) => {
       }
     }
     
-    // Check for video file in project
+    // Check for video file in project (single video)
     if (project.uploadedFiles?.video?.url) {
       const videoPublicId = extractCloudinaryPublicId(project.uploadedFiles.video.url);
       if (videoPublicId) {
         filesToDelete.push({ publicId: videoPublicId, type: 'video', name: 'video' });
         console.log('🎥 Video file to delete:', videoPublicId);
       }
+    }
+    
+    // Check for videos array (multiple videos - for qr-links-video, qr-links-pdf-video campaigns)
+    if (project.uploadedFiles?.videos && Array.isArray(project.uploadedFiles.videos)) {
+      console.log(`🎥 Found ${project.uploadedFiles.videos.length} video(s) in project`);
+      project.uploadedFiles.videos.forEach((video, index) => {
+        const videoUrl = typeof video === 'string' ? video : video.url;
+        const videoData = typeof video === 'object' ? video : null;
+        
+        if (videoUrl) {
+          const videoPublicId = extractCloudinaryPublicId(videoUrl);
+          if (videoPublicId) {
+            filesToDelete.push({ 
+              publicId: videoPublicId, 
+              type: 'video', 
+              name: `video-${index + 1}`,
+              originalName: videoData?.originalName || `video-${index + 1}`
+            });
+            console.log(`✅ Added video ${index + 1} to deletion queue:`, {
+              publicId: videoPublicId,
+              name: videoData?.originalName || `video-${index + 1}`
+            });
+          } else {
+            console.warn(`⚠️ Could not extract public_id from video ${index + 1} URL:`, videoUrl);
+          }
+        } else {
+          console.warn(`⚠️ Video ${index + 1} has no URL`);
+        }
+      });
+    } else {
+      console.log('ℹ️ No videos array found in project.uploadedFiles');
     }
     
     // Check for composite design file in project
@@ -3690,14 +3721,15 @@ router.delete('/project/:projectId', authenticateToken, async (req, res) => {
       }
     }
     
-    // Delete files from Cloudinary
+    // Delete files from Cloudinary - optimized with parallel deletion using Promise.all
     console.log(`🗑️ Attempting to delete ${filesToDelete.length} files from Cloudinary`);
     const cloudinaryDeletionResults = {
       successful: [],
       failed: []
     };
     
-    for (const fileInfo of filesToDelete) {
+    // Helper function to delete a single file from Cloudinary
+    const deleteSingleFile = async (fileInfo) => {
       const { publicId, type, name, originalName } = fileInfo;
       try {
         console.log(`🗑️ Deleting ${name} (${type}): ${publicId}${originalName ? ` (${originalName})` : ''}`);
@@ -3768,17 +3800,18 @@ router.delete('/project/:projectId', authenticateToken, async (req, res) => {
         if (deleteResult.result === 'ok' || deleteResult.result === 'not found') {
           const status = deleteResult.result === 'ok' ? 'deleted' : 'not found (may already be deleted)';
           console.log(`✅ ${status} ${name} from Cloudinary`);
-          cloudinaryDeletionResults.successful.push({ publicId, name, type, originalName });
+          return { success: true, publicId, name, type, originalName, status };
         } else {
           console.warn(`⚠️ Unexpected result when deleting ${name}:`, deleteResult);
-          cloudinaryDeletionResults.failed.push({ 
+          return { 
+            success: false, 
             publicId, 
             name, 
             type, 
             originalName,
             error: `Unexpected result: ${deleteResult.result}`,
             details: deleteResult
-          });
+          };
         }
       } catch (error) {
         console.error(`❌ Failed to delete ${name} from Cloudinary:`, error.message);
@@ -3790,17 +3823,45 @@ router.delete('/project/:projectId', authenticateToken, async (req, res) => {
           name,
           originalName
         });
-        cloudinaryDeletionResults.failed.push({ 
+        // Continue with deletion even if Cloudinary deletion fails
+        return { 
+          success: false,
           publicId, 
           name, 
           type, 
           originalName,
           error: error.message,
           errorDetails: error.stack
-        });
-        // Continue with deletion even if Cloudinary deletion fails
+        };
       }
     }
+    
+    // Execute all deletions in parallel for better performance
+    console.log(`⚡ Starting parallel deletion of ${filesToDelete.length} files...`);
+    const deletionPromises = filesToDelete.map(fileInfo => deleteSingleFile(fileInfo));
+    const deletionResults = await Promise.all(deletionPromises);
+    
+    // Process results
+    deletionResults.forEach((result, index) => {
+      if (result && result.success) {
+        cloudinaryDeletionResults.successful.push({
+          publicId: filesToDelete[index].publicId,
+          name: filesToDelete[index].name,
+          type: filesToDelete[index].type,
+          originalName: filesToDelete[index].originalName
+        });
+      } else if (result) {
+        cloudinaryDeletionResults.failed.push({
+          publicId: filesToDelete[index].publicId,
+          name: filesToDelete[index].name,
+          type: filesToDelete[index].type,
+          originalName: filesToDelete[index].originalName,
+          error: result.error || 'Unknown error'
+        });
+      }
+    });
+    
+    console.log(`✅ Cloudinary deletion completed: ${cloudinaryDeletionResults.successful.length} successful, ${cloudinaryDeletionResults.failed.length} failed`);
     
     // Delete entire Phygitalized folder for this project if it's a Phygitalized campaign
     if (project.campaignType && project.campaignType.startsWith('qr-')) {
@@ -4474,5 +4535,327 @@ router.get('/project/:projectId/upgrade-to-ar-data', authenticateToken, async (r
     })
   }
 })
+
+/**
+ * DELETE /api/upload/projects/batch
+ * Batch delete multiple projects with optimized parallel file deletion
+ * Body: { projectIds: ['id1', 'id2', 'id3'] }
+ */
+router.delete('/projects/batch', authenticateToken, async (req, res) => {
+  try {
+    const { projectIds } = req.body;
+    const userId = req.user.id;
+    
+    if (!projectIds || !Array.isArray(projectIds) || projectIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'projectIds array is required and must not be empty'
+      });
+    }
+    
+    console.log(`🗑️ Batch delete request for ${projectIds.length} projects`);
+    
+    // Find user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    // Collect all projects to delete
+    const projectsToDelete = [];
+    const projectIndices = [];
+    
+    for (const projectId of projectIds) {
+      const projectIndex = user.projects.findIndex(p => p.id === projectId);
+      if (projectIndex !== -1) {
+        projectsToDelete.push({
+          id: projectId,
+          project: user.projects[projectIndex],
+          index: projectIndex
+        });
+        projectIndices.push(projectIndex);
+      }
+    }
+    
+    if (projectsToDelete.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No valid projects found to delete'
+      });
+    }
+    
+    console.log(`✅ Found ${projectsToDelete.length} valid projects to delete`);
+    
+    // Helper function to extract Cloudinary public_id from URL (same as single delete)
+    const extractCloudinaryPublicId = (url) => {
+      try {
+        if (!url) return null;
+        
+        if (url.includes('cloudinary.com')) {
+          const urlParts = url.split('/');
+          const uploadIndex = urlParts.findIndex(part => part === 'upload');
+          if (uploadIndex !== -1 && uploadIndex + 2 < urlParts.length) {
+            let publicId = urlParts.slice(uploadIndex + 2).join('/');
+            
+            if (publicId.includes('?')) {
+              publicId = publicId.split('?')[0];
+            }
+            
+            const parts = publicId.split('.');
+            if (parts.length > 1) {
+              publicId = parts.slice(0, -1).join('.');
+              const commonImageExts = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'];
+              const commonDocExts = ['.pdf', '.doc', '.docx', '.txt', '.rtf', '.xls', '.xlsx', '.csv', '.ppt', '.pptx'];
+              const lastExt = '.' + parts[parts.length - 1].toLowerCase();
+              
+              if (commonImageExts.includes(lastExt) || commonDocExts.includes(lastExt)) {
+                const remainingParts = publicId.split('.');
+                if (remainingParts.length > 1) {
+                  const secondLastExt = '.' + remainingParts[remainingParts.length - 1].toLowerCase();
+                  if (commonImageExts.includes(secondLastExt) || commonDocExts.includes(secondLastExt)) {
+                    publicId = remainingParts.slice(0, -1).join('.');
+                  }
+                }
+              }
+            }
+            
+            return publicId;
+          }
+        }
+        
+        return null;
+      } catch (error) {
+        console.error('Error extracting Cloudinary public_id from URL:', url, error);
+        return null;
+      }
+    };
+    
+    // Collect all files to delete from all projects
+    const allFilesToDelete = [];
+    
+    projectsToDelete.forEach(({ id: projectId, project }) => {
+      // Collect files from this project (same logic as single delete)
+      const projectFiles = [];
+      
+      // Check project-specific files
+      if (project.uploadedFiles?.design?.url) {
+        const publicId = extractCloudinaryPublicId(project.uploadedFiles.design.url);
+        if (publicId) projectFiles.push({ publicId, type: 'image', name: 'design', projectId });
+      }
+      
+      if (project.uploadedFiles?.video?.url) {
+        const publicId = extractCloudinaryPublicId(project.uploadedFiles.video.url);
+        if (publicId) projectFiles.push({ publicId, type: 'video', name: 'video', projectId });
+      }
+      
+      if (project.uploadedFiles?.compositeDesign?.url) {
+        const publicId = extractCloudinaryPublicId(project.uploadedFiles.compositeDesign.url);
+        if (publicId) projectFiles.push({ publicId, type: 'image', name: 'composite', projectId });
+      }
+      
+      if (project.uploadedFiles?.mindTarget?.url) {
+        const publicId = extractCloudinaryPublicId(project.uploadedFiles.mindTarget.url);
+        if (publicId) projectFiles.push({ publicId, type: 'raw', name: 'mind-target', projectId });
+      }
+      
+      // Check for documents array
+      if (project.uploadedFiles?.documents && Array.isArray(project.uploadedFiles.documents)) {
+        project.uploadedFiles.documents.forEach((docData, index) => {
+          if (docData?.url) {
+            const publicId = extractCloudinaryPublicId(docData.url);
+            if (publicId) {
+              const url = docData.url.toLowerCase();
+              const resourceType = url.includes('.pdf') ? 'raw' : (url.includes('video/') ? 'video' : (url.match(/\.(jpg|jpeg|png|gif|webp)$/) ? 'image' : 'raw'));
+              projectFiles.push({ publicId, type: resourceType, name: `document-${index}`, projectId });
+            }
+          }
+        });
+      }
+      
+      // Check phygitalizedData files
+      if (project.phygitalizedData) {
+        if (project.phygitalizedData.fileUrl) {
+          const publicId = extractCloudinaryPublicId(project.phygitalizedData.fileUrl);
+          if (publicId) {
+            const fileType = project.phygitalizedData.fileType || 'raw';
+            const resourceType = fileType === 'video' ? 'video' : 'raw';
+            projectFiles.push({ publicId, type: resourceType, name: 'phygitalized-file', projectId });
+          }
+        }
+        
+        if (project.phygitalizedData.pdfUrl) {
+          const publicId = extractCloudinaryPublicId(project.phygitalizedData.pdfUrl);
+          if (publicId) projectFiles.push({ publicId, type: 'raw', name: 'phygitalized-pdf', projectId });
+        }
+        
+        if (project.phygitalizedData.videoUrl) {
+          const publicId = extractCloudinaryPublicId(project.phygitalizedData.videoUrl);
+          if (publicId) projectFiles.push({ publicId, type: 'video', name: 'phygitalized-video', projectId });
+        }
+        
+        if (project.phygitalizedData.designUrl) {
+          const publicId = extractCloudinaryPublicId(project.phygitalizedData.designUrl);
+          if (publicId) projectFiles.push({ publicId, type: 'image', name: 'phygitalized-design', projectId });
+        }
+        
+        if (project.phygitalizedData.compositeDesignUrl) {
+          const publicId = extractCloudinaryPublicId(project.phygitalizedData.compositeDesignUrl);
+          if (publicId) projectFiles.push({ publicId, type: 'image', name: 'phygitalized-composite', projectId });
+        }
+        
+        if (project.phygitalizedData.documentUrls && Array.isArray(project.phygitalizedData.documentUrls)) {
+          project.phygitalizedData.documentUrls.forEach((docUrl, index) => {
+            if (docUrl) {
+              const publicId = extractCloudinaryPublicId(docUrl);
+              if (publicId) {
+                const url = docUrl.toLowerCase();
+                const resourceType = url.includes('.pdf') ? 'raw' : (url.includes('video/') ? 'video' : (url.match(/\.(jpg|jpeg|png|gif|webp)$/) ? 'image' : 'raw'));
+                projectFiles.push({ publicId, type: resourceType, name: `phygitalized-doc-${index}`, projectId });
+              }
+            }
+          });
+        }
+      }
+      
+      allFilesToDelete.push(...projectFiles);
+    });
+    
+    console.log(`📦 Collected ${allFilesToDelete.length} files to delete from ${projectsToDelete.length} projects`);
+    
+    // Delete all Cloudinary files in parallel
+    const cloudinary = require('cloudinary').v2;
+    const deletionPromises = allFilesToDelete.map(async (fileInfo) => {
+      const { publicId, type, name, projectId } = fileInfo;
+      try {
+        const deleteResult = await cloudinary.uploader.destroy(publicId, {
+          resource_type: type,
+          invalidate: true
+        });
+        
+        if (deleteResult.result === 'ok' || deleteResult.result === 'not found') {
+          return { success: true, publicId, name, projectId };
+        } else {
+          return { success: false, publicId, name, projectId, error: deleteResult.result };
+        }
+      } catch (error) {
+        console.error(`❌ Error deleting file ${name} (${publicId}):`, error.message);
+        return { success: false, publicId, name, projectId, error: error.message };
+      }
+    });
+    
+    // Wait for all deletions to complete
+    const deletionResults = await Promise.all(deletionPromises);
+    
+    const successfulDeletions = deletionResults.filter(r => r.success).length;
+    const failedDeletions = deletionResults.filter(r => !r.success).length;
+    
+    console.log(`✅ Cloudinary deletions: ${successfulDeletions} successful, ${failedDeletions} failed`);
+    
+    // Delete Phygitalized folders in parallel
+    const folderDeletionPromises = projectsToDelete
+      .filter(({ project }) => project.campaignType && project.campaignType.startsWith('qr-'))
+      .map(async ({ id: projectId, project }) => {
+        try {
+          const variationMap = {
+            'qr-link': 'QR-Link',
+            'qr-links': 'QR-Links',
+            'qr-links-video': 'QR-Links-Video',
+            'qr-links-pdf-video': 'QR-Links-PDF/Link-Video',
+            'qr-links-ar-video': 'QR-Links-AR Video'
+          };
+          const variation = variationMap[project.campaignType] || project.campaignType;
+          const sanitizedVariation = variation.replace(/\//g, '-');
+          const userIdString = user._id.toString();
+          const folderPrefix = `Phygitalized/${sanitizedVariation}/${userIdString}/${projectId}`;
+          
+          const resourceTypes = ['image', 'video', 'raw'];
+          let totalDeleted = 0;
+          
+          for (const resourceType of resourceTypes) {
+            try {
+              const searchResult = await cloudinary.api.resources({
+                type: 'upload',
+                prefix: folderPrefix,
+                resource_type: resourceType,
+                max_results: 500
+              });
+              
+              if (searchResult.resources && searchResult.resources.length > 0) {
+                const publicIds = searchResult.resources.map(r => r.public_id);
+                const batchSize = 100;
+                for (let i = 0; i < publicIds.length; i += batchSize) {
+                  const batch = publicIds.slice(i, i + batchSize);
+                  try {
+                    const deleteResult = await cloudinary.api.delete_resources(batch, {
+                      resource_type: resourceType,
+                      invalidate: true
+                    });
+                    totalDeleted += deleteResult.deleted ? Object.keys(deleteResult.deleted).length : 0;
+                  } catch (batchError) {
+                    console.error(`❌ Error deleting batch:`, batchError.message);
+                  }
+                }
+              }
+            } catch (searchError) {
+              // Folder may not exist, continue
+            }
+          }
+          
+          return { success: true, projectId, deletedCount: totalDeleted };
+        } catch (error) {
+          console.error(`❌ Error deleting folder for project ${projectId}:`, error.message);
+          return { success: false, projectId, error: error.message };
+        }
+      });
+    
+    const folderResults = await Promise.all(folderDeletionPromises);
+    console.log(`✅ Folder deletions completed for ${folderResults.filter(r => r.success).length} projects`);
+    
+    // Delete analytics data in parallel
+    const Analytics = require('../models/Analytics');
+    const analyticsDeletionPromises = projectIds.map(async (projectId) => {
+      try {
+        await Analytics.deleteMany({ projectId });
+        return { success: true, projectId };
+      } catch (error) {
+        console.error(`❌ Error deleting analytics for project ${projectId}:`, error.message);
+        return { success: false, projectId, error: error.message };
+      }
+    });
+    
+    await Promise.all(analyticsDeletionPromises);
+    console.log(`✅ Analytics deleted for ${projectIds.length} projects`);
+    
+    // Remove all projects from MongoDB in a single update operation
+    const removedCount = await User.updateOne(
+      { _id: userId },
+      { $pull: { projects: { id: { $in: projectIds } } } }
+    );
+    
+    console.log(`✅ Removed ${removedCount.modifiedCount > 0 ? projectsToDelete.length : 0} projects from database`);
+    
+    res.status(200).json({
+      success: true,
+      message: `Successfully deleted ${projectsToDelete.length} campaign${projectsToDelete.length > 1 ? 's' : ''}`,
+      data: {
+        deletedCount: projectsToDelete.length,
+        filesDeleted: successfulDeletions,
+        filesFailed: failedDeletions,
+        foldersDeleted: folderResults.filter(r => r.success).length
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Batch delete error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete campaigns',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
 
 module.exports = router;

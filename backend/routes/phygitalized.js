@@ -508,8 +508,8 @@ router.post('/upgrade-campaign', authenticateToken, async (req, res) => {
       })
     }
 
-    // Find user and project
-    const user = await User.findById(req.user._id)
+    // Find user and project - use select() to only fetch needed fields for optimization
+    const user = await User.findById(req.user._id).select('projects')
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -670,6 +670,59 @@ router.post('/upgrade-campaign', authenticateToken, async (req, res) => {
 
       // Generate landing page URL
       updateFields[`projects.${projectIndex}.landingPageUrl`] = `${baseUrl}/#/phygitalized/pdf-video/${projectId}`
+    }
+
+    // For upgrades to qr-links-ar-video, prepare data structure in phygitalizedData format
+    if (newCampaignType === 'qr-links-ar-video') {
+      // Extract video URLs from uploadedFiles format and store in phygitalizedData format
+      // This prepares the structure - actual data will be saved when user completes upload flow
+      
+      // Extract video URL(s) from uploadedFiles.video or uploadedFiles.videos
+      const projectVideo = project.uploadedFiles?.video;
+      const projectVideos = project.uploadedFiles?.videos || [];
+      
+      // Combine single video and videos array
+      const allVideos = [];
+      if (projectVideo?.url) {
+        allVideos.push(projectVideo.url);
+      }
+      projectVideos.forEach(v => {
+        const videoUrl = typeof v === 'string' ? v : v.url;
+        if (videoUrl && !allVideos.includes(videoUrl)) {
+          allVideos.push(videoUrl);
+        }
+      });
+      
+      // Store first video as primary (will be updated when user selects in upload flow)
+      if (allVideos.length > 0) {
+        updatedPhygitalizedData.videoUrl = allVideos[0];
+        // Store additional videos if any
+        if (allVideos.length > 1) {
+          updatedPhygitalizedData.additionalVideoUrls = allVideos.slice(1);
+        }
+      }
+      
+      // Extract design URL
+      if (project.uploadedFiles?.design?.url) {
+        updatedPhygitalizedData.designUrl = project.uploadedFiles.design.url;
+      }
+      
+      // Extract composite design URL
+      if (project.uploadedFiles?.compositeDesign?.url) {
+        updatedPhygitalizedData.compositeDesignUrl = project.uploadedFiles.compositeDesign.url;
+      }
+      
+      // Extract document URLs from uploadedFiles.documents array
+      const projectDocuments = project.uploadedFiles?.documents || [];
+      if (projectDocuments.length > 0) {
+        updatedPhygitalizedData.documentUrls = projectDocuments.map(doc => 
+          typeof doc === 'string' ? doc : doc.url
+        ).filter(Boolean);
+      }
+      
+      // Generate landing page URL for AR video
+      const userId = user._id.toString();
+      updateFields[`projects.${projectIndex}.landingPageUrl`] = `${baseUrl}/#/ar/user/${userId}/project/${projectId}`
     }
 
     // Preserve social links in all upgrades

@@ -249,6 +249,7 @@ export const uploadAPI = {
   getProject: (projectId) => api.get(`/upload/project/${projectId}`),
   updateProject: (projectId, projectData) => api.put(`/upload/project/${projectId}`, projectData),
   deleteProject: (projectId) => api.delete(`/upload/project/${projectId}`),
+  deleteProjectsBatch: (projectIds) => api.delete('/upload/projects/batch', { data: { projectIds } }),
   
   // File uploads - using uploadApi with longer timeout
   uploadDesign: (formData) => uploadApi.post('/upload/design', formData, {

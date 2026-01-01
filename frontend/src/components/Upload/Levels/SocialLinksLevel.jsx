@@ -5,7 +5,7 @@ import { Share2, CheckCircle, AlertCircle, Instagram, Facebook, Twitter, Linkedi
 import toast from 'react-hot-toast';
 import { countryCodes, validatePhoneNumber as validatePhone, parsePhoneNumber, filterPhoneInput as filterPhone, formatPhoneNumber } from '../../../utils/countryCodes';
 
-const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = false }) => {
+const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = false, upgradeMode = false }) => {
   const { user, updateUser } = useAuth();
   
   // Parse existing phone numbers to extract country code and number
@@ -134,8 +134,12 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
     }
   ];
 
-  // Check if any links are provided
-  const hasAnyLinks = Object.values(socialLinks).some(link => link.trim() !== '');
+  // Check if any links are provided - must have non-empty values
+  const hasAnyLinks = Object.values(socialLinks).some(link => {
+    if (!link || typeof link !== 'string') return false;
+    const trimmed = link.trim();
+    return trimmed !== '' && trimmed.length > 0;
+  });
 
   // Handle platform selection
   const togglePlatform = (platformKey) => {
@@ -222,20 +226,30 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
   };
 
   // If links already exist and we're not forcing a fresh start, show completion and auto-advance
-  if (!forceStartFromLevel1 && (currentLinks || (user?.socialLinks && hasAnyLinks))) {
+  // In upgrade mode, don't auto-complete Level 5 - user must explicitly add social links
+  if (!forceStartFromLevel1 && !upgradeMode && (currentLinks || (user?.socialLinks && hasAnyLinks))) {
     const links = currentLinks || user.socialLinks;
-    const activeLinks = Object.entries(links).filter(([key, value]) => value && value.trim() !== '');
+    const activeLinks = Object.entries(links).filter(([key, value]) => {
+      if (!value || typeof value !== 'string') return false;
+      const trimmed = value.trim();
+      return trimmed !== '' && trimmed.length > 0;
+    });
     
-    // Auto-complete the level if not already completed (only once)
-    React.useEffect(() => {
-      if (!currentLinks && user?.socialLinks && Object.values(user.socialLinks).some(link => link)) {
-        console.log('Auto-completing Level 3 with existing social links');
-        toast.success('🔗 Social links found! Level 3 completed automatically.');
-        onComplete(user.socialLinks);
-      }
-    }, [user?.socialLinks?.instagram, user?.socialLinks?.facebook, user?.socialLinks?.twitter, user?.socialLinks?.linkedin, user?.socialLinks?.website, user?.socialLinks?.tiktok]); // Only depend on specific social link data
+    // Only show completion if there are actually active links
+    if (activeLinks.length === 0) {
+      // Don't show completion UI if no actual links exist
+      // Fall through to show the form instead
+    } else {
+      // Auto-complete the level if not already completed (only once)
+      React.useEffect(() => {
+        if (!currentLinks && user?.socialLinks && hasAnyLinks) {
+          console.log('Auto-completing Level 5 with existing social links');
+          toast.success('🔗 Social links found! Level 5 completed automatically.');
+          onComplete(user.socialLinks);
+        }
+      }, [user?.socialLinks?.instagram, user?.socialLinks?.facebook, user?.socialLinks?.twitter, user?.socialLinks?.linkedin, user?.socialLinks?.website, user?.socialLinks?.tiktok, currentLinks, hasAnyLinks, onComplete]);
     
-    return (
+      return (
       <div className="text-center py-8">
         <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-neon-green/20 mb-6 shadow-glow-green">
           <CheckCircle className="w-10 h-10 text-neon-green" />
@@ -289,7 +303,8 @@ const SocialLinksLevel = ({ onComplete, currentLinks, forceStartFromLevel1 = fal
           </button>
         </div>
       </div>
-    );
+      );
+    }
   }
 
   // Show platform selection interface

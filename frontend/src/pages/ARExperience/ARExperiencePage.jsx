@@ -987,7 +987,66 @@ const ARExperiencePage = () => {
           </div>
         )}
 
-        {/* Documents - SECOND */}
+        {/* More Video Content - SECOND (if additional videos exist) */}
+        {(() => {
+          // Get additional videos from projectData (either from phygitalizedData or direct property)
+          const additionalVideos = projectData?.additionalVideoUrls || projectData?.phygitalizedData?.additionalVideoUrls || [];
+          return additionalVideos.length > 0;
+        })() && (
+          <div className="mt-6 md:mt-8">
+            <h2 className="text-base md:text-lg font-bold text-slate-100 mb-4 md:mb-5 text-center">More Video Content</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 max-w-4xl mx-auto">
+              {(projectData?.additionalVideoUrls || projectData?.phygitalizedData?.additionalVideoUrls || []).map((videoUrl, index) => {
+                const handleVideoClick = (e) => {
+                  e.preventDefault();
+                  // Track video view
+                  trackAnalytics('videoView', {
+                    videoUrl: videoUrl,
+                    source: 'additional_videos'
+                  }).catch(err => console.error('Failed to track additional video view:', err));
+                  
+                  // Open video in modal or new window
+                  window.open(videoUrl, '_blank');
+                };
+                
+                return (
+                  <a
+                    key={index}
+                    href={videoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={handleVideoClick}
+                    className="border border-slate-600/30 rounded-lg md:rounded-xl p-4 md:p-5 flex flex-col items-center justify-center space-y-2 md:space-y-3 transition-all duration-200 touch-manipulation backdrop-blur-md group relative overflow-hidden"
+                    style={{ backgroundColor: 'var(--theme-card, rgba(30, 41, 59, 0.8))' }}
+                  >
+                    {/* Video Thumbnail Preview */}
+                    <div className="relative w-full aspect-video bg-slate-900 rounded-lg overflow-hidden mb-2">
+                      <video
+                        src={videoUrl}
+                        className="w-full h-full object-cover"
+                        muted
+                        playsInline
+                        preload="metadata"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:bg-black/20 transition-colors">
+                        <div className="w-12 h-12 bg-black/60 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <svg className="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z"/>
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-xs md:text-sm font-medium text-slate-100 text-center">
+                      Video {index + 1}
+                    </span>
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Documents - THIRD */}
         {documentUrls && documentUrls.length > 0 && (
           <div className="mt-6 md:mt-8">
             <h2 className="text-base md:text-lg font-bold text-slate-100 mb-4 md:mb-5 text-center">Documents</h2>

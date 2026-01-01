@@ -1,11 +1,11 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useAuth } from '../../../contexts/AuthContext';
 import { uploadAPI } from '../../../utils/api';
 import { Upload, CheckCircle, AlertCircle, Image } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const DesignUploadLevel = ({ onComplete, currentDesign, forceStartFromLevel1 = false }) => {
+const DesignUploadLevel = ({ onComplete, currentDesign, forceStartFromLevel1 = false, upgradeMode = false }) => {
   const { user, updateUser } = useAuth();
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -99,22 +99,29 @@ const DesignUploadLevel = ({ onComplete, currentDesign, forceStartFromLevel1 = f
     disabled: isUploading
   });
 
-  // If design already exists and we're not forcing a fresh start, show completion and auto-advance
-  if (!forceStartFromLevel1 && (currentDesign || user?.uploadedFiles?.design?.url)) {
+  // Auto-complete the level if design exists and we're not forcing a fresh start (move useEffect outside conditional to fix hooks violation)
+  // In upgrade mode, always require fresh upload (don't auto-complete)
+  useEffect(() => {
+    // Only auto-complete if:
+    // 1. Not forcing fresh start
+    // 2. Not in upgrade mode (in upgrade mode, Level 1 must be completed fresh)
+    // 3. No current design (meaning we haven't completed this level yet)
+    // 4. User has an existing design
+    if (!forceStartFromLevel1 && !upgradeMode && !currentDesign && user?.uploadedFiles?.design?.url) {
+      console.log('Auto-completing Level 1 with existing design');
+      toast.success('🎨 Design found! Level 1 completed automatically.');
+      onComplete({
+        url: user.uploadedFiles.design.url,
+        name: user.uploadedFiles.design.originalName,
+        size: user.uploadedFiles.design.size
+      });
+    }
+  }, [forceStartFromLevel1, upgradeMode, currentDesign, user?.uploadedFiles?.design?.url, onComplete]);
+
+  // If design already exists and we're not forcing a fresh start, show completion UI
+  // In upgrade mode, always show upload UI (force user to upload fresh design)
+  if (!forceStartFromLevel1 && !upgradeMode && (currentDesign || user?.uploadedFiles?.design?.url)) {
     const design = currentDesign || user.uploadedFiles.design;
-    
-    // Auto-complete the level if not already completed (only once)
-    React.useEffect(() => {
-      if (!currentDesign && user?.uploadedFiles?.design?.url) {
-        console.log('Auto-completing Level 1 with existing design');
-        toast.success('🎨 Design found! Level 1 completed automatically.');
-        onComplete({
-          url: user.uploadedFiles.design.url,
-          name: user.uploadedFiles.design.originalName,
-          size: user.uploadedFiles.design.size
-        });
-      }
-    }, [user?.uploadedFiles?.design?.url]); // Only depend on the design URL, not the entire user object
     
     return (
       <div className="text-center py-8">

@@ -93,31 +93,166 @@ const DocumentUploadLevel = ({ onComplete, onCancel, levelData, user, forceStart
     return true;
   };
 
-  const handleFileSelect = (files) => {
+  const handleFileSelect = async (files) => {
     const validFiles = [];
     const errors = [];
 
     Array.from(files).forEach(file => {
       if (validateFile(file)) {
-        // Check if file is already selected
-        const isDuplicate = selectedFiles.some(f => f.name === file.name && f.size === file.size);
+        // Check if file is already selected or already uploaded
+        const isDuplicate = selectedFiles.some(f => f.name === file.name && f.size === file.size) ||
+                           allUploadedDocuments.some(doc => (doc.originalName || '').toLowerCase() === file.name.toLowerCase());
         if (!isDuplicate) {
           validFiles.push(file);
         } else {
-          errors.push(`"${file.name}" is already selected`);
+          errors.push(`"${file.name}" is already selected or uploaded`);
         }
       } else {
         errors.push(`"${file.name}" is invalid`);
       }
     });
 
-    if (errors.length > 0) {
+    if (errors.length > 0 && errors.length === files.length) {
+      // Only show error if all files failed
       toast.error(errors[0]);
     }
 
     if (validFiles.length > 0) {
-      setSelectedFiles(prev => [...prev, ...validFiles]);
-      toast.success(`${validFiles.length} file(s) added`);
+      // Add files to selectedFiles state
+      const updatedSelectedFiles = [...selectedFiles, ...validFiles];
+      setSelectedFiles(updatedSelectedFiles);
+      toast.success(`${validFiles.length} file(s) added. Uploading...`);
+      
+      // Auto-upload the new files using the updated list
+      // Use setTimeout to ensure state has updated and UI can show the files
+      setTimeout(async () => {
+        await uploadFiles(updatedSelectedFiles);
+      }, 200);
+    }
+  };
+
+  // Extract upload logic to a separate function that can accept files
+  const uploadFiles = async (filesToUpload) => {
+    if (!filesToUpload || filesToUpload.length === 0) {
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      setError(null);
+      const uploadedDocs = [];
+      const projectId = levelData?.projectId || user?.currentProject || (user?.projects?.length > 0 ? user.projects[user.projects.length - 1]?.id : null);
+
+      // Upload each file sequentially
+      for (let i = 0; i < filesToUpload.length; i++) {
+        const file = filesToUpload[i];
+        const fileName = file.name;
+
+        try {
+          setUploadProgress(prev => ({ ...prev, [fileName]: 0 }));
+
+          const formData = new FormData();
+          formData.append('documents', file);
+
+          // Simulate progress
+          const progressInterval = setInterval(() => {
+            setUploadProgress(prev => {
+              const current = prev[fileName] || 0;
+              if (current >= 85) {
+                clearInterval(progressInterval);
+                return { ...prev, [fileName]: 85 };
+              }
+              return { ...prev, [fileName]: current + Math.random() * 5 };
+            });
+          }, 200);
+
+          const response = await uploadAPI.uploadDocuments(formData, projectId);
+
+          clearInterval(progressInterval);
+          setUploadProgress(prev => ({ ...prev, [fileName]: 100 }));
+
+          if (response.data?.status === 'success' && response.data?.data?.documents && Array.isArray(response.data.data.documents)) {
+            const documents = response.data.data.documents;
+            
+            if (documents.length === 0) {
+              console.error(`❌ Empty documents array in response for ${fileName}`);
+              throw new Error(`No documents returned for ${fileName}`);
+            }
+            
+            let uploadedDoc = documents.find(
+              doc => {
+                const docName = (doc.originalName || '').toLowerCase().trim();
+                const fileNameLower = file.name.toLowerCase().trim();
+                return docName === fileNameLower || 
+                       docName.includes(fileNameLower) || 
+                       fileNameLower.includes(docName);
+              }
+            );
+            
+            if (!uploadedDoc && documents.length > 0) {
+              uploadedDoc = documents[0];
+              console.log(`⚠️ Using first document from response for ${fileName} (name matching failed)`);
+            }
+            
+            if (uploadedDoc && uploadedDoc.url) {
+              uploadedDocs.push(uploadedDoc);
+              console.log(`✅ Document ${fileName} uploaded successfully:`, uploadedDoc.url);
+            } else {
+              console.error(`❌ Invalid document data for ${fileName}:`, uploadedDoc);
+              if (uploadedDoc) {
+                uploadedDocs.push(uploadedDoc);
+              } else {
+                throw new Error(`Invalid document data returned for ${fileName}`);
+              }
+            }
+          } else {
+            const errorMsg = response.data?.message || response.data?.error || 'Unknown error';
+            const responseStatus = response.data?.status || 'unknown';
+            console.error(`❌ Upload failed for ${fileName}:`, {
+              status: responseStatus,
+              message: errorMsg,
+              fullResponse: response.data
+            });
+            throw new Error(`Failed to upload ${fileName}: ${errorMsg} (status: ${responseStatus})`);
+          }
+        } catch (fileError) {
+          console.error(`Error uploading ${fileName}:`, fileError);
+          toast.error(`Failed to upload ${fileName}`);
+        }
+      }
+
+      if (uploadedDocs.length > 0) {
+        toast.success(`${uploadedDocs.length} document(s) uploaded successfully!`);
+        
+        const updatedDocuments = [...allUploadedDocuments, ...uploadedDocs];
+        setAllUploadedDocuments(updatedDocuments);
+        
+        // Clear the uploaded files from selectedFiles
+        setSelectedFiles([]);
+        setUploadProgress({});
+      } else {
+        throw new Error('No documents were uploaded successfully');
+      }
+    } catch (error) {
+      console.error('Document upload error:', error);
+      
+      let errorMessage = 'Failed to upload documents';
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      } else if (error.code === 'NETWORK_ERROR') {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (error.code === 'ECONNABORTED') {
+        errorMessage = 'Upload timeout. Please try smaller files or check your connection.';
+      }
+      
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsUploading(false);
+      setUploadProgress({});
     }
   };
 
@@ -175,143 +310,8 @@ const DocumentUploadLevel = ({ onComplete, onCancel, levelData, user, forceStart
       setError('Please select at least one document to upload');
       return;
     }
-
-    try {
-      setIsUploading(true);
-      setError(null);
-      const uploadedDocs = [];
-      // Get projectId from levelData, user.currentProject, or user.projects
-      const projectId = levelData?.projectId || user?.currentProject || (user?.projects?.length > 0 ? user.projects[user.projects.length - 1]?.id : null);
-
-      // Upload each file sequentially
-      for (let i = 0; i < selectedFiles.length; i++) {
-        const file = selectedFiles[i];
-        const fileName = file.name;
-
-        try {
-          // Update progress for this file
-          setUploadProgress(prev => ({ ...prev, [fileName]: 0 }));
-
-          const formData = new FormData();
-          formData.append('documents', file);
-
-          // Simulate progress
-          const progressInterval = setInterval(() => {
-            setUploadProgress(prev => {
-              const current = prev[fileName] || 0;
-              if (current >= 85) {
-                clearInterval(progressInterval);
-                return { ...prev, [fileName]: 85 };
-              }
-              return { ...prev, [fileName]: current + Math.random() * 5 };
-            });
-          }, 200);
-
-          const response = await uploadAPI.uploadDocuments(formData, projectId);
-
-          clearInterval(progressInterval);
-          setUploadProgress(prev => ({ ...prev, [fileName]: 100 }));
-
-          console.log(`📄 Upload response for ${fileName}:`, {
-            status: response.data?.status,
-            hasData: !!response.data?.data,
-            hasDocuments: !!response.data?.data?.documents,
-            documentsCount: Array.isArray(response.data?.data?.documents) ? response.data.data.documents.length : 0,
-            documents: response.data?.data?.documents,
-            fullResponse: response.data
-          });
-
-          if (response.data?.status === 'success' && response.data?.data?.documents && Array.isArray(response.data.data.documents)) {
-            const documents = response.data.data.documents;
-            
-            if (documents.length === 0) {
-              console.error(`❌ Empty documents array in response for ${fileName}`);
-              throw new Error(`No documents returned for ${fileName}`);
-            }
-            
-            // Since we're uploading one file at a time, the response should contain one document
-            // Try to find by originalName first (handle encoding issues)
-            let uploadedDoc = documents.find(
-              doc => {
-                const docName = (doc.originalName || '').toLowerCase().trim();
-                const fileNameLower = file.name.toLowerCase().trim();
-                return docName === fileNameLower || 
-                       docName.includes(fileNameLower) || 
-                       fileNameLower.includes(docName);
-              }
-            );
-            
-            // If not found by name, use the first document (since we upload one at a time)
-            if (!uploadedDoc && documents.length > 0) {
-              uploadedDoc = documents[0];
-              console.log(`⚠️ Using first document from response for ${fileName} (name matching failed)`);
-            }
-            
-            if (uploadedDoc && uploadedDoc.url) {
-              uploadedDocs.push(uploadedDoc);
-              console.log(`✅ Document ${fileName} uploaded successfully:`, uploadedDoc.url);
-            } else {
-              console.error(`❌ Invalid document data for ${fileName}:`, uploadedDoc);
-              // Still try to use it if it exists
-              if (uploadedDoc) {
-                uploadedDocs.push(uploadedDoc);
-              } else {
-                throw new Error(`Invalid document data returned for ${fileName}`);
-              }
-            }
-          } else {
-            const errorMsg = response.data?.message || response.data?.error || 'Unknown error';
-            const responseStatus = response.data?.status || 'unknown';
-            console.error(`❌ Upload failed for ${fileName}:`, {
-              status: responseStatus,
-              message: errorMsg,
-              fullResponse: response.data
-            });
-            throw new Error(`Failed to upload ${fileName}: ${errorMsg} (status: ${responseStatus})`);
-          }
-        } catch (fileError) {
-          console.error(`Error uploading ${fileName}:`, fileError);
-          toast.error(`Failed to upload ${fileName}`);
-          // Continue with other files
-        }
-      }
-
-      if (uploadedDocs.length > 0) {
-        toast.success(`${uploadedDocs.length} document(s) uploaded successfully!`);
-        
-        // Add newly uploaded documents to the list
-        const updatedDocuments = [...allUploadedDocuments, ...uploadedDocs];
-        setAllUploadedDocuments(updatedDocuments);
-        
-        // Clear selected files so user can upload more
-        setSelectedFiles([]);
-        setUploadProgress({});
-        
-        // Don't call onComplete here - allow user to upload more documents or click Continue
-      } else {
-        throw new Error('No documents were uploaded successfully');
-      }
-    } catch (error) {
-      console.error('Document upload error:', error);
-      
-      let errorMessage = 'Failed to upload documents';
-      
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.message) {
-        errorMessage = error.message;
-      } else if (error.code === 'NETWORK_ERROR') {
-        errorMessage = 'Network error. Please check your connection and try again.';
-      } else if (error.code === 'ECONNABORTED') {
-        errorMessage = 'Upload timeout. Please try smaller files or check your connection.';
-      }
-      
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setIsUploading(false);
-      setUploadProgress({});
-    }
+    
+    await uploadFiles(selectedFiles);
   };
 
   const handleContinue = () => {
@@ -496,33 +496,47 @@ const DocumentUploadLevel = ({ onComplete, onCancel, levelData, user, forceStart
               Skip (Optional)
             </button>
             
-            {selectedFiles.length > 0 ? (
+            {/* Show Upload button only when files selected but not uploading */}
+            {selectedFiles.length > 0 && !isUploading && (
               <button
                 onClick={handleUpload}
-                disabled={selectedFiles.length === 0 || isUploading}
+                disabled={selectedFiles.length === 0}
                 className="btn-primary px-4 sm:px-6 py-2 sm:py-3 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center touch-manipulation text-sm sm:text-base"
               >
-                {isUploading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-slate-100 border-t-transparent rounded-full animate-spin mr-2" />
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-4 h-4 mr-2" />
-                    Upload {selectedFiles.length > 0 ? `${selectedFiles.length} ` : ''}Document{selectedFiles.length !== 1 ? 's' : ''}
-                  </>
-                )}
+                <Upload className="w-4 h-4 mr-2" />
+                Upload {selectedFiles.length} Document{selectedFiles.length !== 1 ? 's' : ''}
               </button>
-            ) : allUploadedDocuments.length > 0 ? (
+            )}
+            
+            {/* Show Next button always when not uploading and not showing upload button */}
+            {selectedFiles.length === 0 && !isUploading && (
               <button
                 onClick={handleContinue}
-                disabled={isUploading}
+                className="btn-primary px-4 sm:px-6 py-2 sm:py-3 flex items-center justify-center touch-manipulation text-sm sm:text-base"
+              >
+                {allUploadedDocuments.length > 0 ? (
+                  <>
+                    Next ({allUploadedDocuments.length} document{allUploadedDocuments.length !== 1 ? 's' : ''})
+                  </>
+                ) : (
+                  'Next'
+                )}
+                <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            )}
+            
+            {/* Show loading state when uploading */}
+            {isUploading && (
+              <button
+                disabled
                 className="btn-primary px-4 sm:px-6 py-2 sm:py-3 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center touch-manipulation text-sm sm:text-base"
               >
-                Continue with {allUploadedDocuments.length} Document{allUploadedDocuments.length !== 1 ? 's' : ''}
+                <div className="w-4 h-4 border-2 border-slate-100 border-t-transparent rounded-full animate-spin mr-2" />
+                Uploading...
               </button>
-            ) : null}
+            )}
           </div>
         </div>
       </div>

@@ -18,7 +18,7 @@ import VideoAnalytics from '../../components/Analytics/VideoAnalytics'
 import ARAnalytics from '../../components/Analytics/ARAnalytics'
 import DocumentAnalytics from '../../components/Analytics/DocumentAnalytics'
 import LocationAnalytics from '../../components/Analytics/LocationAnalytics'
-import {
+import { 
   aggregateByCampaignType,
   calculateEngagementFunnel,
   calculateDeviceBreakdown,
@@ -27,6 +27,7 @@ import {
   groupByTimePeriod,
   filterByDateRange
 } from '../../utils/analyticsCalculations'
+import { getCampaignTypeDisplayName } from '../../utils/campaignTypeNames'
 import { 
   BarChart3, 
   Eye, 
@@ -148,7 +149,7 @@ const ProjectAnalyticsCard = ({ project, user, analytics, isLatest = false, sele
               {isLatest && <span className="ml-2 text-xs bg-neon-blue/20 text-neon-blue px-2 py-1 rounded-full">Latest</span>}
             </h3>
             <p className="text-sm text-slate-400 truncate">
-              {project.campaignType ? project.campaignType.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Campaign'} • Created {new Date(project.createdAt).toLocaleDateString()}
+              {project.campaignType ? getCampaignTypeDisplayName(project.campaignType) : 'Campaign'} • Created {new Date(project.createdAt).toLocaleDateString()}
             </p>
           </div>
         </div>

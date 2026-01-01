@@ -3,10 +3,12 @@
  * Generates human-readable campaign names for phygitalized campaigns
  */
 
+import { getCampaignTypeDisplayName } from './campaignTypeNames';
+
 /**
  * Generate a human-readable campaign name
  * @param {string} username - User's username
- * @param {string} campaignType - Type of campaign (e.g., 'QR Link', 'QR Links Video')
+ * @param {string} campaignType - Type of campaign (e.g., 'qr-link', 'qr-links-video')
  * @param {Array} existingProjects - Optional array of existing projects to check for duplicates
  * @returns {string} Human-readable campaign name (unique)
  */
@@ -18,86 +20,61 @@ export const generateHumanReadableCampaignName = (username, campaignType, existi
   // Format username: capitalize first letter, lowercase the rest
   const formattedUsername = username.charAt(0).toUpperCase() + username.slice(1).toLowerCase();
   
-  // Format campaign type: remove 'QR' prefix if present, capitalize properly
-  let formattedType = campaignType.trim();
-  if (formattedType.startsWith('QR ')) {
-    formattedType = formattedType.substring(3); // Remove 'QR ' prefix
-  }
-  
-  // Capitalize first letter of each word, but preserve acronyms (all caps)
-  formattedType = formattedType
-    .split(' ')
-    .map(word => {
-      // If word is all uppercase (acronym), keep it as is
-      if (word === word.toUpperCase() && word.length > 1) {
-        return word;
-      }
-      // Otherwise capitalize first letter, lowercase the rest
-      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-    })
-    .join(' ');
+  // Get display name for campaign type using the utility function
+  const formattedType = getCampaignTypeDisplayName(campaignType);
 
   // Generate base name: "{Username}'s {Campaign Type} Campaign"
   const baseName = `${formattedUsername}'s ${formattedType} Campaign`;
   
-  // Add timestamp to ensure uniqueness (shorter format)
-  const now = new Date();
-  const timestamp = now.toLocaleDateString('en-US', { 
-    month: 'short', 
-    day: 'numeric',
-    year: 'numeric'
-  });
-  const time = now.toLocaleTimeString('en-US', { 
-    hour: '2-digit', 
-    minute: '2-digit',
-    hour12: false
-  }).replace(':', '');
+  // Generate short hash for uniqueness (4-char random hex string)
+  // This ensures uniqueness without long date/time strings
+  const generateShortHash = () => {
+    // Use timestamp (last 4 digits) + 2 random hex chars = 6 chars total
+    // Or use pure random 4-char hex string for shorter name
+    const randomHex = Math.random().toString(16).substring(2, 6).toUpperCase();
+    return randomHex;
+  };
   
-  // Generate base name with timestamp
-  const baseNameWithTimestamp = `${baseName} - ${timestamp} ${time}`;
+  let shortHash = generateShortHash();
+  let uniqueName = `${baseName}-${shortHash}`;
   
-  // Check for duplicates and add counter if needed
+  // Check for duplicates and regenerate hash if needed
   if (existingProjects && existingProjects.length > 0) {
-    let counter = 1;
-    let uniqueName = baseNameWithTimestamp;
+    let attempts = 0;
+    const maxAttempts = 100; // Prevent infinite loop
     
     // Check if name already exists
-    const nameExists = existingProjects.some(project => {
+    while (existingProjects.some(project => {
       const projectName = project.name || '';
-      // Check exact match or if it starts with base name
-      if (projectName === baseNameWithTimestamp || projectName === baseName) {
+      // Check exact match
+      if (projectName === uniqueName) {
         return true;
       }
-      // Check if it matches pattern with counter: "Base Name - Date Time (N)"
-      if (projectName.startsWith(baseName)) {
-        const counterMatch = projectName.match(/\((\d+)\)$/);
-        if (counterMatch) {
-          const num = parseInt(counterMatch[1], 10);
-          if (num >= counter) {
-            counter = num + 1;
-          }
-        }
-        return projectName.startsWith(`${baseName} - ${timestamp}`);
+      // Check if it matches pattern with same hash: "Base Name-HASH"
+      if (projectName.startsWith(baseName + '-') && projectName.match(new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-[A-F0-9]{4}$`))) {
+        return projectName === uniqueName;
       }
       return false;
-    });
-    
-    if (nameExists) {
-      // Add counter to make it unique
-      uniqueName = `${baseName} - ${timestamp} ${time} (${counter})`;
-      
-      // Double-check if this name also exists (in case of rapid creation)
-      while (existingProjects.some(p => (p.name || '') === uniqueName)) {
-        counter++;
-        uniqueName = `${baseName} - ${timestamp} ${time} (${counter})`;
-      }
+    }) && attempts < maxAttempts) {
+      attempts++;
+      shortHash = generateShortHash();
+      uniqueName = `${baseName}-${shortHash}`;
     }
     
-    return uniqueName;
+    // If still not unique after max attempts, add counter as fallback
+    if (attempts >= maxAttempts && existingProjects.some(p => (p.name || '') === uniqueName)) {
+      let counter = 1;
+      uniqueName = `${baseName}-${shortHash}-${counter}`;
+      
+      // Double-check if this name also exists
+      while (existingProjects.some(p => (p.name || '') === uniqueName)) {
+        counter++;
+        uniqueName = `${baseName}-${shortHash}-${counter}`;
+      }
+    }
   }
   
-  // No existing projects to check, use timestamp version
-  return baseNameWithTimestamp;
+  return uniqueName;
 };
 
 /**

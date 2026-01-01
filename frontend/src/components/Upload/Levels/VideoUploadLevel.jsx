@@ -1,9 +1,9 @@
-import React, { useState, useCallback } from 'react';
-import { Upload, Video, CheckCircle, AlertCircle, X } from 'lucide-react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { Upload, Video, CheckCircle, AlertCircle, X, Play } from 'lucide-react';
 import { uploadAPI } from '../../../utils/api';
 import toast from 'react-hot-toast';
 
-const VideoUploadLevel = ({ onComplete, onCancel, levelData, user, forceStartFromLevel1 = false }) => {
+const VideoUploadLevel = ({ onComplete, onCancel, levelData, user, forceStartFromLevel1 = false, upgradeMode = false }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -12,7 +12,56 @@ const VideoUploadLevel = ({ onComplete, onCancel, levelData, user, forceStartFro
   const [error, setError] = useState(null);
 
   // Check if user already has a video - only show existing video option if not forcing fresh start
-  const existingVideo = !forceStartFromLevel1 ? user?.uploadedFiles?.video : null;
+  // In upgrade mode, don't use user's video - use videos from project data instead
+  const existingVideo = (!forceStartFromLevel1 && !upgradeMode) ? 
+    (user?.uploadedFiles?.video?.url ? user.uploadedFiles.video : null) : null;
+  
+  // In upgrade mode, check for multiple videos from previous campaign
+  const existingVideos = useMemo(() => {
+    if (!upgradeMode || forceStartFromLevel1) return [];
+    
+    // Get videos from levelData (inherited from project)
+    const videos = levelData.videos || [];
+    const singleVideo = levelData.video;
+    
+    // Combine single video and videos array
+    const allVideos = [];
+    
+    // Only add singleVideo if it has a valid URL (not null, undefined, or empty string)
+    if (singleVideo && singleVideo.url && typeof singleVideo.url === 'string' && singleVideo.url.trim() !== '') {
+      allVideos.push(singleVideo);
+    }
+    
+    // Only add videos from array if they have valid URLs
+    if (Array.isArray(videos) && videos.length > 0) {
+      videos.forEach(v => {
+        // Check if video has a valid URL
+        const videoUrl = typeof v === 'string' ? v : (v?.url || '');
+        if (videoUrl && typeof videoUrl === 'string' && videoUrl.trim() !== '') {
+          // Avoid duplicates by checking URL
+          if (!allVideos.some(existing => {
+            const existingUrl = typeof existing === 'string' ? existing : existing.url;
+            return existingUrl === videoUrl;
+          })) {
+            allVideos.push(v);
+          }
+        }
+      });
+    }
+    
+    return allVideos;
+  }, [upgradeMode, forceStartFromLevel1, levelData.videos, levelData.video]);
+  
+  const [selectedPrimaryVideo, setSelectedPrimaryVideo] = useState(null);
+  const [hasSelectedVideo, setHasSelectedVideo] = useState(false);
+  
+  // Auto-select first video if only one exists in upgrade mode
+  useEffect(() => {
+    if (upgradeMode && existingVideos.length === 1 && !hasSelectedVideo) {
+      setSelectedPrimaryVideo(existingVideos[0]);
+      setHasSelectedVideo(true);
+    }
+  }, [upgradeMode, existingVideos, hasSelectedVideo]);
 
   const handleDragEnter = useCallback((e) => {
     e.preventDefault();
@@ -196,6 +245,122 @@ const VideoUploadLevel = ({ onComplete, onCancel, levelData, user, forceStartFro
       toast.error('Please upload a video to continue');
     }
   };
+  
+  // Handle video selection in upgrade mode
+  const handleVideoSelection = (selectedVideo) => {
+    setSelectedPrimaryVideo(selectedVideo);
+    setHasSelectedVideo(true);
+  };
+  
+  const handleConfirmVideoSelection = () => {
+    if (!selectedPrimaryVideo) {
+      toast.error('Please select a primary video');
+      return;
+    }
+    
+    // Get other videos (not selected as primary)
+    const additionalVideos = existingVideos.filter(v => v.url !== selectedPrimaryVideo.url);
+    
+    // Complete level with selected primary video and additional videos
+    onComplete({
+      video: selectedPrimaryVideo,
+      additionalVideos: additionalVideos
+    });
+  };
+
+  // Show video selection UI if in upgrade mode with multiple videos
+  if (upgradeMode && existingVideos.length > 1 && !hasSelectedVideo) {
+    return (
+      <div className="min-h-screen bg-dark-mesh flex items-center justify-center p-3 sm:p-4">
+        <div className="max-w-4xl w-full">
+          <div className="text-center mb-6 sm:mb-8">
+            <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-button-gradient rounded-full mb-3 sm:mb-4 shadow-glow-purple">
+              <Video className="w-6 h-6 sm:w-8 sm:h-8 text-slate-100" />
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 mb-2">
+              Select Primary Video
+            </h1>
+            <p className="text-sm sm:text-base text-slate-300">
+              Choose which video should play when the target image is detected. Other videos will be available in the "More Video Content" section.
+            </p>
+          </div>
+          
+          <div className="card-glass rounded-2xl shadow-dark-large p-4 sm:p-6 lg:p-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {existingVideos.map((video, index) => {
+                const videoUrl = typeof video === 'string' ? video : video.url;
+                const videoName = typeof video === 'object' ? (video.originalName || video.name || `Video ${index + 1}`) : `Video ${index + 1}`;
+                const isSelected = selectedPrimaryVideo && (
+                  (typeof selectedPrimaryVideo === 'string' ? selectedPrimaryVideo : selectedPrimaryVideo.url) === videoUrl
+                );
+                
+                return (
+                  <div
+                    key={index}
+                    onClick={() => handleVideoSelection(video)}
+                    className={`cursor-pointer border-2 rounded-xl p-4 transition-all duration-200 ${
+                      isSelected
+                        ? 'border-neon-purple bg-neon-purple/20 shadow-glow-purple'
+                        : 'border-slate-600 hover:border-slate-500 bg-slate-800/50'
+                    }`}
+                  >
+                    <div className="flex items-center mb-3">
+                      {isSelected && <CheckCircle className="w-5 h-5 text-neon-purple mr-2" />}
+                      <Video className={`w-5 h-5 ${isSelected ? 'text-neon-purple' : 'text-slate-400'} mr-2`} />
+                      <span className={`font-medium ${isSelected ? 'text-neon-purple' : 'text-slate-100'}`}>
+                        {videoName}
+                      </span>
+                    </div>
+                    {videoUrl && (
+                      <div className="relative aspect-video bg-slate-900 rounded-lg overflow-hidden">
+                        <video
+                          src={videoUrl}
+                          className="w-full h-full object-cover"
+                          muted
+                          playsInline
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 hover:bg-black/20 transition-colors">
+                          <Play className="w-12 h-12 text-white opacity-75" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={onCancel}
+                className="px-4 py-2 text-slate-300 hover:text-slate-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmVideoSelection}
+                disabled={!selectedPrimaryVideo}
+                className="btn-primary px-6 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Confirm Selection
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Auto-complete if single video exists in upgrade mode
+  useEffect(() => {
+    if (upgradeMode && existingVideos.length === 1 && !selectedFile && !existingVideo) {
+      const singleVideo = existingVideos[0];
+      const additionalVideos = [];
+      onComplete({
+        video: singleVideo,
+        additionalVideos: additionalVideos
+      });
+    }
+  }, [upgradeMode, existingVideos, selectedFile, existingVideo, onComplete]);
 
   return (
     <div className="min-h-screen bg-dark-mesh flex items-center justify-center p-3 sm:p-4">
@@ -215,7 +380,8 @@ const VideoUploadLevel = ({ onComplete, onCancel, levelData, user, forceStartFro
 
         {/* Upload Area */}
         <div className="card-glass rounded-2xl shadow-dark-large p-4 sm:p-6 lg:p-8 mb-4 sm:mb-6">
-          {existingVideo && !selectedFile && (
+          {/* Only show "existing video" message if we actually have a valid video (not in upgrade mode with no videos) */}
+          {existingVideo && !selectedFile && !upgradeMode && (
             <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-green-900/20 border border-neon-green/30 rounded-lg">
               <div className="flex items-center">
                 <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-neon-green mr-2 flex-shrink-0" />
@@ -225,6 +391,27 @@ const VideoUploadLevel = ({ onComplete, onCancel, levelData, user, forceStartFro
               </div>
               <p className="text-xs sm:text-sm text-slate-300 mt-1">
                 You can upload a new video for this project or reuse the existing one
+              </p>
+            </div>
+          )}
+          
+          {/* In upgrade mode, show message only if videos actually exist */}
+          {upgradeMode && existingVideos.length > 0 && !selectedFile && (
+            <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-green-900/20 border border-neon-green/30 rounded-lg">
+              <div className="flex items-center">
+                <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-neon-green mr-2 flex-shrink-0" />
+                <span className="text-neon-green font-medium text-sm sm:text-base">
+                  {existingVideos.length === 1 
+                    ? 'You have a video from your previous campaign'
+                    : `You have ${existingVideos.length} videos from your previous campaign`
+                  }
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-300 mt-1">
+                {existingVideos.length === 1
+                  ? 'You can upload a new video for this project or reuse the existing one'
+                  : 'Select one as the primary video, or upload a new one. Other videos will be available in "More Video Content".'
+                }
               </p>
             </div>
           )}

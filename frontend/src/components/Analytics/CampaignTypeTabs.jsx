@@ -5,14 +5,15 @@
 
 import React, { useState } from 'react';
 import { QrCode, Link as LinkIcon, Video, FileText, Sparkles, ChevronDown } from 'lucide-react';
+import { getCampaignTypeDisplayName } from '../../utils/campaignTypeNames';
 
 const CAMPAIGN_TYPES = [
   { id: 'all', label: 'All Campaigns', icon: QrCode },
-  { id: 'qr-link', label: 'QR Link', icon: LinkIcon },
-  { id: 'qr-links', label: 'QR Links', icon: LinkIcon },
-  { id: 'qr-links-video', label: 'QR Links Video', icon: Video },
-  { id: 'qr-links-pdf-video', label: 'QR Links PDF/Video', icon: FileText },
-  { id: 'qr-links-ar-video', label: 'QR Links AR Video', icon: Sparkles }
+  { id: 'qr-link', label: getCampaignTypeDisplayName('qr-link'), icon: LinkIcon },
+  { id: 'qr-links', label: getCampaignTypeDisplayName('qr-links'), icon: LinkIcon },
+  { id: 'qr-links-video', label: getCampaignTypeDisplayName('qr-links-video'), icon: Video },
+  { id: 'qr-links-pdf-video', label: getCampaignTypeDisplayName('qr-links-pdf-video'), icon: FileText },
+  { id: 'qr-links-ar-video', label: getCampaignTypeDisplayName('qr-links-ar-video'), icon: Sparkles }
 ];
 
 const CampaignTypeTabs = ({ 

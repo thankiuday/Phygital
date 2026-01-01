@@ -10,6 +10,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useDataRefresh } from '../../hooks/useDataRefresh'
 import ProfessionalButton from '../../components/UI/ProfessionalButton'
 import ProfessionalCard from '../../components/UI/ProfessionalCard'
+import { getCampaignTypeDisplayName } from '../../utils/campaignTypeNames'
 import { 
   Upload, 
   QrCode, 
@@ -23,7 +24,14 @@ import {
   ChevronDown,
   ChevronUp,
   Calendar,
-  Clock
+  Clock,
+  TrendingUp,
+  PlayCircle,
+  Link as LinkIcon,
+  Power,
+  PowerOff,
+  Sparkles,
+  FileText
 } from 'lucide-react'
 
 const DashboardPage = () => {
@@ -124,7 +132,7 @@ const DashboardPage = () => {
       title: 'Upload Content',
       description: 'Add new designs and videos',
       icon: Upload,
-      link: '/upload',
+      link: '/phygitalized/qr-link',
       color: 'bg-neon-blue'
     },
     {
@@ -152,6 +160,81 @@ const DashboardPage = () => {
 
   const progress = getSetupProgress()
 
+  // Campaign Statistics Functions
+  const getTotalCampaignStats = () => {
+    if (!user?.projects || user.projects.length === 0) {
+      return {
+        totalScans: 0,
+        totalVideoViews: 0,
+        totalLinkClicks: 0,
+        totalARStarts: 0
+      }
+    }
+
+    return user.projects.reduce((acc, project) => {
+      const analytics = project.analytics || {}
+      return {
+        totalScans: acc.totalScans + (analytics.totalScans || 0),
+        totalVideoViews: acc.totalVideoViews + (analytics.videoViews || 0),
+        totalLinkClicks: acc.totalLinkClicks + (analytics.linkClicks || 0),
+        totalARStarts: acc.totalARStarts + (analytics.arExperienceStarts || 0)
+      }
+    }, { totalScans: 0, totalVideoViews: 0, totalLinkClicks: 0, totalARStarts: 0 })
+  }
+
+  const getCampaignTypeDistribution = () => {
+    if (!user?.projects || user.projects.length === 0) return {}
+    
+    const distribution = {}
+    user.projects.forEach(project => {
+      const type = project.campaignType || 'unknown'
+      distribution[type] = (distribution[type] || 0) + 1
+    })
+    return distribution
+  }
+
+  const getActiveCampaignsCount = () => {
+    if (!user?.projects || user.projects.length === 0) {
+      return { active: 0, paused: 0 }
+    }
+
+    return user.projects.reduce((acc, project) => {
+      if (project.isEnabled !== false) {
+        acc.active++
+      } else {
+        acc.paused++
+      }
+      return acc
+    }, { active: 0, paused: 0 })
+  }
+
+  const getTopPerformingCampaign = () => {
+    if (!user?.projects || user.projects.length === 0) return null
+
+    return user.projects.reduce((top, project) => {
+      const currentScans = project.analytics?.totalScans || 0
+      const topScans = top?.analytics?.totalScans || 0
+      return currentScans > topScans ? project : top
+    }, null)
+  }
+
+  const getRecentActivity = () => {
+    if (!user?.projects || user.projects.length === 0) return null
+
+    // Get most recently created or updated project
+    return user.projects.reduce((recent, project) => {
+      const recentDate = new Date(recent.createdAt || 0)
+      const projectDate = new Date(project.createdAt || 0)
+      return projectDate > recentDate ? project : recent
+    }, user.projects[0])
+  }
+
+  const campaignStats = getTotalCampaignStats()
+  const typeDistribution = getCampaignTypeDistribution()
+  const activeCounts = getActiveCampaignsCount()
+  const topCampaign = getTopPerformingCampaign()
+  const recentCampaign = getRecentActivity()
+
   // Component to render individual project progress - Anti-flicker button styles
   const actionButtonBase =
     'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-900';
@@ -164,60 +247,124 @@ const DashboardPage = () => {
     const projectProgress = getProjectProgress(project)
     const projectStepCompletion = getProjectStepCompletion(project)
     const isComplete = isProjectComplete(project)
+    const campaignType = project.campaignType || 'unknown'
+    const analytics = project.analytics || {}
     
     return (
-      <div className={`p-4 rounded-lg border-2 transition-all duration-200 ${
+      <div className={`card-glass rounded-xl shadow-dark-large border transition-all duration-200 p-4 sm:p-5 ${
         isComplete 
-          ? 'border-neon-green/30 bg-green-900/20' 
-          : 'border-slate-600/50 bg-slate-800/50'
-      } ${isLatest ? 'ring-2 ring-neon-blue/30' : ''}`}>
+          ? 'border-neon-green/30 bg-green-900/10' 
+          : 'border-slate-600/30'
+      } ${isLatest ? 'ring-2 ring-neon-blue/30 shadow-glow-blue/20' : ''} hover:border-neon-blue/50 hover:shadow-glow-blue/10`}>
         
         {/* Campaign Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
           <div className="flex items-center min-w-0 flex-1">
-            <div className={`p-2 rounded-lg mr-3 flex-shrink-0 ${
-              isComplete ? 'bg-green-900/30' : 'bg-slate-700'
+            <div className={`p-2.5 rounded-lg mr-3 flex-shrink-0 ${
+              isComplete 
+                ? 'bg-gradient-to-br from-neon-green to-green-600 shadow-glow-green' 
+                : 'bg-gradient-to-br from-slate-700 to-slate-800'
             }`}>
               {isComplete ? (
-                <CheckCircle className="h-5 w-5 text-neon-green" />
+                <CheckCircle className="h-5 w-5 text-white" />
               ) : (
                 <Clock className="h-5 w-5 text-slate-300" />
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <h3 className="font-medium text-slate-100 truncate text-sm sm:text-base">
-                {project.name || `Campaign ${project.id}`}
-                {isLatest && <span className="ml-2 text-xs bg-neon-blue/20 text-neon-blue px-2 py-1 rounded whitespace-nowrap">Latest</span>}
-              </h3>
-              <p className="text-xs text-slate-400 truncate">
-                Created {new Date(project.createdAt).toLocaleDateString()}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center justify-start sm:justify-end sm:flex-shrink-0 gap-2">
-            <div className="text-right">
-              <div className="text-lg sm:text-xl font-bold text-slate-100">{projectProgress}%</div>
-              <div className="text-xs text-slate-400">
-                {isComplete ? 'Complete' : `${projectProgress}/100`}
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="font-semibold text-slate-100 truncate text-sm sm:text-base">
+                  {project.name || `Campaign ${project.id}`}
+                </h3>
+                {isLatest && (
+                  <span className="text-xs bg-gradient-to-r from-neon-blue to-neon-purple text-white px-2 py-0.5 rounded-full whitespace-nowrap font-medium">
+                    Latest
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-xs text-slate-400 truncate">
+                  {new Date(project.createdAt).toLocaleDateString()}
+                </p>
+                {campaignType !== 'unknown' && (
+                  <span className="text-xs bg-slate-700/50 text-slate-300 px-2 py-0.5 rounded">
+                    {getCampaignTypeDisplayName(campaignType)}
+                  </span>
+                )}
+                {project.isEnabled === false && (
+                  <span className="text-xs bg-red-900/30 text-red-400 px-2 py-0.5 rounded border border-red-600/30">
+                    Paused
+                  </span>
+                )}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Progress Bar */}
-        <div className="mb-4">
-          <div className="progress-bar">
-            <div 
-              className={`progress-bar-fill ${
-                isComplete ? 'bg-neon-green' : 'bg-gradient-to-r from-neon-blue to-neon-purple'
-              }`}
-              style={{ width: `${projectProgress}%` }}
-            ></div>
+        {/* What You Can Add Section - Informative Cards */}
+        <div className="mb-4 p-4 bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl border border-slate-600/30">
+          <h4 className="text-sm font-semibold text-slate-100 mb-3 flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-neon-purple" />
+            Enhance Your QR Code
+          </h4>
+          <p className="text-xs text-slate-400 mb-3">
+            Add rich content to make your QR code more engaging and informative
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="flex flex-col items-center p-2.5 bg-slate-700/30 rounded-lg border border-slate-600/30 hover:border-neon-blue/50 transition-all">
+              <PlayCircle className="h-4 w-4 text-neon-green mb-1.5" />
+              <span className="text-xs text-slate-300 text-center font-medium">Videos</span>
+            </div>
+            <div className="flex flex-col items-center p-2.5 bg-slate-700/30 rounded-lg border border-slate-600/30 hover:border-neon-purple/50 transition-all">
+              <FileText className="h-4 w-4 text-neon-purple mb-1.5" />
+              <span className="text-xs text-slate-300 text-center font-medium">Documents</span>
+            </div>
+            <div className="flex flex-col items-center p-2.5 bg-slate-700/30 rounded-lg border border-slate-600/30 hover:border-neon-cyan/50 transition-all">
+              <Share2 className="h-4 w-4 text-neon-cyan mb-1.5" />
+              <span className="text-xs text-slate-300 text-center font-medium">Social Links</span>
+            </div>
+            <div className="flex flex-col items-center p-2.5 bg-slate-700/30 rounded-lg border border-slate-600/30 hover:border-neon-orange/50 transition-all">
+              <LinkIcon className="h-4 w-4 text-neon-orange mb-1.5" />
+              <span className="text-xs text-slate-300 text-center font-medium">Custom Links</span>
+            </div>
           </div>
         </div>
 
+        {/* Campaign Analytics (if available) */}
+        {(analytics.totalScans > 0 || analytics.videoViews > 0 || analytics.linkClicks > 0) && (
+          <div className="grid grid-cols-3 gap-2 mb-4 p-3 bg-slate-800/30 rounded-lg border border-slate-700/30">
+            {analytics.totalScans > 0 && (
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <Eye className="h-3.5 w-3.5 text-neon-blue" />
+                  <span className="text-sm font-bold text-slate-100">{analytics.totalScans}</span>
+                </div>
+                <span className="text-xs text-slate-400">Scans</span>
+              </div>
+            )}
+            {analytics.videoViews > 0 && (
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <PlayCircle className="h-3.5 w-3.5 text-neon-green" />
+                  <span className="text-sm font-bold text-slate-100">{analytics.videoViews}</span>
+                </div>
+                <span className="text-xs text-slate-400">Views</span>
+              </div>
+            )}
+            {analytics.linkClicks > 0 && (
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <LinkIcon className="h-3.5 w-3.5 text-neon-purple" />
+                  <span className="text-sm font-bold text-slate-100">{analytics.linkClicks}</span>
+                </div>
+                <span className="text-xs text-slate-400">Clicks</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Campaign Steps */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
           {setupSteps.map((step) => {
             const Icon = step.icon
             const isCompleted = projectStepCompletion[step.id]
@@ -225,16 +372,16 @@ const DashboardPage = () => {
             return (
               <div
                 key={step.id}
-                className={`flex items-center p-2 rounded text-xs ${
+                className={`flex items-center p-2 rounded-lg text-xs transition-all ${
                   isCompleted 
-                    ? 'bg-green-900/20 text-neon-green' 
-                    : 'bg-slate-700/50 text-slate-400'
+                    ? 'bg-green-900/20 text-neon-green border border-green-600/30' 
+                    : 'bg-slate-700/50 text-slate-400 border border-slate-600/30'
                 }`}
               >
                 {isCompleted ? (
-                  <CheckCircle className="h-3 w-3 mr-2" />
+                  <CheckCircle className="h-3.5 w-3.5 mr-2 flex-shrink-0" />
                 ) : (
-                  <Icon className="h-3 w-3 mr-2" />
+                  <Icon className="h-3.5 w-3.5 mr-2 flex-shrink-0" />
                 )}
                 <span className="truncate">{step.title}</span>
               </div>
@@ -243,19 +390,22 @@ const DashboardPage = () => {
         </div>
 
         {/* Action Button */}
-        <div className="mt-4 pt-3 border-t border-slate-700/50 flex justify-start">
+        <div className="pt-3 border-t border-slate-700/50 flex justify-start">
           {isComplete ? (
-            <Link to="/projects" className={manageButtonClasses}>
+            <Link 
+              to="/projects" 
+              className="w-full sm:w-auto px-4 py-2.5 bg-gradient-to-r from-neon-green to-green-500 text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+            >
               Manage Campaign
-              <ArrowRight className={actionArrowClasses} />
+              <ArrowRight className="h-4 w-4" />
             </Link>
           ) : (
             <Link
               to={`/projects?edit=${project._id || project.id}`}
-              className={continueButtonClasses}
+              className="w-full sm:w-auto px-4 py-2.5 bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-opacity shadow-glow-blue flex items-center justify-center gap-2"
             >
               Continue Campaign
-              <ArrowRight className={actionArrowClasses} />
+              <ArrowRight className="h-4 w-4" />
             </Link>
           )}
         </div>
@@ -282,12 +432,12 @@ const DashboardPage = () => {
       </div>
 
       {/* Campaigns Section */}
-      <div className="card mb-8">
-        <div className="card-header">
-          <h2 className="text-xl font-semibold text-slate-100">
+      <div className="card-glass rounded-2xl shadow-dark-large border border-slate-600/30 p-4 sm:p-6 lg:p-8 mb-8">
+        <div className="mb-6 pb-4 border-b border-slate-600/30">
+          <h2 className="text-xl sm:text-2xl font-semibold text-slate-100 mb-2">
             {projectStats.total > 0 ? 'Your Campaigns' : 'Create Your First Campaign'}
           </h2>
-          <p className="text-slate-300">
+          <p className="text-sm sm:text-base text-slate-300">
             {projectStats.total > 0 
               ? `You have ${projectStats.total} campaign${projectStats.total !== 1 ? 's' : ''} (${projectStats.complete} complete). Create new campaigns or continue working on existing ones.`
               : 'Complete these steps to create your first Phygital campaign'
@@ -345,30 +495,151 @@ const DashboardPage = () => {
               </div>
             )}
 
-            {/* Action Buttons */}
-            <div className="mt-6 p-4 sm:p-5 bg-green-900/20 border border-green-600/30 rounded-lg">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div className="flex items-start sm:items-center flex-1 min-w-0">
-                  <CheckCircle className="h-5 w-5 text-neon-green mr-3 flex-shrink-0 mt-0.5 sm:mt-0" />
-                  <p className="text-sm text-neon-green flex-1">
-                    {projectStats.complete > 0
-                      ? `Great! You have ${projectStats.complete} complete campaign${projectStats.complete !== 1 ? 's' : ''}. Ready to create more!`
-                      : 'You have campaigns started. Complete them or create new ones.'
-                    }
+            {/* Campaign Insights Statistics */}
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Total Scans */}
+              <div className="card-glass rounded-xl shadow-dark-large border border-slate-600/30 p-4 sm:p-5 hover:border-neon-blue/50 transition-all duration-200">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-2.5 bg-gradient-to-br from-neon-blue to-blue-600 rounded-lg shadow-glow-blue">
+                    <Eye className="h-5 w-5 text-white" />
+                  </div>
+                  <span className="text-xs text-slate-400 font-medium">Total Scans</span>
+                </div>
+                <div className="mb-1">
+                  <p className="text-2xl sm:text-3xl font-bold text-slate-100">
+                    {campaignStats.totalScans.toLocaleString()}
                   </p>
                 </div>
-                <Link
-                  to={projectStats.complete > 0 
-                    ? "/upload" 
-                    : `/projects?edit=${user?.projects?.find(p => !isProjectComplete(p))?._id || user?.projects?.[user.projects.length - 1]?._id}`
-                  }
-                  className="btn-primary text-sm px-4 py-2.5 w-full sm:w-auto inline-flex items-center justify-center whitespace-nowrap flex-shrink-0"
-                >
-                  {projectStats.complete > 0 ? 'Create New Campaign' : 'Continue Campaign'}
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
+                <p className="text-xs text-slate-400">Across all campaigns</p>
+              </div>
+
+              {/* Total Video Views */}
+              <div className="card-glass rounded-xl shadow-dark-large border border-slate-600/30 p-4 sm:p-5 hover:border-neon-green/50 transition-all duration-200">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-2.5 bg-gradient-to-br from-neon-green to-green-600 rounded-lg shadow-glow-green">
+                    <PlayCircle className="h-5 w-5 text-white" />
+                  </div>
+                  <span className="text-xs text-slate-400 font-medium">Video Views</span>
+                </div>
+                <div className="mb-1">
+                  <p className="text-2xl sm:text-3xl font-bold text-slate-100">
+                    {(campaignStats.totalVideoViews + campaignStats.totalARStarts).toLocaleString()}
+                  </p>
+                </div>
+                <p className="text-xs text-slate-400">Videos + AR experiences</p>
+              </div>
+
+              {/* Active Campaigns */}
+              <div className="card-glass rounded-xl shadow-dark-large border border-slate-600/30 p-4 sm:p-5 hover:border-neon-purple/50 transition-all duration-200">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-2.5 bg-gradient-to-br from-neon-purple to-purple-600 rounded-lg shadow-glow-purple">
+                    <Power className="h-5 w-5 text-white" />
+                  </div>
+                  <span className="text-xs text-slate-400 font-medium">Active</span>
+                </div>
+                <div className="mb-1">
+                  <p className="text-2xl sm:text-3xl font-bold text-slate-100">
+                    {activeCounts.active}
+                  </p>
+                </div>
+                <p className="text-xs text-slate-400">
+                  {activeCounts.paused > 0 ? `${activeCounts.paused} paused` : 'All active'}
+                </p>
+              </div>
+
+              {/* Campaign Types */}
+              <div className="card-glass rounded-xl shadow-dark-large border border-slate-600/30 p-4 sm:p-5 hover:border-neon-orange/50 transition-all duration-200">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-2.5 bg-gradient-to-br from-neon-orange to-orange-600 rounded-lg shadow-glow-orange">
+                    <Sparkles className="h-5 w-5 text-white" />
+                  </div>
+                  <span className="text-xs text-slate-400 font-medium">Types</span>
+                </div>
+                <div className="mb-1">
+                  <p className="text-2xl sm:text-3xl font-bold text-slate-100">
+                    {Object.keys(typeDistribution).length}
+                  </p>
+                </div>
+                <p className="text-xs text-slate-400">
+                  {Object.keys(typeDistribution).length > 0 
+                    ? Object.keys(typeDistribution).slice(0, 2).map(type => getCampaignTypeDisplayName(type)).join(', ') 
+                    : 'No campaigns'}
+                </p>
               </div>
             </div>
+
+            {/* Top Performing Campaign & Quick Actions */}
+            {(topCampaign || recentCampaign) && (
+              <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Top Performing Campaign */}
+                {topCampaign && topCampaign.analytics?.totalScans > 0 && (
+                  <div className="card-glass rounded-xl shadow-dark-large border border-slate-600/30 p-4 sm:p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-gradient-to-br from-neon-blue to-neon-purple rounded-lg">
+                          <TrendingUp className="h-5 w-5 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-semibold text-slate-100">Top Performing</h3>
+                          <p className="text-xs text-slate-400">Most scans</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mb-3">
+                      <h4 className="text-base font-bold text-slate-100 mb-1 truncate">
+                        {topCampaign.name || 'Unnamed Campaign'}
+                      </h4>
+                      <p className="text-xs text-slate-400">
+                        {topCampaign.campaignType ? getCampaignTypeDisplayName(topCampaign.campaignType) : 'Campaign'}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-2xl font-bold text-neon-blue">
+                          {topCampaign.analytics?.totalScans || 0}
+                        </p>
+                        <p className="text-xs text-slate-400">Total scans</p>
+                      </div>
+                      <Link
+                        to="/projects"
+                        className="px-4 py-2 bg-gradient-to-r from-neon-blue to-neon-purple text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-opacity"
+                      >
+                        View Details
+                      </Link>
+                    </div>
+                  </div>
+                )}
+
+                {/* Quick Action Card */}
+                <div className="card-glass rounded-xl shadow-dark-large border border-slate-600/30 p-4 sm:p-5 bg-gradient-to-br from-slate-800/50 to-slate-900/50">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-gradient-to-br from-neon-green to-green-600 rounded-lg">
+                        <ArrowRight className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-semibold text-slate-100">Quick Actions</h3>
+                        <p className="text-xs text-slate-400">Get started</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Link
+                      to="/phygitalized/qr-link"
+                      className="block w-full px-4 py-2.5 bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-opacity text-center"
+                    >
+                      Create Your AR Experience
+                    </Link>
+                    <Link
+                      to="/projects"
+                      className="block w-full px-4 py-2.5 border-2 border-neon-green text-neon-green text-sm font-semibold rounded-lg hover:bg-neon-green/10 transition-colors text-center"
+                    >
+                      Manage All Campaigns
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         ) : (
           /* First Campaign Setup */
@@ -395,23 +666,25 @@ const DashboardPage = () => {
                 return (
                   <div
                     key={step.id}
-                    className={`p-4 sm:p-6 rounded-lg border-2 transition-colors duration-200 ${
+                    className={`card-glass rounded-xl shadow-dark-large border transition-all duration-200 p-4 sm:p-5 ${
                       stepCompletion[step.id]
-                        ? 'border-neon-green/30 bg-green-900/20'
-                        : 'border-slate-600/50 bg-slate-800/50'
+                        ? 'border-neon-green/30 bg-green-900/10'
+                        : 'border-slate-600/30 hover:border-neon-blue/50'
                     }`}
                   >
                     <div className="flex items-center mb-3">
-                      <div className={`p-2 rounded-lg mr-3 ${
-                        stepCompletion[step.id] ? 'bg-green-900/30' : 'bg-slate-700'
+                      <div className={`p-2.5 rounded-lg mr-3 ${
+                        stepCompletion[step.id] 
+                          ? 'bg-gradient-to-br from-neon-green to-green-600 shadow-glow-green' 
+                          : 'bg-gradient-to-br from-slate-700 to-slate-800'
                       }`}>
                         {stepCompletion[step.id] ? (
-                          <CheckCircle className="h-5 w-5 text-neon-green" />
+                          <CheckCircle className="h-5 w-5 text-white" />
                         ) : (
                           <Icon className="h-5 w-5 text-slate-300" />
                         )}
                       </div>
-                      <h3 className="font-medium text-slate-100 text-sm sm:text-base">
+                      <h3 className="font-semibold text-slate-100 text-sm sm:text-base">
                         {step.title}
                       </h3>
                     </div>
@@ -421,7 +694,7 @@ const DashboardPage = () => {
                     {!stepCompletion[step.id] && (
                       <Link
                         to={step.link}
-                        className="inline-flex items-center justify-center w-full sm:w-auto px-3 py-2 text-sm font-medium text-neon-blue hover:text-neon-cyan bg-blue-900/20 hover:bg-blue-900/30 border border-blue-600/30 hover:border-blue-500/50 rounded-lg transition-all duration-200"
+                        className="inline-flex items-center justify-center w-full sm:w-auto px-3 py-2 text-sm font-semibold text-neon-blue hover:text-white bg-blue-900/20 hover:bg-gradient-to-r hover:from-neon-blue hover:to-neon-purple border border-blue-600/30 hover:border-transparent rounded-lg transition-all duration-200"
                       >
                         Complete
                         <ArrowRight className="ml-2 h-4 w-4" />
@@ -432,17 +705,19 @@ const DashboardPage = () => {
               })}
             </div>
 
-            <div className="mt-6 p-4 sm:p-5 bg-blue-900/20 border border-blue-600/30 rounded-lg">
+            <div className="mt-6 p-4 sm:p-5 card-glass rounded-xl border border-neon-blue/30 bg-gradient-to-br from-blue-900/20 to-purple-900/20">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="flex items-start sm:items-center flex-1 min-w-0">
-                  <Upload className="h-5 w-5 text-neon-blue mr-3 flex-shrink-0 mt-0.5 sm:mt-0" />
-                  <p className="text-sm text-neon-blue flex-1">
+                  <div className="p-2 bg-gradient-to-br from-neon-blue to-neon-purple rounded-lg mr-3 flex-shrink-0 mt-0.5 sm:mt-0 shadow-glow-blue">
+                    <Upload className="h-5 w-5 text-white" />
+                  </div>
+                  <p className="text-sm text-slate-100 flex-1 font-medium">
                     Start creating your first Phygital project by completing the steps above.
                   </p>
                 </div>
                 <Link
                   to="/upload"
-                  className="btn-primary text-sm px-4 py-2.5 w-full sm:w-auto inline-flex items-center justify-center whitespace-nowrap flex-shrink-0"
+                  className="px-4 py-2.5 bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-opacity shadow-glow-blue inline-flex items-center justify-center whitespace-nowrap flex-shrink-0"
                 >
                   Get Started
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -453,79 +728,77 @@ const DashboardPage = () => {
         )}
       </div>
 
-      {/* Analytics Overview */}
-      {isSetupComplete() && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
-          <div className="card">
-            <div className="flex items-center">
-              <div className="p-3 bg-blue-900/30 rounded-lg mr-4 flex-shrink-0">
-                <Eye className="h-6 w-6 text-neon-blue" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-slate-300">Total Scans</p>
-                <p className="text-2xl font-bold text-slate-100">
-                  {Math.round((user?.analytics?.totalScans || 0) / 2)}
-                </p>
-              </div>
-            </div>
+      {/* Overall Analytics Overview */}
+      {isSetupComplete() && projectStats.total > 0 && (
+        <div className="card-glass rounded-2xl shadow-dark-large border border-slate-600/30 p-4 sm:p-6 lg:p-8 mb-8">
+          <div className="mb-6 pb-4 border-b border-slate-600/30">
+            <h2 className="text-xl sm:text-2xl font-semibold text-slate-100 mb-2">Overall Performance</h2>
+            <p className="text-sm sm:text-base text-slate-300">Aggregated statistics across all your campaigns</p>
           </div>
-
-          <div className="card">
-            <div className="flex items-center">
-              <div className="p-3 bg-green-900/30 rounded-lg mr-4 flex-shrink-0">
-                <BarChart3 className="h-6 w-6 text-neon-green" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            <div className="card-glass rounded-xl border border-slate-600/30 p-4 sm:p-5 hover:border-neon-blue/50 transition-all duration-200">
+              <div className="flex items-center justify-between mb-3">
+                <div className="p-2.5 bg-gradient-to-br from-neon-blue to-blue-600 rounded-lg shadow-glow-blue">
+                  <Eye className="h-5 w-5 text-white" />
+                </div>
+                <span className="text-xs text-slate-400 font-medium">Total Scans</span>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-slate-300">Video Views</p>
-                <p className="text-2xl font-bold text-slate-100">
-                  {(user?.analytics?.videoViews || 0) + (user?.analytics?.arExperienceStarts || 0)}
-                </p>
-              </div>
+              <p className="text-2xl sm:text-3xl font-bold text-slate-100 mb-1">
+                {campaignStats.totalScans.toLocaleString()}
+              </p>
+              <p className="text-xs text-slate-400">All campaigns combined</p>
             </div>
-          </div>
 
-          <div className="card">
-            <div className="flex items-center">
-              <div className="p-3 bg-neon-purple/20 rounded-lg mr-4 flex-shrink-0 shadow-glow-purple">
-                <MousePointer className="h-6 w-6 text-neon-purple" />
+            <div className="card-glass rounded-xl border border-slate-600/30 p-4 sm:p-5 hover:border-neon-green/50 transition-all duration-200">
+              <div className="flex items-center justify-between mb-3">
+                <div className="p-2.5 bg-gradient-to-br from-neon-green to-green-600 rounded-lg shadow-glow-green">
+                  <BarChart3 className="h-5 w-5 text-white" />
+                </div>
+                <span className="text-xs text-slate-400 font-medium">Total Views</span>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-slate-300">Link Clicks</p>
-                <p className="text-2xl font-bold text-slate-100">
-                  {Math.round((user?.analytics?.linkClicks || 0) / 2)}
-                </p>
+              <p className="text-2xl sm:text-3xl font-bold text-slate-100 mb-1">
+                {(campaignStats.totalVideoViews + campaignStats.totalARStarts).toLocaleString()}
+              </p>
+              <p className="text-xs text-slate-400">Videos + AR experiences</p>
+            </div>
+
+            <div className="card-glass rounded-xl border border-slate-600/30 p-4 sm:p-5 hover:border-neon-purple/50 transition-all duration-200">
+              <div className="flex items-center justify-between mb-3">
+                <div className="p-2.5 bg-gradient-to-br from-neon-purple to-purple-600 rounded-lg shadow-glow-purple">
+                  <MousePointer className="h-5 w-5 text-white" />
+                </div>
+                <span className="text-xs text-slate-400 font-medium">Link Clicks</span>
               </div>
+              <p className="text-2xl sm:text-3xl font-bold text-slate-100 mb-1">
+                {campaignStats.totalLinkClicks.toLocaleString()}
+              </p>
+              <p className="text-xs text-slate-400">Total interactions</p>
             </div>
           </div>
         </div>
       )}
 
       {/* Quick Actions */}
-      <div className="card mb-8">
-        <div className="card-header">
-          <h2 className="text-xl font-semibold text-slate-100">
-            Quick Actions
-          </h2>
-          <p className="text-slate-300">
-            Common tasks and shortcuts
-          </p>
+      <div className="card-glass rounded-2xl shadow-dark-large border border-slate-600/30 p-4 sm:p-6 lg:p-8 mb-8">
+        <div className="mb-6 pb-4 border-b border-slate-600/30">
+          <h2 className="text-xl sm:text-2xl font-semibold text-slate-100 mb-2">Quick Actions</h2>
+          <p className="text-sm sm:text-base text-slate-300">Common tasks and shortcuts</p>
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {quickActions.map((action, index) => {
             const Icon = action.icon
-            const colorName = action.color.split('-')[1] || 'blue'
             return (
               <Link
                 key={index}
                 to={action.link}
-                className="p-4 sm:p-6 rounded-lg border border-slate-600/30 hover:border-neon-blue/30 hover:shadow-dark-large transition-all duration-200 group block"
+                className="card-glass rounded-xl border border-slate-600/30 p-4 sm:p-5 hover:border-neon-blue/50 hover:shadow-glow-blue/10 transition-all duration-200 group block"
               >
                 <div className="flex items-start sm:items-center mb-3">
-                  <div className={`p-2 rounded-lg mr-3 flex-shrink-0 ${action.color}`}>
+                  <div className={`p-2.5 rounded-lg mr-3 flex-shrink-0 ${action.color} shadow-glow-blue/20`}>
                     <Icon className="h-5 w-5 text-white" />
                   </div>
-                  <h3 className="font-medium text-slate-100 group-hover:text-neon-blue transition-colors duration-200 text-sm sm:text-base flex-1 min-w-0">
+                  <h3 className="font-semibold text-slate-100 group-hover:text-neon-blue transition-colors duration-200 text-sm sm:text-base flex-1 min-w-0">
                     {action.title}
                   </h3>
                 </div>
@@ -540,47 +813,55 @@ const DashboardPage = () => {
 
       {/* Recent Campaigns */}
       {isSetupComplete() && user?.projects && user.projects.length > 0 && (
-        <div className="card mb-8">
-          <div className="card-header">
-            <h2 className="text-xl font-semibold text-slate-100">
-              Recent Campaigns
-            </h2>
-            <p className="text-slate-300">
-              Your latest campaign creations
-            </p>
+        <div className="card-glass rounded-2xl shadow-dark-large border border-slate-600/30 p-4 sm:p-6 lg:p-8 mb-8">
+          <div className="mb-6 pb-4 border-b border-slate-600/30">
+            <h2 className="text-xl sm:text-2xl font-semibold text-slate-100 mb-2">Recent Campaigns</h2>
+            <p className="text-sm sm:text-base text-slate-300">Your latest campaign creations</p>
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {user.projects.slice(0, 3).map((project, index) => (
-              <div key={index} className="p-4 bg-slate-800/50 rounded-lg border border-slate-600/30 hover:border-neon-blue/30 transition-all duration-200">
-                <div className="flex items-center mb-2">
-                  <div className="p-2 bg-neon-blue/20 rounded-lg mr-3 shadow-glow-blue">
-                    <QrCode className="h-4 w-4 text-neon-blue" />
+              <div key={index} className="card-glass rounded-xl border border-slate-600/30 p-4 sm:p-5 hover:border-neon-blue/50 hover:shadow-glow-blue/10 transition-all duration-200">
+                <div className="flex items-center mb-3">
+                  <div className="p-2.5 bg-gradient-to-br from-neon-blue to-neon-purple rounded-lg mr-3 shadow-glow-blue">
+                    <QrCode className="h-4 w-4 text-white" />
                   </div>
-                  <h3 className="font-medium text-slate-100">
-                    {project.name || `Campaign ${index + 1}`}
-                  </h3>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-slate-100 truncate text-sm sm:text-base">
+                      {project.name || `Campaign ${index + 1}`}
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      {new Date(project.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
                 </div>
-                <p className="text-sm text-slate-400 mb-2">
-                  Created {new Date(project.createdAt).toLocaleDateString()}
-                </p>
+                {project.analytics?.totalScans > 0 && (
+                  <div className="mb-3 p-2 bg-slate-800/30 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-400">Scans</span>
+                      <span className="text-sm font-bold text-neon-blue">{project.analytics.totalScans}</span>
+                    </div>
+                  </div>
+                )}
                 <Link
                   to="/projects"
-                  className="text-sm text-neon-blue hover:text-neon-cyan transition-colors duration-200"
+                  className="inline-flex items-center text-sm text-neon-blue hover:text-neon-cyan transition-colors duration-200 font-medium"
                 >
-                  Manage Campaign →
+                  Manage Campaign
+                  <ArrowRight className="ml-1 h-4 w-4" />
                 </Link>
               </div>
             ))}
           </div>
           
           {user.projects.length > 3 && (
-            <div className="mt-4 text-center">
+            <div className="mt-6 text-center">
               <Link
                 to="/projects"
-                className="text-sm text-slate-400 hover:text-neon-blue transition-colors duration-200"
+                className="inline-flex items-center text-sm text-slate-400 hover:text-neon-blue transition-colors duration-200 font-medium"
               >
-                View all {user.projects.length} campaigns →
+                View all {user.projects.length} campaigns
+                <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
             </div>
           )}
@@ -589,27 +870,23 @@ const DashboardPage = () => {
 
       {/* Recent Activity */}
       {isSetupComplete() && (
-        <div className="card">
-          <div className="card-header">
-            <h2 className="text-xl font-semibold text-slate-100">
-              Recent Activity
-            </h2>
-            <p className="text-slate-300">
-              Your latest interactions and updates
-            </p>
+        <div className="card-glass rounded-2xl shadow-dark-large border border-slate-600/30 p-4 sm:p-6 lg:p-8">
+          <div className="mb-6 pb-4 border-b border-slate-600/30">
+            <h2 className="text-xl sm:text-2xl font-semibold text-slate-100 mb-2">Recent Activity</h2>
+            <p className="text-sm sm:text-base text-slate-300">Your latest interactions and updates</p>
           </div>
           
-          <div className="space-y-4">
+          <div className="space-y-3">
             {user?.analytics?.lastScanAt && (
-              <div className="flex items-center p-3 bg-slate-800/50 rounded-lg border border-slate-600/30">
-                <div className="p-2 bg-neon-blue/20 rounded-lg mr-3 shadow-glow-blue">
-                  <Eye className="h-4 w-4 text-neon-blue" />
+              <div className="flex items-center p-3 sm:p-4 card-glass rounded-xl border border-slate-600/30 hover:border-neon-blue/50 transition-all duration-200">
+                <div className="p-2.5 bg-gradient-to-br from-neon-blue to-blue-600 rounded-lg mr-3 shadow-glow-blue">
+                  <Eye className="h-4 w-4 text-white" />
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-100">
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-slate-100">
                     Last QR scan
                   </p>
-                  <p className="text-xs text-slate-300">
+                  <p className="text-xs text-slate-400">
                     {new Date(user.analytics.lastScanAt).toLocaleDateString()}
                   </p>
                 </div>
@@ -617,15 +894,15 @@ const DashboardPage = () => {
             )}
             
             {user?.analytics?.lastVideoViewAt && (
-              <div className="flex items-center p-3 bg-slate-800/50 rounded-lg border border-slate-600/30">
-                <div className="p-2 bg-neon-green/20 rounded-lg mr-3 shadow-glow-green">
-                  <BarChart3 className="h-4 w-4 text-neon-green" />
+              <div className="flex items-center p-3 sm:p-4 card-glass rounded-xl border border-slate-600/30 hover:border-neon-green/50 transition-all duration-200">
+                <div className="p-2.5 bg-gradient-to-br from-neon-green to-green-600 rounded-lg mr-3 shadow-glow-green">
+                  <BarChart3 className="h-4 w-4 text-white" />
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-100">
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-slate-100">
                     Last video view
                   </p>
-                  <p className="text-xs text-slate-300">
+                  <p className="text-xs text-slate-400">
                     {new Date(user.analytics.lastVideoViewAt).toLocaleDateString()}
                   </p>
                 </div>
@@ -633,15 +910,15 @@ const DashboardPage = () => {
             )}
             
             {user?.uploadedFiles?.video?.uploadedAt && (
-              <div className="flex items-center p-3 bg-slate-800/50 rounded-lg border border-slate-600/30">
-                <div className="p-2 bg-neon-purple/20 rounded-lg mr-3 shadow-glow-purple">
-                  <Upload className="h-4 w-4 text-neon-purple" />
+              <div className="flex items-center p-3 sm:p-4 card-glass rounded-xl border border-slate-600/30 hover:border-neon-purple/50 transition-all duration-200">
+                <div className="p-2.5 bg-gradient-to-br from-neon-purple to-purple-600 rounded-lg mr-3 shadow-glow-purple">
+                  <Upload className="h-4 w-4 text-white" />
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-100">
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-slate-100">
                     Video uploaded
                   </p>
-                  <p className="text-xs text-slate-300">
+                  <p className="text-xs text-slate-400">
                     {new Date(user.uploadedFiles.video.uploadedAt).toLocaleDateString()}
                   </p>
                 </div>

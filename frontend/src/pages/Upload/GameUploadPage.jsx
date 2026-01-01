@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useAuth } from '../../contexts/AuthContext';
-import { uploadAPI } from '../../utils/api';
+import { uploadAPI, phygitalizedAPI } from '../../utils/api';
 import LevelBasedUpload from '../../components/Upload/LevelBasedUpload';
 import ProjectNameInput from '../../components/Upload/ProjectNameInput';
 import toast from 'react-hot-toast';
@@ -31,17 +31,68 @@ const GameUploadPage = () => {
   const [forceStartFromLevel1, setForceStartFromLevel1] = useState(false);
   const [currentProject, setCurrentProject] = useState(null);
   const [isLoadingUpgrade, setIsLoadingUpgrade] = useState(false);
+  const [upgradeMode, setUpgradeMode] = useState(false);
 
-  // Check for upgrade mode from URL params
+  // Check for upgrade mode or resume from URL params
   useEffect(() => {
     const handleUpgradeMode = async () => {
       const isUpgrade = searchParams.get('upgrade') === 'true';
       const upgradeProjectId = searchParams.get('projectId');
       const upgradeFromType = searchParams.get('fromType');
+      const isResume = searchParams.get('resume') === 'true';
+      const resumeProjectId = searchParams.get('projectId');
 
+      // Handle resume flow
+      if (isResume && resumeProjectId && user?.projects) {
+        try {
+          setIsLoadingUpgrade(true);
+          
+          // Find the project in user's projects
+          const project = user.projects.find(p => p.id === resumeProjectId);
+          
+          if (project) {
+            // Check for draft data
+            const draftKey = `phygital_campaign_draft_${resumeProjectId}`;
+            const draftStr = localStorage.getItem(draftKey);
+            
+            if (draftStr) {
+              // Set the project as current project
+              setCurrentProject(project);
+              // Don't force start from level 1 - let draft data determine starting level
+              setForceStartFromLevel1(false);
+              // Check if it's an AR video upgrade
+              if (project.campaignType === 'qr-links-ar-video' || JSON.parse(draftStr).campaignType === 'qr-links-ar-video') {
+                setUpgradeMode(true);
+              }
+              setShowGameMode(true);
+              
+              toast.success('📝 Resuming campaign from saved draft...');
+            } else {
+              toast.error('No saved draft found for this campaign');
+            }
+            
+            // Clear URL params AFTER setting all state
+            setSearchParams({});
+          } else {
+            toast.error('Project not found');
+          }
+        } catch (error) {
+          console.error('Error resuming campaign:', error);
+          toast.error('Failed to resume campaign');
+        } finally {
+          setIsLoadingUpgrade(false);
+        }
+        return; // Exit early if handling resume
+      }
+
+      // Only process upgrade if URL params indicate upgrade
+      // This prevents clearing URL params from resetting upgradeMode to false
       if (isUpgrade && upgradeProjectId && user?.projects) {
         try {
           setIsLoadingUpgrade(true);
+          
+          // Set upgrade mode state BEFORE clearing URL params
+          setUpgradeMode(true);
           
           // Find the project in user's projects
           const project = user.projects.find(p => p.id === upgradeProjectId);
@@ -49,13 +100,16 @@ const GameUploadPage = () => {
           if (project) {
             // Set the project as current project
             setCurrentProject(project);
-            // Start game mode with existing project (LevelBasedUpload will pre-fill data)
-            setForceStartFromLevel1(false); // Don't force start from level 1, use existing data
+            // Start game mode with existing project
+            // In upgrade mode, we want to inherit Level 3+ data but force Level 1-2 to be completed fresh
+            setForceStartFromLevel1(false); // Allow data inheritance for Level 3+
             setShowGameMode(true);
             
             toast.success(`Upgrading from ${upgradeFromType || 'previous campaign'} to QR Links AR Video!`);
             
-            // Clear URL params
+            // Clear URL params AFTER setting all state
+            // Note: This will cause useEffect to run again, but upgradeMode is already set to true,
+            // and since isUpgrade will be false, we won't reset it
             setSearchParams({});
           } else {
             toast.error('Project not found');
@@ -67,6 +121,8 @@ const GameUploadPage = () => {
           setIsLoadingUpgrade(false);
         }
       }
+      // Don't reset upgradeMode to false here - once set, it should persist for the session
+      // Only reset when explicitly exiting game mode (handled in onReset callback)
     };
 
     if (user) {
@@ -82,14 +138,43 @@ const GameUploadPage = () => {
       // Save final design to history
       await uploadAPI.downloadFinalDesign();
       
+      // If in upgrade mode, update campaign type to qr-links-ar-video
+      if (upgradeMode && currentProject?.id) {
+        try {
+          const upgradeData = {
+            currentType: currentProject.campaignType || 'qr-link',
+            existingData: {
+              links: currentProject.phygitalizedData?.links || [],
+              socialLinks: currentProject.phygitalizedData?.socialLinks || currentProject.socialLinks || {},
+              videos: levelData.additionalVideos || [],
+              documents: levelData.documents || []
+            }
+          };
+          
+          await phygitalizedAPI.upgradeCampaign(currentProject.id, 'qr-links-ar-video', upgradeData);
+          toast.success('🎉 Campaign upgraded to QR Links AR Video!');
+          
+          // Redirect to projects page to see the updated campaign type
+          setTimeout(() => {
+            window.location.href = '/#/projects';
+          }, 2000);
+          return;
+        } catch (upgradeError) {
+          console.error('Error upgrading campaign:', upgradeError);
+          toast.error('Failed to upgrade campaign type. Please refresh the page.');
+        }
+      }
+      
       toast.success('🎉 Congratulations! Your final design has been saved to history!');
       
-      // Reset the page after a delay
-      setTimeout(() => {
-        setShowGameMode(false);
-        setForceStartFromLevel1(false);
-        console.log('Journey completed - ready for new journey');
-      }, 3000);
+      // Reset the page after a delay (only if not in upgrade mode, as upgrade mode redirects)
+      if (!upgradeMode) {
+        setTimeout(() => {
+          setShowGameMode(false);
+          setForceStartFromLevel1(false);
+          console.log('Journey completed - ready for new journey');
+        }, 3000);
+      }
     } catch (error) {
       console.error('Error saving to history:', error);
       toast.error('Failed to save to history');
@@ -186,10 +271,12 @@ const GameUploadPage = () => {
           onSaveToHistory={saveToHistory}
           forceStartFromLevel1={forceStartFromLevel1}
           currentProject={currentProject}
+          upgradeMode={upgradeMode}
           onReset={() => {
             setForceStartFromLevel1(false);
             setShowGameMode(false);
             setCurrentProject(null);
+            setUpgradeMode(false); // Reset upgrade mode when explicitly resetting
             console.log('Journey completed and reset - ready for new journey');
           }}
         />

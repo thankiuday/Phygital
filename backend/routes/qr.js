@@ -374,20 +374,46 @@ router.get('/user/:userIdentifier/project/:projectIdentifier', async (req, res) 
     }
     
     // Check if project has completed setup
-    const hasDesign = !!project.uploadedFiles?.design?.url;
-    const hasVideo = !!project.uploadedFiles?.video?.url;
+    // Check design in multiple locations (standard and phygitalized data)
+    const hasDesign = !!(
+      project.uploadedFiles?.design?.url || 
+      project.phygitalizedData?.designUrl
+    );
     
-    if (!hasDesign || !hasVideo) {
-      const missing = [];
-      if (!hasDesign) missing.push('design');
-      if (!hasVideo) missing.push('video');
-      
-      console.log(`⚠️ Project incomplete - missing: ${missing.join(', ')}`);
+    // Check video in multiple locations (support different campaign types and upgrade paths)
+    const hasVideo = !!(
+      project.uploadedFiles?.video?.url ||
+      (project.uploadedFiles?.videos && Array.isArray(project.uploadedFiles.videos) && project.uploadedFiles.videos.length > 0) ||
+      project.phygitalizedData?.videoUrl ||
+      (project.phygitalizedData?.videos && Array.isArray(project.phygitalizedData.videos) && project.phygitalizedData.videos.length > 0)
+    );
+    
+    // For AR video campaigns, allow them even if video is not yet in uploadedFiles
+    // The video might be stored in phygitalizedData after upgrade
+    const isArVideoCampaign = project.campaignType === 'qr-links-ar-video';
+    
+    if (!hasDesign) {
+      console.log(`⚠️ Project incomplete - missing design`);
       return res.status(400).json({ 
         status: 'error', 
-        message: `Project not complete - missing ${missing.join(' and ')}`,
-        missingFiles: missing
+        message: `Project not complete - missing design`,
+        missingFiles: ['design']
       });
+    }
+    
+    if (!hasVideo && !isArVideoCampaign) {
+      console.log(`⚠️ Project incomplete - missing video`);
+      return res.status(400).json({ 
+        status: 'error', 
+        message: `Project not complete - missing video`,
+        missingFiles: ['video']
+      });
+    }
+    
+    // For AR video campaigns, warn if video is missing but don't block access
+    // This allows users to access the page even if they're still in the upgrade process
+    if (!hasVideo && isArVideoCampaign) {
+      console.warn(`⚠️ AR Video campaign has no video yet - user may still be in upgrade process`);
     }
     
     // Check for composite design
@@ -401,15 +427,23 @@ router.get('/user/:userIdentifier/project/:projectIdentifier', async (req, res) 
     
     // Log what files are available
     console.log('📊 Project files available:', {
-      hasDesign: !!project.uploadedFiles?.design?.url,
-      hasVideo: !!project.uploadedFiles?.video?.url,
+      hasDesign: !!(project.uploadedFiles?.design?.url || project.phygitalizedData?.designUrl),
+      hasVideo: !!(project.uploadedFiles?.video?.url || 
+                   (project.uploadedFiles?.videos && project.uploadedFiles.videos.length > 0) ||
+                   project.phygitalizedData?.videoUrl ||
+                   (project.phygitalizedData?.videos && project.phygitalizedData.videos.length > 0)),
       hasComposite: !!project.uploadedFiles?.compositeDesign?.url,
       hasPhygitalizedComposite: !!project.phygitalizedData?.compositeDesignUrl,
       hasMindTarget: !!project.uploadedFiles?.mindTarget?.url,
+      videoSource: project.uploadedFiles?.video?.url ? 'uploadedFiles.video' : 
+                   (project.uploadedFiles?.videos?.length > 0 ? 'uploadedFiles.videos' :
+                   (project.phygitalizedData?.videoUrl ? 'phygitalizedData.videoUrl' :
+                   (project.phygitalizedData?.videos?.length > 0 ? 'phygitalizedData.videos' : 'none'))),
       compositeUrl: project.uploadedFiles?.compositeDesign?.url?.substring(0, 50) + '...',
       phygitalizedCompositeUrl: project.phygitalizedData?.compositeDesignUrl?.substring(0, 50) + '...',
       mindTargetUrl: project.uploadedFiles?.mindTarget?.url?.substring(0, 50) + '...',
-      phygitalizedDataKeys: Object.keys(project.phygitalizedData || {})
+      phygitalizedDataKeys: Object.keys(project.phygitalizedData || {}),
+      campaignType: project.campaignType
     });
     
     // Process mindTarget URL to ensure raw binary download from Cloudinary
@@ -476,7 +510,52 @@ router.get('/user/:userIdentifier/project/:projectIdentifier', async (req, res) 
       designUrl: designUrl,
       compositeDesignUrl: compositeDesignUrl,
       originalDesignUrl: project.uploadedFiles?.design?.url || project.phygitalizedData?.designUrl || null,
-      videoUrl: project.uploadedFiles?.video?.url || project.phygitalizedData?.videoUrl || null,
+      // Get video URL from multiple sources (priority: uploadedFiles.video > phygitalizedData.videoUrl > videos array)
+      videoUrl: (() => {
+        // Single video from uploadedFiles
+        if (project.uploadedFiles?.video?.url) {
+          return project.uploadedFiles.video.url;
+        }
+        // Video from phygitalizedData
+        if (project.phygitalizedData?.videoUrl) {
+          return project.phygitalizedData.videoUrl;
+        }
+        // First video from videos array (uploadedFiles)
+        if (project.uploadedFiles?.videos && Array.isArray(project.uploadedFiles.videos) && project.uploadedFiles.videos.length > 0) {
+          const firstVideo = project.uploadedFiles.videos[0];
+          return typeof firstVideo === 'string' ? firstVideo : firstVideo.url;
+        }
+        // First video from phygitalizedData videos array
+        if (project.phygitalizedData?.videos && Array.isArray(project.phygitalizedData.videos) && project.phygitalizedData.videos.length > 0) {
+          const firstVideo = project.phygitalizedData.videos[0];
+          return typeof firstVideo === 'string' ? firstVideo : firstVideo.url;
+        }
+        return null;
+      })(),
+      // Include all videos arrays for frontend use
+      videos: (() => {
+        const allVideos = [];
+        // Add videos from uploadedFiles.videos
+        if (project.uploadedFiles?.videos && Array.isArray(project.uploadedFiles.videos)) {
+          project.uploadedFiles.videos.forEach(v => {
+            const videoUrl = typeof v === 'string' ? v : v.url;
+            if (videoUrl) allVideos.push(v);
+          });
+        }
+        // Add videos from phygitalizedData.videos
+        if (project.phygitalizedData?.videos && Array.isArray(project.phygitalizedData.videos)) {
+          project.phygitalizedData.videos.forEach(v => {
+            const videoUrl = typeof v === 'string' ? v : v.url;
+            if (videoUrl && !allVideos.some(existing => {
+              const existingUrl = typeof existing === 'string' ? existing : existing.url;
+              return existingUrl === videoUrl;
+            })) {
+              allVideos.push(v);
+            }
+          });
+        }
+        return allVideos;
+      })(),
       mindTargetUrl: mindTargetUrl,
       socialLinks: socialLinks,
       designDimensions: project.uploadedFiles?.design?.dimensions || null,
@@ -510,6 +589,8 @@ router.get('/user/:userIdentifier/project/:projectIdentifier', async (req, res) 
         // Combine and remove duplicates
         return [...new Set([...phygitalizedDocs, ...uploadedDocUrls])];
       })(),
+      // Include additional video URLs for AR video campaigns
+      additionalVideoUrls: project.phygitalizedData?.additionalVideoUrls || [],
       // Get contact information from multiple sources:
       // 1. phygitalizedData (for phygitalized campaigns)
       // 2. project.socialLinks (for upload page projects)

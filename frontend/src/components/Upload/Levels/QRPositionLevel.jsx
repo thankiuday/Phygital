@@ -58,7 +58,7 @@ const FrameCustomizerWrapper = ({ qrImageUrl, frameConfig, onFrameConfigChange }
   );
 };
 
-const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFromLevel1 = false, onLoadingStart, onLoadingEnd }) => {
+const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFromLevel1 = false, upgradeMode = false, onLoadingStart, onLoadingEnd }) => {
   const { user, updateUser } = useAuth();
   const [qrPosition, setQrPosition] = useState({
     x: currentPosition?.x || user?.qrPosition?.x || 100,
@@ -189,10 +189,21 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
 
         // Generate sticker with a reasonable QR size based on current position width
         const qrSize = Math.max(100, Math.round(qrPosition.width * 0.8)); // Use 80% of position width as QR size
+        // Ensure text color is white (not black) for visibility
+        const normalizedTextStyle = {
+          ...frameConfig.textStyle,
+          color: (frameConfig.textStyle?.color && 
+                  frameConfig.textStyle.color !== '#000000' && 
+                  frameConfig.textStyle.color !== '#000' &&
+                  frameConfig.textStyle.color.trim() !== '') 
+            ? frameConfig.textStyle.color 
+            : '#FFFFFF'
+        };
+        
         const stickerDataUrl = await generateQRSticker(qrDataUrl, {
           frameType: frameConfig.frameType,
           textContent: frameConfig.textContent,
-          textStyle: frameConfig.textStyle,
+          textStyle: normalizedTextStyle,
           transparentBackground: frameConfig.transparentBackground || false,
           qrSize: qrSize,
           borderWidth: 4,
@@ -252,11 +263,22 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
       console.log('[Level QR] QR sticker size:', qrSizeForSticker);
       console.log('[Level QR] QR position:', qrPosition);
 
+      // Ensure text color is white (not black) for visibility on dark backgrounds
+      const normalizedTextStyle = {
+        ...frameConfig.textStyle,
+        color: (frameConfig.textStyle?.color && 
+                frameConfig.textStyle.color !== '#000000' && 
+                frameConfig.textStyle.color !== '#000' &&
+                frameConfig.textStyle.color.trim() !== '') 
+          ? frameConfig.textStyle.color 
+          : '#FFFFFF'
+      };
+      
       // Generate QR sticker with custom frame
       const stickerDataUrl = await generateQRSticker(qrDataUrl, {
         frameType: frameConfig.frameType,
         textContent: frameConfig.textContent,
-        textStyle: frameConfig.textStyle,
+        textStyle: normalizedTextStyle,
         transparentBackground: frameConfig.transparentBackground || false,
         qrSize: qrSizeForSticker,
         borderWidth: 4,
@@ -1357,18 +1379,25 @@ const QRPositionLevel = ({ onComplete, currentPosition, designUrl, forceStartFro
 
   // Loader is now handled by the parent component (LevelBasedUpload)
 
-  // If position already exists and we're not forcing a fresh start, show completion and auto-advance
-  if (!forceStartFromLevel1 && (currentPosition || user?.qrPosition)) {
+  // Auto-complete the level if position exists and we're not forcing a fresh start (move useEffect outside conditional to fix hooks violation)
+  // In upgrade mode, always require fresh QR position (don't auto-complete)
+  useEffect(() => {
+    // Only auto-complete if:
+    // 1. Not forcing fresh start
+    // 2. Not in upgrade mode (in upgrade mode, Level 2 must be completed fresh)
+    // 3. No current position (meaning we haven't completed this level yet)
+    // 4. User has an existing QR position
+    if (!forceStartFromLevel1 && !upgradeMode && !currentPosition && user?.qrPosition) {
+      console.log('Auto-completing Level 2 with existing QR position');
+      toast.success('📍 QR position found! Level 2 completed automatically.');
+      onComplete(user.qrPosition);
+    }
+  }, [forceStartFromLevel1, upgradeMode, currentPosition, user?.qrPosition?.x, user?.qrPosition?.y, onComplete]);
+
+  // If position already exists and we're not forcing a fresh start, show completion UI
+  // In upgrade mode, always show interactive UI (force user to re-set QR position)
+  if (!forceStartFromLevel1 && !upgradeMode && (currentPosition || user?.qrPosition)) {
     const position = currentPosition || user.qrPosition;
-    
-    // Auto-complete the level if not already completed (only once)
-    React.useEffect(() => {
-      if (!currentPosition && user?.qrPosition) {
-        console.log('Auto-completing Level 2 with existing QR position');
-        toast.success('📍 QR position found! Level 2 completed automatically.');
-        onComplete(user.qrPosition);
-      }
-    }, [user?.qrPosition?.x, user?.qrPosition?.y, currentPosition, onComplete]); // Include onComplete in dependencies
     
     return (
       <div className="text-center py-8">

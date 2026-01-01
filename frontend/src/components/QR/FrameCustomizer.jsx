@@ -194,30 +194,32 @@ const FrameCustomizer = ({ qrCodeDataUrl, onFrameConfigChange, initialConfig = n
         </div>
 
         {/* Text Style Controls */}
-        <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-4">
           {/* Bold/Italic Toggles */}
           <button
             onClick={() => handleTextStyleToggle('bold')}
-            className={`px-4 py-2 rounded-lg border transition-all duration-200 flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 rounded-lg border transition-all duration-200 flex items-center gap-2 ${
               textStyle.bold
                 ? 'border-neon-blue bg-neon-blue/20 text-neon-blue'
                 : 'border-slate-600 bg-slate-800 text-slate-300 hover:border-slate-500'
             }`}
+            title="Bold text"
           >
-            <Bold className="w-4 h-4" />
-            <span className="text-sm font-medium">Bold</span>
+            <span className="text-base font-bold">B</span>
+            <span className="text-sm font-medium hidden sm:inline">Bold</span>
           </button>
 
           <button
             onClick={() => handleTextStyleToggle('italic')}
-            className={`px-4 py-2 rounded-lg border transition-all duration-200 flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 rounded-lg border transition-all duration-200 flex items-center gap-2 ${
               textStyle.italic
                 ? 'border-neon-blue bg-neon-blue/20 text-neon-blue'
                 : 'border-slate-600 bg-slate-800 text-slate-300 hover:border-slate-500'
             }`}
+            title="Italic text"
           >
-            <Italic className="w-4 h-4" />
-            <span className="text-sm font-medium">Italic</span>
+            <span className="text-base font-medium italic">I</span>
+            <span className="text-sm font-medium hidden sm:inline">Italic</span>
           </button>
 
           {/* Color Picker */}
@@ -227,18 +229,20 @@ const FrameCustomizer = ({ qrCodeDataUrl, onFrameConfigChange, initialConfig = n
                 setShowColorPicker(!showColorPicker);
                 setShowGradientPicker(false);
               }}
-              className={`px-4 py-2 rounded-lg border transition-all duration-200 flex items-center gap-2 ${
+              className={`px-3 sm:px-4 py-2 rounded-lg border transition-all duration-200 flex items-center gap-2 ${
                 textStyle.color && !textStyle.gradient
                   ? 'border-neon-blue bg-neon-blue/20 text-neon-blue'
                   : 'border-slate-600 bg-slate-800 text-slate-300 hover:border-slate-500'
               }`}
+              title="Change text color"
             >
               <Palette className="w-4 h-4" />
               <span className="text-sm font-medium">Color</span>
               {textStyle.color && !textStyle.gradient && (
                 <div
-                  className="w-5 h-5 rounded border border-slate-600"
+                  className="w-5 h-5 rounded border border-slate-600 flex-shrink-0"
                   style={{ backgroundColor: textStyle.color }}
+                  title={`Current color: ${textStyle.color}`}
                 />
               )}
             </button>
@@ -291,14 +295,24 @@ const FrameCustomizer = ({ qrCodeDataUrl, onFrameConfigChange, initialConfig = n
                 setShowGradientPicker(!showGradientPicker);
                 setShowColorPicker(false);
               }}
-              className={`px-4 py-2 rounded-lg border transition-all duration-200 flex items-center gap-2 ${
+              className={`px-3 sm:px-4 py-2 rounded-lg border transition-all duration-200 flex items-center gap-2 ${
                 textStyle.gradient
                   ? 'border-neon-blue bg-neon-blue/20 text-neon-blue'
                   : 'border-slate-600 bg-slate-800 text-slate-300 hover:border-slate-500'
               }`}
+              title="Apply gradient to text"
             >
               <Sparkles className="w-4 h-4" />
               <span className="text-sm font-medium">Gradient</span>
+              {textStyle.gradient && (
+                <div
+                  className="w-5 h-5 rounded border border-slate-600 flex-shrink-0"
+                  style={{
+                    background: `linear-gradient(to right, ${textStyle.gradient.join(', ')})`
+                  }}
+                  title="Gradient applied"
+                />
+              )}
             </button>
 
             {showGradientPicker && (

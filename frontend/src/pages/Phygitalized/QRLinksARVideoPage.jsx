@@ -144,7 +144,7 @@ const QRLinksARVideoPage = () => {
               setProjectId(upgradeData.projectId)
             }
             
-            toast.success(`Upgrading from ${upgradeFromType || 'previous campaign'} to QR Links AR Video!`)
+            toast.success(`Upgrading from ${upgradeFromType || 'previous campaign'} to AR Experience QR!`)
           }
         } catch (error) {
           console.error('Error loading upgrade data:', error)
@@ -162,7 +162,7 @@ const QRLinksARVideoPage = () => {
   useEffect(() => {
     if (user?.username && !campaignName && !isUpgradeMode) {
       const existingProjects = user?.projects || []
-      const autoName = generateHumanReadableCampaignName(user.username, 'QR Links AR Video', existingProjects)
+      const autoName = generateHumanReadableCampaignName(user.username, 'qr-links-ar-video', existingProjects)
       setCampaignName(autoName)
     }
   }, [user?.username, campaignName, user?.projects, isUpgradeMode])
@@ -888,7 +888,7 @@ const QRLinksARVideoPage = () => {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-100 mb-2 flex items-center">
           <Sparkles className="w-8 h-8 mr-3" style={{ color: 'var(--theme-primary, #00D4FF)' }} />
-          QR-Links-AR Video
+          AR Experience QR
         </h1>
         <p className="text-slate-300">
           Create a QR code with AR video experience, documents, and contact information
@@ -916,8 +916,8 @@ const QRLinksARVideoPage = () => {
       {/* Step 1: Campaign Name */}
       {currentStep === 1 && (
         <div className="max-w-2xl mx-auto space-y-6">
-          <div className="card">
-            <div className="card-header">
+          <div className="card-glass rounded-2xl shadow-dark-large border border-slate-600/30 p-4 sm:p-6 lg:p-8">
+            <div className="mb-6 pb-4 border-b border-slate-600/30">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-semibold text-slate-100 flex items-center">
@@ -967,8 +967,8 @@ const QRLinksARVideoPage = () => {
       {/* Step 2: Upload Design */}
       {currentStep === 2 && (
         <div className="max-w-2xl mx-auto space-y-6">
-          <div className="card">
-            <div className="card-header">
+          <div className="card-glass rounded-2xl shadow-dark-large border border-slate-600/30 p-4 sm:p-6 lg:p-8">
+            <div className="mb-6 pb-4 border-b border-slate-600/30">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-semibold text-slate-100 flex items-center">
@@ -1066,8 +1066,8 @@ const QRLinksARVideoPage = () => {
       {/* Step 3: Set QR Position */}
       {currentStep === 3 && (
         <div className="max-w-4xl mx-auto space-y-6">
-          <div className="card">
-            <div className="card-header">
+          <div className="card-glass rounded-2xl shadow-dark-large border border-slate-600/30 p-4 sm:p-6 lg:p-8">
+            <div className="mb-6 pb-4 border-b border-slate-600/30">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-semibold text-slate-100 flex items-center">
@@ -1138,8 +1138,8 @@ const QRLinksARVideoPage = () => {
       {/* Step 4: Upload Video */}
       {currentStep === 4 && (
         <div className="max-w-2xl mx-auto space-y-6">
-          <div className="card">
-            <div className="card-header">
+          <div className="card-glass rounded-2xl shadow-dark-large border border-slate-600/30 p-4 sm:p-6 lg:p-8">
+            <div className="mb-6 pb-4 border-b border-slate-600/30">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-semibold text-slate-100 flex items-center">
@@ -1237,8 +1237,8 @@ const QRLinksARVideoPage = () => {
       {/* Step 5: Upload Documents */}
       {currentStep === 5 && (
         <div className="max-w-2xl mx-auto space-y-6">
-          <div className="card">
-            <div className="card-header">
+          <div className="card-glass rounded-2xl shadow-dark-large border border-slate-600/30 p-4 sm:p-6 lg:p-8">
+            <div className="mb-6 pb-4 border-b border-slate-600/30">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-semibold text-slate-100 flex items-center">
@@ -1330,8 +1330,8 @@ const QRLinksARVideoPage = () => {
       {/* Step 6: Contact & Social Links */}
       {currentStep === 6 && (
         <div className="max-w-2xl mx-auto space-y-6">
-          <div className="card">
-            <div className="card-header">
+          <div className="card-glass rounded-2xl shadow-dark-large border border-slate-600/30 p-4 sm:p-6 lg:p-8">
+            <div className="mb-6 pb-4 border-b border-slate-600/30">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-semibold text-slate-100 flex items-center">
@@ -1418,8 +1418,8 @@ const QRLinksARVideoPage = () => {
       {/* Step 7: Download Final Design */}
       {currentStep === 7 && (
         <div className="max-w-2xl mx-auto space-y-6">
-          <div className="card">
-            <div className="card-header">
+          <div className="card-glass rounded-2xl shadow-dark-large border border-slate-600/30 p-4 sm:p-6 lg:p-8">
+            <div className="mb-6 pb-4 border-b border-slate-600/30">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-semibold text-slate-100 flex items-center">

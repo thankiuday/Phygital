@@ -36,7 +36,7 @@ const QRLinkPage = () => {
   useEffect(() => {
     if (user?.username && !campaignName) {
       const existingProjects = user?.projects || []
-      const autoName = generateHumanReadableCampaignName(user.username, 'QR Link', existingProjects)
+      const autoName = generateHumanReadableCampaignName(user.username, 'qr-link', existingProjects)
       setCampaignName(autoName)
     }
   }, [user?.username, campaignName, user?.projects])
@@ -185,7 +185,7 @@ const QRLinkPage = () => {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-100 mb-2">
-          QR-Link
+          Single Link QR
         </h1>
         <p className="text-slate-300">
           Create a simple QR code that points to a single link
@@ -226,8 +226,8 @@ const QRLinkPage = () => {
       {/* Step 1: Enter Details */}
       {currentStep === 1 && (
         <div className="max-w-2xl mx-auto">
-          <div className="card">
-            <div className="card-header">
+          <div className="card-glass rounded-2xl shadow-dark-large border border-slate-600/30 p-4 sm:p-6 lg:p-8">
+            <div className="mb-6 pb-4 border-b border-slate-600/30">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
                 <div className="flex-1">
                   <h2 className="text-lg sm:text-xl font-semibold text-slate-100 flex items-center">
@@ -299,8 +299,8 @@ const QRLinkPage = () => {
       {/* Step 2: Design QR Code */}
       {currentStep === 2 && (
         <div className="space-y-6">
-          <div className="card lg:col-span-2">
-            <div className="card-header">
+          <div className="card-glass rounded-2xl shadow-dark-large border border-slate-600/30 p-4 sm:p-6 lg:p-8 lg:col-span-2">
+            <div className="mb-6 pb-4 border-b border-slate-600/30">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
                 <div className="flex-1">
                   <h2 className="text-lg sm:text-xl font-semibold text-slate-100 flex items-center">
@@ -405,8 +405,8 @@ const QRLinkPage = () => {
       )}
 
       {/* Instructions */}
-      <div className="mt-8 card">
-        <div className="card-header">
+      <div className="mt-8 card-glass rounded-2xl shadow-dark-large border border-slate-600/30 p-4 sm:p-6 lg:p-8">
+        <div className="mb-6 pb-4 border-b border-slate-600/30">
           <h2 className="text-xl font-semibold text-slate-100">
             How to Use
           </h2>

@@ -49,11 +49,11 @@ const ProfessionalNav = () => {
       authOnly: true, 
       hasSubmenu: true,
       submenu: [
-        { name: 'QR-Link', href: '/phygitalized/qr-link' },
-        { name: 'QR-Links', href: '/phygitalized/qr-links' },
-        { name: 'QR-Links-Video', href: '/phygitalized/qr-links-video' },
-        { name: 'QR-Links-PDF/Link-Video', href: '/phygitalized/qr-links-pdf-video' },
-        { name: 'QR-Links-AR Video', href: '/upload' }
+        { name: 'Single Link QR', href: '/phygitalized/qr-link', description: 'QR code pointing to one URL' },
+        { name: 'Multiple Links QR', href: '/phygitalized/qr-links', description: 'QR code with multiple links' },
+        { name: 'Links & Video QR', href: '/phygitalized/qr-links-video', description: 'QR code with links and video' },
+        { name: 'Links, PDF & Video QR', href: '/phygitalized/qr-links-pdf-video', description: 'QR code with links, PDFs, and video' },
+        { name: 'AR Experience QR', href: '/upload', description: 'Full AR experience with video and links' }
       ]
     },
     { name: 'Campaigns', href: '/projects', icon: FolderKanban, authOnly: true },

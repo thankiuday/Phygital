@@ -12,7 +12,81 @@ import SocialLinksLevel from './Levels/SocialLinksLevel';
 import FinalDesignLevel from './Levels/FinalDesignLevel';
 import toast from 'react-hot-toast';
 
-const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFromLevel1 = false, currentProject = null }) => {
+// Draft storage utility functions
+const saveDraft = (projectId, levelData, currentLevel, completedLevels, campaignType = null, projectName = null) => {
+  try {
+    const draft = {
+      projectId: projectId || null,
+      projectName: projectName || null,
+      levelData: {
+        design: levelData.design ? {
+          url: levelData.design.url,
+          filename: levelData.design.filename,
+          originalName: levelData.design.originalName,
+          size: levelData.design.size
+        } : null,
+        qrPosition: levelData.qrPosition || null,
+        video: levelData.video ? {
+          url: levelData.video.url,
+          filename: levelData.video.filename,
+          originalName: levelData.video.originalName,
+          size: levelData.video.size
+        } : null,
+        additionalVideos: levelData.additionalVideos || [],
+        documents: levelData.documents || [],
+        socialLinks: levelData.socialLinks || {},
+        finalDesign: null, // Don't save final design in draft
+        projectId: levelData.projectId || projectId || null
+      },
+      currentLevel,
+      completedLevels: [...completedLevels],
+      timestamp: Date.now(),
+      campaignType: campaignType || null
+    };
+    const draftKey = `phygital_campaign_draft_${projectId || 'new'}`;
+    localStorage.setItem(draftKey, JSON.stringify(draft));
+    console.log('[Draft] Saved draft for', projectId || 'new campaign');
+  } catch (error) {
+    console.error('[Draft] Failed to save draft:', error);
+  }
+};
+
+const loadDraft = (projectId) => {
+  try {
+    const draftKey = `phygital_campaign_draft_${projectId || 'new'}`;
+    const draftStr = localStorage.getItem(draftKey);
+    if (!draftStr) return null;
+    
+    const draft = JSON.parse(draftStr);
+    
+    // Check if draft is expired (30 days)
+    const DRAFT_EXPIRY_DAYS = 30;
+    const expiryTime = DRAFT_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+    if (Date.now() - draft.timestamp > expiryTime) {
+      console.log('[Draft] Draft expired, removing');
+      localStorage.removeItem(draftKey);
+      return null;
+    }
+    
+    console.log('[Draft] Loaded draft for', projectId || 'new campaign');
+    return draft;
+  } catch (error) {
+    console.error('[Draft] Failed to load draft:', error);
+    return null;
+  }
+};
+
+const clearDraft = (projectId) => {
+  try {
+    const draftKey = `phygital_campaign_draft_${projectId || 'new'}`;
+    localStorage.removeItem(draftKey);
+    console.log('[Draft] Cleared draft for', projectId || 'new campaign');
+  } catch (error) {
+    console.error('[Draft] Failed to clear draft:', error);
+  }
+};
+
+const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFromLevel1 = false, currentProject = null, upgradeMode = false }) => {
   const { user } = useAuth();
   const [currentLevel, setCurrentLevel] = useState(1);
   const [completedLevels, setCompletedLevels] = useState([]);
@@ -20,6 +94,7 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
     design: null,
     qrPosition: null,
     video: null,
+    additionalVideos: [], // For storing non-primary videos in upgrade mode
     documents: [],
     socialLinks: {},
     finalDesign: null,
@@ -111,6 +186,23 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
     let result = false;
     const dataToCheck = customLevelData || levelData;
     
+    // In upgrade mode, Level 1, 2, and 3 must be completed fresh (cannot inherit from user data)
+    // But if customLevelData is provided (newly uploaded), we should check that
+    if (upgradeMode && (levelId === 1 || levelId === 2 || levelId === 3)) {
+      // If customLevelData is provided, check if it has the required data (user just completed this level)
+      if (customLevelData) {
+        if (levelId === 1) {
+          return customLevelData.design !== null && customLevelData.design !== undefined;
+        } else if (levelId === 2) {
+          return customLevelData.qrPosition !== null && customLevelData.qrPosition !== undefined;
+        } else if (levelId === 3) {
+          return customLevelData.video !== null && customLevelData.video !== undefined;
+        }
+      }
+      // Otherwise, force Level 1, 2, and 3 to require new completion (cannot use existing user data)
+      return false;
+    }
+    
     // If forcing start from level 1, only check levelData (not user data)
     if (forceStartFromLevel1) {
       switch (levelId) {
@@ -124,11 +216,17 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
           result = dataToCheck.video !== null && dataToCheck.video !== undefined;
           break;
         case 4: 
-          // Documents are optional - level is always complete (can be empty array)
-          result = true;
+          // Documents are optional, but level must be visited to be complete
+          // Only complete if documents array exists in levelData (even if empty, meaning user visited and skipped)
+          result = Array.isArray(dataToCheck.documents);
           break;
         case 5: 
-          result = dataToCheck.socialLinks && Object.keys(dataToCheck.socialLinks).length > 0;
+          // Check if socialLinks exist and have actual non-empty values
+          result = dataToCheck.socialLinks && 
+            Object.values(dataToCheck.socialLinks).some(link => {
+              if (!link || typeof link !== 'string') return false;
+              return link.trim() !== '';
+            });
           break;
         case 6: 
           result = dataToCheck.finalDesign !== null && dataToCheck.finalDesign !== undefined;
@@ -162,12 +260,26 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
                    (user?.uploadedFiles?.video?.url !== null && user?.uploadedFiles?.video?.url !== undefined);
           break;
         case 4: 
-          // Documents are optional - level is always complete (can be empty array)
-          result = true;
+          // Documents are optional - check if levelData has documents array (even if empty)
+          // Level is considered complete if documents array exists in levelData
+          // This allows skipping, but user must still visit the level
+          const hasLevelDataDocuments = Array.isArray(dataToCheck.documents);
+          const hasUserDocuments = Array.isArray(user?.uploadedFiles?.documents);
+          result = hasLevelDataDocuments || hasUserDocuments;
           break;
         case 5: 
-          result = (dataToCheck.socialLinks && Object.keys(dataToCheck.socialLinks).length > 0) || 
-                   (user?.socialLinks && Object.values(user.socialLinks).some(link => link && link.trim() !== ''));
+          // Check if socialLinks exist and have actual non-empty values
+          const hasLevelDataSocialLinks = dataToCheck.socialLinks && 
+            Object.values(dataToCheck.socialLinks).some(link => {
+              if (!link || typeof link !== 'string') return false;
+              return link.trim() !== '';
+            });
+          const hasUserSocialLinks = user?.socialLinks && 
+            Object.values(user.socialLinks).some(link => {
+              if (!link || typeof link !== 'string') return false;
+              return link.trim() !== '';
+            });
+          result = hasLevelDataSocialLinks || hasUserSocialLinks;
           break;
         case 6: 
           result = dataToCheck.finalDesign !== null && dataToCheck.finalDesign !== undefined;
@@ -177,7 +289,7 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
       }
     }
     
-    console.log(`Level ${levelId} completed:`, result, `(forceStartFromLevel1: ${forceStartFromLevel1})`, `(data:`, dataToCheck, `)`);
+    console.log(`Level ${levelId} completed:`, result, `(forceStartFromLevel1: ${forceStartFromLevel1}, upgradeMode: ${upgradeMode})`, `(data:`, dataToCheck, `)`);
     return result;
   };
 
@@ -294,6 +406,13 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
         } : null
       };
       
+      // Clear draft when campaign is complete
+      const projectId = currentProject?.id || levelData.projectId || null;
+      if (projectId) {
+        clearDraft(projectId);
+        console.log('[Draft] Cleared draft after campaign completion');
+      }
+      
       // Save final design to history
       if (onSaveToHistory) {
         console.log('Saving to history with project data:', completionData);
@@ -365,8 +484,9 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
             design: project.uploadedFiles?.design || null,
             qrPosition: project.qrPosition || null,
             video: project.uploadedFiles?.video || null,
+            videos: project.uploadedFiles?.videos || [], // Array of videos for upgrade mode
             documents: project.uploadedFiles?.documents || [],
-            socialLinks: user.socialLinks || {}, // Social links remain at user level
+            socialLinks: project.socialLinks || user.socialLinks || {}, // Use project socialLinks if available
             source: 'project'
           };
         }
@@ -376,6 +496,7 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
         design: user?.uploadedFiles?.design || null,
         qrPosition: user?.qrPosition || null,
         video: user?.uploadedFiles?.video || null,
+        videos: user?.uploadedFiles?.videos || [], // Array of videos for upgrade mode
         documents: user?.uploadedFiles?.documents || [],
         socialLinks: user?.socialLinks || {},
         source: 'root'
@@ -397,11 +518,28 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
       } : null
     });
     
+    // FIRST: Always check for draft data when forceStartFromLevel1 is false
+    // Draft data takes precedence because it represents the current in-progress state
+    if (!forceStartFromLevel1) {
+      const draftProjectId = currentProject?.id || null;
+      const draft = loadDraft(draftProjectId);
+      if (draft && draft.levelData) {
+        console.log('[Draft] Loading draft data (taking precedence over project data):', draft);
+        setLevelData(draft.levelData);
+        setCurrentLevel(draft.currentLevel || 1);
+        setCompletedLevels(draft.completedLevels || []);
+        toast.success('📝 Resuming from saved draft');
+        return; // Exit early - draft data loaded, don't proceed with other initialization
+      }
+    }
+    
     if (user && !forceStartFromLevel1) {
       const existingData = {
         design: projectData.design,
         qrPosition: projectData.qrPosition,
         video: projectData.video,
+        videos: projectData.videos || [], // Store videos array for upgrade mode
+        additionalVideos: [], // Will be populated in VideoUploadLevel if multiple videos
         documents: projectData.documents || [],
         socialLinks: projectData.socialLinks,
         finalDesign: null, // This will be set when final design is generated
@@ -414,30 +552,52 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
       let startingLevel = 1;
       let completedLevelsArray = [];
       
-      // Check each level and determine completion
-      if (existingData.design?.url) {
-        completedLevelsArray.push(1);
-        startingLevel = 2;
-      }
-      
-      if (existingData.qrPosition && (existingData.qrPosition.x !== 0 || existingData.qrPosition.y !== 0)) {
-        completedLevelsArray.push(2);
-        startingLevel = 3;
-      }
-      
-      if (existingData.video?.url) {
-        completedLevelsArray.push(3);
-        startingLevel = 4;
-      }
-      
-      // Documents are optional - always mark as complete if we reach this point
-      // (user can skip or upload documents)
-      completedLevelsArray.push(4);
-      startingLevel = 5;
-      
-      if (existingData.socialLinks && Object.values(existingData.socialLinks).some(link => link && link.trim() !== '')) {
-        completedLevelsArray.push(5);
-        startingLevel = 6;
+      // In upgrade mode, Level 1 and 2 are never marked as completed (user must complete them fresh)
+      if (upgradeMode) {
+        // Don't mark Level 1 and 2 as completed even if data exists
+        // Start from Level 1
+        startingLevel = 1;
+        completedLevelsArray = [];
+        
+        // Level 3+ can inherit data in upgrade mode
+        if (existingData.video?.url) {
+          completedLevelsArray.push(3);
+          // Only mark documents as complete if we've reached level 4 (after video level)
+          // Don't pre-emptively mark it as complete
+        }
+        
+        // Documents level should NOT be auto-completed - user must visit it
+        // It's optional, but they still need to visit the level to skip or upload
+        
+        if (existingData.socialLinks && Object.values(existingData.socialLinks).some(link => link && link.trim() !== '')) {
+          completedLevelsArray.push(5);
+        }
+      } else {
+        // Normal mode - check each level and determine completion
+        if (existingData.design?.url) {
+          completedLevelsArray.push(1);
+          startingLevel = 2;
+        }
+        
+        if (existingData.qrPosition && (existingData.qrPosition.x !== 0 || existingData.qrPosition.y !== 0)) {
+          completedLevelsArray.push(2);
+          startingLevel = 3;
+        }
+        
+        if (existingData.video?.url) {
+          completedLevelsArray.push(3);
+          // Don't auto-advance to documents level - user must visit it explicitly
+          // Documents level should be locked until user reaches it
+        }
+        
+        // Documents level should NOT be auto-completed - user must visit it
+        // It's optional, but they still need to visit the level to skip or upload
+        // Never auto-advance to level 4 - let user progress naturally
+        
+        if (existingData.socialLinks && Object.values(existingData.socialLinks).some(link => link && link.trim() !== '')) {
+          completedLevelsArray.push(5);
+          startingLevel = 6;
+        }
       }
       
       // Ensure startingLevel is within valid range (1-6)
@@ -446,26 +606,35 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
       setCurrentLevel(startingLevel);
       setCompletedLevels(completedLevelsArray);
     } else {
-      // Force start from level 1 or no user data
-      // Note: Don't reset levelData here - it gets updated as user completes levels
-      // We only reset the starting level and completed levels
-      console.log('Force starting from level 1 - starting fresh but preserving level data');
-      setCurrentLevel(1);
-      setCompletedLevels([]); // Reset completed levels for fresh start
-      // Don't reset levelData - it will be populated as user completes each level
+      // No user data or forceStartFromLevel1 is true
+      // Draft was already checked above, so if we get here, either:
+      // 1. forceStartFromLevel1 is true (no draft check needed - starting fresh)
+      // 2. forceStartFromLevel1 is false but no draft found (fallback to fresh start)
+      
+      if (forceStartFromLevel1) {
+        console.log('Force starting from level 1 - starting fresh but preserving level data');
+        setCurrentLevel(1);
+        setCompletedLevels([]); // Reset completed levels for fresh start
+        // Don't reset levelData - it will be populated as user completes each level
+      } else {
+        // No draft and not forcing start - initialize with empty state
+        console.log('Starting fresh - no draft found and not forcing level 1');
+        setCurrentLevel(1);
+        setCompletedLevels([]);
+      }
     }
-  }, [user, forceStartFromLevel1, currentProject]);
+  }, [user, forceStartFromLevel1, currentProject, upgradeMode]);
 
   // Update completed levels when data changes
   useEffect(() => {
-    console.log('Updating completed levels - forceStartFromLevel1:', forceStartFromLevel1);
+    console.log('Updating completed levels - forceStartFromLevel1:', forceStartFromLevel1, 'upgradeMode:', upgradeMode);
     console.log('Current levelData:', levelData);
     console.log('Current user data:', user);
     
     const newCompletedLevels = [];
     for (let i = 1; i <= 6; i++) { // Check all 6 levels
       const isCompleted = isLevelCompleted(i);
-      console.log(`Level ${i} completed:`, isCompleted);
+      console.log(`Level ${i} completed:`, isCompleted, `(forceStartFromLevel1: ${forceStartFromLevel1}, upgradeMode: ${upgradeMode})`);
       if (isCompleted) {
         newCompletedLevels.push(i);
       }
@@ -473,7 +642,7 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
     
     console.log('Setting completed levels to:', newCompletedLevels);
     setCompletedLevels(newCompletedLevels);
-  }, [levelData, user, forceStartFromLevel1]);
+  }, [levelData, user, forceStartFromLevel1, upgradeMode]);
 
   // Safeguard: Ensure currentLevel never goes beyond 6
   useEffect(() => {
@@ -482,6 +651,25 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
       setCurrentLevel(6);
     }
   }, [currentLevel]);
+
+  // Save draft whenever levelData, currentLevel, or completedLevels changes
+  useEffect(() => {
+    // Don't save draft if we're in the middle of resetting or completing
+    if (isAnimating || isLevelTransitioning) return;
+    
+    // Don't save empty drafts (no data at all)
+    const hasAnyData = levelData.design || levelData.qrPosition || levelData.video || 
+                       (levelData.documents && levelData.documents.length > 0) ||
+                       (levelData.socialLinks && Object.values(levelData.socialLinks).some(link => link && link.trim() !== ''));
+    
+    if (hasAnyData || currentLevel > 1 || completedLevels.length > 0) {
+      const projectId = currentProject?.id || levelData.projectId || null;
+      const projectName = currentProject?.name || null;
+      const campaignType = currentProject?.campaignType || null;
+      
+      saveDraft(projectId, levelData, currentLevel, completedLevels, campaignType, projectName);
+    }
+  }, [levelData, currentLevel, completedLevels, currentProject, isAnimating, isLevelTransitioning]);
 
   // Add debug functions to window for development
   useEffect(() => {
@@ -520,6 +708,7 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
             onComplete={(design) => completeCurrentLevel({ design })}
             currentDesign={levelData.design}
             forceStartFromLevel1={forceStartFromLevel1}
+            upgradeMode={upgradeMode}
           />
         );
       case 'QRPosition':
@@ -531,6 +720,7 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
             currentPosition={levelData.qrPosition}
             designUrl={levelData.design?.url}
             forceStartFromLevel1={forceStartFromLevel1}
+            upgradeMode={upgradeMode}
             onLoadingStart={handleLoadingStart}
             onLoadingEnd={handleLoadingEnd}
           />
@@ -538,11 +728,21 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
       case 'VideoUpload':
         return (
           <VideoUploadLevel 
-            onComplete={(video) => completeCurrentLevel({ video })}
+            onComplete={(data) => {
+              // Handle both single video and video selection with additional videos
+              if (data.video && data.additionalVideos !== undefined) {
+                completeCurrentLevel({ video: data.video, additionalVideos: data.additionalVideos });
+              } else if (data.video) {
+                completeCurrentLevel({ video: data.video });
+              } else {
+                completeCurrentLevel(data);
+              }
+            }}
             onCancel={() => setCurrentLevel(currentLevel - 1)}
             levelData={levelData}
             user={user}
             forceStartFromLevel1={forceStartFromLevel1}
+            upgradeMode={upgradeMode}
           />
         );
       case 'DocumentUpload':
@@ -564,6 +764,7 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
             onComplete={(socialLinks) => completeCurrentLevel({ socialLinks })}
             currentLinks={levelData.socialLinks}
             forceStartFromLevel1={forceStartFromLevel1}
+            upgradeMode={upgradeMode}
           />
         );
       case 'FinalDesign':
