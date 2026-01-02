@@ -878,7 +878,7 @@ const LandingPage = () => {
                   <h2 className="text-xl font-semibold text-slate-100">Document</h2>
                 </div>
                 <a
-                  href={`${apiBase}/phygitalized/file/public/${pageId}?kind=document`}
+                  href={pageData.fileUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-neon-pink to-neon-purple text-white rounded-lg hover:shadow-glow-lg transition-all"
@@ -903,10 +903,15 @@ const LandingPage = () => {
                   <h2 className="text-xl font-semibold text-slate-100">File</h2>
                 </div>
                 <a
-                  href={`${apiBase}/phygitalized/file/public/${pageId}?kind=document`}
+                  href={pageData.fileUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-neon-pink to-neon-purple text-white rounded-lg hover:shadow-glow-lg transition-all"
+                  onClick={() => {
+                    if (userIdRef.current && projectIdRef.current) {
+                      trackDocumentView(userIdRef.current, projectIdRef.current, pageData.fileUrl, 'view')
+                    }
+                  }}
                 >
                   <FileText className="w-5 h-5 mr-2" />
                   Open File

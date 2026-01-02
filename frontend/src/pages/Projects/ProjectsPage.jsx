@@ -3502,14 +3502,14 @@ const EditProjectModal = ({
           <button
             onClick={onClose}
             disabled={isSaving}
-            className="px-4 py-2 text-sm sm:text-base font-medium text-slate-300 bg-slate-700 rounded-lg hover:bg-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2.5 text-sm sm:text-base font-medium text-slate-300 bg-slate-700 rounded-lg hover:bg-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
           >
             Cancel
           </button>
           <button
             onClick={onSave}
             disabled={isSaving}
-            className="px-4 py-2 text-sm sm:text-base font-medium text-slate-900 bg-neon-blue rounded-lg hover:bg-blue-400 transition-colors flex items-center justify-center shadow-glow-blue disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2.5 text-sm sm:text-base font-medium text-slate-900 bg-neon-blue rounded-lg hover:bg-blue-400 transition-colors flex items-center justify-center shadow-glow-blue disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
           >
             {isSaving ? (
               <>
@@ -3857,7 +3857,7 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
 
               <div className="space-y-3">
                 {(formData.links || []).map((l, idx) => (
-                  <div key={idx} className="flex gap-2">
+                  <div key={idx} className="flex flex-col sm:flex-row gap-2">
                     <input
                       className="input flex-1"
                       placeholder="Label"
@@ -3866,23 +3866,23 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
                       disabled={isSaving}
                     />
                     <input
-                      className="input flex-[2]"
+                      className="input flex-1 sm:flex-[2]"
                       placeholder="https://..."
                       value={l.url || ''}
                       onChange={(e) => updateLink(idx, { url: e.target.value })}
                       disabled={isSaving}
                     />
                     <button
-                      className="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg"
+                      className="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg flex-shrink-0 w-full sm:w-auto justify-center sm:justify-start touch-manipulation"
                       onClick={() => removeLink(idx)}
                       disabled={isSaving}
                     >
-                      <X className="w-4 h-4 text-slate-200" />
+                      <X className="w-4 h-4 text-slate-200 mx-auto sm:mx-0" />
                     </button>
                   </div>
                 ))}
 
-                <button className="btn-secondary" onClick={addLink} disabled={isSaving}>
+                <button className="btn-secondary w-full sm:w-auto" onClick={addLink} disabled={isSaving}>
                   Add Link
                 </button>
               </div>
@@ -4196,7 +4196,7 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
                         key={upgradeType}
                         onClick={() => onUpgradeRequest && onUpgradeRequest(project, upgradeType)}
                         disabled={isSaving}
-                        className="flex-1 min-w-[200px] p-4 bg-slate-800/50 hover:bg-slate-800/70 border border-slate-600/30 hover:border-neon-purple/50 rounded-lg transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 group"
+                        className="w-full sm:flex-1 sm:min-w-[200px] p-3 sm:p-4 bg-slate-800/50 hover:bg-slate-800/70 border border-slate-600/30 hover:border-neon-purple/50 rounded-lg transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 group touch-manipulation"
                       >
                         <div className="flex flex-col items-start gap-2">
                           <div className="flex items-center gap-2 w-full">
@@ -4226,14 +4226,14 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
           <button 
             onClick={onClose} 
             disabled={isSaving} 
-            className="px-4 py-2 text-sm sm:text-base font-medium text-slate-300 bg-slate-700 rounded-lg hover:bg-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2.5 text-sm sm:text-base font-medium text-slate-300 bg-slate-700 rounded-lg hover:bg-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
           >
             Cancel
           </button>
           <button 
             onClick={onSave} 
             disabled={isSaving} 
-            className="px-4 py-2 text-sm sm:text-base font-medium text-slate-900 bg-neon-blue rounded-lg hover:bg-blue-400 transition-colors flex items-center justify-center shadow-glow-blue disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2.5 text-sm sm:text-base font-medium text-slate-900 bg-neon-blue rounded-lg hover:bg-blue-400 transition-colors flex items-center justify-center shadow-glow-blue disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
           >
             <Save className="w-4 h-4 mr-2" />
             {isSaving ? 'Saving...' : 'Save Changes'}
