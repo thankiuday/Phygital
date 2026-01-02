@@ -879,17 +879,18 @@ const LandingPage = () => {
                 </div>
                 <a
                   href={pageData.fileUrl}
+                  download="document.pdf"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-neon-pink to-neon-purple text-white rounded-lg hover:shadow-glow-lg transition-all"
                   onClick={() => {
                     if (userIdRef.current && projectIdRef.current) {
-                      trackDocumentView(userIdRef.current, projectIdRef.current, pageData.fileUrl, 'view')
+                      trackDocumentView(userIdRef.current, projectIdRef.current, pageData.fileUrl, 'download')
                     }
                   }}
                 >
                   <FileText className="w-5 h-5 mr-2" />
-                  Open Document
+                  Download Document
                   <ExternalLink className="w-4 h-4 ml-2" />
                 </a>
               </div>
@@ -904,17 +905,18 @@ const LandingPage = () => {
                 </div>
                 <a
                   href={pageData.fileUrl}
+                  download="file.pdf"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-neon-pink to-neon-purple text-white rounded-lg hover:shadow-glow-lg transition-all"
                   onClick={() => {
                     if (userIdRef.current && projectIdRef.current) {
-                      trackDocumentView(userIdRef.current, projectIdRef.current, pageData.fileUrl, 'view')
+                      trackDocumentView(userIdRef.current, projectIdRef.current, pageData.fileUrl, 'download')
                     }
                   }}
                 >
                   <FileText className="w-5 h-5 mr-2" />
-                  Open File
+                  Download File
                   <ExternalLink className="w-4 h-4 ml-2" />
                 </a>
               </div>
@@ -1268,52 +1270,57 @@ const LandingPage = () => {
                 </div>
                 <div className="space-y-3">
                   {/* Display all documents from array */}
-                  {pageData.documents && pageData.documents.length > 0 && pageData.documents.map((document, index) => (
-                    <a
-                      key={index}
-                      href={document.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => {
-                        if (userIdRef.current && projectIdRef.current) {
-                          trackDocumentView(userIdRef.current, projectIdRef.current, document.url, 'view')
-                        }
-                      }}
-                      className="block w-full px-4 py-3 bg-slate-800/50 rounded-lg border border-slate-600/30 hover:border-neon-orange/50 hover:bg-slate-800/70 transition-all"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center flex-1 min-w-0">
-                          <FileText className="w-5 h-5 mr-3 text-neon-orange flex-shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-slate-100 font-medium truncate">
-                              {document.originalName || document.filename || `Document ${index + 1}`}
-                            </p>
-                            {document.size && (
-                              <p className="text-xs text-slate-400 mt-1">
-                                {(document.size / 1024 / 1024).toFixed(2)} MB
+                  {pageData.documents && pageData.documents.length > 0 && pageData.documents.map((document, index) => {
+                    const fileName = document.originalName || document.filename || `document-${index + 1}.pdf`
+                    return (
+                      <a
+                        key={index}
+                        href={document.url}
+                        download={fileName}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => {
+                          if (userIdRef.current && projectIdRef.current) {
+                            trackDocumentView(userIdRef.current, projectIdRef.current, document.url, 'download')
+                          }
+                        }}
+                        className="block w-full px-4 py-3 bg-slate-800/50 rounded-lg border border-slate-600/30 hover:border-neon-orange/50 hover:bg-slate-800/70 transition-all"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center flex-1 min-w-0">
+                            <FileText className="w-5 h-5 mr-3 text-neon-orange flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-slate-100 font-medium truncate">
+                                {document.originalName || document.filename || `Document ${index + 1}`}
                               </p>
-                            )}
+                              {document.size && (
+                                <p className="text-xs text-slate-400 mt-1">
+                                  {(document.size / 1024 / 1024).toFixed(2)} MB
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        </div>
                         <ExternalLink className="w-4 h-4 text-slate-400 ml-3 flex-shrink-0" />
                       </div>
                     </a>
-                  ))}
+                    )
+                  })}
                   {/* Fallback: Display single PDF URL if no documents array */}
                   {(!pageData.documents || pageData.documents.length === 0) && pageData.pdfUrl && (
                     <a
                       href={pageData.pdfUrl}
+                      download="document.pdf"
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={() => {
                         if (userIdRef.current && projectIdRef.current) {
-                          trackDocumentView(userIdRef.current, projectIdRef.current, pageData.pdfUrl, 'view')
+                          trackDocumentView(userIdRef.current, projectIdRef.current, pageData.pdfUrl, 'download')
                         }
                       }}
                       className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-neon-orange to-neon-pink text-white rounded-lg hover:shadow-glow-lg transition-all"
                     >
                       <FileText className="w-5 h-5 mr-2" />
-                      Open PDF
+                      Download PDF
                       <ExternalLink className="w-4 h-4 ml-2" />
                     </a>
                   )}
