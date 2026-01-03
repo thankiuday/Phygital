@@ -71,7 +71,7 @@ const TemplatePreviewModal = ({ template, isOpen, onClose, onApply }) => {
         <div className="flex-1 overflow-hidden flex flex-col lg:flex-row">
           {/* Preview Area */}
           <div className="flex-1 overflow-auto p-4 lg:p-6 min-h-[300px] lg:min-h-[400px]">
-            <div className="relative min-h-[300px] lg:min-h-[500px] rounded-lg overflow-hidden border border-slate-600/30" style={{ background: 'transparent' }}>
+            <div className="relative min-h-[300px] lg:min-h-[500px] h-full rounded-lg overflow-hidden border border-slate-600/30">
               {/* Preview Landing Page with Theme */}
               <ThemeRenderer
                 template={template.id}
@@ -79,7 +79,7 @@ const TemplatePreviewModal = ({ template, isOpen, onClose, onApply }) => {
                 previewMode={true}
               >
                 {/* Sample Landing Page Content */}
-                <div className="min-h-[300px] lg:min-h-[500px] p-4 lg:p-8" style={{ backgroundColor: 'transparent' }}>
+                <div className="min-h-[300px] lg:min-h-[500px] p-4 lg:p-8" style={{ backgroundColor: 'transparent', background: 'transparent' }}>
                   <div className="max-w-4xl mx-auto space-y-4 lg:space-y-6">
                     <h1 className="text-2xl lg:text-3xl font-bold mb-3 lg:mb-4">Sample Landing Page</h1>
                     <p className="text-base lg:text-lg mb-4 lg:mb-6">This is how your landing page will look with this template.</p>

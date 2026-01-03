@@ -27,6 +27,7 @@ import {
 import LoadingSpinner from '../../components/UI/LoadingSpinner'
 import { phygitalizedAPI } from '../../utils/api'
 import ThemeRenderer from '../../components/Templates/ThemeRenderer'
+import PhygitalizedFooter from '../../components/Phygitalized/PhygitalizedFooter'
 import {
   trackLandingPageScan,
   trackLandingPageView,
@@ -710,8 +711,8 @@ const LandingPage = () => {
 
   return (
     <ThemeRenderer template={templateId} templateConfig={templateConfig}>
-      <div className="min-h-screen" style={{ backgroundColor: 'transparent', background: 'transparent' }}>
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'transparent', background: 'transparent' }}>
+        <div className="flex-1 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 w-full">
         {/* Header - Removed Welcome text and description */}
 
         {/* Content based on page type */}
@@ -1448,6 +1449,7 @@ const LandingPage = () => {
           </div>
         )}
         </div>
+        <PhygitalizedFooter />
       </div>
     </ThemeRenderer>
   )

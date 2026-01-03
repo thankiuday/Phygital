@@ -22,7 +22,8 @@ import {
   QrCode,
   AlertCircle,
   Plus,
-  Palette
+  Palette,
+  Tag
 } from 'lucide-react';
 import ProfessionalButton from '../UI/ProfessionalButton';
 import Logo from '../UI/Logo';
@@ -37,11 +38,18 @@ const ProfessionalNav = () => {
   const userMenuRef = useRef(null);
   const phygitalizedMenuRef = useRef(null);
 
+  // Check if current page is a landing page (phygitalized or AR experience)
+  const isLandingPage = location.pathname.includes('/phygitalized/') || 
+                        location.pathname.includes('/ar/') ||
+                        location.pathname.includes('/ar-3d/') ||
+                        location.pathname.includes('/ar-experience/');
+
   const navigation = [
     { name: 'AI Video', href: '/ai-video', icon: Sparkles, public: true, showBoth: true, isNew: true },
     { name: 'Home', href: '/', icon: Home, public: true, showBoth: true },
     { name: 'About', href: '/about', icon: Info, public: true },
     { name: 'Contact', href: '/contact', icon: Mail, public: true },
+    { name: 'Pricing', href: '/pricing', icon: Tag, public: true, showBoth: true },
     { name: 'Dashboard', href: '/dashboard', icon: BarChart3, authOnly: true },
     { 
       name: 'Phygitalized', 
@@ -105,13 +113,33 @@ const ProfessionalNav = () => {
     };
   }, [isUserMenuOpen, isPhygitalizedMenuOpen]);
 
+  // Simplified header for landing pages
+  if (isLandingPage) {
+    return (
+      <nav className="bg-slate-900/95 backdrop-blur-sm shadow-dark-large border-b border-slate-700/50 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-center items-center h-16">
+            {/* Logo with "Powered by Phygital.zone" text - centered */}
+            <div className="flex items-center space-x-2">
+              <Logo size="xl" showText={false} linkTo={null} showGlow={false} />
+              <span className="text-sm sm:text-base font-medium text-gradient">
+                Powered by Phygital.zone
+              </span>
+            </div>
+          </div>
+        </div>
+      </nav>
+    );
+  }
+
+  // Full navigation for regular pages
   return (
     <nav className="bg-slate-900/95 backdrop-blur-sm shadow-dark-large border-b border-slate-700/50 sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Logo */}
           <div className="flex items-center">
-            <Logo size="lg" showText={true} linkTo="/" />
+            <Logo size="xl" showText={true} linkTo="/" />
           </div>
 
           {/* Desktop Navigation */}

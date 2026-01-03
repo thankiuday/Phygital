@@ -29,6 +29,7 @@ import CompositeImageOverlay from '../../components/AR/CompositeImageOverlay';
 import ScannerAnimation from '../../components/AR/ScannerAnimation';
 import DirectVideoPlayer from '../../components/AR/DirectVideoPlayer';
 import ThemeRenderer from '../../components/Templates/ThemeRenderer';
+import PhygitalizedFooter from '../../components/Phygitalized/PhygitalizedFooter';
 
 const ARExperiencePage = () => {
   const { userId, projectId } = useParams();
@@ -658,9 +659,9 @@ const ARExperiencePage = () => {
 
   return (
     <ThemeRenderer template={templateId} templateConfig={templateConfig}>
-      <div className="min-h-screen" style={{ background: 'transparent' }}>
+      <div className="min-h-screen flex flex-col" style={{ background: 'transparent' }}>
       {/* Main Content - Responsive: mobile to tablet to desktop */}
-      <main className="w-full max-w-md md:max-w-2xl lg:max-w-4xl xl:max-w-5xl mx-auto backdrop-blur-sm min-h-screen px-4 md:px-6 lg:px-8 py-6 md:py-8 lg:py-12" style={{ background: 'transparent' }}>
+      <main className="flex-1 w-full max-w-md md:max-w-2xl lg:max-w-4xl xl:max-w-5xl mx-auto backdrop-blur-sm px-4 md:px-6 lg:px-8 py-6 md:py-8 lg:py-12" style={{ background: 'transparent' }}>
         {/* Video Container */}
         <div className="w-full"  style={{ margin: 0, padding: 0, boxSizing: 'border-box' }}>
           {/* Media Box - Enhanced responsiveness with proper height for composite image */}
@@ -1210,6 +1211,7 @@ const ARExperiencePage = () => {
         videoMuted={videoMuted}
         debugMessages={debugMessages}
       />
+      <PhygitalizedFooter />
       </div>
     </ThemeRenderer>
   );

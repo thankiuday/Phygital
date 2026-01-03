@@ -185,20 +185,28 @@ const TemplatesPage = () => {
 
         {/* Templates Grid */}
         {filteredTemplates.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredTemplates.map((template) => {
-              const appliedCampaigns = getTemplateUsage(template.id)
-              return (
-                <TemplateCard
-                  key={template.id}
-                  template={template}
-                  appliedCampaigns={appliedCampaigns}
-                  onClick={() => handleTemplateClick(template)}
-                  onApply={() => handleApplyTemplate(template)}
-                />
-              )
-            })}
-          </div>
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredTemplates.map((template) => {
+                const appliedCampaigns = getTemplateUsage(template.id)
+                return (
+                  <TemplateCard
+                    key={template.id}
+                    template={template}
+                    appliedCampaigns={appliedCampaigns}
+                    onClick={() => handleTemplateClick(template)}
+                    onApply={() => handleApplyTemplate(template)}
+                  />
+                )
+              })}
+            </div>
+            {/* Coming Soon Message */}
+            <div className="mt-12 text-center py-12 px-6 bg-slate-800/30 rounded-xl border border-slate-700/50">
+              <Sparkles className="w-12 h-12 text-neon-purple mx-auto mb-4 opacity-60" />
+              <h3 className="text-xl font-semibold text-slate-200 mb-2">More Themes Coming Soon</h3>
+              <p className="text-slate-400">We're working on adding more beautiful themes for your landing pages. Stay tuned!</p>
+            </div>
+          </>
         ) : (
           <div className="text-center py-12">
             <Sparkles className="w-16 h-16 text-slate-600 mx-auto mb-4" />

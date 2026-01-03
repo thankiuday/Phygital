@@ -77,7 +77,7 @@ const Footer = () => {
           {/* Brand Section */}
           <div className="lg:col-span-2">
             <div className="mb-4">
-              <Logo size="lg" showText={true} linkTo="/" />
+              <Logo size="xl" showText={true} linkTo="/" />
             </div>
             <p className="text-slate-400 text-sm mb-4 max-w-sm">
               Where the Physical World Meets Digital Storytelling.

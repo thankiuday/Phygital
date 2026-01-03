@@ -24,16 +24,6 @@ router.get('/', (req, res) => {
         id: 'christmas',
         name: 'Christmas Wonderland',
         category: 'festival'
-      },
-      {
-        id: 'diwali',
-        name: 'Diwali Festival',
-        category: 'festival'
-      },
-      {
-        id: 'holi',
-        name: 'Holi Colors',
-        category: 'festival'
       }
     ]
 
@@ -56,7 +46,7 @@ router.get('/:templateId', (req, res) => {
     const { templateId } = req.params
     
     // Validate template ID
-    const validTemplates = ['default', 'christmas', 'diwali', 'holi']
+    const validTemplates = ['default', 'christmas']
     if (!validTemplates.includes(templateId)) {
       return res.status(404).json({
         success: false,
@@ -101,7 +91,7 @@ router.post('/apply', authenticateToken, [
     const userId = req.user.id
 
     // Validate template ID
-    const validTemplates = ['default', 'christmas', 'diwali', 'holi']
+    const validTemplates = ['default', 'christmas']
     if (!validTemplates.includes(templateId)) {
       return res.status(400).json({
         success: false,

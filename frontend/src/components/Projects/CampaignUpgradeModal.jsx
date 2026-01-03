@@ -123,26 +123,50 @@ const CampaignUpgradeModal = ({
         {/* Content - Scrollable */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
           {/* Campaign Type Comparison */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0 p-4 bg-slate-900/50 rounded-lg border border-slate-700/30">
-            <div className="flex items-center gap-3 flex-1 w-full sm:w-auto">
-              <div className={`w-10 h-10 sm:w-12 sm:h-12 bg-${currentInfo.color}-900/20 border border-${currentInfo.color}-600/50 rounded-lg flex items-center justify-center flex-shrink-0`}>
-                <CurrentIcon className={`w-5 h-5 sm:w-6 sm:h-6 text-${currentInfo.color}-400`} />
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-slate-900/50 rounded-lg border border-slate-700/30">
+            <div className="flex items-center gap-2 sm:gap-3 flex-1">
+              <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                currentInfo.color === 'blue' ? 'bg-blue-900/20 border border-blue-600/50' :
+                currentInfo.color === 'purple' ? 'bg-purple-900/20 border border-purple-600/50' :
+                currentInfo.color === 'indigo' ? 'bg-indigo-900/20 border border-indigo-600/50' :
+                currentInfo.color === 'orange' ? 'bg-orange-900/20 border border-orange-600/50' :
+                'bg-yellow-900/20 border border-yellow-600/50'
+              }`}>
+                <CurrentIcon className={`w-5 h-5 sm:w-6 sm:h-6 ${
+                  currentInfo.color === 'blue' ? 'text-blue-400' :
+                  currentInfo.color === 'purple' ? 'text-purple-400' :
+                  currentInfo.color === 'indigo' ? 'text-indigo-400' :
+                  currentInfo.color === 'orange' ? 'text-orange-400' :
+                  'text-yellow-400'
+                }`} />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs sm:text-sm font-medium text-slate-400">Current Type</p>
-                <p className="text-base sm:text-lg font-bold text-slate-100 truncate">{currentInfo.name}</p>
+                <p className="text-xs sm:text-sm font-medium text-slate-400 mb-0.5">Current Type</p>
+                <p className="text-sm sm:text-lg font-bold text-slate-100 break-words">{currentInfo.name}</p>
               </div>
             </div>
             
-            <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6 text-slate-500 rotate-90 sm:rotate-0 flex-shrink-0" />
+            <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6 text-slate-500 rotate-90 sm:rotate-0 flex-shrink-0 mx-auto sm:mx-0" />
             
-            <div className="flex items-center gap-3 flex-1 w-full sm:w-auto">
-              <div className={`w-10 h-10 sm:w-12 sm:h-12 bg-${newInfo.color}-900/20 border border-${newInfo.color}-600/50 rounded-lg flex items-center justify-center flex-shrink-0`}>
-                <NewIcon className={`w-5 h-5 sm:w-6 sm:h-6 text-${newInfo.color}-400`} />
+            <div className="flex items-center gap-2 sm:gap-3 flex-1">
+              <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                newInfo.color === 'blue' ? 'bg-blue-900/20 border border-blue-600/50' :
+                newInfo.color === 'purple' ? 'bg-purple-900/20 border border-purple-600/50' :
+                newInfo.color === 'indigo' ? 'bg-indigo-900/20 border border-indigo-600/50' :
+                newInfo.color === 'orange' ? 'bg-orange-900/20 border border-orange-600/50' :
+                'bg-yellow-900/20 border border-yellow-600/50'
+              }`}>
+                <NewIcon className={`w-5 h-5 sm:w-6 sm:h-6 ${
+                  newInfo.color === 'blue' ? 'text-blue-400' :
+                  newInfo.color === 'purple' ? 'text-purple-400' :
+                  newInfo.color === 'indigo' ? 'text-indigo-400' :
+                  newInfo.color === 'orange' ? 'text-orange-400' :
+                  'text-yellow-400'
+                }`} />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs sm:text-sm font-medium text-slate-400">New Type</p>
-                <p className="text-base sm:text-lg font-bold text-slate-100 truncate">{newInfo.name}</p>
+                <p className="text-xs sm:text-sm font-medium text-slate-400 mb-0.5">New Type</p>
+                <p className="text-sm sm:text-lg font-bold text-slate-100 break-words">{newInfo.name}</p>
               </div>
             </div>
           </div>
@@ -187,18 +211,18 @@ const CampaignUpgradeModal = ({
         </div>
 
         {/* Footer */}
-        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-700/50 flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 flex-shrink-0">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-700/50 flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 flex-shrink-0">
           <button
             onClick={onClose}
             disabled={isUpgrading}
-            className="px-4 sm:px-5 py-2.5 text-sm font-semibold text-slate-300 bg-slate-700/50 hover:bg-slate-600/50 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-slate-600/30 touch-manipulation"
+            className="w-full sm:w-auto px-4 sm:px-5 py-2.5 text-sm font-semibold text-slate-300 bg-slate-700/50 hover:bg-slate-600/50 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-slate-600/30 touch-manipulation"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
             disabled={isUpgrading}
-            className="px-4 sm:px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-neon-purple to-neon-pink rounded-xl shadow-lg hover:shadow-neon-purple/50 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2 touch-manipulation"
+            className="w-full sm:w-auto px-4 sm:px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-neon-purple to-neon-pink rounded-xl shadow-lg hover:shadow-neon-purple/50 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2 touch-manipulation"
           >
             {isUpgrading ? (
               <>

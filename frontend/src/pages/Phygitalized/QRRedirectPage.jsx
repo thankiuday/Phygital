@@ -10,6 +10,7 @@ import { phygitalizedAPI, analyticsAPI } from '../../utils/api'
 import { getUserLocation, reverseGeocode } from '../../utils/geolocation'
 import { getDeviceInfo } from '../../utils/deviceInfo'
 import LoadingSpinner from '../../components/UI/LoadingSpinner'
+import PhygitalizedFooter from '../../components/Phygitalized/PhygitalizedFooter'
 
 const QRRedirectPage = () => {
   const { projectId } = useParams()
@@ -239,59 +240,68 @@ const QRRedirectPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-        <div className="text-center">
-          <LoadingSpinner size="lg" />
-          <p className="text-slate-300 mt-4 text-sm">Loading...</p>
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <LoadingSpinner size="lg" />
+            <p className="text-slate-300 mt-4 text-sm">Loading...</p>
+          </div>
         </div>
+        <PhygitalizedFooter />
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-        <div className="text-center max-w-md mx-auto px-4">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-slate-100 mb-2">Oops!</h1>
-            <p className="text-slate-300">{error}</p>
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center max-w-md mx-auto px-4">
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold text-slate-100 mb-2">Oops!</h1>
+              <p className="text-slate-300">{error}</p>
+            </div>
+            <p className="text-sm text-slate-400">
+              Please check the QR code and try again.
+            </p>
           </div>
-          <p className="text-sm text-slate-400">
-            Please check the QR code and try again.
-          </p>
         </div>
+        <PhygitalizedFooter />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      <div className="text-center max-w-md mx-auto px-4">
-        {/* Loading Spinner */}
-        <div className="mb-6">
-          <LoadingSpinner size="lg" />
-        </div>
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          {/* Loading Spinner */}
+          <div className="mb-6">
+            <LoadingSpinner size="lg" />
+          </div>
 
-        {/* Branding Text */}
-        <div className="space-y-2">
-          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink bg-clip-text text-transparent">
-            Powered by Phygital.zone
-          </h1>
-          <p className="text-sm text-slate-400">
-            Redirecting you in {countdown.toFixed(1)}s...
-          </p>
-        </div>
+          {/* Branding Text */}
+          <div className="space-y-2">
+            <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink bg-clip-text text-transparent">
+              Powered by Phygital.zone
+            </h1>
+            <p className="text-sm text-slate-400">
+              Redirecting you in {countdown.toFixed(1)}s...
+            </p>
+          </div>
 
-        {/* Progress Bar */}
-        <div className="mt-8 w-full max-w-xs mx-auto">
-          <div className="h-1 bg-slate-700 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink transition-all duration-100 ease-linear"
-              style={{ width: `${(1 - countdown) * 100}%` }}
-            />
+          {/* Progress Bar */}
+          <div className="mt-8 w-full max-w-xs mx-auto">
+            <div className="h-1 bg-slate-700 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink transition-all duration-100 ease-linear"
+                style={{ width: `${(1 - countdown) * 100}%` }}
+              />
+            </div>
           </div>
         </div>
       </div>
+      <PhygitalizedFooter />
     </div>
   )
 }

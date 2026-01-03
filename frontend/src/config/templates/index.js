@@ -5,14 +5,10 @@
 
 import defaultTemplate from './default.json'
 import christmasTemplate from './christmas.json'
-import diwaliTemplate from './diwali.json'
-import holiTemplate from './holi.json'
 
 const templates = [
   defaultTemplate,
-  christmasTemplate,
-  diwaliTemplate,
-  holiTemplate
+  christmasTemplate
 ]
 
 // Create a map for quick lookup

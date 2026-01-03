@@ -15,6 +15,12 @@ const Layout = () => {
   const [isPageTransitioning, setIsPageTransitioning] = useState(false)
   const location = useLocation()
 
+  // Check if current page is a landing page (phygitalized or AR experience)
+  const isLandingPage = location.pathname.includes('/phygitalized/') || 
+                        location.pathname.includes('/ar/') ||
+                        location.pathname.includes('/ar-3d/') ||
+                        location.pathname.includes('/ar-experience/')
+
   // Handle page transition with smooth loader
   useEffect(() => {
     // Scroll to top immediately
@@ -64,8 +70,8 @@ const Layout = () => {
         <Outlet />
       </main>
 
-      {/* Footer */}
-      <Footer />
+      {/* Footer - Hidden on landing pages */}
+      {!isLandingPage && <Footer />}
     </div>
   )
 }

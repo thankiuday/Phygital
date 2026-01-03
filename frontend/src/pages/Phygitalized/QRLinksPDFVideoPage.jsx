@@ -28,6 +28,7 @@ import {
 import toast from 'react-hot-toast'
 import LoadingSpinner from '../../components/UI/LoadingSpinner'
 import SocialLinksInput from '../../components/Phygitalized/SocialLinksInput'
+import PhygitalizedFooter from '../../components/Phygitalized/PhygitalizedFooter'
 
 const QRLinksPDFVideoPage = () => {
   const { user, updateUser } = useAuth()
@@ -725,7 +726,8 @@ const QRLinksPDFVideoPage = () => {
 
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen flex flex-col">
+      <div className="flex-1 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-100 mb-2">
@@ -1231,6 +1233,8 @@ const QRLinksPDFVideoPage = () => {
           </div>
         </div>
       </div>
+      </div>
+      <PhygitalizedFooter />
     </div>
   )
 }

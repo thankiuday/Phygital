@@ -125,7 +125,8 @@ const ThemeRenderer = ({ template, templateConfig = {}, previewMode = false, chi
   const getContainerClassName = () => {
     // Always use relative positioning and full height
     // Don't add Tailwind background classes - we use inline styles for defaultBackgroundColor
-    return 'relative min-h-screen w-full'
+    // In preview mode, use min-h-full to fill container instead of min-h-screen
+    return previewMode ? 'relative min-h-full w-full h-full' : 'relative min-h-screen w-full'
   }
 
   // Get inline styles for background - always use default website background
@@ -273,8 +274,9 @@ const ThemeRenderer = ({ template, templateConfig = {}, previewMode = false, chi
         // CRITICAL: Ensure background is always applied via inline style (highest priority)
         // Always use finalStyles.background (which uses defaultBackgroundColor from template)
         background: finalStyles.background || 'linear-gradient(to bottom right, #0f172a, #1e293b, #0f172a)',
-        // Ensure full coverage
-        minHeight: '100vh',
+        // Ensure full coverage - use 100% height in preview mode, 100vh otherwise
+        minHeight: previewMode ? '100%' : '100vh',
+        height: previewMode ? '100%' : 'auto',
         width: '100%',
         position: 'relative',
         // Ensure it's visible and covers the area

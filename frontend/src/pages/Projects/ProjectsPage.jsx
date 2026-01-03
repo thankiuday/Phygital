@@ -346,13 +346,6 @@ const ProjectsPage = () => {
             const landingPageUrl = getLandingPageUrlForType(newCampaignType, projectId)
             
             if (landingPageUrl) {
-              console.log('🔄 Generating QR code for upgraded campaign:', {
-                projectId,
-                projectName: project.name,
-                landingPageUrl,
-                campaignType: newCampaignType
-              })
-              
               // Generate QR code
               const qrCodeDataUrl = await generateQRCode(landingPageUrl, {
                 size: 512,
@@ -370,12 +363,9 @@ const ProjectsPage = () => {
               } else {
                 toast.error('Failed to download QR code')
               }
-            } else {
-              console.warn('⚠️ Could not generate landing page URL for campaign type:', newCampaignType)
             }
           } catch (error) {
-            console.error('❌ Failed to generate/download QR code after upgrade:', error)
-            // Don't block upgrade success - just log the error
+            // Don't block upgrade success - just show error toast
             toast.error('Upgrade successful, but QR code download failed. Please generate manually.')
           }
         }
@@ -417,12 +407,10 @@ const ProjectsPage = () => {
 
   // Handle edit project - moved here to avoid hoisting issues
   const handleEditProject = useCallback((project) => {
-    console.log('🔧 handleEditProject called with:', project)
     setEditingProject(project)
 
     // Initialize form data with current project data
     const userProject = user?.projects?.find(p => p.id === project.id)
-    console.log('🔧 Found user project:', userProject)
 
     // ✅ Phygitalized campaigns: use phygitalizedData instead of legacy project.socialLinks/video
     if (userProject?.campaignType?.startsWith('qr-') || project?.campaignType?.startsWith('qr-')) {
@@ -500,7 +488,6 @@ const ProjectsPage = () => {
       socialLinks: initialSocialLinks
     })
 
-    console.log('🔧 Setting showEditModal to true')
     setShowEditModal(true)
   }, [user])
 
@@ -534,7 +521,6 @@ const ProjectsPage = () => {
         // AR video uses different URL structure
         const userId = user?._id || user?.id
         if (!userId) {
-          console.warn('Cannot generate AR experience URL: userId not found')
           return null
         }
         return `${baseUrl}/#/ar/user/${userId}/project/${projectId}`
@@ -554,14 +540,6 @@ const ProjectsPage = () => {
     // Check campaign type and generate appropriate landing page URL
     const campaignType = project?.campaignType
 
-    // Debug logging to help diagnose URL generation issues
-    console.log('🔗 Generating landing page URL:', {
-      projectId,
-      campaignType,
-      projectName: project?.name,
-      hasPhygitalizedData: !!project?.phygitalizedData,
-      phygitalizedDataKeys: project?.phygitalizedData ? Object.keys(project.phygitalizedData) : []
-    })
 
     switch (campaignType) {
       case 'qr-link':
@@ -583,11 +561,9 @@ const ProjectsPage = () => {
         // Format: /ar/user/:userId/project/:projectId (using generic AR experience route)
         const userId = user?._id || user?.id
         if (!userId) {
-          console.warn('Cannot generate AR experience URL: userId not found')
           return null
         }
         const arUrl = `${baseUrl}/#/ar/user/${userId}/project/${projectId}`
-        console.log('✅ Generated AR experience URL:', arUrl)
         return arUrl
       
       default:
@@ -597,14 +573,11 @@ const ProjectsPage = () => {
           // Likely a QR Links AR Video campaign - check if it has AR-specific data
           const userId = user?._id || user?.id
           if (userId) {
-            console.warn('⚠️ campaignType not set, but detected QR Links AR Video campaign by data structure')
             const arUrl = `${baseUrl}/#/ar/user/${userId}/project/${projectId}`
-            console.log('✅ Generated AR experience URL (fallback):', arUrl)
             return arUrl
           }
         }
         // For legacy campaigns, use personalized URL
-        console.log('📄 Using personalized URL (fallback):', getPersonalizedUrl(project))
         return getPersonalizedUrl(project)
     }
   }
@@ -809,8 +782,6 @@ const ProjectsPage = () => {
     
     // Only process if we have an edit ID, projects are loaded, and we haven't processed this edit yet
     if (editProjectId && projects.length > 0 && !editProcessedRef.current) {
-      console.log('🔍 Processing auto-edit for project ID:', editProjectId);
-      
       const projectToEdit = projects.find(p => 
         p.id === editProjectId || 
         p.id === parseInt(editProjectId) || 
@@ -818,7 +789,6 @@ const ProjectsPage = () => {
       );
       
       if (projectToEdit) {
-        console.log('🔍 Opening edit modal for project:', projectToEdit.name);
         editProcessedRef.current = true; // Mark as processed
         
         // Add a small delay to ensure everything is ready
@@ -1132,13 +1102,6 @@ const ProjectsPage = () => {
               return normalizeUrl(link.url) === normalizedOriginal
             })
             
-            console.log('🔍 Save: Checking for original link URL:', {
-              originalLinkUrl,
-              normalizedOriginal,
-              originalExists,
-              existingLinksCount: existingLinks.length
-            })
-            
             // Add original link if it doesn't exist
             if (!originalExists) {
               const originalLink = {
@@ -1150,14 +1113,6 @@ const ProjectsPage = () => {
               
               // Put original link first
               existingLinks = [originalLink, ...existingLinks]
-              
-              console.log('✅ Save: Added original link to existing links:', {
-                originalLink,
-                totalLinks: existingLinks.length,
-                allLinks: existingLinks.map(l => ({ label: l.label, url: l.url }))
-              })
-            } else {
-              console.log('ℹ️ Save: Original link already exists in existing links')
             }
           }
         }
@@ -1232,11 +1187,6 @@ const ProjectsPage = () => {
           
           // Convert back to array - preserve order: existing links first, then custom, then social
           finalLinks = Array.from(linksMap.values())
-          
-          console.log('✅ Save: Final merged links array:', {
-            totalLinks: finalLinks.length,
-            finalLinks: finalLinks.map(l => ({ label: l.label, url: l.url }))
-          })
         } else {
           // For other campaign types, just use custom links
           finalLinks = (editFormData.links || []).map(l => ({
@@ -1284,9 +1234,7 @@ const ProjectsPage = () => {
             }
             
             await uploadAPI.deleteFile(file.filename, resourceType)
-            console.log('🗑️ File deleted from Cloudinary:', file.filename, `(type: ${resourceType})`)
           } catch (error) {
-            console.error('Error deleting file from Cloudinary:', error)
             // Continue even if deletion fails - file will be removed from DB
           }
         }
@@ -3579,7 +3527,9 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
 
   // Handle PDF drop
   const onPdfDrop = useCallback((acceptedFiles) => {
-    if (acceptedFiles.length === 0) return
+    if (acceptedFiles.length === 0) {
+      return
+    }
 
     // Check if upgrade is needed (qr-links-video -> qr-links-pdf-video)
     if (campaignType === 'qr-links-video') {
@@ -3596,7 +3546,12 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
     const currentTotal = existingCount + newFilesCount
     
     acceptedFiles.forEach(file => {
-      if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      // More lenient validation: check extension first, then MIME type
+      const fileName = file.name.toLowerCase()
+      const isPdfByExtension = fileName.endsWith('.pdf')
+      const isPdfByType = file.type === 'application/pdf' || file.type === 'application/x-pdf' || file.type === 'application/acrobat'
+      
+      if (!isPdfByExtension && !isPdfByType) {
         errors.push(`"${file.name}" is not a PDF file`)
         return
       }
@@ -3621,11 +3576,13 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
       toast.error(errors[0])
     }
 
-    if (validFiles.length === 0) return
+    if (validFiles.length === 0) {
+      return
+    }
 
     setField({ pdfFiles: [...(formData.pdfFiles || []), ...validFiles] })
     toast.success(`${validFiles.length} PDF file(s) added`)
-  }, [formData, onChange])
+  }, [formData, onChange, campaignType, onUpgradeRequest, project])
 
   // Handle video drop
   const onVideoDrop = useCallback((acceptedFiles) => {
@@ -3640,6 +3597,7 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
       }
     }
 
+    
     // Use functional update to get latest formData
     onChange(prevFormData => {
       const validFiles = []
@@ -3650,10 +3608,21 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
       const currentTotal = existingCount + newFilesCount
       
       acceptedFiles.forEach(file => {
-        const isVideo = file.type.startsWith('video/') || 
-                       /\.(mp4|mov|avi|webm|mkv|flv|wmv)$/i.test(file.name)
+        console.log('🔍 Validating video file:', { name: file.name, type: file.type, size: file.size })
+        
+        // More lenient validation: check extension first, then MIME type
+        const fileName = file.name.toLowerCase()
+        const isVideoByExtension = /\.(mp4|mov|avi|webm|mkv|flv|wmv|m4v|mpg|mpeg|3gp)$/i.test(fileName)
+        const isVideoByType = file.type && file.type.startsWith('video/')
+        
+        // Accept if either extension or MIME type indicates video
+        // If MIME type is empty/missing, rely on extension
+        const isVideo = isVideoByExtension || (file.type && isVideoByType) || (!file.type && isVideoByExtension)
+        
+        console.log('📋 Video validation:', { isVideoByExtension, isVideoByType, isVideo, fileName, fileType: file.type })
         
         if (!isVideo) {
+          console.error('❌ Video validation failed for:', file.name)
           errors.push(`"${file.name}" is not a video file`)
           return
         }
@@ -3682,15 +3651,18 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
       })
 
       if (errors.length > 0) {
+        console.error('❌ Video validation errors:', errors)
         errors.forEach(error => toast.error(error))
         return prevFormData // Return unchanged state on error
       }
 
       if (validFiles.length === 0) {
+        console.warn('⚠️ No valid video files after validation')
         return prevFormData // Return unchanged state if no valid files
       }
 
       // Update videos array
+      console.log('✅ Adding video files:', validFiles.map(f => f.name))
       toast.success(`${validFiles.length} video file(s) added`)
       return {
         ...prevFormData,
@@ -3699,27 +3671,200 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
     })
   }, [campaignType, onUpgradeRequest, onChange, project])
 
-  // PDF dropzone
-  const { getRootProps: getPdfRootProps, getInputProps: getPdfInputProps, isDragActive: isPdfDragActive } = useDropzone({
-    onDrop: onPdfDrop,
-    accept: {
-      'application/pdf': ['.pdf']
-    },
-    maxFiles: 5,
-    multiple: true,
-    disabled: isSaving
-  })
+  // Refs for file inputs (separate from dropzone inputs for "click to browse" buttons)
+  const pdfInputRef = useRef(null)
+  const videoInputRef = useRef(null)
 
-  // Video dropzone
-  const { getRootProps: getVideoRootProps, getInputProps: getVideoInputProps, isDragActive: isVideoDragActive } = useDropzone({
-    onDrop: onVideoDrop,
+  // Functions to open file dialogs
+  const openPdfDialog = () => {
+    // Try dropzone's open function first (more reliable)
+    if (openPdfDropzone) {
+      openPdfDropzone()
+    } else if (pdfInputRef.current) {
+      // Fallback to direct input click
+      pdfInputRef.current.click()
+    }
+  }
+
+  const openVideoDialog = () => {
+    // Try dropzone's open function first (more reliable)
+    if (openVideoDropzone) {
+      openVideoDropzone()
+    } else if (videoInputRef.current) {
+      // Fallback to direct input click
+      videoInputRef.current.click()
+    }
+  }
+
+  // PDF dropzone - accept all files, validate in onDrop
+  const { 
+    getRootProps: getPdfRootProps, 
+    getInputProps: getPdfInputProps, 
+    isDragActive: isPdfDragActive,
+    fileRejections: pdfFileRejections,
+    open: openPdfDropzone
+  } = useDropzone({
+    onDrop: onPdfDrop,
+    // Accept common document types - we'll validate by extension in onDrop
     accept: {
-      'video/*': ['.mp4', '.mov', '.avi', '.webm', '.mkv', '.flv', '.wmv']
+      'application/pdf': ['.pdf'],
+      'application/x-pdf': ['.pdf'],
+      'application/acrobat': ['.pdf'],
+      'application/msword': ['.doc'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'text/plain': ['.txt'],
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/png': ['.png']
     },
     maxFiles: 5,
     multiple: true,
-    disabled: isSaving
+    disabled: isSaving,
+    noClick: false, // Allow dropzone clicks, but we'll also provide a button
+    noKeyboard: false
   })
+  
+  // Handle PDF file rejections from dropzone
+  useEffect(() => {
+    if (pdfFileRejections && pdfFileRejections.length > 0) {
+      pdfFileRejections.forEach(({ file, errors }) => {
+        errors.forEach(error => {
+          if (error.code === 'file-invalid-type') {
+            // If dropzone rejected due to MIME type, but file has .pdf extension, still try to accept it
+            if (file.name.toLowerCase().endsWith('.pdf')) {
+              // Call onPdfDrop directly with the file
+              const validFiles = [file]
+              const existingCount = (formData.existingDocuments || []).length
+              const newFilesCount = (formData.pdfFiles || []).length
+              const currentTotal = existingCount + newFilesCount
+              
+              if (currentTotal + validFiles.length >= 5) {
+                toast.error('Maximum 5 PDF files allowed')
+                return
+              }
+              
+              const isDuplicate = (formData.pdfFiles || []).some(f => f.name === file.name && f.size === file.size)
+              if (!isDuplicate) {
+                setField({ pdfFiles: [...(formData.pdfFiles || []), ...validFiles] })
+                toast.success(`${validFiles.length} PDF file(s) added`)
+              }
+            } else {
+              toast.error(`"${file.name}" is not a PDF file`)
+            }
+          } else {
+            toast.error(`"${file.name}": ${error.message}`)
+          }
+        })
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pdfFileRejections])
+
+  // Video dropzone - accept all files, validate in onDrop
+  const { 
+    getRootProps: getVideoRootProps, 
+    getInputProps: getVideoInputProps, 
+    isDragActive: isVideoDragActive,
+    fileRejections: videoFileRejections,
+    open: openVideoDropzone
+  } = useDropzone({
+    onDrop: onVideoDrop,
+    // Accept common video types - we'll validate by extension in onDrop
+    accept: {
+      'video/*': ['.mp4', '.mov', '.avi', '.webm', '.mkv', '.flv', '.wmv', '.m4v', '.mpg', '.mpeg', '.3gp'],
+      'video/mp4': ['.mp4'],
+      'video/quicktime': ['.mov'],
+      'video/x-msvideo': ['.avi'],
+      'video/webm': ['.webm']
+    },
+    maxFiles: 5,
+    multiple: true,
+    disabled: isSaving,
+    noClick: false, // Allow dropzone clicks, but we'll also provide a button
+    noKeyboard: false
+  })
+  
+  // Get input props from dropzone (for drag-and-drop)
+  const pdfInputProps = getPdfInputProps()
+  const videoInputProps = getVideoInputProps()
+  
+  // Handlers for separate file inputs (for "click to browse" buttons)
+  const handlePdfInputChange = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const files = Array.from(e.target.files || [])
+    if (files.length > 0) {
+      onPdfDrop(files)
+      // Reset input so same file can be selected again
+      if (pdfInputRef.current) {
+        pdfInputRef.current.value = ''
+      }
+    }
+  }
+  
+  const handleVideoInputChange = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const files = Array.from(e.target.files || [])
+    if (files.length > 0) {
+      onVideoDrop(files)
+      // Reset input so same file can be selected again
+      if (videoInputRef.current) {
+        videoInputRef.current.value = ''
+      }
+    }
+  }
+  
+  // Handle video file rejections from dropzone
+  useEffect(() => {
+    if (videoFileRejections && videoFileRejections.length > 0) {
+      videoFileRejections.forEach(({ file, errors }) => {
+        errors.forEach(error => {
+          if (error.code === 'file-invalid-type') {
+            // If dropzone rejected due to MIME type, but file has video extension, still try to accept it
+            const fileName = file.name.toLowerCase()
+            const isVideoExtension = /\.(mp4|mov|avi|webm|mkv|flv|wmv|m4v|mpg|mpeg|3gp)$/i.test(fileName)
+            if (isVideoExtension) {
+              // Manually process the video file
+              onChange(prevFormData => {
+                const maxSize = 50 * 1024 * 1024 // 50MB limit
+                const existingCount = (prevFormData.existingVideos || []).length
+                const newFilesCount = (prevFormData.videos || []).length
+                const currentTotal = existingCount + newFilesCount
+                
+                if (file.size > maxSize) {
+                  const fileSizeMB = (file.size / 1024 / 1024).toFixed(2)
+                  toast.error(`"${file.name}" is ${fileSizeMB}MB. Maximum file size is 50MB per video.`)
+                  return prevFormData
+                }
+                
+                const isDuplicate = (prevFormData.videos || []).some(f => f.name === file.name && f.size === file.size)
+                if (isDuplicate) {
+                  toast.error(`"${file.name}" is already selected`)
+                  return prevFormData
+                }
+                
+                if (currentTotal >= 5) {
+                  toast.error('Maximum 5 video files allowed')
+                  return prevFormData
+                }
+                
+                toast.success(`1 video file(s) added`)
+                return {
+                  ...prevFormData,
+                  videos: [...(prevFormData.videos || []), file]
+                }
+              })
+            } else {
+              toast.error(`"${file.name}" is not a video file`)
+            }
+          } else {
+            toast.error(`"${file.name}": ${error.message}`)
+          }
+        })
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videoFileRejections])
 
   // Remove newly selected PDF
   const removePdfFile = (index) => {
@@ -3975,21 +4120,35 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
                     <div
                       {...getPdfRootProps({
                         onClick: (e) => {
-                          // Allow dropzone's default click handler
-                          if (isSaving) {
+                          // Prevent form submission if inside a form
+                          if (e.target.closest('form')) {
                             e.preventDefault()
-                            e.stopPropagation()
-                            return
                           }
                         }
                       })}
-                      className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
+                      className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
                         isPdfDragActive
-                          ? 'border-neon-blue bg-neon-blue/10'
-                          : 'border-slate-600/50 hover:border-slate-500/50 bg-slate-800/30'
+                          ? 'border-neon-blue bg-neon-blue/10 cursor-copy'
+                          : 'border-slate-600/50 hover:border-slate-500/50 bg-slate-800/30 cursor-pointer'
                       } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
-                      <input {...getPdfInputProps()} />
+                      {/* Dropzone input (for drag-and-drop and clicks) */}
+                      <input {...pdfInputProps} style={{ display: 'none' }} />
+                      {/* Separate input for "click to browse" button (fallback) */}
+                      <input
+                        ref={pdfInputRef}
+                        type="file"
+                        accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png,text/plain"
+                        multiple
+                        onChange={handlePdfInputChange}
+                        onClick={(e) => {
+                          // Prevent any form submission
+                          e.stopPropagation()
+                        }}
+                        form="" // Prevent association with any form
+                        style={{ display: 'none' }}
+                        disabled={isSaving}
+                      />
                       <FileText className="w-8 h-8 mx-auto mb-2 text-slate-400" />
                       <p className="text-sm text-slate-300">
                         {isPdfDragActive ? 'Drop PDF files here' : 'Drag & drop PDF files or click to browse'}
@@ -4003,7 +4162,7 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
                             e.stopPropagation()
                             openPdfDialog()
                           }}
-                          className="mt-2 text-xs text-neon-blue hover:text-neon-purple underline cursor-pointer"
+                          className="mt-2 text-xs text-neon-blue hover:text-neon-purple underline cursor-pointer touch-manipulation"
                         >
                           Or click here to select files
                         </button>
@@ -4089,21 +4248,35 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
                     <div
                       {...getVideoRootProps({
                         onClick: (e) => {
-                          // Allow dropzone's default click handler
-                          if (isSaving) {
+                          // Prevent form submission if inside a form
+                          if (e.target.closest('form')) {
                             e.preventDefault()
-                            e.stopPropagation()
-                            return
                           }
                         }
                       })}
-                      className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
+                      className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
                         isVideoDragActive
-                          ? 'border-neon-blue bg-neon-blue/10'
-                          : 'border-slate-600/50 hover:border-slate-500/50 bg-slate-800/30'
+                          ? 'border-neon-blue bg-neon-blue/10 cursor-copy'
+                          : 'border-slate-600/50 hover:border-slate-500/50 bg-slate-800/30 cursor-pointer'
                       } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
-                      <input {...getVideoInputProps()} />
+                      {/* Dropzone input (for drag-and-drop and clicks) */}
+                      <input {...videoInputProps} style={{ display: 'none' }} />
+                      {/* Separate input for "click to browse" button (fallback) */}
+                      <input
+                        ref={videoInputRef}
+                        type="file"
+                        accept=".mp4,.mov,.avi,.webm,.mkv,.flv,.wmv,.m4v,.mpg,.mpeg,.3gp,video/*"
+                        multiple
+                        onChange={handleVideoInputChange}
+                        onClick={(e) => {
+                          // Prevent any form submission
+                          e.stopPropagation()
+                        }}
+                        form="" // Prevent association with any form
+                        style={{ display: 'none' }}
+                        disabled={isSaving}
+                      />
                       <Video className="w-8 h-8 mx-auto mb-2 text-slate-400" />
                       <p className="text-sm text-slate-300">
                         {isVideoDragActive ? 'Drop video files here' : 'Drag & drop video files or click to browse'}
@@ -4117,7 +4290,7 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
                             e.stopPropagation()
                             openVideoDialog()
                           }}
-                          className="mt-2 text-xs text-neon-blue hover:text-neon-purple underline cursor-pointer"
+                          className="mt-2 text-xs text-neon-blue hover:text-neon-purple underline cursor-pointer touch-manipulation"
                         >
                           Or click here to select files
                         </button>
