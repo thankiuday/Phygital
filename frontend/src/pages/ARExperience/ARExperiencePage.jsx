@@ -523,6 +523,31 @@ const ARExperiencePage = () => {
     };
   }, [containerRef, arReady, cameraActive]);
 
+  // Ensure body has dark background fallback (fixes white background issue in production)
+  useEffect(() => {
+    // Set body background to dark as fallback
+    const originalBodyBg = document.body.style.background;
+    const originalHtmlBg = document.documentElement.style.background;
+    
+    // Apply dark background fallback
+    document.body.style.setProperty('background', 'linear-gradient(to bottom right, #0f172a, #1e293b, #0f172a)', 'important');
+    document.documentElement.style.setProperty('background', 'linear-gradient(to bottom right, #0f172a, #1e293b, #0f172a)', 'important');
+    
+    return () => {
+      // Restore original backgrounds on cleanup
+      if (originalBodyBg) {
+        document.body.style.background = originalBodyBg;
+      } else {
+        document.body.style.removeProperty('background');
+      }
+      if (originalHtmlBg) {
+        document.documentElement.style.background = originalHtmlBg;
+      } else {
+        document.documentElement.style.removeProperty('background');
+      }
+    };
+  }, []);
+
   // Initialize libraries
   useEffect(() => {
     const initializeLibraries = async () => {
@@ -659,9 +684,9 @@ const ARExperiencePage = () => {
 
   return (
     <ThemeRenderer template={templateId} templateConfig={templateConfig}>
-      <div className="min-h-screen flex flex-col" style={{ background: 'transparent' }}>
+      <div className="min-h-screen flex flex-col">
       {/* Main Content - Responsive: mobile to tablet to desktop */}
-      <main className="flex-1 w-full max-w-md md:max-w-2xl lg:max-w-4xl xl:max-w-5xl mx-auto backdrop-blur-sm px-4 md:px-6 lg:px-8 py-6 md:py-8 lg:py-12" style={{ background: 'transparent' }}>
+      <main className="flex-1 w-full max-w-md md:max-w-2xl lg:max-w-4xl xl:max-w-5xl mx-auto backdrop-blur-sm px-4 md:px-6 lg:px-8 py-6 md:py-8 lg:py-12">
         {/* Video Container */}
         <div className="w-full"  style={{ margin: 0, padding: 0, boxSizing: 'border-box' }}>
           {/* Media Box - Enhanced responsiveness with proper height for composite image */}

@@ -140,9 +140,22 @@ const GameUploadPage = () => {
       
       // If in upgrade mode, update campaign type to qr-links-ar-video
       if (upgradeMode && currentProject?.id) {
+        const currentCampaignType = currentProject.campaignType || 'qr-link';
+        const targetCampaignType = 'qr-links-ar-video';
+        
+        // Skip upgrade if already at the target type
+        if (currentCampaignType === targetCampaignType) {
+          console.log('Campaign already at target type, skipping upgrade');
+          toast.success('🎉 Campaign is already at QR Links AR Video!');
+          setTimeout(() => {
+            window.location.href = '/#/projects';
+          }, 2000);
+          return;
+        }
+        
         try {
           const upgradeData = {
-            currentType: currentProject.campaignType || 'qr-link',
+            currentType: currentCampaignType,
             existingData: {
               links: currentProject.phygitalizedData?.links || [],
               socialLinks: currentProject.phygitalizedData?.socialLinks || currentProject.socialLinks || {},
@@ -151,7 +164,7 @@ const GameUploadPage = () => {
             }
           };
           
-          await phygitalizedAPI.upgradeCampaign(currentProject.id, 'qr-links-ar-video', upgradeData);
+          await phygitalizedAPI.upgradeCampaign(currentProject.id, targetCampaignType, upgradeData);
           toast.success('🎉 Campaign upgraded to QR Links AR Video!');
           
           // Redirect to projects page to see the updated campaign type
@@ -161,7 +174,13 @@ const GameUploadPage = () => {
           return;
         } catch (upgradeError) {
           console.error('Error upgrading campaign:', upgradeError);
-          toast.error('Failed to upgrade campaign type. Please refresh the page.');
+          // Check if error is because already at target type
+          const errorMessage = upgradeError.response?.data?.message || upgradeError.message || '';
+          if (errorMessage.includes('Cannot upgrade from') && errorMessage.includes('to qr-links-ar-video')) {
+            toast.success('🎉 Campaign is already at QR Links AR Video!');
+          } else {
+            toast.error('Failed to upgrade campaign type. Please refresh the page.');
+          }
         }
       }
       

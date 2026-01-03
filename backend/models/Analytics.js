@@ -211,11 +211,19 @@ analyticsSchema.statics.getProjectAnalytics = async function(userId, projectId, 
 // Static method to track an event (now with project support)
 analyticsSchema.statics.trackEvent = async function(userId, eventType, eventData = {}, projectId = null) {
   try {
+    // Extract deviceInfo from eventData if present, and remove it from eventData
+    const deviceInfo = eventData.deviceInfo || null;
+    const cleanEventData = { ...eventData };
+    if (cleanEventData.deviceInfo) {
+      delete cleanEventData.deviceInfo;
+    }
+    
     const analytics = new this({
       userId,
       projectId,
       eventType,
-      eventData,
+      eventData: cleanEventData,
+      deviceInfo: deviceInfo,
       timestamp: new Date()
     });
     

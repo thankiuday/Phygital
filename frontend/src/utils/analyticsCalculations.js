@@ -211,7 +211,9 @@ export const calculateDeviceBreakdown = (events) => {
   };
   
   events.forEach(event => {
-    const deviceType = event.deviceInfo?.type || 'unknown';
+    // Check both top-level deviceInfo and eventData.deviceInfo for backward compatibility
+    const deviceInfo = event.deviceInfo || event.eventData?.deviceInfo;
+    const deviceType = deviceInfo?.type || 'unknown';
     if (breakdown.hasOwnProperty(deviceType)) {
       breakdown[deviceType]++;
     } else {
@@ -242,7 +244,9 @@ export const calculateBrowserBreakdown = (events) => {
   const breakdown = {};
   
   events.forEach(event => {
-    const browser = event.deviceInfo?.browser || 'unknown';
+    // Check both top-level deviceInfo and eventData.deviceInfo for backward compatibility
+    const deviceInfo = event.deviceInfo || event.eventData?.deviceInfo;
+    const browser = deviceInfo?.browser || 'unknown';
     breakdown[browser] = (breakdown[browser] || 0) + 1;
   });
   

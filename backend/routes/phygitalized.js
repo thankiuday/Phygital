@@ -528,6 +528,18 @@ router.post('/upgrade-campaign', authenticateToken, async (req, res) => {
     const project = user.projects[projectIndex]
     const currentType = project.campaignType || upgradeData.currentType
 
+    // If already at the target type, return success without doing anything
+    if (currentType === newCampaignType) {
+      return res.status(200).json({
+        success: true,
+        message: `Campaign is already at ${newCampaignType}`,
+        data: {
+          projectId,
+          campaignType: currentType
+        }
+      })
+    }
+
     // Validate upgrade path
     const upgradePaths = {
       'qr-link': ['qr-links', 'qr-links-video', 'qr-links-pdf-video', 'qr-links-ar-video'],
