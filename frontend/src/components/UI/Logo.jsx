@@ -64,7 +64,7 @@ const Logo = ({
     const showIcon = imageError;
 
     return (
-      <div className={`flex items-center space-x-2 ${className}`}>
+      <div className={`flex items-center space-x-1 ${className}`}>
         {/* Logo Box */}
         <div className={`relative ${currentSize.container}`}>
           {/* Optional outer glow ring */}
