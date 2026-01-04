@@ -3,8 +3,7 @@
  * Clean structure with website's dark theme and neon colors
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { useDropzone } from 'react-dropzone';
+import React, { useState, useEffect } from 'react';
 import {
   ChevronRight,
   ChevronDown,
@@ -13,9 +12,6 @@ import {
   Frame,
   Palette,
   CornerDownRight,
-  Image as ImageIcon,
-  Upload,
-  X,
   CheckCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -30,9 +26,9 @@ const QRDesignCustomizer = ({
   // Default design state
   const defaultDesign = {
     frame: {
-      style: 'none',
+      style: 10, // Use numeric ID for 'None' (matching FrameCustomizer)
       text: 'Scan me!',
-      textColor: '#000000',
+      textColor: '#FFFFFF', // Default to white for numeric frames (black label backgrounds)
       color: '#000000',
       backgroundColor: '#FFFFFF',
       transparentBackground: false,
@@ -62,8 +58,7 @@ const QRDesignCustomizer = ({
   const [expandedSections, setExpandedSections] = useState({
     frame: false,
     pattern: false,
-    corners: false,
-    logo: true
+    corners: false
   });
   const [preview, setPreview] = useState(null);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
@@ -72,7 +67,24 @@ const QRDesignCustomizer = ({
   // Update design when initialDesign changes
   useEffect(() => {
     if (initialDesign) {
-      setDesign(initialDesign);
+      // Convert legacy string 'none' to numeric 10 for frame style
+      // Ensure text color is white for numeric frames with labels (2, 5, 8)
+      const frameStyle = initialDesign.frame?.style === 'none' ? 10 : initialDesign.frame?.style;
+      const needsWhiteText = (frameStyle === 2 || frameStyle === 5 || frameStyle === 8);
+      const currentTextColor = initialDesign.frame?.textColor;
+      
+      const convertedDesign = {
+        ...initialDesign,
+        frame: {
+          ...initialDesign.frame,
+          style: frameStyle,
+          // Set text color to white for frames with black label backgrounds
+          textColor: needsWhiteText && (!currentTextColor || currentTextColor === '#000000')
+            ? '#FFFFFF' 
+            : (currentTextColor || '#FFFFFF')
+        }
+      };
+      setDesign(convertedDesign);
     }
   }, [initialDesign]);
 
@@ -126,24 +138,12 @@ const QRDesignCustomizer = ({
     }
   };
 
-  // Frame styles
+  // Frame styles - limited selection for QR design wizard
   const frameStyles = [
-    { id: 'none', label: 'No Frame', icon: '🚫' },
-    { id: 'simple1', label: 'Simple Frame 1', icon: '▭' },
-    { id: 'simple2', label: 'Simple Frame 2', icon: '▭' },
-    { id: 'simple3', label: 'Simple Frame 3', icon: '▭' },
-    { id: 'simple4', label: 'Simple Frame 4', icon: '▭' },
-    { id: 'simple5', label: 'Simple Frame 5', icon: '▭' },
-    { id: 'simple6', label: 'Simple Frame 6', icon: '▭' },
-    { id: 'simple7', label: 'Simple Frame 7', icon: '▭' },
-    { id: 'handwritten', label: 'Handwritten Scan Me', icon: '✍️' },
-    { id: 'thumbsup', label: 'Thumbs Up Frame', icon: '👍' },
-    { id: 'shopping', label: 'Shopping Bag Frame', icon: '🛍️' },
-    { id: 'gift', label: 'Gift Box Frame', icon: '🎁' },
-    { id: 'ribbon', label: 'Ribbon Banner Frame', icon: '🎀' },
-    { id: 'envelope', label: 'Envelope Frame', icon: '✉️' },
-    { id: 'scooter', label: 'Delivery Scooter Frame', icon: '🛵' },
-    { id: 'laptop', label: 'Laptop Frame', icon: '💻' }
+    { id: 2, name: 'Bottom Arrow', description: 'Label below with upward arrow' },
+    { id: 5, name: 'Bottom Bar', description: 'Simple bar below' },
+    { id: 8, name: 'Right Arrow', description: 'Label to the right with left-pointing arrow' },
+    { id: 10, name: 'None', description: 'QR code only, no frame or text' }
   ];
 
   // Pattern styles
@@ -170,40 +170,6 @@ const QRDesignCustomizer = ({
     { id: 'diamond', label: 'Diamond' }
   ];
 
-  // Logo upload handler
-  const onLogoDrop = useCallback((acceptedFiles) => {
-    const file = acceptedFiles[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        toast.error('Please upload an image file');
-        return;
-      }
-      if (file.size > 2 * 1024 * 1024) {
-        toast.error('Logo size must be less than 2MB');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = () => {
-        updateDesign('logo', {
-          enabled: true,
-          url: reader.result,
-          size: design.logo.size
-        });
-        toast.success('Logo uploaded successfully!');
-      };
-      reader.readAsDataURL(file);
-    }
-  }, [design.logo.size]);
-
-  const { getRootProps: getLogoRootProps, getInputProps: getLogoInputProps, isDragActive: isLogoDragActive } = useDropzone({
-    onDrop: onLogoDrop,
-    accept: {
-      'image/*': ['.png', '.jpg', '.jpeg', '.svg']
-    },
-    multiple: false,
-    maxSize: 2 * 1024 * 1024,
-    disabled: disabled
-  });
 
   return (
     <div className="w-full">
@@ -388,28 +354,34 @@ const QRDesignCustomizer = ({
                 {/* Frame Style */}
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-3">Frame style</label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-2 sm:gap-3">
-                    {frameStyles.map((style) => (
+                  <div className="grid grid-cols-2 gap-3">
+                    {frameStyles.map((frame) => (
                       <button
-                        key={style.id}
-                        onClick={() => updateDesign('frame', { style: style.id })}
-                        className={`relative px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg border-2 transition-all text-xs sm:text-sm ${
-                          design.frame.style === style.id
-                            ? 'border-neon-blue bg-neon-blue/20 text-neon-blue font-medium shadow-lg shadow-neon-blue/20'
-                            : 'border-slate-600 bg-slate-700/30 text-slate-300 hover:border-slate-500 hover:bg-slate-700/50'
+                        key={frame.id}
+                        onClick={() => {
+                          // For numeric frames with labels (2, 5, 8), set text color to white if not already set
+                          // Frame 10 (None) doesn't need text color adjustment
+                          const updates = { style: frame.id };
+                          if (frame.id !== 10 && (!design.frame.textColor || design.frame.textColor === '#000000')) {
+                            updates.textColor = '#FFFFFF';
+                          }
+                          updateDesign('frame', updates);
+                        }}
+                        className={`relative p-3 rounded-lg border-2 transition-all duration-200 ${
+                          design.frame.style === frame.id
+                            ? 'border-neon-blue bg-neon-blue/20 shadow-glow-blue'
+                            : 'border-slate-600 bg-slate-800/50 hover:border-slate-500 hover:bg-slate-700/50'
                         }`}
                         disabled={disabled}
-                        title={style.label}
+                        title={frame.description}
                       >
-                        <div className="flex flex-col items-center gap-1">
-                          {style.icon && (
-                            <span className="text-base sm:text-lg">{style.icon}</span>
-                          )}
-                          <span className="whitespace-nowrap truncate w-full text-center leading-tight">{style.label}</span>
+                        <div className="text-center">
+                          <div className="text-xs font-medium text-slate-300 mb-1">{frame.id}</div>
+                          <div className="text-xs text-slate-400">{frame.name}</div>
                         </div>
-                        {design.frame.style === style.id && (
-                          <div className="absolute -top-1 -right-1 w-4 h-4 bg-neon-blue rounded-full flex items-center justify-center">
-                            <CheckCircle className="w-3 h-3 text-white" />
+                        {design.frame.style === frame.id && (
+                          <div className="absolute top-1 right-1 w-4 h-4 bg-neon-blue rounded-full flex items-center justify-center">
+                            <div className="w-2 h-2 bg-slate-900 rounded-full"></div>
                           </div>
                         )}
                       </button>
@@ -417,7 +389,7 @@ const QRDesignCustomizer = ({
                   </div>
                 </div>
 
-                {design.frame.style !== 'none' && (
+                {design.frame.style !== 10 && (
                   <>
                     {/* Frame Text */}
                     <div>
@@ -799,107 +771,6 @@ const QRDesignCustomizer = ({
             )}
           </div>
 
-          {/* Logo Section */}
-          <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden hover:border-slate-600/50 transition-all">
-            <button
-              onClick={() => toggleSection('logo')}
-              className="w-full flex items-center justify-between p-4 sm:p-5 hover:bg-slate-700/30 transition-colors"
-              disabled={disabled}
-            >
-              <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
-                <div className="w-10 h-10 rounded-lg bg-neon-pink/10 border border-neon-pink/20 flex items-center justify-center flex-shrink-0">
-                  <ImageIcon className="w-5 h-5 text-neon-pink" />
-                </div>
-                <div className="text-left flex-1 min-w-0">
-                  <h3 className="text-sm sm:text-base font-semibold text-slate-100">Add Logo</h3>
-                  <p className="text-xs sm:text-sm text-slate-400 hidden sm:block">Make your QR code unique by adding your logo or an image</p>
-                </div>
-              </div>
-              <div className="flex-shrink-0 ml-2">
-                {expandedSections.logo ? (
-                  <ChevronUp className="w-5 h-5 text-slate-400" />
-                ) : (
-                  <ChevronRight className="w-5 h-5 text-slate-400" />
-                )}
-              </div>
-            </button>
-
-            {expandedSections.logo && (
-              <div className="px-5 pb-5 pt-0 space-y-4 border-t border-slate-700/50">
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-3">
-                    Upload your logo <span className="text-slate-400 font-normal text-xs">(Maximum size: 1 MB)</span>
-                  </label>
-                  <div
-                    {...getLogoRootProps()}
-                    className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
-                      isLogoDragActive
-                        ? 'border-neon-pink bg-neon-pink/10'
-                        : 'border-slate-600 bg-slate-700/30 hover:border-slate-500 hover:bg-slate-700/50'
-                    } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    <input {...getLogoInputProps()} />
-                    {design.logo.url ? (
-                      <div className="space-y-3">
-                        <div className="relative inline-block">
-                          <img
-                            src={design.logo.url}
-                            alt="Logo preview"
-                            className="max-w-32 max-h-32 mx-auto rounded-lg"
-                          />
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              updateDesign('logo', { enabled: false, url: null });
-                              toast.success('Logo removed');
-                            }}
-                            className="absolute -top-2 -right-2 p-1.5 bg-red-600 hover:bg-red-700 rounded-full text-white shadow-lg transition-all"
-                            disabled={disabled}
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                        <p className="text-xs sm:text-sm text-slate-300 font-medium">Logo uploaded</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <div className="mx-auto w-16 h-16 rounded-full bg-slate-700 flex items-center justify-center">
-                          <Upload className="w-8 h-8 text-slate-400" />
-                        </div>
-                        <p className="text-xs sm:text-sm font-medium text-slate-300">
-                          {isLogoDragActive ? 'Drop logo here' : 'Drag & drop logo or click to browse'}
-                        </p>
-                        <p className="text-xs text-slate-500">PNG, JPG, or SVG (max 2MB)</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {design.logo.enabled && design.logo.url && (
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-2">
-                      Logo size: <span className="text-neon-pink font-semibold">{Math.round(design.logo.size * 100)}%</span>
-                    </label>
-                    <input
-                      type="range"
-                      min="0.1"
-                      max="0.3"
-                      step="0.01"
-                      value={design.logo.size}
-                      onChange={(e) => updateDesign('logo', { size: parseFloat(e.target.value) })}
-                      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-neon-pink"
-                      disabled={disabled}
-                    />
-                    <div className="flex justify-between text-xs text-slate-500 mt-1">
-                      <span>10%</span>
-                      <span>20%</span>
-                      <span>30%</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
         </div>
       </div>
     </div>

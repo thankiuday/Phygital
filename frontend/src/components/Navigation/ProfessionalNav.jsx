@@ -39,7 +39,14 @@ const ProfessionalNav = () => {
   const phygitalizedMenuRef = useRef(null);
 
   // Check if current page is a landing page (phygitalized or AR experience)
-  const isLandingPage = location.pathname.includes('/phygitalized/') || 
+  // Exclude QR creation pages from being treated as landing pages
+  const isQRCreationPage = location.pathname.includes('/phygitalized/qr-link') ||
+                           location.pathname.includes('/phygitalized/qr-links') ||
+                           location.pathname.includes('/phygitalized/qr-links-video') ||
+                           location.pathname.includes('/phygitalized/qr-links-pdf-video') ||
+                           location.pathname.includes('/phygitalized/qr-links-ar-video')
+  
+  const isLandingPage = (location.pathname.includes('/phygitalized/') && !isQRCreationPage) || 
                         location.pathname.includes('/ar/') ||
                         location.pathname.includes('/ar-3d/') ||
                         location.pathname.includes('/ar-experience/');

@@ -25,7 +25,6 @@ import {
 import toast from 'react-hot-toast'
 import LoadingSpinner from '../../components/UI/LoadingSpinner'
 import SocialLinksInput from '../../components/Phygitalized/SocialLinksInput'
-import PhygitalizedFooter from '../../components/Phygitalized/PhygitalizedFooter'
 
 const QRLinksPage = () => {
   const { user, updateUser } = useAuth()
@@ -593,7 +592,6 @@ const QRLinksPage = () => {
         </div>
       </div>
       </div>
-      <PhygitalizedFooter />
     </div>
   )
 }

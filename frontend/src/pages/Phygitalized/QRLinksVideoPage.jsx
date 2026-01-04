@@ -27,7 +27,6 @@ import {
 import toast from 'react-hot-toast'
 import LoadingSpinner from '../../components/UI/LoadingSpinner'
 import SocialLinksInput from '../../components/Phygitalized/SocialLinksInput'
-import PhygitalizedFooter from '../../components/Phygitalized/PhygitalizedFooter'
 
 const QRLinksVideoPage = () => {
   const { user, updateUser } = useAuth()
@@ -895,7 +894,6 @@ const QRLinksVideoPage = () => {
         </div>
       </div>
       </div>
-      <PhygitalizedFooter />
     </div>
   )
 }

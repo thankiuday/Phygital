@@ -16,10 +16,23 @@ const Layout = () => {
   const location = useLocation()
 
   // Check if current page is a landing page (phygitalized or AR experience)
-  const isLandingPage = location.pathname.includes('/phygitalized/') || 
+  // Exclude QR creation pages (qr-link, qr-links, etc.) from being treated as landing pages
+  const isQRCreationPage = location.pathname.includes('/phygitalized/qr-link') ||
+                           location.pathname.includes('/phygitalized/qr-links') ||
+                           location.pathname.includes('/phygitalized/qr-links-video') ||
+                           location.pathname.includes('/phygitalized/qr-links-pdf-video') ||
+                           location.pathname.includes('/phygitalized/qr-links-ar-video')
+  
+  const isLandingPage = (location.pathname.includes('/phygitalized/') && !isQRCreationPage) || 
                         location.pathname.includes('/ar/') ||
                         location.pathname.includes('/ar-3d/') ||
                         location.pathname.includes('/ar-experience/')
+  
+  // Landing pages should show ProfessionalNav (which renders "Powered by" navbar) but NOT footer
+  // QR creation pages should show regular navbar and footer
+  // Regular pages should show navbar and footer
+  const shouldShowNav = true // Always show navbar - ProfessionalNav handles landing page styling
+  const shouldShowFooter = !isLandingPage || isQRCreationPage // Hide footer on landing pages only
 
   // Handle page transition with smooth loader
   useEffect(() => {
@@ -62,16 +75,16 @@ const Layout = () => {
       {/* Page Transition Loader */}
       <PageTransitionLoader isLoading={isPageTransitioning} />
       
-      {/* Professional Navigation */}
-      <ProfessionalNav />
+      {/* Professional Navigation - Always show (ProfessionalNav handles landing page "Powered by" styling) */}
+      {shouldShowNav && <ProfessionalNav />}
       
       {/* Main Content */}
       <main className="flex-1">
         <Outlet />
       </main>
 
-      {/* Footer - Hidden on landing pages */}
-      {!isLandingPage && <Footer />}
+      {/* Footer - Show on regular pages and QR creation pages, but NOT on landing pages */}
+      {shouldShowFooter && <Footer />}
     </div>
   )
 }

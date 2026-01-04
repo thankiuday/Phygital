@@ -641,63 +641,95 @@ export const generateAdvancedQRCode = async (url, designOptions = {}, size = 512
     }
 
     // Calculate frame dimensions based on style
+    // Support both numeric frame types (1-10) from FrameCustomizer and string-based styles
     let frameWidth = 0;
     let framePadding = 0;
-    let textHeight = frame.text ? 40 : 0;
+    const labelHeight = 40; // Height for label/bar
+    let textHeight = 0;
     
-    if (frame.style !== 'none') {
-      // Different frame widths for different styles
-      switch (frame.style) {
-        case 'simple1':
-          frameWidth = 8;
-          framePadding = 20;
-          break;
-        case 'simple2':
-          frameWidth = 6;
-          framePadding = 18;
-          break;
-        case 'simple3':
-          frameWidth = 4;
-          framePadding = 16;
-          break;
-        case 'simple4':
-          frameWidth = 10;
-          framePadding = 22;
-          break;
-        case 'simple5':
-          frameWidth = 6;
-          framePadding = 18;
-          break;
-        case 'simple6':
-          frameWidth = 2;
-          framePadding = 14;
-          break;
-        case 'simple7':
-          frameWidth = 6;
-          framePadding = 18;
-          break;
-        case 'handwritten':
-        case 'thumbsup':
-        case 'shopping':
-        case 'gift':
-        case 'ribbon':
-        case 'envelope':
-        case 'scooter':
-        case 'laptop':
-          frameWidth = 6;
-          framePadding = 20;
-          break;
-        default:
-          frameWidth = 4;
-          framePadding = 16;
+    // Check if frame.style is numeric (new frame types 1-10) or string (legacy)
+    const isNumericFrame = typeof frame.style === 'number';
+    
+    if (frame.style !== 'none' && frame.style !== 10) {
+      if (isNumericFrame) {
+        // Numeric frame types (1-10) - matching qrStickerGenerator
+        frameWidth = 4;
+        framePadding = 16;
+        // For frames with labels, always add label height (labels are always shown for numeric frames)
+        const topLabelFrames = [3, 4, 6, 9];
+        const bottomLabelFrames = [1, 2, 5];
+        if (topLabelFrames.includes(frame.style) || bottomLabelFrames.includes(frame.style)) {
+          textHeight = labelHeight;
+        }
+        // Frame 8 (Right Arrow) doesn't need vertical textHeight, it uses horizontal width
+      } else {
+        // Legacy string-based frame styles
+        switch (frame.style) {
+          case 'simple1':
+            frameWidth = 8;
+            framePadding = 20;
+            break;
+          case 'simple2':
+            frameWidth = 6;
+            framePadding = 18;
+            break;
+          case 'simple3':
+            frameWidth = 4;
+            framePadding = 16;
+            break;
+          case 'simple4':
+            frameWidth = 10;
+            framePadding = 22;
+            break;
+          case 'simple5':
+            frameWidth = 6;
+            framePadding = 18;
+            break;
+          case 'simple6':
+            frameWidth = 2;
+            framePadding = 14;
+            break;
+          case 'simple7':
+            frameWidth = 6;
+            framePadding = 18;
+            break;
+          case 'handwritten':
+          case 'thumbsup':
+          case 'shopping':
+          case 'gift':
+          case 'ribbon':
+          case 'envelope':
+          case 'scooter':
+          case 'laptop':
+            frameWidth = 6;
+            framePadding = 20;
+            break;
+          default:
+            frameWidth = 4;
+            framePadding = 16;
+        }
       }
     }
     
-    const totalWidth = size + (frameWidth * 2) + (framePadding * 2);
-    const totalHeight = size + (frameWidth * 2) + (framePadding * 2) + textHeight;
+    // Calculate total dimensions based on frame type
+    let totalWidth, totalHeight;
+    if (isNumericFrame && frame.style === 10) {
+      // None - QR code only
+      totalWidth = size;
+      totalHeight = size;
+    } else if (isNumericFrame && frame.style === 8) {
+      // Right Arrow - label on right side
+      const labelWidth = size * 0.8;
+      totalWidth = size + (frameWidth * 2) + (framePadding * 2) + labelWidth;
+      totalHeight = size + (frameWidth * 2) + (framePadding * 2);
+    } else {
+      // Standard frames
+      totalWidth = size + (frameWidth * 2) + (framePadding * 2);
+      totalHeight = size + (frameWidth * 2) + (framePadding * 2) + textHeight;
+    }
     
     // If no frame, return QR code directly
-    if (frame.style === 'none' && !frame.text) {
+    if ((frame.style === 'none' || frame.style === 10) && !frame.text) {
       return qrCanvasFinal.toDataURL('image/png');
     }
 
@@ -708,9 +740,10 @@ export const generateAdvancedQRCode = async (url, designOptions = {}, size = 512
     canvas.height = totalHeight;
 
     // Fill background
-    if (frame.transparentBackground && frame.style !== 'none') {
+    const hasFrame = frame.style !== 'none' && frame.style !== 10;
+    if (frame.transparentBackground && hasFrame) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-    } else if (frame.style !== 'none') {
+    } else if (hasFrame) {
       const bgGradient = createGradient(
         ctx, 
         frame.backgroundColor, 
@@ -738,10 +771,18 @@ export const generateAdvancedQRCode = async (url, designOptions = {}, size = 512
     let qrStartX = frameWidth + framePadding;
     let qrStartY = frameWidth + framePadding;
     
-    // For special frames, adjust QR code position to be inside the shape
-    const isSpecialFrame = ['shopping', 'gift', 'envelope', 'laptop'].includes(frame.style);
+    // For numeric frames with top labels, adjust QR position
+    if (isNumericFrame) {
+      const topLabelFrames = [3, 4, 6, 9];
+      if (topLabelFrames.includes(frame.style)) {
+        qrStartY = frameWidth + framePadding + labelHeight;
+      }
+    }
     
-    if (frame.style !== 'none') {
+    // For special frames, adjust QR code position to be inside the shape
+    const isSpecialFrame = !isNumericFrame && ['shopping', 'gift', 'envelope', 'laptop'].includes(frame.style);
+    
+    if (hasFrame) {
       const frameColorStyle = createGradient(
         ctx, 
         frame.color, 
@@ -753,13 +794,252 @@ export const generateAdvancedQRCode = async (url, designOptions = {}, size = 512
       ctx.fillStyle = frameColorStyle;
       ctx.lineWidth = frameWidth;
       
-      const frameX = frameWidth / 2;
-      const frameY = frameWidth / 2;
-      const frameW = size + (framePadding * 2);
-      const frameH = size + (framePadding * 2);
+      // Draw frame border for numeric frames (rounded rectangle)
+      // Note: Frame 9 (Brackets + Top) handles its own border drawing
+      // The border should encompass the entire canvas (totalWidth x totalHeight)
+      if (isNumericFrame && frame.style !== 9) {
+        const borderRadius = 8;
+        ctx.strokeStyle = frameColorStyle;
+        ctx.lineWidth = frameWidth;
+        
+        // Draw border around the entire canvas area
+        // Use canvas dimensions minus half the border width on each side to center the border
+        const borderX = frameWidth / 2;
+        const borderY = frameWidth / 2;
+        const borderW = totalWidth - frameWidth;
+        const borderH = totalHeight - frameWidth;
+        
+        // Draw rounded rectangle border around entire sticker
+        ctx.beginPath();
+        ctx.moveTo(borderX + borderRadius, borderY);
+        ctx.lineTo(borderX + borderW - borderRadius, borderY);
+        ctx.quadraticCurveTo(borderX + borderW, borderY, borderX + borderW, borderY + borderRadius);
+        ctx.lineTo(borderX + borderW, borderY + borderH - borderRadius);
+        ctx.quadraticCurveTo(borderX + borderW, borderY + borderH, borderX + borderW - borderRadius, borderY + borderH);
+        ctx.lineTo(borderX + borderRadius, borderY + borderH);
+        ctx.quadraticCurveTo(borderX, borderY + borderH, borderX, borderY + borderH - borderRadius);
+        ctx.lineTo(borderX, borderY + borderRadius);
+        ctx.quadraticCurveTo(borderX, borderY, borderX + borderRadius, borderY);
+        ctx.closePath();
+        ctx.stroke();
+        
+        // Draw white background for QR area
+        if (!frame.transparentBackground) {
+          ctx.fillStyle = '#FFFFFF';
+          const whiteRadius = Math.max(0, borderRadius - frameWidth / 2);
+          const topLabelFrames = [3, 4, 6];
+          const whiteBgY = topLabelFrames.includes(frame.style) ? frameWidth + labelHeight : frameWidth;
+          ctx.beginPath();
+          ctx.moveTo(frameWidth + whiteRadius, whiteBgY);
+          ctx.lineTo(frameWidth + size + (framePadding * 2) - whiteRadius, whiteBgY);
+          ctx.quadraticCurveTo(frameWidth + size + (framePadding * 2), whiteBgY, frameWidth + size + (framePadding * 2), whiteBgY + whiteRadius);
+          ctx.lineTo(frameWidth + size + (framePadding * 2), whiteBgY + size + (framePadding * 2) - whiteRadius);
+          ctx.quadraticCurveTo(frameWidth + size + (framePadding * 2), whiteBgY + size + (framePadding * 2), frameWidth + size + (framePadding * 2) - whiteRadius, whiteBgY + size + (framePadding * 2));
+          ctx.lineTo(frameWidth + whiteRadius, whiteBgY + size + (framePadding * 2));
+          ctx.quadraticCurveTo(frameWidth, whiteBgY + size + (framePadding * 2), frameWidth, whiteBgY + size + (framePadding * 2) - whiteRadius);
+          ctx.lineTo(frameWidth, whiteBgY + whiteRadius);
+          ctx.quadraticCurveTo(frameWidth, whiteBgY, frameWidth + whiteRadius, whiteBgY);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
       
       // Draw frame based on style
       switch (frame.style) {
+        // Numeric frame types (1-10) - matching FrameCustomizer
+        case 1: {
+          // Bottom Notch - label attached to bottom with upward notch
+          const labelY = qrStartY + size + framePadding;
+          const labelX = frameWidth;
+          const labelW = size + (framePadding * 2);
+          const labelH = labelHeight;
+          const notchSize = 12;
+          
+          // Draw label background with notch (black background)
+          ctx.fillStyle = '#000000';
+          ctx.beginPath();
+          ctx.moveTo(labelX, labelY);
+          ctx.lineTo(labelX + labelW / 2 - notchSize / 2, labelY);
+          ctx.lineTo(labelX + labelW / 2, labelY - notchSize);
+          ctx.lineTo(labelX + labelW / 2 + notchSize / 2, labelY);
+          ctx.lineTo(labelX + labelW, labelY);
+          ctx.lineTo(labelX + labelW, labelY + labelH);
+          ctx.lineTo(labelX, labelY + labelH);
+          ctx.closePath();
+          ctx.fill();
+          break;
+        }
+        case 2: {
+          // Bottom Arrow - label below with upward arrow
+          const labelY = qrStartY + size + framePadding + 8;
+          const labelX = frameWidth + framePadding;
+          const labelW = size;
+          const labelH = labelHeight;
+          const arrowSize = 10;
+          
+          // Draw label background with arrow (black background)
+          ctx.fillStyle = '#000000';
+          ctx.beginPath();
+          ctx.moveTo(labelX, labelY);
+          ctx.lineTo(labelX + labelW / 2 - arrowSize, labelY);
+          ctx.lineTo(labelX + labelW / 2, labelY - arrowSize);
+          ctx.lineTo(labelX + labelW / 2 + arrowSize, labelY);
+          ctx.lineTo(labelX + labelW, labelY);
+          ctx.lineTo(labelX + labelW, labelY + labelH);
+          ctx.lineTo(labelX, labelY + labelH);
+          ctx.closePath();
+          ctx.fill();
+          break;
+        }
+        case 3: {
+          // Top Notch - label attached to top with downward notch
+          const labelY = frameWidth;
+          const labelX = frameWidth;
+          const labelW = size + (framePadding * 2);
+          const labelH = labelHeight;
+          const notchSize = 12;
+          
+          // Draw label background with notch (black background)
+          ctx.fillStyle = '#000000';
+          ctx.beginPath();
+          ctx.moveTo(labelX, labelY + labelH);
+          ctx.lineTo(labelX + labelW / 2 - notchSize / 2, labelY + labelH);
+          ctx.lineTo(labelX + labelW / 2, labelY + labelH + notchSize);
+          ctx.lineTo(labelX + labelW / 2 + notchSize / 2, labelY + labelH);
+          ctx.lineTo(labelX + labelW, labelY + labelH);
+          ctx.lineTo(labelX + labelW, labelY);
+          ctx.lineTo(labelX, labelY);
+          ctx.closePath();
+          ctx.fill();
+          break;
+        }
+        case 4: {
+          // Top Arrow - label above with downward arrow
+          const labelY = frameWidth + 8;
+          const labelX = frameWidth + framePadding;
+          const labelW = size;
+          const labelH = labelHeight;
+          const arrowSize = 10;
+          
+          // Draw label background with arrow (black background)
+          ctx.fillStyle = '#000000';
+          ctx.beginPath();
+          ctx.moveTo(labelX, labelY + labelH);
+          ctx.lineTo(labelX + labelW / 2 - arrowSize, labelY + labelH);
+          ctx.lineTo(labelX + labelW / 2, labelY + labelH + arrowSize);
+          ctx.lineTo(labelX + labelW / 2 + arrowSize, labelY + labelH);
+          ctx.lineTo(labelX + labelW, labelY + labelH);
+          ctx.lineTo(labelX + labelW, labelY);
+          ctx.lineTo(labelX, labelY);
+          ctx.closePath();
+          ctx.fill();
+          break;
+        }
+        case 5: {
+          // Bottom Bar - simple bar below
+          const labelY = qrStartY + size + framePadding;
+          const labelX = frameWidth;
+          const labelW = size + (framePadding * 2);
+          const labelH = labelHeight;
+          
+          // Draw label background (black background)
+          ctx.fillStyle = '#000000';
+          ctx.fillRect(labelX, labelY, labelW, labelH);
+          break;
+        }
+        case 6: {
+          // Top Bar - simple bar above
+          const labelY = frameWidth;
+          const labelX = frameWidth;
+          const labelW = size + (framePadding * 2);
+          const labelH = labelHeight;
+          
+          // Draw label background (black background)
+          ctx.fillStyle = '#000000';
+          ctx.fillRect(labelX, labelY, labelW, labelH);
+          break;
+        }
+        case 8: {
+          // Right Arrow - label to the right with left-pointing arrow
+          const labelWidth = size * 0.8;
+          const labelX = qrStartX + size + framePadding;
+          const labelY = frameWidth + framePadding;
+          const labelW = labelWidth;
+          const labelH = size;
+          const arrowSize = 10;
+          
+          // Draw label background with arrow (black background)
+          ctx.fillStyle = '#000000';
+          ctx.beginPath();
+          ctx.moveTo(labelX, labelY);
+          ctx.lineTo(labelX + arrowSize, labelY + labelH / 2 - arrowSize);
+          ctx.lineTo(labelX, labelY + labelH / 2);
+          ctx.lineTo(labelX + arrowSize, labelY + labelH / 2 + arrowSize);
+          ctx.lineTo(labelX, labelY + labelH);
+          ctx.lineTo(labelX + labelW, labelY + labelH);
+          ctx.lineTo(labelX + labelW, labelY);
+          ctx.closePath();
+          ctx.fill();
+          
+          // Update QR position for right arrow (no change needed, already positioned)
+          break;
+        }
+        case 9: {
+          // Brackets + Top - corner brackets with label above
+          const cornerSize = 20;
+          const labelY = frameWidth + 8;
+          const labelX = frameWidth + framePadding;
+          const labelW = size;
+          const labelH = labelHeight;
+          const arrowSize = 10;
+          
+          // Draw corner brackets (black)
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = 3;
+          // Top-left
+          ctx.beginPath();
+          ctx.moveTo(frameX, frameY + cornerSize);
+          ctx.lineTo(frameX, frameY);
+          ctx.lineTo(frameX + cornerSize, frameY);
+          ctx.stroke();
+          // Top-right
+          ctx.beginPath();
+          ctx.moveTo(frameX + frameW - cornerSize, frameY);
+          ctx.lineTo(frameX + frameW, frameY);
+          ctx.lineTo(frameX + frameW, frameY + cornerSize);
+          ctx.stroke();
+          // Bottom-left
+          ctx.beginPath();
+          ctx.moveTo(frameX, frameY + frameH - cornerSize);
+          ctx.lineTo(frameX, frameY + frameH);
+          ctx.lineTo(frameX + cornerSize, frameY + frameH);
+          ctx.stroke();
+          // Bottom-right
+          ctx.beginPath();
+          ctx.moveTo(frameX + frameW - cornerSize, frameY + frameH);
+          ctx.lineTo(frameX + frameW, frameY + frameH);
+          ctx.lineTo(frameX + frameW, frameY + frameH - cornerSize);
+          ctx.stroke();
+          
+          // Draw label above with arrow (black background)
+          ctx.fillStyle = '#000000';
+          ctx.beginPath();
+          ctx.moveTo(labelX, labelY + labelH);
+          ctx.lineTo(labelX + labelW / 2 - arrowSize, labelY + labelH);
+          ctx.lineTo(labelX + labelW / 2, labelY + labelH + arrowSize);
+          ctx.lineTo(labelX + labelW / 2 + arrowSize, labelY + labelH);
+          ctx.lineTo(labelX + labelW, labelY + labelH);
+          ctx.lineTo(labelX + labelW, labelY);
+          ctx.lineTo(labelX, labelY);
+          ctx.closePath();
+          ctx.fill();
+          break;
+        }
+        case 10: {
+          // None - no frame, just QR code (handled earlier)
+          break;
+        }
+        // Legacy string-based frame styles
         case 'rounded':
           const borderRadius = 12;
           ctx.beginPath();
@@ -893,37 +1173,131 @@ export const generateAdvancedQRCode = async (url, designOptions = {}, size = 512
     ctx.drawImage(qrCanvasFinal, qrStartX, qrStartY, size, size);
 
     // Draw frame text if provided
-    if (frame.text && frame.style !== 'none') {
-      let textY = qrStartY + size + framePadding + textHeight / 2;
-      let textStyle = 'bold 24px Arial, sans-serif';
+    // For numeric frames, always draw text (labels are always shown)
+    // For legacy frames, only draw if text is provided
+    if ((isNumericFrame && hasFrame) || (frame.text && hasFrame)) {
+      let textY, textX;
+      const fontSize = Math.max(16, Math.floor(size * 0.08));
+      let textStyle = `bold ${fontSize}px Arial, sans-serif`;
       
-      switch (frame.style) {
-        case 'handwritten':
-          // Handwritten style text
-          textStyle = 'italic 22px "Comic Sans MS", cursive';
-          ctx.fillStyle = frame.textColor;
-          break;
-        case 'thumbsup':
-          // Draw thumbs up icon before text
-          const thumbsX = canvas.width / 2 - 40;
-          drawThumbsUp(ctx, thumbsX, textY - 12, 24, frame.textColor);
-          break;
-        case 'ribbon':
-          // Text on ribbon banner
-          ctx.fillStyle = '#FFFFFF'; // White text on dark ribbon
-          break;
-        case 'laptop':
-          // Text on laptop screen (above QR code)
-          textY = qrStartY - 30;
-          break;
-        default:
-      ctx.fillStyle = frame.textColor;
+      if (isNumericFrame) {
+        // Handle numeric frame types (1-10)
+        // For numeric frames, always draw text if frame.text exists
+        const textToDraw = frame.text || 'SCAN ME'; // Default text if not provided
+        switch (frame.style) {
+          case 1: {
+            // Bottom Notch
+            const labelY = qrStartY + size + framePadding;
+            textY = labelY + labelHeight / 2;
+            textX = canvas.width / 2;
+            break;
+          }
+          case 2: {
+            // Bottom Arrow
+            const labelY = qrStartY + size + framePadding + 8;
+            textY = labelY + labelHeight / 2;
+            textX = canvas.width / 2;
+            break;
+          }
+          case 3: {
+            // Top Notch
+            const labelY = frameWidth;
+            textY = labelY + labelHeight / 2;
+            textX = canvas.width / 2;
+            break;
+          }
+          case 4: {
+            // Top Arrow
+            const labelY = frameWidth + 8;
+            textY = labelY + labelHeight / 2;
+            textX = canvas.width / 2;
+            break;
+          }
+          case 5: {
+            // Bottom Bar
+            const labelY = qrStartY + size + framePadding;
+            textY = labelY + labelHeight / 2;
+            textX = canvas.width / 2;
+            break;
+          }
+          case 6: {
+            // Top Bar
+            const labelY = frameWidth;
+            textY = labelY + labelHeight / 2;
+            textX = canvas.width / 2;
+            break;
+          }
+          case 8: {
+            // Right Arrow - rotated text
+            const labelWidth = size * 0.8;
+            const labelX = qrStartX + size + framePadding;
+            const labelY = frameWidth + framePadding;
+            textX = labelX + labelWidth / 2;
+            textY = labelY + size / 2;
+            // Text will be rotated
+            break;
+          }
+          case 9: {
+            // Brackets + Top
+            const labelY = frameWidth + 8;
+            textY = labelY + labelHeight / 2;
+            textX = canvas.width / 2;
+            break;
+          }
+          default:
+            textY = qrStartY + size + framePadding + textHeight / 2;
+            textX = canvas.width / 2;
+        }
+        
+        // Set text color (default to white for black label backgrounds)
+        ctx.fillStyle = frame.textColor || '#FFFFFF';
+        ctx.font = textStyle;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // For right arrow (case 8), rotate text
+        if (frame.style === 8) {
+          ctx.save();
+          ctx.translate(textX, textY);
+          ctx.rotate(Math.PI / 2);
+          ctx.fillText(textToDraw, 0, 0);
+          ctx.restore();
+        } else {
+          ctx.fillText(textToDraw, textX, textY);
+        }
+      } else {
+        // Legacy string-based frame styles
+        textY = qrStartY + size + framePadding + textHeight / 2;
+        textStyle = 'bold 24px Arial, sans-serif';
+        
+        switch (frame.style) {
+          case 'handwritten':
+            // Handwritten style text
+            textStyle = 'italic 22px "Comic Sans MS", cursive';
+            ctx.fillStyle = frame.textColor;
+            break;
+          case 'thumbsup':
+            // Draw thumbs up icon before text
+            const thumbsX = canvas.width / 2 - 40;
+            drawThumbsUp(ctx, thumbsX, textY - 12, 24, frame.textColor);
+            break;
+          case 'ribbon':
+            // Text on ribbon banner
+            ctx.fillStyle = '#FFFFFF'; // White text on dark ribbon
+            break;
+          case 'laptop':
+            // Text on laptop screen (above QR code)
+            textY = qrStartY - 30;
+            break;
+          default:
+            ctx.fillStyle = frame.textColor;
+        }
+        
+        ctx.font = textStyle;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(frame.text, canvas.width / 2, textY);
       }
-      
-      ctx.font = textStyle;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(frame.text, canvas.width / 2, textY);
     }
 
     return canvas.toDataURL('image/png');

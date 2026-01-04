@@ -19,7 +19,6 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import LoadingSpinner from '../../components/UI/LoadingSpinner'
-import PhygitalizedFooter from '../../components/Phygitalized/PhygitalizedFooter'
 
 const QRLinkPage = () => {
   const { user, updateUser } = useAuth()
@@ -449,7 +448,6 @@ const QRLinkPage = () => {
         </div>
       </div>
       </div>
-      <PhygitalizedFooter />
     </div>
   )
 }
