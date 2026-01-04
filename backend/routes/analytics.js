@@ -148,7 +148,10 @@ router.post('/video-view',
     body('projectId').optional().isString().withMessage('Project ID must be a string'),
     body('videoProgress').optional().isNumeric().withMessage('Video progress must be a number'),
     body('videoDuration').optional().isNumeric().withMessage('Video duration must be a number'),
-    body('videoIndex').optional().isInt({ min: 0 }).withMessage('Video index must be a non-negative integer'),
+    body('videoIndex').optional({ nullable: true, values: 'null' }).custom((value) => {
+      if (value === null || value === undefined || value === '') return true;
+      return Number.isInteger(Number(value)) && Number(value) >= 0;
+    }).withMessage('Video index must be a non-negative integer or null'),
     body('videoId').optional({ nullable: true, values: 'null' }).custom((value) => {
       if (value === null || value === undefined || value === '') return true;
       return typeof value === 'string';
@@ -1696,11 +1699,22 @@ router.post('/page-view-duration',
 router.post('/video-progress-milestone', 
   [
     body('userId').isString().withMessage('User ID is required'),
-    body('projectId').isString().withMessage('Project ID is required'),
+    body('projectId').optional().isString().withMessage('Project ID must be a string'),
     body('milestone').isIn(['25', '50', '75', '100']).withMessage('Milestone must be 25, 50, 75, or 100'),
-    body('progress').isNumeric().withMessage('Progress must be a number'),
-    body('duration').isNumeric().withMessage('Duration must be a number'),
-    body('videoIndex').optional().isInt({ min: 0 }).withMessage('Video index must be a non-negative integer'),
+    body('progress').custom((value) => {
+      if (value === null || value === undefined || value === '') return false;
+      const num = Number(value);
+      return !isNaN(num) && isFinite(num);
+    }).withMessage('Progress must be a valid number'),
+    body('duration').custom((value) => {
+      if (value === null || value === undefined || value === '') return false;
+      const num = Number(value);
+      return !isNaN(num) && isFinite(num);
+    }).withMessage('Duration must be a valid number'),
+    body('videoIndex').optional({ nullable: true, values: 'null' }).custom((value) => {
+      if (value === null || value === undefined || value === '') return true;
+      return Number.isInteger(Number(value)) && Number(value) >= 0;
+    }).withMessage('Video index must be a non-negative integer or null'),
     body('videoId').optional({ nullable: true, values: 'null' }).custom((value) => {
       if (value === null || value === undefined || value === '') return true;
       return typeof value === 'string';
