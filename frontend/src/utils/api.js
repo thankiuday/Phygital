@@ -132,6 +132,10 @@ api.interceptors.response.use(
     setLastSuccessTime(Date.now())
     setConnectionStatus('connected')
 
+    // Check if this is an analytics endpoint (should fail silently)
+    const url = error.config?.url || ''
+    const isAnalyticsEndpoint = url.includes('/analytics/') || url.includes('/qr/scan')
+
     // Handle authentication errors
     if (error.response.status === 401) {
       // Don't redirect for admin login routes - let AdminContext handle it
@@ -147,20 +151,44 @@ api.interceptors.response.use(
 
     // Handle server errors
     if (error.response.status >= 500) {
-      showErrorToast('Server error. Please try again later.')
+      // Don't show error toast for analytics endpoints (silent failures)
+      if (!isAnalyticsEndpoint) {
+        showErrorToast('Server error. Please try again later.')
+      } else {
+        // Log analytics errors silently (no user-facing toast)
+        if (import.meta.env.DEV) {
+          console.warn('Analytics tracking failed (silent):', url, error.response?.data?.message || error.message)
+        }
+      }
       return Promise.reject(error)
     }
 
     // Handle validation errors
     if (error.response.status === 400) {
       const message = error.response.data?.message || 'Invalid request'
-      toast.error(message)
+      // Don't show error toast for analytics endpoints
+      if (!isAnalyticsEndpoint) {
+        toast.error(message)
+      } else {
+        // Log analytics validation errors silently
+        if (import.meta.env.DEV) {
+          console.warn('Analytics validation error (silent):', url, message)
+        }
+      }
       return Promise.reject(error)
     }
 
     // Handle other errors
     const message = error.response.data?.message || 'An error occurred'
-    toast.error(message)
+    // Don't show error toast for analytics endpoints
+    if (!isAnalyticsEndpoint) {
+      toast.error(message)
+    } else {
+      // Log analytics errors silently
+      if (import.meta.env.DEV) {
+        console.warn('Analytics error (silent):', url, message)
+      }
+    }
     return Promise.reject(error)
   }
 )

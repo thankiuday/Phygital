@@ -22,7 +22,12 @@ import {
   Lock,
   AlertCircle,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  X,
+  Maximize2,
+  Minimize2,
+  Loader2,
+  ArrowLeft
 } from 'lucide-react'
 import LoadingSpinner from '../../components/UI/LoadingSpinner'
 import { phygitalizedAPI } from '../../utils/api'
@@ -67,6 +72,11 @@ const LandingPage = () => {
   // Multiple video support
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0)
   const [videos, setVideos] = useState([])
+  
+  // PDF modal state
+  const [selectedPdfUrl, setSelectedPdfUrl] = useState(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [isPdfLoading, setIsPdfLoading] = useState(true)
 
   useEffect(() => {
     const loadPageData = async () => {
@@ -837,6 +847,8 @@ const LandingPage = () => {
                     ref={videoRef}
                     src={videos[currentVideoIndex]?.url || videos[currentVideoIndex]?.fileUrl}
                     controls
+                    controlsList="nodownload"
+                    onContextMenu={(e) => e.preventDefault()}
                     className="w-full rounded-lg"
                     key={currentVideoIndex} // Force re-render when video changes
                   />
@@ -878,22 +890,20 @@ const LandingPage = () => {
                   <FileText className="w-6 h-6 mr-2" style={{ color: 'var(--theme-primary, #A855F7)' }} />
                   <h2 className="text-xl font-semibold text-slate-100">Document</h2>
                 </div>
-                <a
-                  href={pageData.fileUrl}
-                  download="document.pdf"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onContextMenu={(e) => e.preventDefault()}
                   className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-neon-pink to-neon-purple text-white rounded-lg hover:shadow-glow-lg transition-all"
                   onClick={() => {
                     if (userIdRef.current && projectIdRef.current) {
-                      trackDocumentView(userIdRef.current, projectIdRef.current, pageData.fileUrl, 'download')
+                      trackDocumentView(userIdRef.current, projectIdRef.current, pageData.fileUrl, 'view')
                     }
+                    setSelectedPdfUrl(pageData.fileUrl)
                   }}
                 >
                   <FileText className="w-5 h-5 mr-2" />
-                  Download Document
-                  <ExternalLink className="w-4 h-4 ml-2" />
-                </a>
+                  View Document
+                </button>
               </div>
             )}
             
@@ -904,22 +914,20 @@ const LandingPage = () => {
                   <FileText className="w-6 h-6 mr-2" style={{ color: 'var(--theme-primary, #A855F7)' }} />
                   <h2 className="text-xl font-semibold text-slate-100">File</h2>
                 </div>
-                <a
-                  href={pageData.fileUrl}
-                  download="file.pdf"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onContextMenu={(e) => e.preventDefault()}
                   className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-neon-pink to-neon-purple text-white rounded-lg hover:shadow-glow-lg transition-all"
                   onClick={() => {
                     if (userIdRef.current && projectIdRef.current) {
-                      trackDocumentView(userIdRef.current, projectIdRef.current, pageData.fileUrl, 'download')
+                      trackDocumentView(userIdRef.current, projectIdRef.current, pageData.fileUrl, 'view')
                     }
+                    setSelectedPdfUrl(pageData.fileUrl)
                   }}
                 >
                   <FileText className="w-5 h-5 mr-2" />
-                  Download File
-                  <ExternalLink className="w-4 h-4 ml-2" />
-                </a>
+                  View File
+                </button>
               </div>
             )}
 
@@ -1079,6 +1087,8 @@ const LandingPage = () => {
                     ref={videoRefPdfVideo}
                     src={videos[currentVideoIndex]?.url || videos[currentVideoIndex]?.fileUrl}
                     controls
+                    controlsList="nodownload"
+                    onContextMenu={(e) => e.preventDefault()}
                     className="w-full rounded-lg"
                     key={currentVideoIndex} // Force re-render when video changes
                   />
@@ -1274,18 +1284,17 @@ const LandingPage = () => {
                   {pageData.documents && pageData.documents.length > 0 && pageData.documents.map((document, index) => {
                     const fileName = document.originalName || document.filename || `document-${index + 1}.pdf`
                     return (
-                      <a
+                      <button
                         key={index}
-                        href={document.url}
-                        download={fileName}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        type="button"
+                        onContextMenu={(e) => e.preventDefault()}
                         onClick={() => {
                           if (userIdRef.current && projectIdRef.current) {
-                            trackDocumentView(userIdRef.current, projectIdRef.current, document.url, 'download')
+                            trackDocumentView(userIdRef.current, projectIdRef.current, document.url, 'view')
                           }
+                          setSelectedPdfUrl(document.url)
                         }}
-                        className="block w-full px-4 py-3 bg-slate-800/50 rounded-lg border border-slate-600/30 hover:border-neon-orange/50 hover:bg-slate-800/70 transition-all"
+                        className="block w-full px-4 py-3 bg-slate-800/50 rounded-lg border border-slate-600/30 hover:border-neon-orange/50 hover:bg-slate-800/70 transition-all text-left"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center flex-1 min-w-0">
@@ -1301,29 +1310,26 @@ const LandingPage = () => {
                               )}
                             </div>
                           </div>
-                        <ExternalLink className="w-4 h-4 text-slate-400 ml-3 flex-shrink-0" />
-                      </div>
-                    </a>
+                        </div>
+                      </button>
                     )
                   })}
                   {/* Fallback: Display single PDF URL if no documents array */}
                   {(!pageData.documents || pageData.documents.length === 0) && pageData.pdfUrl && (
-                    <a
-                      href={pageData.pdfUrl}
-                      download="document.pdf"
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
+                      onContextMenu={(e) => e.preventDefault()}
                       onClick={() => {
                         if (userIdRef.current && projectIdRef.current) {
-                          trackDocumentView(userIdRef.current, projectIdRef.current, pageData.pdfUrl, 'download')
+                          trackDocumentView(userIdRef.current, projectIdRef.current, pageData.pdfUrl, 'view')
                         }
+                        setSelectedPdfUrl(pageData.pdfUrl)
                       }}
                       className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-neon-orange to-neon-pink text-white rounded-lg hover:shadow-glow-lg transition-all"
                     >
                       <FileText className="w-5 h-5 mr-2" />
-                      Download PDF
-                      <ExternalLink className="w-4 h-4 ml-2" />
-                    </a>
+                      View PDF
+                    </button>
                   )}
                 </div>
               </div>
@@ -1343,6 +1349,8 @@ const LandingPage = () => {
                 <video
                   src={pageData.videoUrl}
                   controls
+                  controlsList="nodownload"
+                  onContextMenu={(e) => e.preventDefault()}
                   className="w-full rounded-lg"
                 />
               </div>
@@ -1450,6 +1458,124 @@ const LandingPage = () => {
         )}
         </div>
         <PhygitalizedFooter />
+        
+        {/* PDF Modal - Enhanced Professional UI */}
+        {selectedPdfUrl && (
+          <div 
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-md transition-opacity duration-300 animate-fade-in-up"
+            onClick={() => {
+              setSelectedPdfUrl(null);
+              setIsFullscreen(false);
+              setIsPdfLoading(true);
+            }}
+          >
+            <div 
+              className={`relative flex flex-col bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-xl md:rounded-2xl shadow-2xl border border-slate-600/30 transition-all duration-300 ${
+                isFullscreen 
+                  ? 'w-full h-full rounded-none' 
+                  : 'w-full h-full max-w-7xl mx-2 sm:mx-4 my-2 sm:my-4'
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Enhanced Modal Header */}
+              <div className="flex items-center justify-between p-3 sm:p-4 md:p-5 border-b border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-sm">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  {/* Back Button */}
+                  <button
+                    onClick={() => {
+                      setSelectedPdfUrl(null);
+                      setIsFullscreen(false);
+                      setIsPdfLoading(true);
+                    }}
+                    className="p-2 sm:p-2.5 rounded-lg bg-slate-700/50 hover:bg-slate-700/70 border border-slate-600/30 hover:border-blue-500/50 transition-all duration-200 text-slate-300 hover:text-blue-400 group"
+                    aria-label="Go back"
+                  >
+                    <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" />
+                  </button>
+                  
+                  <div className="p-2 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-lg border border-purple-500/30">
+                    <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-100">
+                      Document Viewer
+                    </h3>
+                    <p className="text-xs text-slate-400 hidden sm:block">
+                      View your document
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  {/* Fullscreen Toggle Button */}
+                  <button
+                    onClick={() => setIsFullscreen(!isFullscreen)}
+                    className="p-2 sm:p-2.5 rounded-lg bg-slate-700/50 hover:bg-slate-700/70 border border-slate-600/30 hover:border-purple-500/50 transition-all duration-200 text-slate-300 hover:text-purple-400 group"
+                    aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                  >
+                    {isFullscreen ? (
+                      <Minimize2 className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" />
+                    ) : (
+                      <Maximize2 className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" />
+                    )}
+                  </button>
+                  
+                  {/* Close Button */}
+                  <button
+                    onClick={() => {
+                      setSelectedPdfUrl(null);
+                      setIsFullscreen(false);
+                      setIsPdfLoading(true);
+                    }}
+                    className="p-2 sm:p-2.5 rounded-lg bg-slate-700/50 hover:bg-red-500/20 border border-slate-600/30 hover:border-red-500/50 transition-all duration-200 text-slate-300 hover:text-red-400 group"
+                    aria-label="Close PDF viewer"
+                  >
+                    <X className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" />
+                  </button>
+                </div>
+              </div>
+              
+              {/* PDF Container with Loading State */}
+              <div className="relative flex-1 overflow-hidden bg-slate-900/50">
+                {/* Loading Overlay */}
+                {isPdfLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm z-10">
+                    <div className="flex flex-col items-center gap-4">
+                      <Loader2 className="w-8 h-8 sm:w-10 sm:h-10 text-purple-400 animate-spin" />
+                      <p className="text-sm sm:text-base text-slate-300 font-medium">
+                        Loading document...
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* PDF iframe */}
+                <iframe
+                  src={`${selectedPdfUrl}#toolbar=0&navpanes=0&scrollbar=0`}
+                  className="w-full h-full border-0 bg-white"
+                  title="PDF Viewer"
+                  onContextMenu={(e) => e.preventDefault()}
+                  onLoad={() => {
+                    setIsPdfLoading(false);
+                  }}
+                  style={{ minHeight: '400px' }}
+                />
+              </div>
+              
+              {/* Footer Info Bar */}
+              <div className="flex items-center justify-between p-2 sm:p-3 border-t border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-sm">
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <FileText className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">PDF Document</span>
+                  <span className="sm:hidden">PDF</span>
+                </div>
+                <div className="text-xs text-slate-500 hidden sm:block">
+                  Right-click disabled for security
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </ThemeRenderer>
   )

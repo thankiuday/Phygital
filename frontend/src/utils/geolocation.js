@@ -69,51 +69,31 @@ export const getUserLocation = () => {
  */
 export const reverseGeocode = async (latitude, longitude, retries = 2) => {
   try {
-    // Using OpenStreetMap's Nominatim API (free, but rate-limited)
+    // Use backend proxy endpoint to avoid CORS issues
+    const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`,
-      {
-        headers: {
-          'User-Agent': 'PhygitalARApp/1.0'
-        }
-      }
+      `${apiBaseUrl}/analytics/reverse-geocode?lat=${latitude}&lon=${longitude}`
     );
 
     if (!response.ok) {
       throw new Error(`Geocoding failed with status: ${response.status}`);
     }
 
-    const data = await response.json();
+    const result = await response.json();
     
-    // Extract village/area with priority order: village > suburb > neighbourhood > hamlet
-    const village = data.address?.village || 
-                   data.address?.suburb || 
-                   data.address?.neighbourhood || 
-                   data.address?.hamlet || 
-                   null;
+    if (result.status !== 'success' || !result.data) {
+      throw new Error('Invalid response from geocoding service');
+    }
+
+    const data = result.data;
     
-    // Extract city with fallbacks
-    const city = data.address?.city || 
-                data.address?.town || 
-                data.address?.municipality ||
-                'Anonymous';
-    
-    // Extract state/region
-    const state = data.address?.state || 
-                 data.address?.region || 
-                 data.address?.province ||
-                 '';
-    
-    // Extract country
-    const country = data.address?.country || 'Anonymous';
-    
-    console.log('🌍 Geocoding result:', { village, city, state, country });
+    console.log('🌍 Geocoding result:', { village: data.village, city: data.city, state: data.state, country: data.country });
     
     return {
-      village,
-      city,
-      state,
-      country
+      village: data.village,
+      city: data.city,
+      state: data.state,
+      country: data.country
     };
   } catch (error) {
     console.warn('⚠️ Reverse geocoding failed:', error);

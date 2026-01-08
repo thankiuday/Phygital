@@ -3,9 +3,9 @@
  * Main AR experience component with separated concerns
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { X, Settings } from 'lucide-react';
+import { X, Settings, FileText, Maximize2, Minimize2, Loader2, ArrowLeft } from 'lucide-react';
 import { analyticsAPI } from '../../utils/api';
 
 // Hooks
@@ -87,6 +87,11 @@ const ARExperiencePage = () => {
   // Video controls overlay state
   const [showVideoControls, setShowVideoControls] = React.useState(true);
   const permissionPromptedRef = React.useRef(false);
+  
+  // PDF modal state
+  const [selectedPdfUrl, setSelectedPdfUrl] = React.useState(null);
+  const [isFullscreen, setIsFullscreen] = React.useState(false);
+  const [isPdfLoading, setIsPdfLoading] = React.useState(true);
 
   const attemptCameraPermission = React.useCallback(async () => {
     if (!navigator?.mediaDevices?.getUserMedia) {
@@ -816,39 +821,6 @@ const ARExperiencePage = () => {
                           {videoMuted ? 'Unmute' : 'Mute'}
                         </span>
                       </div>
-                      
-                      <button
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          try {
-                            // Fetch the video as a blob to avoid redirect issues
-                            const response = await fetch(projectData.videoUrl);
-                            const blob = await response.blob();
-                            
-                            // Create object URL and trigger download
-                            const blobUrl = URL.createObjectURL(blob);
-                            const link = document.createElement('a');
-                            link.href = blobUrl;
-                            link.download = `ar-video-${projectId || userId}.mp4`;
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                            
-                            // Clean up the object URL
-                            setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
-                          } catch (error) {
-                            console.error('Download failed:', error);
-                            // Fallback: open in new tab
-                            window.open(projectData.videoUrl, '_blank');
-                          }
-                        }}
-                        className="p-2 sm:p-3 rounded-full bg-black/50 hover:bg-black/70 active:bg-black/80 transition-colors touch-manipulation min-h-[44px] min-w-[44px] flex items-center justify-center"
-                        title="Download Video"
-                      >
-                        <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
-                        </svg>
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -1082,25 +1054,27 @@ const ARExperiencePage = () => {
                 const isImage = docUrl.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/);
                 const fileName = docUrl.split('/').pop() || `Document ${index + 1}`;
                 
-                const handleDocumentClick = (e, action = 'view') => {
-                  // Track document view/download
-                  trackAnalytics(action === 'download' ? 'documentDownload' : 'documentView', {
+                const handleDocumentClick = (e) => {
+                  e.preventDefault();
+                  // Track document view
+                  trackAnalytics('documentView', {
                     documentUrl: docUrl
-                  }).catch(err => console.error(`Failed to track document ${action}:`, err));
+                  }).catch(err => console.error('Failed to track document view:', err));
+                  
+                  // Open PDF in modal if it's a PDF, otherwise open in new tab
+                  if (isPdf) {
+                    setSelectedPdfUrl(docUrl);
+                  } else {
+                    window.open(docUrl, '_blank', 'noopener,noreferrer');
+                  }
                 };
                 
                 return (
-                  <a
+                  <button
                     key={index}
-                    href={docUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => handleDocumentClick(e, 'view')}
-                    onContextMenu={(e) => {
-                      // Track download on right-click (common way to download)
-                      handleDocumentClick(e, 'download');
-                    }}
-                    download={isPdf || isImage ? fileName : undefined}
+                    type="button"
+                    onClick={(e) => handleDocumentClick(e)}
+                    onContextMenu={(e) => e.preventDefault()}
                     className="border border-slate-600/30 rounded-lg md:rounded-xl p-4 md:p-5 flex flex-col items-center justify-center space-y-2 md:space-y-3 transition-all duration-200 touch-manipulation backdrop-blur-md group"
                     style={{ backgroundColor: 'var(--theme-card, rgba(30, 41, 59, 0.8))' }}
                   >
@@ -1122,7 +1096,7 @@ const ARExperiencePage = () => {
                     <span className="text-xs md:text-sm font-medium text-slate-100 text-center truncate w-full px-2">
                       {fileName.length > 20 ? `${fileName.substring(0, 20)}...` : fileName}
                     </span>
-                  </a>
+                  </button>
                 );
               })}
             </div>
@@ -1237,6 +1211,124 @@ const ARExperiencePage = () => {
         debugMessages={debugMessages}
       />
       <PhygitalizedFooter />
+      
+      {/* PDF Modal - Enhanced Professional UI */}
+      {selectedPdfUrl && (
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-md transition-opacity duration-300 animate-fade-in-up"
+          onClick={() => {
+            setSelectedPdfUrl(null);
+            setIsFullscreen(false);
+            setIsPdfLoading(true);
+          }}
+        >
+          <div 
+            className={`relative flex flex-col bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-xl md:rounded-2xl shadow-2xl border border-slate-600/30 transition-all duration-300 ${
+              isFullscreen 
+                ? 'w-full h-full rounded-none' 
+                : 'w-full h-full max-w-7xl mx-2 sm:mx-4 my-2 sm:my-4'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Enhanced Modal Header */}
+            <div className="flex items-center justify-between p-3 sm:p-4 md:p-5 border-b border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-sm">
+              <div className="flex items-center gap-2 sm:gap-3">
+                {/* Back Button */}
+                <button
+                  onClick={() => {
+                    setSelectedPdfUrl(null);
+                    setIsFullscreen(false);
+                    setIsPdfLoading(true);
+                  }}
+                  className="p-2 sm:p-2.5 rounded-lg bg-slate-700/50 hover:bg-slate-700/70 border border-slate-600/30 hover:border-blue-500/50 transition-all duration-200 text-slate-300 hover:text-blue-400 group"
+                  aria-label="Go back"
+                >
+                  <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" />
+                </button>
+                
+                <div className="p-2 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-lg border border-purple-500/30">
+                  <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-100">
+                    Document Viewer
+                  </h3>
+                  <p className="text-xs text-slate-400 hidden sm:block">
+                    View your document
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {/* Fullscreen Toggle Button */}
+                <button
+                  onClick={() => setIsFullscreen(!isFullscreen)}
+                  className="p-2 sm:p-2.5 rounded-lg bg-slate-700/50 hover:bg-slate-700/70 border border-slate-600/30 hover:border-purple-500/50 transition-all duration-200 text-slate-300 hover:text-purple-400 group"
+                  aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                >
+                  {isFullscreen ? (
+                    <Minimize2 className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" />
+                  ) : (
+                    <Maximize2 className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" />
+                  )}
+                </button>
+                
+                {/* Close Button */}
+                <button
+                  onClick={() => {
+                    setSelectedPdfUrl(null);
+                    setIsFullscreen(false);
+                    setIsPdfLoading(true);
+                  }}
+                  className="p-2 sm:p-2.5 rounded-lg bg-slate-700/50 hover:bg-red-500/20 border border-slate-600/30 hover:border-red-500/50 transition-all duration-200 text-slate-300 hover:text-red-400 group"
+                  aria-label="Close PDF viewer"
+                >
+                  <X className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" />
+                </button>
+              </div>
+            </div>
+            
+            {/* PDF Container with Loading State */}
+            <div className="relative flex-1 overflow-hidden bg-slate-900/50">
+              {/* Loading Overlay */}
+              {isPdfLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm z-10">
+                  <div className="flex flex-col items-center gap-4">
+                    <Loader2 className="w-8 h-8 sm:w-10 sm:h-10 text-purple-400 animate-spin" />
+                    <p className="text-sm sm:text-base text-slate-300 font-medium">
+                      Loading document...
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              {/* PDF iframe */}
+              <iframe
+                src={`${selectedPdfUrl}#toolbar=0&navpanes=0&scrollbar=0`}
+                className="w-full h-full border-0 bg-white"
+                title="PDF Viewer"
+                onContextMenu={(e) => e.preventDefault()}
+                onLoad={() => {
+                  setIsPdfLoading(false);
+                }}
+                style={{ minHeight: '400px' }}
+              />
+            </div>
+            
+            {/* Footer Info Bar */}
+            <div className="flex items-center justify-between p-2 sm:p-3 border-t border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-sm">
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <FileText className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">PDF Document</span>
+                <span className="sm:hidden">PDF</span>
+              </div>
+              <div className="text-xs text-slate-500 hidden sm:block">
+                Right-click disabled for security
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </ThemeRenderer>
   );

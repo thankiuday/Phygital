@@ -349,12 +349,22 @@ analyticsSchema.statics.trackEvent = async function(userId, eventType, eventData
       globalUpdateObj.$set = { [globalTimestampField]: new Date() };
     }
     
-    await User.findByIdAndUpdate(userId, globalUpdateObj);
+    // Update global user analytics (with error handling)
+    try {
+      await User.findByIdAndUpdate(userId, globalUpdateObj);
+    } catch (updateError) {
+      // Log but don't fail - global analytics update is less critical
+      console.warn('⚠️ Failed to update global user analytics (non-blocking):', updateError.message);
+    }
     
     return analytics;
   } catch (error) {
     console.error('Track event error:', error);
-    throw new Error('Failed to track analytics event');
+    // Provide more detailed error information in development
+    const errorDetails = process.env.NODE_ENV === 'development' 
+      ? { message: error.message, stack: error.stack }
+      : { message: 'Failed to track analytics event' };
+    throw new Error(`Failed to track analytics event: ${errorDetails.message}`);
   }
 };
 

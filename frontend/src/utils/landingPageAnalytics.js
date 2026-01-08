@@ -18,7 +18,7 @@ export const trackLandingPageScan = async (userId, projectId) => {
       return
     }
 
-    // Capture location for scan event
+    // Capture location for scan event (non-blocking, silent failures)
     let locationData = null
     try {
       console.log('📍 Capturing location for landing page scan...')
@@ -27,6 +27,7 @@ export const trackLandingPageScan = async (userId, projectId) => {
         console.log('✅ Location captured for scan:', locationData)
       }
     } catch (locationError) {
+      // Silently fail - location is optional
       console.log('ℹ️ Location not available for scan:', locationError.message)
     }
 
@@ -34,14 +35,23 @@ export const trackLandingPageScan = async (userId, projectId) => {
     const scanData = {
       scanType: 'landing_page',
       platform: navigator.userAgent,
-      source: 'phygitalized_landing_page'
+      source: 'phygitalized_landing_page',
+      location: locationData
     }
 
-    // Track scan event
-    await analyticsAPI.trackScan(userId, scanData, projectId)
-    console.log('✅ Landing page scan tracked:', { userId, projectId })
+    // Track scan event (silent failure - don't show errors to users)
+    try {
+      await analyticsAPI.trackScan(userId, scanData, projectId)
+      console.log('✅ Landing page scan tracked:', { userId, projectId })
+    } catch (trackError) {
+      // Silently handle analytics errors - don't break user experience
+      console.warn('⚠️ Analytics tracking failed (silent):', trackError.message)
+      // Mark as failed so it can be retried later
+      markAnalyticsFailed('scan', userId, projectId)
+    }
   } catch (error) {
-    console.error('❌ Failed to track landing page scan:', error)
+    // Silently handle all errors - analytics should never break the user experience
+    console.warn('⚠️ Landing page scan tracking error (silent):', error.message)
     // Mark as failed so it can be retried
     markAnalyticsFailed('scan', userId, projectId)
   }
@@ -52,7 +62,7 @@ export const trackLandingPageScan = async (userId, projectId) => {
  */
 export const trackLandingPageView = async (userId, projectId) => {
   try {
-    // Capture location for landing page view
+    // Capture location for landing page view (non-blocking, silent failures)
     let locationData = null
     try {
       console.log('📍 Capturing location for landing page view...')
@@ -61,13 +71,20 @@ export const trackLandingPageView = async (userId, projectId) => {
         console.log('✅ Location captured for landing page:', locationData)
       }
     } catch (locationError) {
+      // Silently fail - location is optional
       console.log('ℹ️ Location not available for landing page view:', locationError.message)
     }
 
-    // Track page view with location data
-    await analyticsAPI.trackPageView(userId, projectId, locationData)
+    // Track page view with location data (silent failure)
+    try {
+      await analyticsAPI.trackPageView(userId, projectId, locationData)
+    } catch (trackError) {
+      // Silently handle analytics errors
+      console.warn('⚠️ Page view tracking failed (silent):', trackError.message)
+    }
   } catch (error) {
-    console.error('Failed to track page view:', error)
+    // Silently handle all errors
+    console.warn('⚠️ Landing page view tracking error (silent):', error.message)
   }
 }
 
