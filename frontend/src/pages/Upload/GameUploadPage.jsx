@@ -179,7 +179,7 @@ const GameUploadPage = () => {
           if (errorMessage.includes('Cannot upgrade from') && errorMessage.includes('to qr-links-ar-video')) {
             toast.success('🎉 Campaign is already at QR Links AR Video!');
           } else {
-            toast.error('Failed to upgrade campaign type. Please refresh the page.');
+          toast.error('Failed to upgrade campaign type. Please refresh the page.');
           }
         }
       }

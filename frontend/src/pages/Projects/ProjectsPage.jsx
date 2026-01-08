@@ -1877,8 +1877,6 @@ const ProjectsPage = () => {
       
       const response = await uploadAPI.toggleProjectStatus(projectId, newStatus)
       
-      console.log('Toggle response:', response.data)
-      
       // Check for both success formats
       if (response.data.success || response.data.status === 'success') {
         toast.success(`Campaign ${newStatus ? 'activated' : 'paused'} successfully`)
@@ -1930,8 +1928,6 @@ const ProjectsPage = () => {
       setTogglingTargetImage(prev => ({ ...prev, [projectId]: true }))
       
       const response = await uploadAPI.toggleTargetImageRequirement(projectId, newRequirement)
-      
-      console.log('Toggle target image response:', response.data)
       
       // Check for both success formats
       if (response.data.success || response.data.status === 'success') {
@@ -3482,7 +3478,13 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
   const campaignType = project?.campaignType || ''
   const [activeTab, setActiveTab] = useState('edit')
 
-  const setField = (patch) => onChange(prev => ({ ...prev, ...patch }))
+
+  const setField = (patch) => {
+    onChange(prev => {
+      const updated = { ...prev, ...patch }
+      return updated
+    })
+  }
 
   const updateLink = (idx, patch) => {
     const next = [...(formData.links || [])]
@@ -3580,18 +3582,23 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
       return
     }
 
-    setField({ pdfFiles: [...(formData.pdfFiles || []), ...validFiles] })
+    const newPdfFiles = [...(formData.pdfFiles || []), ...validFiles]
+    
+    setField({ pdfFiles: newPdfFiles })
+    
     toast.success(`${validFiles.length} PDF file(s) added`)
   }, [formData, onChange, campaignType, onUpgradeRequest, project])
 
   // Handle video drop
   const onVideoDrop = useCallback((acceptedFiles) => {
-    if (acceptedFiles.length === 0) return
+    if (acceptedFiles.length === 0) {
+      return
+    }
 
     // Check if upgrade is needed
     if (campaignType === 'qr-link' || campaignType === 'qr-links') {
       if (onUpgradeRequest) {
-        const upgradeType = campaignType === 'qr-link' ? 'qr-links-video' : 'qr-links-video'
+        const upgradeType = campaignType === 'qr-link' ? 'qr-links-video' : 'qr-links-video';
         onUpgradeRequest(project, upgradeType)
         return
       }
@@ -3605,11 +3612,8 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
       const maxSize = 50 * 1024 * 1024 // 50MB limit
       const existingCount = (prevFormData.existingVideos || []).length
       const newFilesCount = (prevFormData.videos || []).length
-      const currentTotal = existingCount + newFilesCount
-      
+      const currentTotal = existingCount + newFilesCount;
       acceptedFiles.forEach(file => {
-        console.log('🔍 Validating video file:', { name: file.name, type: file.type, size: file.size })
-        
         // More lenient validation: check extension first, then MIME type
         const fileName = file.name.toLowerCase()
         const isVideoByExtension = /\.(mp4|mov|avi|webm|mkv|flv|wmv|m4v|mpg|mpeg|3gp)$/i.test(fileName)
@@ -3618,8 +3622,6 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
         // Accept if either extension or MIME type indicates video
         // If MIME type is empty/missing, rely on extension
         const isVideo = isVideoByExtension || (file.type && isVideoByType) || (!file.type && isVideoByExtension)
-        
-        console.log('📋 Video validation:', { isVideoByExtension, isVideoByType, isVideo, fileName, fileType: file.type })
         
         if (!isVideo) {
           console.error('❌ Video validation failed for:', file.name)
@@ -3648,51 +3650,223 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
         }
         
         validFiles.push(file)
-      })
-
+      });
+      
       if (errors.length > 0) {
-        console.error('❌ Video validation errors:', errors)
-        errors.forEach(error => toast.error(error))
+        errors.forEach(error => toast.error(error));
         return prevFormData // Return unchanged state on error
       }
 
       if (validFiles.length === 0) {
-        console.warn('⚠️ No valid video files after validation')
         return prevFormData // Return unchanged state if no valid files
       }
 
       // Update videos array
-      console.log('✅ Adding video files:', validFiles.map(f => f.name))
+      const newVideos = [...(prevFormData.videos || []), ...validFiles];
       toast.success(`${validFiles.length} video file(s) added`)
       return {
         ...prevFormData,
-        videos: [...(prevFormData.videos || []), ...validFiles]
+        videos: newVideos
       }
     })
-  }, [campaignType, onUpgradeRequest, onChange, project])
+  }, [campaignType, onUpgradeRequest, onChange, project, formData])
 
   // Refs for file inputs (separate from dropzone inputs for "click to browse" buttons)
   const pdfInputRef = useRef(null)
   const videoInputRef = useRef(null)
+  
+  // Refs for dropzone inputs (used by dropzone's open() function)
+  const pdfDropzoneInputRef = useRef(null)
+  const videoDropzoneInputRef = useRef(null)
+  
+  // Track if we're currently processing files to avoid duplicate processing
+  const processingPdfRef = useRef(false)
+  const processingVideoRef = useRef(false)
 
   // Functions to open file dialogs
   const openPdfDialog = () => {
-    // Try dropzone's open function first (more reliable)
-    if (openPdfDropzone) {
-      openPdfDropzone()
+    // Click the dropzone input directly - this is more reliable than open() in some browsers
+    // The dropzone input is the actual file input that will trigger the dialog
+    if (pdfDropzoneInputRef.current) {
+      const dropzoneInput = pdfDropzoneInputRef.current
+      
+      // Ensure input is enabled and accessible
+      dropzoneInput.disabled = false
+      dropzoneInput.style.pointerEvents = 'auto'
+      dropzoneInput.style.opacity = '0'
+      dropzoneInput.style.position = 'fixed' // Use fixed instead of absolute for better compatibility
+      dropzoneInput.style.width = '1px'
+      dropzoneInput.style.height = '1px'
+      dropzoneInput.style.top = '0'
+      dropzoneInput.style.left = '0'
+      dropzoneInput.style.zIndex = '9999'
+      dropzoneInput.style.visibility = 'visible'
+      // Use requestAnimationFrame to ensure DOM is ready, then click
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          if (dropzoneInput && dropzoneInput.isConnected) {
+            try {
+              // Focus first, then click
+              dropzoneInput.focus()
+              dropzoneInput.click()
+              // Check after a short delay if dialog opened
+              setTimeout(() => {
+              }, 200)
+            } catch (error) {
+              // Fallback to dropzone's open() function
+              if (openPdfDropzone) {
+                try {
+                  openPdfDropzone()
+                } catch (openError) {
+                }
+              }
+            }
+          } else {
+            // Fallback to dropzone's open() function
+            if (openPdfDropzone) {
+              try {
+                openPdfDropzone()
+              } catch (openError) {
+              }
+            }
+          }
+        }, 0)
+      })
+    } else if (openPdfDropzone) {
+      // Fallback: use dropzone's open() function
+      try {
+        openPdfDropzone()
+      } catch (error) {
+        // Final fallback: click separate input
+        if (pdfInputRef.current) {
+          pdfInputRef.current.disabled = false
+          pdfInputRef.current.style.pointerEvents = 'auto'
+          pdfInputRef.current.style.opacity = '0'
+          pdfInputRef.current.style.position = 'fixed'
+          pdfInputRef.current.style.width = '1px'
+          pdfInputRef.current.style.height = '1px'
+          pdfInputRef.current.style.top = '0'
+          pdfInputRef.current.style.left = '0'
+          pdfInputRef.current.style.zIndex = '9999'
+          setTimeout(() => {
+            if (pdfInputRef.current) {
+              pdfInputRef.current.focus()
+              pdfInputRef.current.click()
+            }
+          }, 0)
+        }
+      }
     } else if (pdfInputRef.current) {
-      // Fallback to direct input click
-      pdfInputRef.current.click()
+      // Final fallback: click separate input
+      pdfInputRef.current.disabled = false
+      pdfInputRef.current.style.pointerEvents = 'auto'
+      pdfInputRef.current.style.opacity = '0'
+      pdfInputRef.current.style.position = 'fixed'
+      pdfInputRef.current.style.width = '1px'
+      pdfInputRef.current.style.height = '1px'
+      pdfInputRef.current.style.top = '0'
+      pdfInputRef.current.style.left = '0'
+      pdfInputRef.current.style.zIndex = '9999'
+      setTimeout(() => {
+        if (pdfInputRef.current) {
+          pdfInputRef.current.focus()
+          pdfInputRef.current.click()
+        }
+      }, 0)
+    } else {
     }
   }
 
   const openVideoDialog = () => {
-    // Try dropzone's open function first (more reliable)
-    if (openVideoDropzone) {
-      openVideoDropzone()
+    // Click the dropzone input directly - this is more reliable than open() in some browsers
+    // The dropzone input is the actual file input that will trigger the dialog
+    if (videoDropzoneInputRef.current) {
+      const dropzoneInput = videoDropzoneInputRef.current
+      
+      // Ensure input is enabled and accessible
+      dropzoneInput.disabled = false
+      dropzoneInput.style.pointerEvents = 'auto'
+      dropzoneInput.style.opacity = '0'
+      dropzoneInput.style.position = 'fixed' // Use fixed instead of absolute for better compatibility
+      dropzoneInput.style.width = '1px'
+      dropzoneInput.style.height = '1px'
+      dropzoneInput.style.top = '0'
+      dropzoneInput.style.left = '0'
+      dropzoneInput.style.zIndex = '9999'
+      dropzoneInput.style.visibility = 'visible'
+      // Use requestAnimationFrame to ensure DOM is ready, then click
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          if (dropzoneInput && dropzoneInput.isConnected) {
+            try {
+              // Focus first, then click
+              dropzoneInput.focus()
+              dropzoneInput.click()
+              // Check after a short delay if dialog opened
+              setTimeout(() => {
+              }, 200)
+            } catch (error) {
+              // Fallback to dropzone's open() function
+              if (openVideoDropzone) {
+                try {
+                  openVideoDropzone()
+                } catch (openError) {
+                }
+              }
+            }
+          } else {
+            // Fallback to dropzone's open() function
+            if (openVideoDropzone) {
+              try {
+                openVideoDropzone()
+              } catch (openError) {
+              }
+            }
+          }
+        }, 0)
+      })
+    } else if (openVideoDropzone) {
+      // Fallback: use dropzone's open() function
+      try {
+        openVideoDropzone()
+      } catch (error) {
+        // Final fallback: click separate input
+        if (videoInputRef.current) {
+          videoInputRef.current.disabled = false
+          videoInputRef.current.style.pointerEvents = 'auto'
+          videoInputRef.current.style.opacity = '0'
+          videoInputRef.current.style.position = 'fixed'
+          videoInputRef.current.style.width = '1px'
+          videoInputRef.current.style.height = '1px'
+          videoInputRef.current.style.top = '0'
+          videoInputRef.current.style.left = '0'
+          videoInputRef.current.style.zIndex = '9999'
+          setTimeout(() => {
+            if (videoInputRef.current) {
+              videoInputRef.current.focus()
+              videoInputRef.current.click()
+            }
+          }, 0)
+        }
+      }
     } else if (videoInputRef.current) {
-      // Fallback to direct input click
-      videoInputRef.current.click()
+      // Final fallback: click separate input
+      videoInputRef.current.disabled = false
+      videoInputRef.current.style.pointerEvents = 'auto'
+      videoInputRef.current.style.opacity = '0'
+      videoInputRef.current.style.position = 'fixed'
+      videoInputRef.current.style.width = '1px'
+      videoInputRef.current.style.height = '1px'
+      videoInputRef.current.style.top = '0'
+      videoInputRef.current.style.left = '0'
+      videoInputRef.current.style.zIndex = '9999'
+      setTimeout(() => {
+        if (videoInputRef.current) {
+          videoInputRef.current.focus()
+          videoInputRef.current.click()
+        }
+      }, 0)
+    } else {
     }
   }
 
@@ -3788,31 +3962,376 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
   const videoInputProps = getVideoInputProps()
   
   // Handlers for separate file inputs (for "click to browse" buttons)
-  const handlePdfInputChange = (e) => {
-    e.preventDefault()
+  const handlePdfInputChange = useCallback((e) => {
+    // Don't prevent default - let the event propagate normally
     e.stopPropagation()
     const files = Array.from(e.target.files || [])
     if (files.length > 0) {
       onPdfDrop(files)
-      // Reset input so same file can be selected again
-      if (pdfInputRef.current) {
-        pdfInputRef.current.value = ''
+      // Reset input AFTER a delay to ensure onChange completes
+      setTimeout(() => {
+        if (pdfInputRef.current) {
+          pdfInputRef.current.value = ''
+        }
+      }, 100)
+    } else {
+    }
+  }, [formData, onPdfDrop])
+
+  // Set up direct event listener on PDF input ref as fallback
+  useEffect(() => {
+    const pdfInput = pdfInputRef.current
+    
+    if (pdfInput) {
+      const handleChange = (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+          handlePdfInputChange(e)
+        }
+      }
+      
+      // Add multiple event listeners to catch the event
+      pdfInput.addEventListener('change', handleChange, { capture: true })
+      pdfInput.addEventListener('change', handleChange, { capture: false })
+      pdfInput.addEventListener('input', handleChange, { capture: true })
+      
+      // Also check if files are set after a delay (in case event fires but we miss it)
+      let checkCount = 0
+      const maxChecks = 50 // Check for 5 seconds (50 * 100ms)
+      const checkFiles = setInterval(() => {
+        checkCount++
+        const hasFiles = pdfInput.files && pdfInput.files.length > 0
+        const inputValue = pdfInput.value
+        if (hasFiles) {
+          clearInterval(checkFiles)
+          const syntheticEvent = { 
+            target: pdfInput, 
+            preventDefault: () => {}, 
+            stopPropagation: () => {},
+            currentTarget: pdfInput
+          }
+          handlePdfInputChange(syntheticEvent)
+        } else if (checkCount >= maxChecks) {
+          clearInterval(checkFiles)
+        }
+      }, 100)
+      return () => {
+        pdfInput.removeEventListener('change', handleChange, { capture: true })
+        pdfInput.removeEventListener('change', handleChange, { capture: false })
+        pdfInput.removeEventListener('input', handleChange, { capture: true })
+        clearInterval(checkFiles)
       }
     }
-  }
+  }, [handlePdfInputChange])
   
-  const handleVideoInputChange = (e) => {
-    e.preventDefault()
+  // Separate useEffect to monitor PDF dropzone input after it's rendered
+  useEffect(() => {
+    // Use a small delay to ensure the dropzone input is rendered
+    const checkDropzoneInput = setInterval(() => {
+      const pdfDropzoneInput = pdfDropzoneInputRef.current
+      if (pdfDropzoneInput) {
+        clearInterval(checkDropzoneInput)
+        
+        // Set up event listener for the dropzone input
+        const handleChange = (e) => {
+          if (e.target.files && e.target.files.length > 0) {
+            const files = Array.from(e.target.files)
+            try {
+              onPdfDrop(files)
+              setTimeout(() => {
+                if (pdfDropzoneInputRef.current) {
+                  pdfDropzoneInputRef.current.value = ''
+                }
+              }, 100)
+            } catch (error) {
+            }
+          }
+        }
+        
+        pdfDropzoneInput.addEventListener('change', handleChange, { capture: true })
+        pdfDropzoneInput.addEventListener('change', handleChange, { capture: false })
+        
+        // Also poll the dropzone input for files (in case onChange doesn't fire)
+        let dropzoneCheckCount = 0
+        const maxDropzoneChecks = 50
+        let lastDropzoneValue = pdfDropzoneInput.value
+        const checkDropzoneFiles = setInterval(() => {
+          dropzoneCheckCount++
+          const hasFiles = pdfDropzoneInput.files && pdfDropzoneInput.files.length > 0
+          const currentValue = pdfDropzoneInput.value
+          const valueChanged = currentValue !== lastDropzoneValue
+          
+          if (dropzoneCheckCount <= 5 || valueChanged || hasFiles) {
+          }
+          
+          if (valueChanged) {
+            lastDropzoneValue = currentValue
+          }
+          
+          if (hasFiles) {
+            clearInterval(checkDropzoneFiles)
+            const files = Array.from(pdfDropzoneInput.files)
+            try {
+              onPdfDrop(files)
+              setTimeout(() => {
+                if (pdfDropzoneInputRef.current) {
+                  pdfDropzoneInputRef.current.value = ''
+                }
+              }, 100)
+            } catch (error) {
+            }
+          } else if (dropzoneCheckCount >= maxDropzoneChecks) {
+            clearInterval(checkDropzoneFiles)
+          }
+        }, 100)
+        return () => {
+          pdfDropzoneInput.removeEventListener('change', handleChange, { capture: true })
+          pdfDropzoneInput.removeEventListener('change', handleChange, { capture: false })
+          clearInterval(checkDropzoneFiles)
+        }
+      }
+    }, 100)
+    
+    return () => {
+      clearInterval(checkDropzoneInput)
+    }
+  }, [onPdfDrop])
+  
+  const handleVideoInputChange = useCallback((e) => {
+    // Don't prevent default - let the event propagate normally
     e.stopPropagation()
     const files = Array.from(e.target.files || [])
     if (files.length > 0) {
       onVideoDrop(files)
-      // Reset input so same file can be selected again
-      if (videoInputRef.current) {
-        videoInputRef.current.value = ''
+      // Reset input AFTER a delay to ensure onChange completes
+      setTimeout(() => {
+        if (videoInputRef.current) {
+          videoInputRef.current.value = ''
+        }
+      }, 100)
+    } else {
+    }
+  }, [formData, onVideoDrop])
+
+  // Set up direct event listener on video input ref as fallback (after handler is defined)
+  useEffect(() => {
+    const videoInput = videoInputRef.current
+    
+    if (videoInput && handleVideoInputChange) {
+      const handleChange = (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+          handleVideoInputChange(e)
+        }
+      }
+      
+      // Add multiple event listeners to catch the event
+      videoInput.addEventListener('change', handleChange, { capture: true })
+      videoInput.addEventListener('change', handleChange, { capture: false })
+      videoInput.addEventListener('input', handleChange, { capture: true })
+      
+      // Also check if files are set after a delay (in case event fires but we miss it)
+      let checkCount = 0
+      const maxChecks = 50 // Check for 5 seconds (50 * 100ms)
+      let lastInputValue = videoInput.value
+      const checkFiles = setInterval(() => {
+        checkCount++
+        const hasFiles = videoInput.files && videoInput.files.length > 0
+        const currentInputValue = videoInput.value
+        const valueChanged = currentInputValue !== lastInputValue
+        
+        if (checkCount <= 5 || valueChanged || hasFiles) {
+        }
+        
+        if (valueChanged) {
+          lastInputValue = currentInputValue
+        }
+        
+        if (hasFiles && !processingVideoRef.current) {
+          processingVideoRef.current = true
+          clearInterval(checkFiles)
+          const syntheticEvent = { 
+            target: videoInput, 
+            preventDefault: () => {}, 
+            stopPropagation: () => {},
+            currentTarget: videoInput
+          }
+          try {
+            handleVideoInputChange(syntheticEvent)
+            // Reset processing flag after a delay
+            setTimeout(() => {
+              processingVideoRef.current = false
+            }, 1000)
+          } catch (error) {
+            processingVideoRef.current = false
+          }
+        } else if (checkCount >= maxChecks) {
+          clearInterval(checkFiles)
+        }
+      }, 100)
+      return () => {
+        videoInput.removeEventListener('change', handleChange, { capture: true })
+        videoInput.removeEventListener('change', handleChange, { capture: false })
+        videoInput.removeEventListener('input', handleChange, { capture: true })
+        clearInterval(checkFiles)
       }
     }
-  }
+    
+    // Also set up listener for the dropzone input (used by dropzone's open() function)
+    const videoDropzoneInput = videoDropzoneInputRef.current
+    if (videoDropzoneInput) {
+      const handleDropzoneChange = (e) => {
+        // Process files directly if detected
+        if (e.target.files && e.target.files.length > 0 && !processingVideoRef.current) {
+          processingVideoRef.current = true
+          const files = Array.from(e.target.files)
+          try {
+            onVideoDrop(files)
+            // Reset input after processing
+            setTimeout(() => {
+              if (videoDropzoneInputRef.current) {
+                videoDropzoneInputRef.current.value = ''
+              }
+              processingVideoRef.current = false
+            }, 100)
+          } catch (error) {
+            processingVideoRef.current = false
+          }
+        }
+      }
+      
+      videoDropzoneInput.addEventListener('change', handleDropzoneChange, { capture: true })
+      videoDropzoneInput.addEventListener('change', handleDropzoneChange, { capture: false })
+      videoDropzoneInput.addEventListener('input', handleDropzoneChange, { capture: true })
+      
+      // Also poll the dropzone input for files (in case onChange doesn't fire)
+      let dropzoneCheckCount = 0
+      const maxDropzoneChecks = 50
+      let lastDropzoneValue = videoDropzoneInput.value
+      const checkDropzoneFiles = setInterval(() => {
+        dropzoneCheckCount++
+        const hasFiles = videoDropzoneInput.files && videoDropzoneInput.files.length > 0
+        const currentValue = videoDropzoneInput.value
+        const valueChanged = currentValue !== lastDropzoneValue
+        
+        if (dropzoneCheckCount <= 5 || valueChanged || hasFiles) {
+        }
+        
+        if (valueChanged) {
+          lastDropzoneValue = currentValue
+        }
+        
+        if (hasFiles && !processingVideoRef.current) {
+          processingVideoRef.current = true
+          clearInterval(checkDropzoneFiles)
+          const files = Array.from(videoDropzoneInput.files)
+          try {
+            onVideoDrop(files)
+            setTimeout(() => {
+              if (videoDropzoneInputRef.current) {
+                videoDropzoneInputRef.current.value = ''
+              }
+              processingVideoRef.current = false
+            }, 100)
+          } catch (error) {
+            processingVideoRef.current = false
+          }
+        } else if (dropzoneCheckCount >= maxDropzoneChecks) {
+          clearInterval(checkDropzoneFiles)
+        }
+      }, 100)
+      return () => {
+        videoDropzoneInput.removeEventListener('change', handleDropzoneChange, { capture: true })
+        videoDropzoneInput.removeEventListener('change', handleDropzoneChange, { capture: false })
+        videoDropzoneInput.removeEventListener('input', handleDropzoneChange, { capture: true })
+        clearInterval(checkDropzoneFiles)
+      }
+    }
+  }, [handleVideoInputChange, onVideoDrop])
+  
+  // Separate useEffect to monitor dropzone input after it's rendered
+  useEffect(() => {
+    // Use a small delay to ensure the dropzone input is rendered
+    const checkDropzoneInput = setInterval(() => {
+      const videoDropzoneInput = videoDropzoneInputRef.current
+      if (videoDropzoneInput) {
+        clearInterval(checkDropzoneInput)
+        
+        // Set up a one-time polling check when dialog might be opened
+        // This will be triggered by the openVideoDialog function
+        const monitorDropzoneFiles = () => {
+          let checkCount = 0
+          const maxChecks = 50
+          let lastValue = videoDropzoneInput.value
+          const pollInterval = setInterval(() => {
+            checkCount++
+            const hasFiles = videoDropzoneInput.files && videoDropzoneInput.files.length > 0
+            const currentValue = videoDropzoneInput.value
+            const valueChanged = currentValue !== lastValue
+            
+            if (checkCount <= 5 || valueChanged || hasFiles) {
+            }
+            
+            if (valueChanged) {
+              lastValue = currentValue
+            }
+            
+            if (hasFiles && !processingVideoRef.current) {
+              processingVideoRef.current = true
+              clearInterval(pollInterval)
+              const files = Array.from(videoDropzoneInput.files)
+              try {
+                onVideoDrop(files)
+                setTimeout(() => {
+                  if (videoDropzoneInputRef.current) {
+                    videoDropzoneInputRef.current.value = ''
+                  }
+                  processingVideoRef.current = false
+                }, 100)
+              } catch (error) {
+                processingVideoRef.current = false
+              }
+            } else if (checkCount >= maxChecks) {
+              clearInterval(pollInterval)
+            }
+          }, 100)
+          
+          // Clear polling after 5 seconds
+          setTimeout(() => {
+            clearInterval(pollInterval)
+          }, 5000)
+        }
+        
+        // Store the monitor function so openVideoDialog can trigger it
+        // For now, we'll just set up the event listener
+        const handleChange = (e) => {
+          if (e.target.files && e.target.files.length > 0 && !processingVideoRef.current) {
+            processingVideoRef.current = true
+            const files = Array.from(e.target.files)
+            try {
+              onVideoDrop(files)
+              setTimeout(() => {
+                if (videoDropzoneInputRef.current) {
+                  videoDropzoneInputRef.current.value = ''
+                }
+                processingVideoRef.current = false
+              }, 100)
+            } catch (error) {
+              processingVideoRef.current = false
+            }
+          }
+        }
+        
+        videoDropzoneInput.addEventListener('change', handleChange, { capture: true })
+        videoDropzoneInput.addEventListener('change', handleChange, { capture: false })
+        
+        // Start monitoring when dialog is opened (triggered by user interaction)
+        // We'll rely on the existing polling in the main useEffect
+      }
+    }, 100)
+    
+    return () => {
+      clearInterval(checkDropzoneInput)
+    }
+  }, [onVideoDrop])
   
   // Handle video file rejections from dropzone
   useEffect(() => {
@@ -3952,7 +4471,7 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
             {/* Edit Tab Content */}
             {activeTab === 'edit' && (
               <>
-          {/* Contact + Social links (selection UI like upload) */}
+                {/* Contact + Social links (selection UI like upload) */}
                 {campaignType === 'qr-link' ? (
                   <div className="card border-neon-purple/30 bg-gradient-to-br from-neon-purple/10 to-neon-pink/10">
                     <div className="card-header">
@@ -3980,200 +4499,251 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
                     </div>
                   </div>
                 ) : (
-          <div className="card">
-            <SocialLinksInput
-              value={formData.socialLinks || {}}
-              onChange={(val) => setField({ socialLinks: val })}
-              showSelection={true}
-            />
-          </div>
+                  <div className="card">
+                    <SocialLinksInput
+                      value={formData.socialLinks || {}}
+                      onChange={(val) => setField({ socialLinks: val })}
+                      showSelection={true}
+                    />
+                  </div>
                 )}
 
-          {/* Links editor */}
-          {showLinks && (
-            <div className="card">
-              <div className="card-header">
-                <h4 className="text-sm font-semibold text-slate-100 flex items-center">
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  Links
-                </h4>
-                <p className="text-xs text-slate-300">Add / remove links shown on the landing page</p>
-              </div>
-
-              <div className="space-y-3">
-                {(formData.links || []).map((l, idx) => (
-                  <div key={idx} className="flex flex-col sm:flex-row gap-2">
-                    <input
-                      className="input flex-1"
-                      placeholder="Label"
-                      value={l.label || ''}
-                      onChange={(e) => updateLink(idx, { label: e.target.value })}
-                      disabled={isSaving}
-                    />
-                    <input
-                      className="input flex-1 sm:flex-[2]"
-                      placeholder="https://..."
-                      value={l.url || ''}
-                      onChange={(e) => updateLink(idx, { url: e.target.value })}
-                      disabled={isSaving}
-                    />
-                    <button
-                      className="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg flex-shrink-0 w-full sm:w-auto justify-center sm:justify-start touch-manipulation"
-                      onClick={() => removeLink(idx)}
-                      disabled={isSaving}
-                    >
-                      <X className="w-4 h-4 text-slate-200 mx-auto sm:mx-0" />
-                    </button>
-                  </div>
-                ))}
-
-                <button className="btn-secondary w-full sm:w-auto" onClick={addLink} disabled={isSaving}>
-                  Add Link
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* File controls */}
-          {(showVideo || showPdf || showDocument) && (
-            <div className="card">
-              <div className="card-header">
-                <h4 className="text-sm font-semibold text-slate-100">Files</h4>
-                <p className="text-xs text-slate-300">Add additional files or remove existing ones. Maximum 5 files per type.</p>
-              </div>
-
-              <div className="space-y-6">
-                {/* PDF Upload Section (for qr-links-pdf-video) */}
-                {showPdf && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-slate-200 flex items-center">
-                        <FileText className="w-4 h-4 mr-2 text-neon-orange" />
-                        PDF Documents
-                        {(() => {
-                          const existingCount = (formData.existingDocuments || []).length
-                          const newCount = (formData.pdfFiles || []).length
-                          const total = existingCount + newCount - (formData.documentsToRemove?.length || 0)
-                          return <span className="text-slate-400 ml-2">({total}/5)</span>
-                        })()}
-                      </label>
+                {/* Links editor */}
+                {showLinks && (
+                  <div className="card">
+                    <div className="card-header">
+                      <h4 className="text-sm font-semibold text-slate-100 flex items-center">
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Links
+                      </h4>
+                      <p className="text-xs text-slate-300">Add / remove links shown on the landing page</p>
                     </div>
 
-                    {/* Existing PDFs */}
-                    {(formData.existingDocuments || []).length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-xs text-slate-400 font-medium">Existing Documents:</p>
-                        {(formData.existingDocuments || []).map((doc, index) => {
-                          const isMarkedForRemoval = (formData.documentsToRemove || []).includes(index)
-                          return (
-                            <div key={index} className={`p-3 bg-slate-800/50 rounded-lg border ${isMarkedForRemoval ? 'border-red-600/50 opacity-60' : 'border-slate-600/30'}`}>
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center flex-1 min-w-0">
-                                  <FileText className="w-4 h-4 mr-2 text-neon-orange flex-shrink-0" />
-                                  <div className="min-w-0 flex-1">
-                                    <p className="text-slate-100 text-sm truncate">{doc.filename || doc.originalName || 'PDF Document'}</p>
-                                    {doc.size && <p className="text-xs text-slate-400">{formatFileSize(doc.size)}</p>}
-                                  </div>
-                                </div>
-                                <button
-                                  onClick={() => markDocumentForRemoval(index)}
-                      disabled={isSaving}
-                                  className={`px-2 py-1 text-xs rounded ${isMarkedForRemoval ? 'bg-red-600/20 text-red-400' : 'bg-slate-700/50 text-slate-300 hover:bg-red-600/20 hover:text-red-400'} transition-colors`}
-                                >
-                                  {isMarkedForRemoval ? 'Undo' : 'Remove'}
-                                </button>
-                              </div>
-                            </div>
-                          )
-                        })}
+                    <div className="space-y-3">
+                      {(formData.links || []).map((l, idx) => (
+                        <div key={idx} className="flex flex-col sm:flex-row gap-2">
+                          <input
+                            className="input flex-1"
+                            placeholder="Label"
+                            value={l.label || ''}
+                            onChange={(e) => updateLink(idx, { label: e.target.value })}
+                            disabled={isSaving}
+                          />
+                          <input
+                            className="input flex-1 sm:flex-[2]"
+                            placeholder="https://..."
+                            value={l.url || ''}
+                            onChange={(e) => updateLink(idx, { url: e.target.value })}
+                            disabled={isSaving}
+                          />
+                          <button
+                            className="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg flex-shrink-0 w-full sm:w-auto justify-center sm:justify-start touch-manipulation"
+                            onClick={() => removeLink(idx)}
+                            disabled={isSaving}
+                          >
+                            <X className="w-4 h-4 text-slate-200 mx-auto sm:mx-0" />
+                          </button>
+                        </div>
+                      ))}
+
+                      <button className="btn-secondary w-full sm:w-auto" onClick={addLink} disabled={isSaving}>
+                        Add Link
+                      </button>
+                    </div>
                   </div>
                 )}
 
-                    {/* New PDFs */}
-                    {(formData.pdfFiles || []).length > 0 && (
-                  <div className="space-y-2">
-                        <p className="text-xs text-slate-400 font-medium">New Documents to Upload:</p>
-                        {(formData.pdfFiles || []).map((file, index) => (
-                          <div key={index} className="p-3 bg-slate-800/50 rounded-lg border border-slate-600/30">
-                    <div className="flex items-center justify-between">
-                              <div className="flex items-center flex-1 min-w-0">
-                                <FileText className="w-4 h-4 mr-2 text-neon-orange flex-shrink-0" />
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-slate-100 text-sm truncate">{file.name}</p>
-                                  <p className="text-xs text-slate-400">{formatFileSize(file.size)}</p>
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => removePdfFile(index)}
-                          disabled={isSaving}
-                                className="p-1 hover:bg-slate-700/50 rounded transition-colors"
-                              >
-                                <X className="w-4 h-4 text-slate-400" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                {/* File controls */}
+                {(showVideo || showPdf || showDocument) && (
+                  <div className="card">
+                    <div className="card-header">
+                      <h4 className="text-sm font-semibold text-slate-100">Files</h4>
+                      <p className="text-xs text-slate-300">Add additional files or remove existing ones. Maximum 5 files per type.</p>
+                    </div>
 
-                    {/* PDF Dropzone */}
-                    <div
-                      {...getPdfRootProps({
+                    <div className="space-y-6">
+                      {/* PDF Upload Section (for qr-links-pdf-video) */}
+                      {showPdf && (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <label className="text-sm font-medium text-slate-200 flex items-center">
+                              <FileText className="w-4 h-4 mr-2 text-neon-orange" />
+                              PDF Documents
+                              {(() => {
+                                const existingCount = (formData.existingDocuments || []).length
+                                const newCount = (formData.pdfFiles || []).length
+                                const total = existingCount + newCount - (formData.documentsToRemove?.length || 0)
+                                return <span className="text-slate-400 ml-2">({total}/5)</span>
+                              })()}
+                            </label>
+                          </div>
+
+                          {/* Existing PDFs */}
+                          {(formData.existingDocuments || []).length > 0 && (
+                            <div className="space-y-2">
+                              <p className="text-xs text-slate-400 font-medium">Existing Documents:</p>
+                              {(formData.existingDocuments || []).map((doc, index) => {
+                                const isMarkedForRemoval = (formData.documentsToRemove || []).includes(index)
+                                return (
+                                  <div key={index} className={`p-3 bg-slate-800/50 rounded-lg border ${isMarkedForRemoval ? 'border-red-600/50 opacity-60' : 'border-slate-600/30'}`}>
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center flex-1 min-w-0">
+                                        <FileText className="w-4 h-4 mr-2 text-neon-orange flex-shrink-0" />
+                                        <div className="min-w-0 flex-1">
+                                          <p className="text-slate-100 text-sm truncate">{doc.filename || doc.originalName || 'PDF Document'}</p>
+                                          {doc.size && <p className="text-xs text-slate-400">{formatFileSize(doc.size)}</p>}
+                                        </div>
+                                      </div>
+                                      <button
+                                        onClick={() => markDocumentForRemoval(index)}
+                                        disabled={isSaving}
+                                        className={`px-2 py-1 text-xs rounded ${isMarkedForRemoval ? 'bg-red-600/20 text-red-400' : 'bg-slate-700/50 text-slate-300 hover:bg-red-600/20 hover:text-red-400'} transition-colors`}
+                                      >
+                                        {isMarkedForRemoval ? 'Undo' : 'Remove'}
+                                      </button>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
+
+                          {/* New PDFs */}
+                          {(formData.pdfFiles || []).length > 0 && (
+                            <div className="space-y-2">
+                              <p className="text-xs text-slate-400 font-medium">New Documents to Upload:</p>
+                              {(formData.pdfFiles || []).map((file, index) => (
+                                <div key={index} className="p-3 bg-slate-800/50 rounded-lg border border-slate-600/30">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center flex-1 min-w-0">
+                                      <FileText className="w-4 h-4 mr-2 text-neon-orange flex-shrink-0" />
+                                      <div className="min-w-0 flex-1">
+                                        <p className="text-slate-100 text-sm truncate">{file.name}</p>
+                                        <p className="text-xs text-slate-400">{formatFileSize(file.size)}</p>
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={() => removePdfFile(index)}
+                                      disabled={isSaving}
+                                      className="p-1 hover:bg-slate-700/50 rounded transition-colors"
+                                    >
+                                      <X className="w-4 h-4 text-slate-400" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* PDF Dropzone */}
+                          <div
+                            {...getPdfRootProps({
                         onClick: (e) => {
                           // Prevent form submission if inside a form
                           if (e.target.closest('form')) {
                             e.preventDefault()
                           }
+                          // If clicking directly on the container (not on a button), ensure the input gets the click
+                          if (e.target === e.currentTarget || !e.target.closest('button')) {
+                            // The dropzone input should handle this via getRootProps, but we ensure it's accessible
+                            if (pdfDropzoneInputRef.current && !isSaving) {
+                              // Let the dropzone handle it naturally, but ensure input is ready
+                            }
+                          }
                         }
                       })}
-                      className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
-                        isPdfDragActive
-                          ? 'border-neon-blue bg-neon-blue/10 cursor-copy'
-                          : 'border-slate-600/50 hover:border-slate-500/50 bg-slate-800/30 cursor-pointer'
-                      } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      {/* Dropzone input (for drag-and-drop and clicks) */}
-                      <input {...pdfInputProps} style={{ display: 'none' }} />
-                      {/* Separate input for "click to browse" button (fallback) */}
-                      <input
-                        ref={pdfInputRef}
-                        type="file"
-                        accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png,text/plain"
-                        multiple
-                        onChange={handlePdfInputChange}
-                        onClick={(e) => {
-                          // Prevent any form submission
-                          e.stopPropagation()
-                        }}
-                        form="" // Prevent association with any form
-                        style={{ display: 'none' }}
-                        disabled={isSaving}
-                      />
-                      <FileText className="w-8 h-8 mx-auto mb-2 text-slate-400" />
-                      <p className="text-sm text-slate-300">
-                        {isPdfDragActive ? 'Drop PDF files here' : 'Drag & drop PDF files or click to browse'}
-                      </p>
-                      <p className="text-xs text-slate-400 mt-1">Maximum 5 PDF files ({(formData.existingDocuments || []).length + (formData.pdfFiles || []).length}/5)</p>
-                      {!isSaving && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            openPdfDialog()
-                          }}
-                          className="mt-2 text-xs text-neon-blue hover:text-neon-purple underline cursor-pointer touch-manipulation"
-                        >
-                          Or click here to select files
-                        </button>
+                            className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors relative ${
+                              isPdfDragActive
+                                ? 'border-neon-blue bg-neon-blue/10 cursor-copy'
+                                : 'border-slate-600/50 hover:border-slate-500/50 bg-slate-800/30 cursor-pointer'
+                            } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            style={{ position: 'relative' }}
+                          >
+                            {/* Dropzone input (for drag-and-drop and clicks) */}
+                            <input 
+                              {...pdfInputProps} 
+                              ref={pdfDropzoneInputRef}
+                              style={{ 
+                                position: 'absolute', 
+                                opacity: 0, 
+                                width: '100%', 
+                                height: '100%', 
+                                top: 0,
+                                left: 0,
+                                pointerEvents: 'auto',
+                                zIndex: 1,
+                                cursor: 'pointer'
+                              }}
+                              onChange={(e) => {
+                                // Process files directly - the dropzone's onDrop might not fire for programmatic clicks
+                                if (e.target.files && e.target.files.length > 0) {
+                                  const files = Array.from(e.target.files)
+                                  onPdfDrop(files)
+                                  // Reset input after processing
+                                  setTimeout(() => {
+                                    if (pdfDropzoneInputRef.current) {
+                                      pdfDropzoneInputRef.current.value = ''
+                                    }
+                                  }, 100)
+                                }
+                                // Also call the dropzone's onChange handler for compatibility
+                                if (pdfInputProps.onChange) {
+                                  pdfInputProps.onChange(e)
+                                }
+                              }}
+                            />
+                            {/* Separate input for "click to browse" button (fallback) */}
+                            <input
+                              ref={pdfInputRef}
+                              type="file"
+                              accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png,text/plain"
+                              multiple
+                              onChange={(e) => {
+                                handlePdfInputChange(e)
+                              }}
+                              onClick={(e) => {
+                                // Prevent any form submission
+                                e.stopPropagation()
+                              }}
+                              onFocus={(e) => {
+                              }}
+                              form="" // Prevent association with any form
+                              style={{ 
+                                position: 'absolute', 
+                                opacity: 0, 
+                                width: '1px', 
+                                height: '1px', 
+                                pointerEvents: 'auto', // Allow pointer events for file selection
+                                zIndex: -1,
+                                overflow: 'hidden'
+                              }}
+                              disabled={isSaving}
+                            />
+                            <FileText className="w-8 h-8 mx-auto mb-2 text-slate-400" />
+                            <p className="text-sm text-slate-300">
+                              {isPdfDragActive ? 'Drop PDF files here' : 'Drag & drop PDF files or click to browse'}
+                            </p>
+                            <p className="text-xs text-slate-400 mt-1">Maximum 5 PDF files ({(formData.existingDocuments || []).length + (formData.pdfFiles || []).length}/5)</p>
+                            {!isSaving && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  openPdfDialog()
+                                }}
+                                className="mt-2 text-xs text-neon-blue hover:text-neon-purple underline cursor-pointer touch-manipulation"
+                              >
+                                Or click here to select files
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       )}
-                    </div>
-                  </div>
-                )}
 
-                {/* Video Upload Section */}
-                {showVideo && (
-                  <div className="space-y-3">
+                    {/* Video Upload Section */}
+                    {showVideo && (
+                      <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <label className="text-sm font-medium text-slate-200 flex items-center">
                         <Video className="w-4 h-4 mr-2 text-neon-blue" />
@@ -4252,29 +4822,80 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
                           if (e.target.closest('form')) {
                             e.preventDefault()
                           }
+                          // If clicking directly on the container (not on a button), ensure the input gets the click
+                          if (e.target === e.currentTarget || !e.target.closest('button')) {
+                            // The dropzone input should handle this via getRootProps, but we ensure it's accessible
+                            if (videoDropzoneInputRef.current && !isSaving) {
+                              // Let the dropzone handle it naturally, but ensure input is ready
+                            }
+                          }
                         }
                       })}
-                      className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
+                      className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors relative ${
                         isVideoDragActive
                           ? 'border-neon-blue bg-neon-blue/10 cursor-copy'
                           : 'border-slate-600/50 hover:border-slate-500/50 bg-slate-800/30 cursor-pointer'
                       } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      style={{ position: 'relative' }}
                     >
                       {/* Dropzone input (for drag-and-drop and clicks) */}
-                      <input {...videoInputProps} style={{ display: 'none' }} />
+                      <input 
+                        {...videoInputProps} 
+                        ref={videoDropzoneInputRef}
+                        style={{ 
+                          position: 'absolute', 
+                          opacity: 0, 
+                          width: '100%', 
+                          height: '100%', 
+                          top: 0,
+                          left: 0,
+                          pointerEvents: 'auto',
+                          zIndex: 1,
+                          cursor: 'pointer'
+                        }}
+                        onChange={(e) => {
+                          // Process files directly - the dropzone's onDrop might not fire for programmatic clicks
+                          if (e.target.files && e.target.files.length > 0) {
+                            const files = Array.from(e.target.files)
+                            onVideoDrop(files)
+                            // Reset input after processing
+                            setTimeout(() => {
+                              if (videoDropzoneInputRef.current) {
+                                videoDropzoneInputRef.current.value = ''
+                              }
+                            }, 100)
+                          }
+                          // Also call the dropzone's onChange handler for compatibility
+                          if (videoInputProps.onChange) {
+                            videoInputProps.onChange(e)
+                          }
+                        }}
+                      />
                       {/* Separate input for "click to browse" button (fallback) */}
                       <input
                         ref={videoInputRef}
                         type="file"
                         accept=".mp4,.mov,.avi,.webm,.mkv,.flv,.wmv,.m4v,.mpg,.mpeg,.3gp,video/*"
                         multiple
-                        onChange={handleVideoInputChange}
+                        onChange={(e) => {
+                          handleVideoInputChange(e)
+                        }}
                         onClick={(e) => {
                           // Prevent any form submission
                           e.stopPropagation()
                         }}
+                        onFocus={(e) => {
+                        }}
                         form="" // Prevent association with any form
-                        style={{ display: 'none' }}
+                        style={{ 
+                          position: 'absolute', 
+                          opacity: 0, 
+                          width: '1px', 
+                          height: '1px', 
+                          pointerEvents: 'auto', // Allow pointer events for file selection
+                          zIndex: -1,
+                          overflow: 'hidden'
+                        }}
                         disabled={isSaving}
                       />
                       <Video className="w-8 h-8 mx-auto mb-2 text-slate-400" />
@@ -4295,13 +4916,13 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
                           Or click here to select files
                         </button>
                       )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Document Upload Section (for qr-links-video - single document, backward compatibility) */}
-                {showDocument && !showVideo && (
-                  <div className="space-y-2">
+                  {/* Document Upload Section (for qr-links-video - single document, backward compatibility) */}
+                  {showDocument && !showVideo && (
+                    <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <p className="text-sm text-slate-200">Document (PDF/DOC/DOCX)</p>
                       <label className="flex items-center gap-2 text-xs text-slate-300">
@@ -4317,77 +4938,61 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
                     <input
                       type="file"
                       accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                      onChange={(e) => setField({ document: e.target.files?.[0] || null })}
+                      onChange={(e) => {
+                        const selectedFile = e.target.files?.[0] || null
+                        setField({ document: selectedFile })
+                      }}
                       disabled={isSaving}
                       className="input w-full"
                     />
-                    {formData.document && <p className="text-xs text-slate-400">Selected: {formData.document.name}</p>}
+                    {formData.document && (
+                      <p className="text-xs text-slate-400">
+                        Selected: {formData.document.name}
+                      </p>
+                    )}
+                    </div>
+                  )}
+                    </div>
                   </div>
                 )}
-              </div>
-            </div>
-          )}
               </>
             )}
 
             {/* Upgrade Tab Content */}
-            {activeTab === 'upgrade' && hasUpgrades && (
-              <div className="card border-neon-purple/30 bg-gradient-to-br from-neon-purple/10 to-neon-pink/10">
+            {activeTab === 'upgrade' && (
+              <div className="card">
                 <div className="card-header">
-                  <h4 className="text-sm sm:text-base font-semibold text-slate-100 flex items-center">
-                    <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-neon-purple" />
-                    Available Upgrades
+                  <h4 className="text-sm font-semibold text-slate-100 flex items-center">
+                    <Sparkles className="w-4 h-4 mr-2 text-neon-purple" />
+                    Upgrade Campaign
                   </h4>
-                  <p className="text-xs sm:text-sm text-slate-300 mt-1">
-                    Enhance your campaign with additional features. Select an upgrade to learn more and proceed.
+                  <p className="text-xs text-slate-300">
+                    Upgrade your campaign to unlock new features and capabilities.
                   </p>
-        </div>
-                <div className="flex flex-col sm:flex-row flex-wrap gap-3 mt-4">
-                  {getAvailableUpgrades(campaignType).map((upgradeType) => {
-                    const upgradeLabels = {
-                      'qr-links': 'Multiple Links QR',
-                      'qr-links-video': 'Links & Video QR',
-                      'qr-links-pdf-video': 'Links, PDF & Video QR',
-                      'qr-links-ar-video': 'AR Experience QR'
-                    }
-                    const upgradeDescriptions = {
-                      'qr-links': 'Add multiple links to your landing page',
-                      'qr-links-video': 'Add video content to your campaign',
-                      'qr-links-pdf-video': 'Add PDF documents alongside videos',
-                      'qr-links-ar-video': 'Enable full AR experience with video and links'
-                    }
-                    const upgradeIcons = {
-                      'qr-links': ExternalLink,
-                      'qr-links-video': Video,
-                      'qr-links-pdf-video': FileText,
-                      'qr-links-ar-video': Sparkles
-                    }
-                    const Icon = upgradeIcons[upgradeType] || Sparkles
-                    
-                    return (
-                      <button
-                        key={upgradeType}
-                        onClick={() => onUpgradeRequest && onUpgradeRequest(project, upgradeType)}
-                        disabled={isSaving}
-                        className="w-full sm:flex-1 sm:min-w-[200px] p-3 sm:p-4 bg-slate-800/50 hover:bg-slate-800/70 border border-slate-600/30 hover:border-neon-purple/50 rounded-lg transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 group touch-manipulation"
-                      >
-                        <div className="flex flex-col items-start gap-2">
-                          <div className="flex items-center gap-2 w-full">
-                            <Icon className="w-5 h-5 text-neon-purple group-hover:text-neon-pink transition-colors" />
-                            <span className="text-sm sm:text-base font-semibold text-slate-100">
-                              {upgradeLabels[upgradeType] || upgradeType}
-                            </span>
-                          </div>
-                          <p className="text-xs sm:text-sm text-slate-400 text-left">
-                            {upgradeDescriptions[upgradeType] || 'Upgrade your campaign'}
-                          </p>
-                          <div className="mt-2 px-3 py-1.5 bg-gradient-to-r from-neon-purple/80 to-neon-pink/80 rounded-md text-xs font-semibold text-slate-100 w-full text-center">
-                            Upgrade Now
-                          </div>
-                        </div>
-                      </button>
-                    )
-                  })}
+                </div>
+                <div className="mt-4">
+                  {getAvailableUpgrades && getAvailableUpgrades(campaignType).length > 0 ? (
+                    <div className="space-y-3">
+                      {getAvailableUpgrades(campaignType).map((upgradeType) => (
+                        <button
+                          key={upgradeType}
+                          onClick={() => {
+                            if (onUpgradeRequest) {
+                              onUpgradeRequest(project, upgradeType)
+                            }
+                          }}
+                          disabled={isSaving}
+                          className="w-full px-4 py-3 text-sm font-semibold text-slate-100 bg-gradient-to-r from-neon-purple/80 to-neon-pink/80 hover:from-neon-purple hover:to-neon-pink rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-left"
+                        >
+                          Upgrade to {getCampaignTypeDisplayName(upgradeType)}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-400">
+                      No upgrades available for this campaign type.
+                    </p>
+                  )}
                 </div>
               </div>
             )}

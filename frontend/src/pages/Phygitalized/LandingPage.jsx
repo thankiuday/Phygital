@@ -1478,7 +1478,7 @@ const LandingPage = () => {
               onClick={(e) => e.stopPropagation()}
             >
               {/* Enhanced Modal Header */}
-              <div className="flex items-center justify-between p-3 sm:p-4 md:p-5 border-b border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-sm">
+              <div className="sticky top-0 z-[10000] flex items-center justify-between p-3 sm:p-4 md:p-5 border-b border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-sm">
                 <div className="flex items-center gap-2 sm:gap-3">
                   {/* Back Button */}
                   <button

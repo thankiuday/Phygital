@@ -66,7 +66,7 @@ const Logo = ({
     return (
       <div className={`flex items-center space-x-1 ${className}`}>
         {/* Logo Box */}
-        <div className={`relative ${currentSize.container}`}>
+        <div className={`relative ${currentSize.container}`} style={{ backgroundColor: 'transparent' }}>
           {/* Optional outer glow ring */}
           {showGlow && (
             <div className="absolute inset-0 animate-ping opacity-20">
@@ -79,10 +79,15 @@ const Logo = ({
             <img
               src={logoUrl}
               alt="Phygital Logo"
-              className={`w-full h-full ${currentSize.rounded} object-contain ${showGlow ? 'shadow-glow-lg animate-pulse' : 'shadow-lg'} transition-transform hover:scale-105`}
+              className={`w-full h-full ${currentSize.rounded} object-contain ${showGlow ? 'shadow-glow-lg animate-pulse' : ''} transition-transform hover:scale-105`}
               style={{
                 imageRendering: 'high-quality',
-                display: 'block'
+                display: 'block',
+                backgroundColor: 'transparent',
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                boxShadow: 'none'
               }}
               onError={(e) => {
                 console.error('❌ Logo image failed to load:', logoUrl);
