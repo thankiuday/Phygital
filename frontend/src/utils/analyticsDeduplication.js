@@ -31,8 +31,6 @@ const loadCacheFromLocalStorage = () => {
           analyticsCache.set(key, value);
         }
       });
-      
-      console.log(`🔄 Loaded ${analyticsCache.size} analytics cache entries from localStorage`);
     }
   } catch (error) {
     console.error('Failed to load analytics cache from localStorage:', error);

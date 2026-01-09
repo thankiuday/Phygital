@@ -53,11 +53,6 @@ const Logo = ({
   const logoUrl = getLogoUrlWithFallback();
   const [imageError, setImageError] = useState(false);
 
-  // Debug: Log the logo URL being used
-  React.useEffect(() => {
-    console.log('🔍 Logo component initialized with URL:', logoUrl);
-  }, [logoUrl]);
-
   const LogoContent = () => {
     // Always try to show image (has default URL), fallback to icon if error
     const showImage = !imageError;
@@ -95,7 +90,7 @@ const Logo = ({
                 setImageError(true);
               }}
               onLoad={() => {
-                console.log('✅ Logo image loaded successfully:', logoUrl);
+                // Image loaded successfully
               }}
             />
           )}

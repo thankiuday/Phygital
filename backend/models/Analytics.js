@@ -218,9 +218,12 @@ analyticsSchema.statics.trackEvent = async function(userId, eventType, eventData
       delete cleanEventData.deviceInfo;
     }
     
+    // Ensure projectId is stored as string to match query format
+    const projectIdString = projectId ? String(projectId) : null;
+    
     const analytics = new this({
       userId,
-      projectId,
+      projectId: projectIdString,
       eventType,
       eventData: cleanEventData,
       deviceInfo: deviceInfo,

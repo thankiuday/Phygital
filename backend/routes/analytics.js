@@ -726,11 +726,12 @@ router.get('/dashboard-complete/:userId', authenticateToken, async (req, res) =>
         startDate.setDate(startDate.getDate() - days);
         
         // Get project IDs, optionally filtered by campaignType
-        let projectIds = user.projects.map(p => p.id);
+        // Convert to strings to match Analytics collection format (projectId is stored as String)
+        let projectIds = user.projects.map(p => String(p.id));
         if (campaignType && campaignType !== 'all') {
           projectIds = user.projects
             .filter(p => p.campaignType === campaignType)
-            .map(p => p.id);
+            .map(p => String(p.id));
         }
         
         if (projectIds.length === 0) {
@@ -738,6 +739,7 @@ router.get('/dashboard-complete/:userId', authenticateToken, async (req, res) =>
         }
         
         // Get all events for these projects
+        // projectId in Analytics is stored as String, so we query with strings
         const allEvents = await Analytics.find({
           userId: new mongoose.Types.ObjectId(userId),
           projectId: { $in: projectIds },

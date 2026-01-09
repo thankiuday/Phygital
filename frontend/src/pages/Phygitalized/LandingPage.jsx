@@ -4,7 +4,7 @@
  * Handles different types: links, video, pdf-video, ar-experience
  */
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { 
   Instagram,
@@ -50,6 +50,63 @@ import {
 import { startTimeTracking, stopTimeTracking } from '../../utils/timeTracking'
 import { trackVideoProgress as trackVideoProgressUtil } from '../../utils/videoProgressTracker'
 
+// Cache configuration
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+const CACHE_KEY_PREFIX = 'campaign_cache_'
+const VISIBILITY_REFRESH_THRESHOLD = 30 * 1000 // 30 seconds
+
+// Cache utility functions
+const getCacheKey = (pageId) => `${CACHE_KEY_PREFIX}${pageId}`
+
+const getCachedData = (pageId) => {
+  try {
+    const cacheKey = getCacheKey(pageId)
+    const cached = sessionStorage.getItem(cacheKey)
+    if (!cached) return null
+    
+    const { data, timestamp } = JSON.parse(cached)
+    const now = Date.now()
+    
+    // Check if cache is still valid
+    if (now - timestamp < CACHE_TTL) {
+      return data
+    }
+    
+    // Cache expired, remove it
+    sessionStorage.removeItem(cacheKey)
+    return null
+  } catch (error) {
+    console.error('Error reading cache:', error)
+    return null
+  }
+}
+
+const setCachedData = (pageId, data) => {
+  try {
+    const cacheKey = getCacheKey(pageId)
+    const cacheEntry = {
+      data,
+      timestamp: Date.now()
+    }
+    sessionStorage.setItem(cacheKey, JSON.stringify(cacheEntry))
+  } catch (error) {
+    console.error('Error writing cache:', error)
+    // If storage is full, try to clear old entries
+    try {
+      const keys = Object.keys(sessionStorage)
+      keys.forEach(key => {
+        if (key.startsWith(CACHE_KEY_PREFIX)) {
+          sessionStorage.removeItem(key)
+        }
+      })
+      // Retry
+      sessionStorage.setItem(cacheKey, JSON.stringify(cacheEntry))
+    } catch (retryError) {
+      console.error('Failed to write cache after cleanup:', retryError)
+    }
+  }
+}
+
 const LandingPage = () => {
   const { pageId } = useParams()
   const [pageData, setPageData] = useState(null)
@@ -68,6 +125,9 @@ const LandingPage = () => {
   const timeTrackingStartedRef = useRef(false)
   const scanTrackedRef = useRef(false)
   const pageViewTrackedRef = useRef(false)
+  const dataLoadedRef = useRef(false)
+  const lastVisibilityChangeRef = useRef(Date.now())
+  const isVisibleRef = useRef(true)
   
   // Multiple video support
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0)
@@ -78,8 +138,188 @@ const LandingPage = () => {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isPdfLoading, setIsPdfLoading] = useState(true)
 
+  // Memoize normalizeUrl function
+  const normalizeUrl = useCallback((url) => {
+    try {
+      const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`)
+      return urlObj.hostname + urlObj.pathname.replace(/\/$/, '')
+    } catch {
+      return url.replace(/^https?:\/\//, '').replace(/\/$/, '').toLowerCase()
+    }
+  }, [])
+
+  // Transform campaign data - memoized
+  const transformCampaignData = useCallback((campaignData) => {
+    // Check all possible locations for file URL
+    let foundFileUrl = null
+    let foundFileType = null
+    
+    // Check uploadedFiles first (most reliable) - but exclude design/compositeDesign/mindTarget
+    if (campaignData.uploadedFiles) {
+      // Check for document first (for qr-links-video with documents)
+      if (campaignData.uploadedFiles.document?.url) {
+        foundFileUrl = campaignData.uploadedFiles.document.url
+        foundFileType = 'document'
+      } else if (campaignData.uploadedFiles.pdf?.url) {
+        foundFileUrl = campaignData.uploadedFiles.pdf.url
+        foundFileType = 'document'
+      } else if (campaignData.uploadedFiles.documents?.length > 0) {
+        // Check documents array (documents are stored as an array)
+        const firstDocument = campaignData.uploadedFiles.documents[0]
+        if (firstDocument?.url) {
+          foundFileUrl = firstDocument.url
+          foundFileType = 'document'
+        }
+      } else if (campaignData.uploadedFiles.video?.url) {
+        // Only use video if it's not from the regular upload flow (check if it has Phygitalized context)
+        // For now, use it if document/pdf don't exist
+        foundFileUrl = campaignData.uploadedFiles.video.url
+        foundFileType = 'video'
+      }
+    }
+    
+    // Fallback to phygitalizedData
+    if (!foundFileUrl && campaignData.phygitalizedData?.fileUrl) {
+      foundFileUrl = campaignData.phygitalizedData.fileUrl
+      foundFileType = campaignData.phygitalizedData.fileType || foundFileType
+    }
+    
+    // Get base links from phygitalizedData
+    const baseLinks = campaignData.phygitalizedData?.links || []
+    
+    // Get social links and filter out contact info
+    const contactInfoKeys = new Set(['contactNumber', 'whatsappNumber'])
+    const socialLinks = Object.fromEntries(
+      Object.entries(campaignData.phygitalizedData?.socialLinks || {})
+        .filter(([key, value]) => {
+          if (!value) return false
+          // Handle string values
+          if (typeof value === 'string') {
+            return value.trim() !== ''
+          }
+          // Handle other types (shouldn't happen, but be safe)
+          return !!value
+        })
+    )
+    
+    // Convert social links (excluding contact info) to links array format
+    const socialLinksAsCustomLinks = Object.entries(socialLinks)
+      .filter(([key]) => !contactInfoKeys.has(key))
+      .map(([key, value]) => ({
+        label: key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1').trim(),
+        url: value.startsWith('http://') || value.startsWith('https://') ? value : `https://${value}`
+      }))
+    
+    // Combine social links with custom links (ensure we preserve all links)
+    // Use a Map to deduplicate by URL
+    const linksMap = new Map()
+    
+    // First add base links (from upgrade, custom links, etc.)
+    baseLinks.forEach(link => {
+      if (link && link.url) {
+        const normalized = normalizeUrl(link.url)
+        if (!linksMap.has(normalized)) {
+          linksMap.set(normalized, {
+            label: link.label || 'Link',
+            url: (link.url || '').startsWith('http://') || (link.url || '').startsWith('https://')
+              ? link.url
+              : `https://${link.url}`
+          })
+        }
+      }
+    })
+    
+    // Then add social links (they can add new links or update existing ones)
+    socialLinksAsCustomLinks.forEach(link => {
+      if (link && link.url) {
+        const normalized = normalizeUrl(link.url)
+        linksMap.set(normalized, link) // Overwrite if duplicate
+      }
+    })
+    
+    // Convert back to array
+    let combinedLinks = Array.from(linksMap.values())
+    
+    // Fallback: Check for original link URL if no links found or for qr-links campaigns
+    // This ensures we display the original link even if it wasn't properly migrated
+    if (combinedLinks.length === 0 || campaignData.campaignType === 'qr-links') {
+      const originalLinkUrl = campaignData.phygitalizedData?.linkUrl || 
+                              campaignData.targetUrl ||
+                              campaignData.phygitalizedData?.redirectUrl
+      
+      if (originalLinkUrl) {
+        // Check if original link already exists
+        const originalExists = combinedLinks.some(link => {
+          if (!link || !link.url) return false
+          return normalizeUrl(link.url) === normalizeUrl(originalLinkUrl)
+        })
+        
+        if (!originalExists) {
+          const originalLink = {
+            label: 'Link 1',
+            url: originalLinkUrl.startsWith('http://') || originalLinkUrl.startsWith('https://') 
+              ? originalLinkUrl 
+              : `https://${originalLinkUrl}`
+          }
+          
+          // Add original link first
+          combinedLinks = [originalLink, ...combinedLinks]
+        }
+      }
+    }
+    
+    return {
+      type: campaignData.type || campaignData.campaignType || 'qr-links-video', // Use campaignType as fallback
+      fileUrl: foundFileUrl,
+      fileType: foundFileType || campaignData.phygitalizedData?.fileType,
+      // For qr-links-pdf-video - check multiple sources
+      pdfUrl: campaignData.uploadedFiles?.pdf?.url || 
+              campaignData.pdfUrl || 
+              campaignData.phygitalizedData?.pdfUrl,
+      // Include documents array for multiple PDFs
+      documents: campaignData.uploadedFiles?.documents || [],
+      videoUrl: campaignData.uploadedFiles?.video?.url || 
+                campaignData.videoUrl || 
+                campaignData.phygitalizedData?.videoUrl,
+      // Include videos array for multiple videos
+      videos: campaignData.uploadedFiles?.videos || [],
+      links: combinedLinks, // Use combined links (base links + social links)
+      // Filter out empty social links - handle both string and formatted phone numbers
+      socialLinks: socialLinks, // Keep social links separate for contact info display
+      // Add template data
+      templateId: campaignData.phygitalizedData?.templateId || 'default',
+      templateConfig: campaignData.phygitalizedData?.templateConfig || {}
+    }
+  }, [normalizeUrl])
+
   useEffect(() => {
     const loadPageData = async () => {
+      // Check cache first - use cached data if available and valid
+      const cachedData = getCachedData(pageId)
+      if (cachedData) {
+        setPageData(cachedData.transformedData)
+        userIdRef.current = cachedData.userId
+        projectIdRef.current = cachedData.projectId
+        setVideos(cachedData.videos || [])
+        setCurrentVideoIndex(0)
+        dataLoadedRef.current = true
+        setLoading(false)
+        
+        // If tab was just switched and data was recently loaded, don't refetch
+        const timeSinceVisibilityChange = Date.now() - lastVisibilityChangeRef.current
+        if (!isVisibleRef.current && timeSinceVisibilityChange < VISIBILITY_REFRESH_THRESHOLD) {
+          return
+        }
+      }
+
+      // Check visibility - don't refetch if tab was just switched and data was recently loaded
+      const timeSinceVisibilityChange = Date.now() - lastVisibilityChangeRef.current
+      if (!isVisibleRef.current && timeSinceVisibilityChange < VISIBILITY_REFRESH_THRESHOLD && dataLoadedRef.current && !cachedData) {
+        // Keep current state if we have it
+        setLoading(false)
+        return
+      }
+
       try {
         setLoading(true)
         
@@ -90,198 +330,8 @@ const LandingPage = () => {
         if (response.data?.success && response.data?.data) {
           const campaignData = response.data.data
           
-          // Transform backend data to match frontend format
-          // Check all possible locations for file URL
-          let foundFileUrl = null
-          let foundFileType = null
-          
-          // Check uploadedFiles first (most reliable) - but exclude design/compositeDesign/mindTarget
-          if (campaignData.uploadedFiles) {
-            // Check for document first (for qr-links-video with documents)
-            if (campaignData.uploadedFiles.document?.url) {
-              foundFileUrl = campaignData.uploadedFiles.document.url
-              foundFileType = 'document'
-            } else if (campaignData.uploadedFiles.pdf?.url) {
-              foundFileUrl = campaignData.uploadedFiles.pdf.url
-              foundFileType = 'document'
-            } else if (campaignData.uploadedFiles.documents?.length > 0) {
-              // Check documents array (documents are stored as an array)
-              const firstDocument = campaignData.uploadedFiles.documents[0]
-              if (firstDocument?.url) {
-                foundFileUrl = firstDocument.url
-                foundFileType = 'document'
-              }
-            } else if (campaignData.uploadedFiles.video?.url) {
-              // Only use video if it's not from the regular upload flow (check if it has Phygitalized context)
-              // For now, use it if document/pdf don't exist
-              foundFileUrl = campaignData.uploadedFiles.video.url
-              foundFileType = 'video'
-            }
-          }
-          
-          // Fallback to phygitalizedData
-          if (!foundFileUrl && campaignData.phygitalizedData?.fileUrl) {
-            foundFileUrl = campaignData.phygitalizedData.fileUrl
-            foundFileType = campaignData.phygitalizedData.fileType || foundFileType
-          }
-          
-          // Get base links from phygitalizedData
-          const baseLinks = campaignData.phygitalizedData?.links || []
-          
-          // Get social links and filter out contact info
-          const contactInfoKeys = new Set(['contactNumber', 'whatsappNumber'])
-          const socialLinks = Object.fromEntries(
-            Object.entries(campaignData.phygitalizedData?.socialLinks || {})
-              .filter(([key, value]) => {
-                if (!value) return false
-                // Handle string values
-                if (typeof value === 'string') {
-                  return value.trim() !== ''
-                }
-                // Handle other types (shouldn't happen, but be safe)
-                return !!value
-              })
-          )
-          
-          // Convert social links (excluding contact info) to links array format
-          const socialLinksAsCustomLinks = Object.entries(socialLinks)
-            .filter(([key]) => !contactInfoKeys.has(key))
-            .map(([key, value]) => ({
-              label: key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1').trim(),
-              url: value.startsWith('http://') || value.startsWith('https://') ? value : `https://${value}`
-            }))
-          
-          // Combine social links with custom links (ensure we preserve all links)
-          // Use a Map to deduplicate by URL
-          const normalizeUrl = (url) => {
-            try {
-              const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`)
-              return urlObj.hostname + urlObj.pathname.replace(/\/$/, '')
-            } catch {
-              return url.replace(/^https?:\/\//, '').replace(/\/$/, '').toLowerCase()
-            }
-          }
-          
-          const linksMap = new Map()
-          
-          // First add base links (from upgrade, custom links, etc.)
-          baseLinks.forEach(link => {
-            if (link && link.url) {
-              const normalized = normalizeUrl(link.url)
-              if (!linksMap.has(normalized)) {
-                linksMap.set(normalized, {
-                  label: link.label || 'Link',
-                  url: (link.url || '').startsWith('http://') || (link.url || '').startsWith('https://')
-                    ? link.url
-                    : `https://${link.url}`
-                })
-              }
-            }
-          })
-          
-          // Then add social links (they can add new links or update existing ones)
-          socialLinksAsCustomLinks.forEach(link => {
-            if (link && link.url) {
-              const normalized = normalizeUrl(link.url)
-              linksMap.set(normalized, link) // Overwrite if duplicate
-            }
-          })
-          
-          // Convert back to array
-          let combinedLinks = Array.from(linksMap.values())
-          
-          // Fallback: Check for original link URL if no links found or for qr-links campaigns
-          // This ensures we display the original link even if it wasn't properly migrated
-          if (combinedLinks.length === 0 || campaignData.campaignType === 'qr-links') {
-            const originalLinkUrl = campaignData.phygitalizedData?.linkUrl || 
-                                    campaignData.targetUrl ||
-                                    campaignData.phygitalizedData?.redirectUrl
-            
-            if (originalLinkUrl) {
-              // Check if original link already exists
-              const originalExists = combinedLinks.some(link => {
-                if (!link || !link.url) return false
-                return normalizeUrl(link.url) === normalizeUrl(originalLinkUrl)
-              })
-              
-              if (!originalExists) {
-                const originalLink = {
-                  label: 'Link 1',
-                  url: originalLinkUrl.startsWith('http://') || originalLinkUrl.startsWith('https://') 
-                    ? originalLinkUrl 
-                    : `https://${originalLinkUrl}`
-                }
-                
-                // Add original link first
-                combinedLinks = [originalLink, ...combinedLinks]
-                
-                console.log('✅ LandingPage: Added fallback original link:', {
-                  originalLink,
-                  totalLinks: combinedLinks.length
-                })
-              }
-            }
-          }
-          
-          const transformedData = {
-            type: campaignData.type || campaignData.campaignType || 'qr-links-video', // Use campaignType as fallback
-            fileUrl: foundFileUrl,
-            fileType: foundFileType || campaignData.phygitalizedData?.fileType,
-            // For qr-links-pdf-video - check multiple sources
-            pdfUrl: campaignData.uploadedFiles?.pdf?.url || 
-                    campaignData.pdfUrl || 
-                    campaignData.phygitalizedData?.pdfUrl,
-            // Include documents array for multiple PDFs
-            documents: campaignData.uploadedFiles?.documents || [],
-            videoUrl: campaignData.uploadedFiles?.video?.url || 
-                      campaignData.videoUrl || 
-                      campaignData.phygitalizedData?.videoUrl,
-            // Include videos array for multiple videos
-            videos: campaignData.uploadedFiles?.videos || [],
-            links: combinedLinks, // Use combined links (base links + social links)
-            // Filter out empty social links - handle both string and formatted phone numbers
-            socialLinks: socialLinks, // Keep social links separate for contact info display
-            // Add template data
-            templateId: campaignData.phygitalizedData?.templateId || 'default',
-            templateConfig: campaignData.phygitalizedData?.templateConfig || {}
-          }
-          
-          console.log('📦 Campaign data loaded:', {
-            rawCampaignData: campaignData,
-            type: transformedData.type,
-            fileUrl: transformedData.fileUrl,
-            fileType: foundFileType,
-            baseLinks: baseLinks,
-            socialLinksAsCustomLinks: socialLinksAsCustomLinks,
-            combinedLinks: combinedLinks,
-            linksCount: combinedLinks.length,
-            uploadedFiles: campaignData.uploadedFiles,
-            uploadedFilesVideo: campaignData.uploadedFiles?.video,
-            uploadedFilesPdf: campaignData.uploadedFiles?.pdf,
-            videoUrlFromUploadedFiles: campaignData.uploadedFiles?.video?.url,
-            videoUrlFromProject: campaignData.videoUrl,
-            videoUrlFromPhygitalizedData: campaignData.phygitalizedData?.videoUrl,
-            pdfUrlFromUploadedFiles: campaignData.uploadedFiles?.pdf?.url,
-            pdfUrlFromProject: campaignData.pdfUrl,
-            pdfUrlFromPhygitalizedData: campaignData.phygitalizedData?.pdfUrl,
-            finalVideoUrl: transformedData.videoUrl,
-            finalPdfUrl: transformedData.pdfUrl,
-            phygitalizedData: campaignData.phygitalizedData,
-            phygitalizedDataLinks: campaignData.phygitalizedData?.links,
-            phygitalizedDataSocialLinks: campaignData.phygitalizedData?.socialLinks,
-            templateId: campaignData.phygitalizedData?.templateId,
-            templateConfig: campaignData.phygitalizedData?.templateConfig,
-            customBackgroundColor: campaignData.phygitalizedData?.templateConfig?.customBackgroundColor,
-            transformedTemplateId: transformedData.templateId,
-            transformedTemplateConfig: transformedData.templateConfig,
-            transformedCustomBackgroundColor: transformedData.templateConfig?.customBackgroundColor,
-            foundFileUrl: foundFileUrl,
-            foundFileType: foundFileType,
-            hasLinks: transformedData.links?.length > 0,
-            hasSocialLinks: Object.keys(transformedData.socialLinks || {}).length > 0,
-            socialLinksKeys: Object.keys(transformedData.socialLinks || {}),
-            socialLinks: transformedData.socialLinks
-          })
+          // Use memoized transformation function
+          const transformedData = transformCampaignData(campaignData)
           
           // Extract userId and projectId for analytics
           userIdRef.current = campaignData.userId || null
@@ -289,24 +339,31 @@ const LandingPage = () => {
           
           // Initialize videos array (check videos array first, fallback to single video)
           const videosArray = campaignData.uploadedFiles?.videos || []
+          let finalVideos = []
           if (videosArray.length > 0) {
-            setVideos(videosArray)
-            setCurrentVideoIndex(0)
+            finalVideos = videosArray
           } else if (campaignData.uploadedFiles?.video?.url) {
             // Convert single video to array format for consistency
-            setVideos([campaignData.uploadedFiles.video])
-            setCurrentVideoIndex(0)
+            finalVideos = [campaignData.uploadedFiles.video]
           } else if (transformedData.videoUrl || transformedData.fileUrl) {
             // Fallback to videoUrl/fileUrl if available
             const singleVideo = transformedData.videoUrl || transformedData.fileUrl
-            setVideos([{ url: singleVideo }])
-            setCurrentVideoIndex(0)
-          } else {
-            setVideos([])
-            setCurrentVideoIndex(0)
+            finalVideos = [{ url: singleVideo }]
           }
           
+          setVideos(finalVideos)
+          setCurrentVideoIndex(0)
+          
+          // Cache the data
+          setCachedData(pageId, {
+            transformedData,
+            userId: userIdRef.current,
+            projectId: projectIdRef.current,
+            videos: finalVideos
+          })
+          
           setPageData(transformedData)
+          dataLoadedRef.current = true
           setLoading(false)
         } else {
           // Fallback to localStorage for backward compatibility
@@ -377,8 +434,29 @@ const LandingPage = () => {
       }
     }
 
-    loadPageData()
+    // Reset data loaded flag when pageId changes
+    if (pageId) {
+      dataLoadedRef.current = false
+      loadPageData()
+    }
   }, [pageId])
+
+  // Handle visibility change to prevent unnecessary refetches
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const isVisible = !document.hidden
+      isVisibleRef.current = isVisible
+      
+      if (isVisible) {
+        lastVisibilityChangeRef.current = Date.now()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [])
 
   // Track scan, page view and start time tracking when page data is loaded
   useEffect(() => {
@@ -423,10 +501,27 @@ const LandingPage = () => {
     }
   }, [pageData])
 
-  // Set up video progress tracking for qr-links-video
+  // Consolidated video progress tracking for all video types
   useEffect(() => {
-    if (!pageData || pageData.type !== 'qr-links-video') return
-    if (!videoRef.current || !userIdRef.current || !projectIdRef.current) return
+    if (!pageData || !userIdRef.current || !projectIdRef.current) return
+
+    // Determine which video ref and URL to use based on page type
+    let videoElement = null
+    let videoUrl = null
+
+    if (pageData.type === 'qr-links-video' && videoRef.current) {
+      videoElement = videoRef.current
+      videoUrl = pageData.fileUrl
+    } else if (pageData.type === 'qr-links-pdf-video' && videoRefPdfVideo.current) {
+      videoElement = videoRefPdfVideo.current
+      videoUrl = pageData.videoUrl
+    } else if (pageData.type === 'qr-links-ar-video' && videoRefArVideo.current) {
+      videoElement = videoRefArVideo.current
+      videoUrl = pageData.videoUrl
+    }
+
+    // Only set up tracking if we have a valid video element
+    if (!videoElement) return
 
     // Clean up previous tracking
     if (videoCleanupRef.current) {
@@ -435,21 +530,21 @@ const LandingPage = () => {
 
     // Set up video progress tracking
     videoCleanupRef.current = trackVideoProgressUtil(
-      videoRef.current,
+      videoElement,
       userIdRef.current,
       projectIdRef.current,
       async (eventType, milestone, progress, duration) => {
         const currentVideo = videos[currentVideoIndex]
-        const videoUrl = currentVideo?.url || pageData.fileUrl
+        const finalVideoUrl = currentVideo?.url || videoUrl
         const videoId = currentVideo?.videoId || null
         const videoIndex = videos.length > 1 ? currentVideoIndex : null
         
         if (eventType === 'play') {
-          await trackVideoPlay(userIdRef.current, projectIdRef.current, videoUrl, videoIndex, videoId)
+          await trackVideoPlay(userIdRef.current, projectIdRef.current, finalVideoUrl, videoIndex, videoId)
         } else if (eventType === 'milestone') {
-          await trackVideoProgressMilestone(userIdRef.current, projectIdRef.current, milestone.toString(), progress, duration, videoIndex, videoId, videoUrl)
+          await trackVideoProgressMilestone(userIdRef.current, projectIdRef.current, milestone.toString(), progress, duration, videoIndex, videoId, finalVideoUrl)
         } else if (eventType === 'complete') {
-          await trackVideoComplete(userIdRef.current, projectIdRef.current, duration, videoIndex, videoId, videoUrl)
+          await trackVideoComplete(userIdRef.current, projectIdRef.current, duration, videoIndex, videoId, finalVideoUrl)
         }
       }
     )
@@ -460,85 +555,7 @@ const LandingPage = () => {
         videoCleanupRef.current = null
       }
     }
-  }, [pageData, pageData?.fileUrl, pageData?.type, videos, currentVideoIndex])
-
-  // Set up video progress tracking for qr-links-pdf-video
-  useEffect(() => {
-    if (!pageData || pageData.type !== 'qr-links-pdf-video') return
-    if (!videoRefPdfVideo.current || !userIdRef.current || !projectIdRef.current) return
-
-    // Clean up previous tracking
-    if (videoCleanupRef.current) {
-      videoCleanupRef.current()
-    }
-
-    // Set up video progress tracking
-    videoCleanupRef.current = trackVideoProgressUtil(
-      videoRefPdfVideo.current,
-      userIdRef.current,
-      projectIdRef.current,
-      async (eventType, milestone, progress, duration) => {
-        const currentVideo = videos[currentVideoIndex]
-        const videoUrl = currentVideo?.url || pageData.videoUrl
-        const videoId = currentVideo?.videoId || null
-        const videoIndex = videos.length > 1 ? currentVideoIndex : null
-        
-        if (eventType === 'play') {
-          await trackVideoPlay(userIdRef.current, projectIdRef.current, videoUrl, videoIndex, videoId)
-        } else if (eventType === 'milestone') {
-          await trackVideoProgressMilestone(userIdRef.current, projectIdRef.current, milestone.toString(), progress, duration, videoIndex, videoId, videoUrl)
-        } else if (eventType === 'complete') {
-          await trackVideoComplete(userIdRef.current, projectIdRef.current, duration, videoIndex, videoId, videoUrl)
-        }
-      }
-    )
-
-    return () => {
-      if (videoCleanupRef.current) {
-        videoCleanupRef.current()
-        videoCleanupRef.current = null
-      }
-    }
-  }, [pageData, pageData?.videoUrl, pageData?.type, videos, currentVideoIndex])
-
-  // Set up video progress tracking for qr-links-ar-video
-  useEffect(() => {
-    if (!pageData || pageData.type !== 'qr-links-ar-video') return
-    if (!videoRefArVideo.current || !userIdRef.current || !projectIdRef.current) return
-
-    // Clean up previous tracking
-    if (videoCleanupRef.current) {
-      videoCleanupRef.current()
-    }
-
-    // Set up video progress tracking
-    videoCleanupRef.current = trackVideoProgressUtil(
-      videoRefArVideo.current,
-      userIdRef.current,
-      projectIdRef.current,
-      async (eventType, milestone, progress, duration) => {
-        const currentVideo = videos[currentVideoIndex]
-        const videoUrl = currentVideo?.url || pageData.videoUrl
-        const videoId = currentVideo?.videoId || null
-        const videoIndex = videos.length > 1 ? currentVideoIndex : null
-        
-        if (eventType === 'play') {
-          await trackVideoPlay(userIdRef.current, projectIdRef.current, videoUrl, videoIndex, videoId)
-        } else if (eventType === 'milestone') {
-          await trackVideoProgressMilestone(userIdRef.current, projectIdRef.current, milestone.toString(), progress, duration, videoIndex, videoId, videoUrl)
-        } else if (eventType === 'complete') {
-          await trackVideoComplete(userIdRef.current, projectIdRef.current, duration, videoIndex, videoId, videoUrl)
-        }
-      }
-    )
-
-    return () => {
-      if (videoCleanupRef.current) {
-        videoCleanupRef.current()
-        videoCleanupRef.current = null
-      }
-    }
-  }, [pageData, pageData?.videoUrl, pageData?.type, videos, currentVideoIndex])
+  }, [pageData?.type, pageData?.fileUrl, pageData?.videoUrl, videos, currentVideoIndex])
 
   const getSocialIcon = (platform) => {
     const platformLower = platform.toLowerCase()
@@ -588,6 +605,11 @@ const LandingPage = () => {
     }
   }
   
+  // Get template ID and config - memoized to prevent unnecessary re-renders
+  // MUST be before any conditional returns to follow Rules of Hooks
+  const templateId = useMemo(() => pageData?.templateId || 'default', [pageData?.templateId])
+  const templateConfig = useMemo(() => pageData?.templateConfig || {}, [pageData?.templateConfig])
+
   const splitSocialLinks = (socialLinks = {}) => {
     const contactInfoKeys = new Set(['contactNumber', 'whatsappNumber'])
     const contactInfo = {}
@@ -706,18 +728,6 @@ const LandingPage = () => {
       </div>
     )
   }
-
-  // Get template ID and config
-  const templateId = pageData.templateId || 'default'
-  const templateConfig = pageData.templateConfig || {}
-  
-  console.log('🎨 LandingPage passing to ThemeRenderer:', {
-    templateId,
-    templateConfig,
-    hasCustomBackgroundColor: !!templateConfig?.customBackgroundColor,
-    customBackgroundColor: templateConfig?.customBackgroundColor,
-    fullPageData: pageData
-  })
 
   return (
     <ThemeRenderer template={templateId} templateConfig={templateConfig}>
@@ -1462,7 +1472,9 @@ const LandingPage = () => {
         {/* PDF Modal - Enhanced Professional UI */}
         {selectedPdfUrl && (
           <div 
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-md transition-opacity duration-300 animate-fade-in-up"
+            className={`fixed inset-0 z-[9999] flex flex-col bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-md transition-opacity duration-300 animate-fade-in-up ${
+              isFullscreen ? '' : 'pt-16 sm:pt-20'
+            }`}
             onClick={() => {
               setSelectedPdfUrl(null);
               setIsFullscreen(false);
@@ -1470,15 +1482,15 @@ const LandingPage = () => {
             }}
           >
             <div 
-              className={`relative flex flex-col bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-xl md:rounded-2xl shadow-2xl border border-slate-600/30 transition-all duration-300 ${
+              className={`relative flex flex-col bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl shadow-2xl border border-slate-600/30 transition-all duration-300 flex-1 ${
                 isFullscreen 
                   ? 'w-full h-full rounded-none' 
-                  : 'w-full h-full max-w-7xl mx-2 sm:mx-4 my-2 sm:my-4'
+                  : 'w-full max-w-7xl mx-auto my-2 sm:my-4 rounded-xl md:rounded-2xl h-[calc(100vh-4rem)] sm:h-[calc(100vh-5rem)]'
               }`}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Enhanced Modal Header */}
-              <div className="sticky top-0 z-[10000] flex items-center justify-between p-3 sm:p-4 md:p-5 border-b border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-sm">
+              <div className="flex-shrink-0 flex items-center justify-between p-3 sm:p-4 md:p-5 border-b border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-t-xl md:rounded-t-2xl">
                 <div className="flex items-center gap-2 sm:gap-3">
                   {/* Back Button */}
                   <button
@@ -1536,7 +1548,7 @@ const LandingPage = () => {
               </div>
               
               {/* PDF Container with Loading State */}
-              <div className="relative flex-1 overflow-hidden bg-slate-900/50">
+              <div className="relative flex-1 overflow-hidden bg-slate-900/50 min-h-0">
                 {/* Loading Overlay */}
                 {isPdfLoading && (
                   <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm z-10">
@@ -1558,12 +1570,11 @@ const LandingPage = () => {
                   onLoad={() => {
                     setIsPdfLoading(false);
                   }}
-                  style={{ minHeight: '400px' }}
                 />
               </div>
               
               {/* Footer Info Bar */}
-              <div className="flex items-center justify-between p-2 sm:p-3 border-t border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-sm">
+              <div className="flex-shrink-0 flex items-center justify-between p-2 sm:p-3 border-t border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-b-xl md:rounded-b-2xl">
                 <div className="flex items-center gap-2 text-xs text-slate-400">
                   <FileText className="w-3 h-3 sm:w-4 sm:h-4" />
                   <span className="hidden sm:inline">PDF Document</span>

@@ -41,11 +41,30 @@ export const trackLandingPageScan = async (userId, projectId) => {
 
     // Track scan event (silent failure - don't show errors to users)
     try {
-      await analyticsAPI.trackScan(userId, scanData, projectId)
-      console.log('✅ Landing page scan tracked:', { userId, projectId })
+      // Ensure projectId is a string (backend expects string)
+      const projectIdString = projectId ? String(projectId) : null
+      
+      if (!userId || !projectIdString) {
+        console.warn('⚠️ Scan tracking skipped: missing userId or projectId', { userId, projectId, projectIdString })
+        return
+      }
+      
+      const response = await analyticsAPI.trackScan(userId, scanData, projectIdString)
+      console.log('✅ Landing page scan tracked:', { 
+        userId, 
+        projectId: projectIdString,
+        response: response?.data,
+        totalScans: response?.data?.data?.totalScans
+      })
     } catch (trackError) {
-      // Silently handle analytics errors - don't break user experience
-      console.warn('⚠️ Analytics tracking failed (silent):', trackError.message)
+      // Log detailed error for debugging but don't break user experience
+      console.warn('⚠️ Analytics tracking failed (silent):', {
+        message: trackError.message,
+        response: trackError.response?.data,
+        status: trackError.response?.status,
+        userId,
+        projectId
+      })
       // Mark as failed so it can be retried later
       markAnalyticsFailed('scan', userId, projectId)
     }
@@ -77,10 +96,27 @@ export const trackLandingPageView = async (userId, projectId) => {
 
     // Track page view with location data (silent failure)
     try {
-      await analyticsAPI.trackPageView(userId, projectId, locationData)
+      // Ensure projectId is a string (backend expects string)
+      const projectIdString = projectId ? String(projectId) : null
+      if (!userId || !projectIdString) {
+        console.warn('⚠️ Page view tracking skipped: missing userId or projectId')
+        return
+      }
+      const response = await analyticsAPI.trackPageView(userId, projectIdString, locationData)
+      console.log('✅ Landing page view tracked:', { 
+        userId, 
+        projectId: projectIdString,
+        response: response?.data
+      })
     } catch (trackError) {
-      // Silently handle analytics errors
-      console.warn('⚠️ Page view tracking failed (silent):', trackError.message)
+      // Log detailed error for debugging but don't break user experience
+      console.warn('⚠️ Page view tracking failed (silent):', {
+        message: trackError.message,
+        response: trackError.response?.data,
+        status: trackError.response?.status,
+        userId,
+        projectId
+      })
     }
   } catch (error) {
     // Silently handle all errors
@@ -153,9 +189,15 @@ export const trackDocumentView = async (userId, projectId, documentUrl, action =
  */
 export const trackVideoPlay = async (userId, projectId, videoUrl, videoIndex = null, videoId = null) => {
   try {
-    await analyticsAPI.trackVideoView(userId, 0, 0, projectId, videoIndex, videoId, videoUrl)
+    if (!userId || !projectId) {
+      console.warn('⚠️ Video play tracking skipped: missing userId or projectId')
+      return
+    }
+    const projectIdString = projectId ? String(projectId) : null
+    await analyticsAPI.trackVideoView(userId, 0, 0, projectIdString, videoIndex, videoId, videoUrl)
   } catch (error) {
-    console.error('Failed to track video play:', error)
+    // Silently handle analytics errors - don't break user experience
+    console.warn('⚠️ Video play tracking error (silent):', error.message)
   }
 }
 
@@ -164,9 +206,17 @@ export const trackVideoPlay = async (userId, projectId, videoUrl, videoIndex = n
  */
 export const trackVideoProgress = async (userId, projectId, progress, duration) => {
   try {
-    await analyticsAPI.trackVideoView(userId, progress, duration, projectId)
+    if (!userId || !projectId) {
+      console.warn('⚠️ Video progress tracking skipped: missing userId or projectId')
+      return
+    }
+    const projectIdString = projectId ? String(projectId) : null
+    const validProgress = progress && !isNaN(parseFloat(progress)) ? parseFloat(progress) : 0
+    const validDuration = duration && !isNaN(parseFloat(duration)) ? parseFloat(duration) : 0
+    await analyticsAPI.trackVideoView(userId, validProgress, validDuration, projectIdString)
   } catch (error) {
-    console.error('Failed to track video progress:', error)
+    // Silently handle analytics errors - don't break user experience
+    console.warn('⚠️ Video progress tracking error (silent):', error.message)
   }
 }
 
@@ -175,9 +225,60 @@ export const trackVideoProgress = async (userId, projectId, progress, duration) 
  */
 export const trackVideoComplete = async (userId, projectId, duration, videoIndex = null, videoId = null, videoUrl = null) => {
   try {
-    await analyticsAPI.trackVideoComplete(userId, projectId, duration, videoIndex, videoId, videoUrl)
+    // Ensure projectId is a string
+    const projectIdString = projectId ? String(projectId) : null
+    
+    if (!userId || !projectIdString) {
+      console.warn('⚠️ Video complete tracking skipped: missing userId or projectId', { userId, projectId, projectIdString })
+      return
+    }
+    
+    // Ensure duration is a valid number (backend requires numeric duration)
+    // If duration is invalid, use 0 as fallback
+    let validDuration = 0
+    if (duration != null && duration !== undefined) {
+      const parsed = parseFloat(duration)
+      if (!isNaN(parsed) && isFinite(parsed) && parsed >= 0) {
+        validDuration = parsed
+      }
+    }
+    
+    // Ensure videoIndex is a valid non-negative integer or undefined (backend validation requires integer if provided)
+    let validVideoIndex = undefined
+    if (videoIndex != null && videoIndex !== undefined) {
+      const parsed = parseInt(videoIndex)
+      if (!isNaN(parsed) && isFinite(parsed) && parsed >= 0) {
+        validVideoIndex = parsed
+      }
+    }
+    // If videoIndex is null or invalid, don't send it (backend accepts optional videoIndex)
+    
+    // Log what we're sending for debugging
+    console.log('📹 Tracking video complete:', { 
+      userId, 
+      projectId: projectIdString, 
+      duration: validDuration, 
+      videoIndex: validVideoIndex, 
+      videoId, 
+      videoUrl, 
+      originalDuration: duration,
+      originalVideoIndex: videoIndex,
+      durationType: typeof duration,
+      isValid: !isNaN(validDuration) && isFinite(validDuration)
+    })
+    
+    await analyticsAPI.trackVideoComplete(userId, projectIdString, validDuration, validVideoIndex, videoId, videoUrl)
+    console.log('✅ Video complete tracked:', { userId, projectId: projectIdString, duration: validDuration, videoIndex: validVideoIndex })
   } catch (error) {
-    console.error('Failed to track video completion:', error)
+    // Log detailed error for debugging but don't break user experience
+    console.warn('⚠️ Video complete tracking error (silent):', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      userId,
+      projectId,
+      duration
+    })
   }
 }
 
@@ -186,9 +287,15 @@ export const trackVideoComplete = async (userId, projectId, duration, videoIndex
  */
 export const trackLinkClick = async (userId, projectId, linkLabel, linkUrl) => {
   try {
-    await analyticsAPI.trackLinkClick(userId, linkLabel.toLowerCase(), linkUrl, projectId)
+    if (!userId || !projectId) {
+      console.warn('⚠️ Link click tracking skipped: missing userId or projectId')
+      return
+    }
+    const projectIdString = projectId ? String(projectId) : null
+    await analyticsAPI.trackLinkClick(userId, linkLabel.toLowerCase(), linkUrl, projectIdString)
   } catch (error) {
-    console.error('Failed to track link click:', error)
+    // Silently handle analytics errors - don't break user experience
+    console.warn('⚠️ Link click tracking error (silent):', error.message)
   }
 }
 
@@ -197,9 +304,16 @@ export const trackLinkClick = async (userId, projectId, linkLabel, linkUrl) => {
  */
 export const trackPageViewDuration = async (userId, projectId, timeSpent) => {
   try {
-    await analyticsAPI.trackPageViewDuration(userId, projectId, timeSpent)
+    if (!userId || !projectId) {
+      console.warn('⚠️ Page view duration tracking skipped: missing userId or projectId')
+      return
+    }
+    const projectIdString = projectId ? String(projectId) : null
+    const validTimeSpent = timeSpent && !isNaN(parseFloat(timeSpent)) ? parseFloat(timeSpent) : 0
+    await analyticsAPI.trackPageViewDuration(userId, projectIdString, validTimeSpent)
   } catch (error) {
-    console.error('Failed to track page view duration:', error)
+    // Silently handle analytics errors - don't break user experience
+    console.warn('⚠️ Page view duration tracking error (silent):', error.message)
   }
 }
 
@@ -208,9 +322,27 @@ export const trackPageViewDuration = async (userId, projectId, timeSpent) => {
  */
 export const trackVideoProgressMilestone = async (userId, projectId, milestone, progress, duration, videoIndex = null, videoId = null, videoUrl = null) => {
   try {
-    await analyticsAPI.trackVideoProgressMilestone(userId, projectId, milestone, progress, duration, videoIndex, videoId, videoUrl)
+    if (!userId || !projectId) {
+      console.warn('⚠️ Video milestone tracking skipped: missing userId or projectId')
+      return
+    }
+    const projectIdString = projectId ? String(projectId) : null
+    const validProgress = progress && !isNaN(parseFloat(progress)) ? parseFloat(progress) : 0
+    const validDuration = duration && !isNaN(parseFloat(duration)) ? parseFloat(duration) : 0
+    
+    // Ensure videoIndex is a valid non-negative integer or undefined
+    let validVideoIndex = undefined
+    if (videoIndex != null && videoIndex !== undefined) {
+      const parsed = parseInt(videoIndex)
+      if (!isNaN(parsed) && isFinite(parsed) && parsed >= 0) {
+        validVideoIndex = parsed
+      }
+    }
+    
+    await analyticsAPI.trackVideoProgressMilestone(userId, projectIdString, milestone, validProgress, validDuration, validVideoIndex, videoId, videoUrl)
   } catch (error) {
-    console.error('Failed to track video progress milestone:', error)
+    // Silently handle analytics errors - don't break user experience
+    console.warn('⚠️ Video milestone tracking error (silent):', error.message)
   }
 }
 

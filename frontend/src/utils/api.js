@@ -166,13 +166,21 @@ api.interceptors.response.use(
     // Handle validation errors
     if (error.response.status === 400) {
       const message = error.response.data?.message || 'Invalid request'
+      const errors = error.response.data?.errors || []
       // Don't show error toast for analytics endpoints
       if (!isAnalyticsEndpoint) {
         toast.error(message)
       } else {
-        // Log analytics validation errors silently
-        if (import.meta.env.DEV) {
-          console.warn('Analytics validation error (silent):', url, message)
+        // Log analytics validation errors with details for debugging
+        console.warn('Analytics validation error (silent):', url, message)
+        if (errors.length > 0) {
+          console.warn('Validation errors:', errors)
+          // Log each validation error for easier debugging
+          errors.forEach((err, index) => {
+            console.warn(`  Error ${index + 1}:`, err.msg || err.message, 'at', err.param || err.path)
+          })
+        } else if (error.response?.data) {
+          console.warn('Error response:', error.response.data)
         }
       }
       return Promise.reject(error)
@@ -402,8 +410,20 @@ export const analyticsAPI = {
     api.post('/analytics/social-media-click', { userId, projectId, platform, url }),
   trackDocumentView: (userId, projectId, documentUrl, action = 'view') =>
     api.post('/analytics/document-view', { userId, projectId, documentUrl, action }),
-  trackVideoComplete: (userId, projectId, duration, videoIndex = null, videoId = null, videoUrl = null) =>
-    api.post('/analytics/video-complete', { userId, projectId, duration, videoIndex, videoId, videoUrl }),
+  trackVideoComplete: (userId, projectId, duration, videoIndex = null, videoId = null, videoUrl = null) => {
+    // Build request body, only including optional fields if they have valid values
+    const body = { userId, projectId, duration }
+    if (videoIndex !== null && videoIndex !== undefined) {
+      body.videoIndex = videoIndex
+    }
+    if (videoId !== null && videoId !== undefined) {
+      body.videoId = videoId
+    }
+    if (videoUrl !== null && videoUrl !== undefined) {
+      body.videoUrl = videoUrl
+    }
+    return api.post('/analytics/video-complete', body)
+  },
   trackPageViewDuration: (userId, projectId, timeSpent, locationData = null) =>
     api.post('/analytics/page-view-duration', { 
       userId, 

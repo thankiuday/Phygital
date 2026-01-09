@@ -240,28 +240,140 @@ router.put('/campaign/:projectId', authenticateToken, async (req, res) => {
       updateFields[`projects.${projectIndex}.arExperienceUrl`] = updateData.arExperienceUrl
     }
 
-    // Update phygitalized data if provided
-    if (updateData.phygitalizedData) {
-      // Merge with existing phygitalizedData
-      const existingPhygitalizedData = user.projects[projectIndex].phygitalizedData || {}
-      updateFields[`projects.${projectIndex}.phygitalizedData`] = {
-        ...existingPhygitalizedData,
-        ...updateData.phygitalizedData
-      }
-    }
-
+    // Track fields to unset separately (needed for file removal)
+    const unsetFields = {}
+    
+    // Track which phygitalizedData fields need to be unset (to avoid conflicts)
+    const phygitalizedDataFieldsToUnset = new Set()
+    
     // Update file URLs if provided
     if (updateData.fileUrls) {
       // Initialize uploadedFiles if it doesn't exist
       if (!user.projects[projectIndex].uploadedFiles) {
         updateFields[`projects.${projectIndex}.uploadedFiles`] = {}
       }
-
+      
       // Update each file URL
       Object.keys(updateData.fileUrls).forEach(key => {
         const fileData = updateData.fileUrls[key]
-        updateFields[`projects.${projectIndex}.uploadedFiles.${key}`] = fileData
+        
+        // If fileData is null or empty array, remove the file from database using $unset
+        const isEmpty = fileData === null || (Array.isArray(fileData) && fileData.length === 0)
+        
+        if (isEmpty) {
+          unsetFields[`projects.${projectIndex}.uploadedFiles.${key}`] = ''
+          
+          // Also clear related fields for videos and documents
+          if (key === 'video' || key === 'videos') {
+            unsetFields[`projects.${projectIndex}.phygitalizedData.videoUrl`] = ''
+            unsetFields[`projects.${projectIndex}.videoUrl`] = ''
+            unsetFields[`projects.${projectIndex}.phygitalizedData.fileUrl`] = ''
+            phygitalizedDataFieldsToUnset.add('videoUrl')
+            phygitalizedDataFieldsToUnset.add('fileUrl')
+          } else if (key === 'pdf') {
+            unsetFields[`projects.${projectIndex}.phygitalizedData.pdfUrl`] = ''
+            unsetFields[`projects.${projectIndex}.pdfUrl`] = ''
+            phygitalizedDataFieldsToUnset.add('pdfUrl')
+          } else if (key === 'document' || key === 'documents') {
+            unsetFields[`projects.${projectIndex}.phygitalizedData.fileUrl`] = ''
+            unsetFields[`projects.${projectIndex}.phygitalizedData.pdfUrl`] = ''
+            unsetFields[`projects.${projectIndex}.phygitalizedData.documentUrls`] = ''
+            phygitalizedDataFieldsToUnset.add('fileUrl')
+            phygitalizedDataFieldsToUnset.add('pdfUrl')
+            phygitalizedDataFieldsToUnset.add('documentUrls')
+          }
+        } else {
+          // Set the file data
+          updateFields[`projects.${projectIndex}.uploadedFiles.${key}`] = fileData
+          
+          // Track phygitalizedData fields to set (we'll add them to the merged object later)
+          // If setting videos array, also update phygitalizedData.videoUrl with first video
+          if (key === 'videos' && Array.isArray(fileData) && fileData.length > 0 && fileData[0]?.url) {
+            // Store in a temporary object that we'll merge into phygitalizedData later
+            if (!updateFields._phygitalizedDataUpdates) {
+              updateFields._phygitalizedDataUpdates = {}
+            }
+            updateFields._phygitalizedDataUpdates.videoUrl = fileData[0].url
+            phygitalizedDataFieldsToUnset.delete('videoUrl') // Remove from unset if we're setting it
+          }
+          // If setting documents array, also update phygitalizedData.documentUrls
+          if (key === 'documents' && Array.isArray(fileData) && fileData.length > 0) {
+            const documentUrls = fileData.map(doc => doc.url || doc).filter(Boolean)
+            if (documentUrls.length > 0) {
+              if (!updateFields._phygitalizedDataUpdates) {
+                updateFields._phygitalizedDataUpdates = {}
+              }
+              updateFields._phygitalizedDataUpdates.documentUrls = documentUrls
+              // Also set pdfUrl to first document if it's a PDF
+              if (documentUrls[0]) {
+                updateFields._phygitalizedDataUpdates.pdfUrl = documentUrls[0]
+              }
+              phygitalizedDataFieldsToUnset.delete('documentUrls')
+              phygitalizedDataFieldsToUnset.delete('pdfUrl')
+            }
+          }
+        }
       })
+    }
+
+    // Update phygitalized data if provided (but exclude fields that need to be unset)
+    // Also merge in any phygitalizedData updates from file operations
+    const hasPhygitalizedDataUpdate = updateData.phygitalizedData || updateFields._phygitalizedDataUpdates
+    
+    // IMPORTANT: If we're unsetting nested phygitalizedData fields, we CANNOT set the whole object
+    // MongoDB doesn't allow both $set on parent and $unset on child in same operation
+    const hasNestedUnsets = phygitalizedDataFieldsToUnset.size > 0
+    
+    if (hasPhygitalizedDataUpdate) {
+      if (hasNestedUnsets) {
+        // If we're unsetting nested fields, only set individual fields (not the whole object)
+        // This avoids MongoDB conflicts
+        
+        // Set individual fields that aren't being unset
+        if (updateData.phygitalizedData) {
+          Object.keys(updateData.phygitalizedData).forEach(key => {
+            if (!phygitalizedDataFieldsToUnset.has(key)) {
+              updateFields[`projects.${projectIndex}.phygitalizedData.${key}`] = updateData.phygitalizedData[key]
+            }
+          })
+        }
+        
+        // Merge in phygitalizedData updates from file operations
+        if (updateFields._phygitalizedDataUpdates) {
+          Object.keys(updateFields._phygitalizedDataUpdates).forEach(key => {
+            if (!phygitalizedDataFieldsToUnset.has(key)) {
+              updateFields[`projects.${projectIndex}.phygitalizedData.${key}`] = updateFields._phygitalizedDataUpdates[key]
+            }
+          })
+          // Remove the temporary object
+          delete updateFields._phygitalizedDataUpdates
+        }
+      } else {
+        // No nested unsets, safe to set the whole object
+        const existingPhygitalizedData = user.projects[projectIndex].phygitalizedData || {}
+        const phygitalizedDataToSet = { ...existingPhygitalizedData }
+        
+        // Add/update fields from updateData.phygitalizedData
+        if (updateData.phygitalizedData) {
+          Object.keys(updateData.phygitalizedData).forEach(key => {
+            phygitalizedDataToSet[key] = updateData.phygitalizedData[key]
+          })
+        }
+        
+        // Merge in phygitalizedData updates from file operations
+        if (updateFields._phygitalizedDataUpdates) {
+          Object.keys(updateFields._phygitalizedDataUpdates).forEach(key => {
+            phygitalizedDataToSet[key] = updateFields._phygitalizedDataUpdates[key]
+          })
+          // Remove the temporary object
+          delete updateFields._phygitalizedDataUpdates
+        }
+        
+        // Only set phygitalizedData if we have fields to set
+        if (Object.keys(phygitalizedDataToSet).length > 0) {
+          updateFields[`projects.${projectIndex}.phygitalizedData`] = phygitalizedDataToSet
+        }
+      }
     }
 
     // Update videoUrl, pdfUrl, designImage if provided in phygitalizedData
@@ -285,10 +397,45 @@ router.put('/campaign/:projectId', authenticateToken, async (req, res) => {
       updateFields[`projects.${projectIndex}.documents`] = updateData.phygitalizedData.documentUrls.map(url => ({ url }))
     }
 
+    // Build the update object - separate $set and $unset operations
+    const updateObject = {}
+    
+    // Separate $set and $unset fields
+    const setFields = {}
+    
+    // Use the unsetFields we built earlier (not from updateFields.$unset)
+    // unsetFields is already defined in the scope above
+    
+    Object.keys(updateFields).forEach(key => {
+      // Skip temporary fields and $unset
+      if (key !== '$unset' && key !== '_phygitalizedDataUpdates') {
+        setFields[key] = updateFields[key]
+      }
+    })
+    
+    if (Object.keys(setFields).length > 0) {
+      updateObject.$set = setFields
+    }
+    if (Object.keys(unsetFields).length > 0) {
+      updateObject.$unset = unsetFields
+    }
+    
+    // Debug: Log update object to help diagnose conflicts
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔧 Update object:', {
+        setFieldsCount: Object.keys(setFields).length,
+        unsetFieldsCount: Object.keys(unsetFields).length,
+        hasPhygitalizedDataSet: !!setFields[`projects.${projectIndex}.phygitalizedData`],
+        phygitalizedDataUnsets: Object.keys(unsetFields).filter(k => k.includes('phygitalizedData')),
+        setFieldsKeys: Object.keys(setFields).filter(k => k.includes('phygitalizedData')),
+        unsetFieldsKeys: Object.keys(unsetFields)
+      })
+    }
+
     // Update the project
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
-      { $set: updateFields },
+      updateObject,
       { new: true }
     ).select('-password')
 
@@ -783,6 +930,213 @@ router.post('/upgrade-campaign', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to upgrade campaign',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    })
+  }
+})
+
+// Delete campaign file (video, document, pdf)
+// DELETE /api/phygitalized/file/:projectId
+router.delete('/file/:projectId', authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params
+    const { kind } = req.query // 'video', 'document', 'pdf'
+
+    console.log('🗑️ Deleting campaign file:', { projectId, kind })
+
+    if (!kind) {
+      return res.status(400).json({
+        success: false,
+        message: 'File kind is required (video, document, or pdf)'
+      })
+    }
+
+    // Valid file kinds
+    const validKinds = ['video', 'document', 'pdf']
+    if (!validKinds.includes(kind)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid file kind. Must be one of: ${validKinds.join(', ')}`
+      })
+    }
+
+    // Find user and project
+    const user = await User.findById(req.user._id)
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      })
+    }
+
+    const projectIndex = user.projects.findIndex(p => p.id === projectId)
+    if (projectIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project not found'
+      })
+    }
+
+    const project = user.projects[projectIndex]
+
+    // Determine which file to delete based on kind
+    let fileToDelete = null
+    let filePath = null
+
+    if (kind === 'video') {
+      fileToDelete = project.uploadedFiles?.video
+      filePath = `projects.${projectIndex}.uploadedFiles.video`
+    } else if (kind === 'document') {
+      fileToDelete = project.uploadedFiles?.document
+      filePath = `projects.${projectIndex}.uploadedFiles.document`
+    } else if (kind === 'pdf') {
+      fileToDelete = project.uploadedFiles?.pdf
+      filePath = `projects.${projectIndex}.uploadedFiles.pdf`
+    }
+
+    if (!fileToDelete || !fileToDelete.url) {
+      console.log(`ℹ️ No ${kind} file found to delete for project ${projectId}`)
+      return res.status(200).json({
+        success: true,
+        message: `No ${kind} file found to delete`,
+        data: { projectId, kind, deleted: false }
+      })
+    }
+
+    // Extract Cloudinary public_id from URL
+    const cloudinary = require('cloudinary').v2
+    
+    // Helper function to extract public_id from Cloudinary URL
+    const extractCloudinaryPublicId = (file) => {
+      if (!file || !file.url) return null
+      
+      // Try to get public_id from filename field first (if it's already stored)
+      if (file.filename) {
+        return file.filename
+      }
+      
+      const url = file.url
+      if (!url || !url.includes('cloudinary.com')) return null
+      
+      try {
+        // Parse Cloudinary URL: https://res.cloudinary.com/{cloud_name}/{resource_type}/upload/{transformations}/{public_id}.{format}
+        const urlParts = url.split('/')
+        const uploadIndex = urlParts.findIndex(part => part === 'upload')
+        
+        if (uploadIndex !== -1 && uploadIndex + 2 < urlParts.length) {
+          // Extract everything after 'upload/v1234567890/'
+          let extractedPublicId = urlParts.slice(uploadIndex + 2).join('/')
+          
+          // Remove query parameters if any (e.g., ?v=123)
+          if (extractedPublicId.includes('?')) {
+            extractedPublicId = extractedPublicId.split('?')[0]
+          }
+          
+          // Remove file extension(s) - handle cases like 'file.png.png' or 'file.mind' or 'file.pdf'
+          const parts = extractedPublicId.split('.')
+          if (parts.length > 1) {
+            extractedPublicId = parts.slice(0, -1).join('.')
+            // If it still ends with a common extension, remove it again
+            const commonExts = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg', '.mp4', '.mov', '.avi', '.webm', '.pdf']
+            const lastPart = parts[parts.length - 1].toLowerCase()
+            if (commonExts.includes(`.${lastPart}`)) {
+              const remainingParts = extractedPublicId.split('.')
+              if (remainingParts.length > 1) {
+                extractedPublicId = remainingParts.slice(0, -1).join('.')
+              }
+            }
+          }
+          
+          return extractedPublicId
+        }
+      } catch (error) {
+        console.error('Error extracting public_id:', error)
+      }
+      
+      return null
+    }
+    
+    const publicId = extractCloudinaryPublicId(fileToDelete)
+
+    // Determine resource type
+    let resourceType = 'auto'
+    if (kind === 'video') {
+      resourceType = 'video'
+    } else if (kind === 'pdf' || kind === 'document') {
+      resourceType = 'raw'
+    }
+
+    // Delete from Cloudinary if we have a public_id
+    if (publicId) {
+      try {
+        console.log(`🗑️ Deleting ${kind} from Cloudinary:`, { publicId, resourceType })
+        const deleteResult = await cloudinary.uploader.destroy(publicId, {
+          resource_type: resourceType,
+          invalidate: true
+        })
+
+        if (deleteResult.result === 'ok' || deleteResult.result === 'not found') {
+          console.log(`✅ ${kind} deleted from Cloudinary:`, publicId)
+        } else {
+          console.warn(`⚠️ Unexpected result when deleting ${kind}:`, deleteResult)
+        }
+      } catch (cloudinaryError) {
+        console.error(`❌ Error deleting ${kind} from Cloudinary:`, cloudinaryError)
+        // Continue with DB deletion even if Cloudinary deletion fails
+      }
+    } else {
+      console.warn(`⚠️ Could not extract public_id from ${kind} URL:`, fileToDelete.url)
+    }
+
+    // Remove file from database using $unset
+    const unsetFields = {}
+    unsetFields[filePath] = ''
+
+    // Also clear related fields in phygitalizedData and root level if they exist
+    if (kind === 'video') {
+      unsetFields[`projects.${projectIndex}.phygitalizedData.videoUrl`] = ''
+      unsetFields[`projects.${projectIndex}.videoUrl`] = ''
+      unsetFields[`projects.${projectIndex}.phygitalizedData.fileUrl`] = ''
+    }
+    if (kind === 'pdf') {
+      unsetFields[`projects.${projectIndex}.phygitalizedData.pdfUrl`] = ''
+      unsetFields[`projects.${projectIndex}.pdfUrl`] = ''
+    }
+    if (kind === 'document') {
+      unsetFields[`projects.${projectIndex}.phygitalizedData.fileUrl`] = ''
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      { $unset: unsetFields },
+      { new: true }
+    ).select('-password')
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found after update'
+      })
+    }
+
+    console.log(`✅ ${kind} file deleted successfully from project ${projectId}`)
+
+    res.json({
+      success: true,
+      message: `${kind} file deleted successfully`,
+      data: {
+        projectId,
+        kind,
+        deleted: true,
+        cloudinaryDeleted: !!publicId
+      }
+    })
+
+  } catch (error) {
+    console.error('❌ Error deleting campaign file:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete file',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     })
   }

@@ -7,7 +7,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useSearchParams, useLocation } from 'react-router-dom'
-import { uploadAPI, generateQRCode, downloadFile, api, phygitalizedAPI } from '../../utils/api'
+import { uploadAPI, generateQRCode, downloadFile, api, phygitalizedAPI, analyticsAPI } from '../../utils/api'
 import { getCampaignTypeDisplayName } from '../../utils/campaignTypeNames'
 import { countryCodes, validatePhoneNumber as validatePhone, parsePhoneNumber, filterPhoneInput as filterPhone, formatPhoneNumber } from '../../utils/countryCodes'
 import SocialLinksInput from '../../components/Phygitalized/SocialLinksInput'
@@ -117,9 +117,6 @@ const ProjectsPage = () => {
     removeVideo: false,
     removePdf: false,
     removeDocument: false,
-    // Files to remove (array indices)
-    videosToRemove: [],
-    documentsToRemove: [],
     socialLinks: {
       instagram: '',
       facebook: '',
@@ -406,30 +403,160 @@ const ProjectsPage = () => {
   }
 
   // Handle edit project - moved here to avoid hoisting issues
-  const handleEditProject = useCallback((project) => {
+  const handleEditProject = useCallback(async (project) => {
     setEditingProject(project)
 
+    // Refresh user data to ensure we have the latest project data
+    let refreshedUser = user
+    try {
+      await refreshUserData()
+      // Get fresh user data after refresh
+      const response = await api.get('/auth/profile')
+      refreshedUser = response.data.data.user
+    } catch (error) {
+      console.warn('Failed to refresh user data:', error)
+      // Continue anyway with existing data
+    }
+
     // Initialize form data with current project data
-    const userProject = user?.projects?.find(p => p.id === project.id)
+    // Use project prop as primary source (from loadProjects), fallback to userProject from user context
+    const userProject = refreshedUser?.projects?.find(p => p.id === project.id)
+    // Merge project data - project prop should have the latest data from loadProjects
+    // Also merge uploadedFiles from both sources, prioritizing project prop
+    const projectData = {
+      ...project, // Use project prop as base (has latest data from loadProjects)
+      ...(userProject || {}), // Override with userProject if it has additional data
+      uploadedFiles: {
+        ...(userProject?.uploadedFiles || {}),
+        ...(project?.uploadedFiles || {}) // Project prop takes precedence
+      },
+      phygitalizedData: {
+        ...(userProject?.phygitalizedData || {}),
+        ...(project?.phygitalizedData || {}) // Project prop takes precedence
+      }
+    }
 
     // ✅ Phygitalized campaigns: use phygitalizedData instead of legacy project.socialLinks/video
-    if (userProject?.campaignType?.startsWith('qr-') || project?.campaignType?.startsWith('qr-')) {
-      const campaignType = userProject?.campaignType || project?.campaignType
+    if (projectData?.campaignType?.startsWith('qr-') || project?.campaignType?.startsWith('qr-')) {
+      const campaignType = projectData?.campaignType || project?.campaignType
       
       // Initialize file arrays from existing project data
+      // Check both projectData and project to ensure we get the data
       let existingVideos = []
       let existingDocuments = []
       
       if (campaignType === 'qr-links-pdf-video') {
         // Load existing documents and videos arrays
-        existingDocuments = userProject?.uploadedFiles?.documents || []
-        existingVideos = userProject?.uploadedFiles?.videos || []
+        // Check both sources to ensure we get the data
+        // Check uploadedFiles first (primary location)
+        existingDocuments = projectData?.uploadedFiles?.documents || project?.uploadedFiles?.documents || []
+        existingVideos = projectData?.uploadedFiles?.videos || project?.uploadedFiles?.videos || []
+        
+        // Fallback: Check if files are at root level (some data structures might have them there)
+        if (existingDocuments.length === 0) {
+          existingDocuments = projectData?.documents || project?.documents || []
+        }
+        if (existingVideos.length === 0) {
+          existingVideos = projectData?.videos || project?.videos || []
+        }
+        
+        // Fallback: Check phygitalizedData for single file URLs and convert to arrays
+        const phygitalizedData = projectData?.phygitalizedData || project?.phygitalizedData
+        
+        // If no documents in array, check phygitalizedData.pdfUrl or documentUrls
+        if (existingDocuments.length === 0) {
+          if (phygitalizedData?.pdfUrl) {
+            // Convert single PDF URL to document object
+            existingDocuments = [{
+              url: phygitalizedData.pdfUrl,
+              filename: phygitalizedData.pdfUrl.split('/').pop() || 'document.pdf',
+              originalName: phygitalizedData.pdfUrl.split('/').pop() || 'document.pdf',
+              resource_type: 'raw'
+            }]
+          } else if (phygitalizedData?.documentUrls && Array.isArray(phygitalizedData.documentUrls) && phygitalizedData.documentUrls.length > 0) {
+            // Convert documentUrls array to document objects
+            existingDocuments = phygitalizedData.documentUrls.map(url => ({
+              url: url,
+              filename: url.split('/').pop() || 'document.pdf',
+              originalName: url.split('/').pop() || 'document.pdf',
+              resource_type: 'raw'
+            }))
+          }
+        }
+        
+        // If no videos in array, check phygitalizedData.videoUrl
+        if (existingVideos.length === 0) {
+          if (phygitalizedData?.videoUrl) {
+            // Convert single video URL to video object
+            existingVideos = [{
+              url: phygitalizedData.videoUrl,
+              filename: phygitalizedData.videoUrl.split('/').pop() || 'video.mp4',
+              originalName: phygitalizedData.videoUrl.split('/').pop() || 'video.mp4',
+              resource_type: 'video'
+            }]
+          } else {
+            // Also check for single video in uploadedFiles.video
+            const singleVideo = projectData?.uploadedFiles?.video || project?.uploadedFiles?.video
+            if (singleVideo?.url) {
+              existingVideos = [singleVideo]
+            }
+          }
+        }
+        
+        // Debug log to help identify the issue
+        if (import.meta.env.DEV) {
+          console.log('📁 Loading existing files for qr-links-pdf-video:', {
+            'projectData.uploadedFiles': projectData?.uploadedFiles,
+            'project.uploadedFiles': project?.uploadedFiles,
+            'projectData.uploadedFiles.documents': projectData?.uploadedFiles?.documents,
+            'project.uploadedFiles.documents': project?.uploadedFiles?.documents,
+            'projectData.uploadedFiles.videos': projectData?.uploadedFiles?.videos,
+            'project.uploadedFiles.videos': project?.uploadedFiles?.videos,
+            'phygitalizedData': phygitalizedData,
+            'phygitalizedData.pdfUrl': phygitalizedData?.pdfUrl,
+            'phygitalizedData.videoUrl': phygitalizedData?.videoUrl,
+            'phygitalizedData.documentUrls': phygitalizedData?.documentUrls,
+            'existingDocuments count': existingDocuments.length,
+            'existingVideos count': existingVideos.length,
+            'existingDocuments': existingDocuments,
+            'existingVideos': existingVideos,
+            'full projectData': projectData,
+            'full project': project
+          })
+        }
       } else if (campaignType === 'qr-links-video') {
         // Load existing videos array
-        existingVideos = userProject?.uploadedFiles?.videos || []
-        // Fallback to single video for backward compatibility
-        if (existingVideos.length === 0 && userProject?.uploadedFiles?.video?.url) {
-          existingVideos = [userProject.uploadedFiles.video]
+        existingVideos = projectData?.uploadedFiles?.videos || project?.uploadedFiles?.videos || []
+        
+        // Fallback: Check phygitalizedData for single video URL
+        if (existingVideos.length === 0) {
+          const phygitalizedData = projectData?.phygitalizedData || project?.phygitalizedData
+          if (phygitalizedData?.videoUrl) {
+            // Convert single video URL to video object
+            existingVideos = [{
+              url: phygitalizedData.videoUrl,
+              filename: phygitalizedData.videoUrl.split('/').pop() || 'video.mp4',
+              originalName: phygitalizedData.videoUrl.split('/').pop() || 'video.mp4',
+              resource_type: 'video'
+            }]
+          } else {
+            // Also check for single video in uploadedFiles.video
+            const singleVideo = projectData?.uploadedFiles?.video || project?.uploadedFiles?.video
+            if (singleVideo?.url) {
+              existingVideos = [singleVideo]
+            }
+          }
+        }
+        
+        // Debug log to help identify the issue
+        if (import.meta.env.DEV) {
+          console.log('📁 Loading existing videos for qr-links-video:', {
+            projectData: projectData?.uploadedFiles,
+            project: project?.uploadedFiles,
+            phygitalizedData: projectData?.phygitalizedData || project?.phygitalizedData,
+            existingVideos: existingVideos.length,
+            videos: existingVideos
+          })
         }
       }
       
@@ -449,12 +576,9 @@ const ProjectsPage = () => {
         removeVideo: false,
         removePdf: false,
         removeDocument: false,
-        // Files to remove (array indices for multiple files)
-        videosToRemove: [],
-        documentsToRemove: [],
-        // Editable data
-        links: userProject?.phygitalizedData?.links || [],
-        socialLinks: userProject?.phygitalizedData?.socialLinks || {}
+        // Editable data - use projectData which merges both sources
+        links: projectData?.phygitalizedData?.links || project?.phygitalizedData?.links || [],
+        socialLinks: projectData?.phygitalizedData?.socialLinks || project?.phygitalizedData?.socialLinks || {}
       })
       setShowEditModal(true)
       return
@@ -489,7 +613,7 @@ const ProjectsPage = () => {
     })
 
     setShowEditModal(true)
-  }, [user])
+  }, [user, refreshUserData])
 
   // Helper function to generate personalized URL using urlCode when available
   const getPersonalizedUrl = (project) => {
@@ -707,17 +831,59 @@ const ProjectsPage = () => {
 
       const response = await uploadAPI.getProjects()
       const projectsData = response.data.data?.projects || []
+      
+      // Debug: Log raw project data to see structure
+      if (import.meta.env.DEV && projectsData.length > 0) {
+        console.log('📦 Raw projects data from API:', projectsData[0])
+        console.log('📦 First project uploadedFiles:', projectsData[0]?.uploadedFiles)
+        console.log('📦 First project phygitalizedData:', projectsData[0]?.phygitalizedData)
+      }
 
-      // Enhance projects with user data
+      // Fetch fresh analytics data for all projects
+      let projectsAnalytics = []
+      if (user?._id && projectsData.length > 0) {
+        try {
+          const analyticsResponse = await analyticsAPI.getDashboardComplete(user._id, {
+            period: '30d',
+            campaignType: 'all'
+          })
+          projectsAnalytics = analyticsResponse.data?.data?.projects || []
+        } catch (analyticsError) {
+          console.warn('Failed to fetch analytics for projects:', analyticsError)
+          // Continue without analytics - use project data analytics as fallback
+        }
+      }
+
+      // Enhance projects with user data and fresh analytics
       const enhancedProjects = projectsData.map(project => {
         const userProject = user?.projects?.find(p => p.id === project.id)
+        // Find fresh analytics for this project
+        const freshAnalytics = projectsAnalytics.find(p => p.projectId === project.id)
         
+        // Use fresh analytics if available, otherwise fall back to project analytics
+        const projectAnalytics = freshAnalytics ? {
+          totalScans: freshAnalytics.totalScans || 0,
+          videoViews: freshAnalytics.videoViews || 0,
+          linkClicks: freshAnalytics.linkClicks || 0,
+          arExperienceStarts: 0, // Not calculated in analytics API
+          averageTimeSpent: freshAnalytics.averageTimeSpent || 0
+        } : (userProject?.analytics || {
+          totalScans: 0,
+          videoViews: 0,
+          linkClicks: 0,
+          arExperienceStarts: 0
+        })
 
         return {
           ...project,
           // Include all fields from userProject, especially campaignType and phygitalizedData
           campaignType: userProject?.campaignType || project?.campaignType,
           phygitalizedData: userProject?.phygitalizedData || project?.phygitalizedData,
+          // Include full uploadedFiles object - prioritize project (from API) then merge with userProject
+          uploadedFiles: {
+            ...(project?.uploadedFiles || {}),
+            ...(userProject?.uploadedFiles || {})
+          },
           // Check for video in multiple locations (support different campaign types)
           hasVideo: !!(
             userProject?.uploadedFiles?.video?.url || 
@@ -737,12 +903,7 @@ const ProjectsPage = () => {
           compositeDesignUrl: userProject?.uploadedFiles?.compositeDesign?.url,
           hasMindTarget: !!(userProject?.uploadedFiles?.mindTarget?.url),
           isEnabled: userProject?.isEnabled !== false, // Default to true if not set
-          analytics: userProject?.analytics || {
-            totalScans: 0,
-            videoViews: 0,
-            linkClicks: 0,
-            arExperienceStarts: 0
-          },
+          analytics: projectAnalytics,
           // Include social links from user project data
           socialLinks: userProject?.socialLinks || {}
         };
@@ -1057,19 +1218,48 @@ const ProjectsPage = () => {
         // Delete removed files first (Cloudinary + DB cleanup)
         setUploadProgress(5)
         if (editFormData.removeVideo) {
-          await phygitalizedAPI.deleteCampaignFile(projectId, 'video')
+          try {
+            await phygitalizedAPI.deleteCampaignFile(projectId, 'video')
+            console.log('✅ Video deleted from Cloudinary and database')
+          } catch (error) {
+            console.error('❌ Error deleting video:', error)
+            // Continue even if deletion fails
+          }
           setUploadProgress(8)
         }
         if (editFormData.removePdf) {
-          await phygitalizedAPI.deleteCampaignFile(projectId, 'pdf')
+          try {
+            await phygitalizedAPI.deleteCampaignFile(projectId, 'pdf')
+            console.log('✅ PDF deleted from Cloudinary and database')
+          } catch (error) {
+            console.error('❌ Error deleting PDF:', error)
+            // Continue even if deletion fails
+          }
           setUploadProgress(10)
         }
         if (editFormData.removeDocument) {
-          await phygitalizedAPI.deleteCampaignFile(projectId, 'document')
+          try {
+            await phygitalizedAPI.deleteCampaignFile(projectId, 'document')
+            console.log('✅ Document deleted from Cloudinary and database')
+          } catch (error) {
+            console.error('❌ Error deleting document:', error)
+            // Continue even if deletion fails
+          }
           setUploadProgress(12)
         }
 
         const fileUrlsPayload = {}
+        
+        // If files were removed, explicitly set them to null in fileUrlsPayload to ensure they're cleared
+        if (editFormData.removeVideo) {
+          fileUrlsPayload.video = null
+        }
+        if (editFormData.removePdf) {
+          fileUrlsPayload.pdf = null
+        }
+        if (editFormData.removeDocument) {
+          fileUrlsPayload.document = null
+        }
         
         // Get current project data to preserve existing links
         // Note: user object should already be fresh, but we use it as-is
@@ -1204,7 +1394,19 @@ const ProjectsPage = () => {
 
         // Helper function to delete files from Cloudinary
         const deleteFileFromCloudinary = async (file) => {
-          if (!file || !file.filename) return
+          if (!file) {
+            console.warn('⚠️ Cannot delete file: file is null or undefined')
+            return
+          }
+          
+          // Get public_id/filename - check multiple possible fields
+          const publicId = file.filename || file.public_id || (typeof file === 'string' ? file : null)
+          
+          if (!publicId && !file.url) {
+            console.warn('⚠️ Cannot delete file: no filename or URL found', file)
+            return
+          }
+          
           try {
             // Determine resource type based on file type/format/URL
             let resourceType = 'auto'
@@ -1223,7 +1425,7 @@ const ProjectsPage = () => {
             
             // Fallback: check URL or filename extension
             if (resourceType === 'auto') {
-              const urlOrFilename = file.url || file.filename || ''
+              const urlOrFilename = file.url || file.filename || publicId || ''
               if (urlOrFilename.match(/\.(mp4|mov|avi|webm|mkv|flv|wmv)$/i)) {
                 resourceType = 'video'
               } else if (urlOrFilename.match(/\.(png|jpg|jpeg|gif|webp|bmp|svg)$/i)) {
@@ -1233,28 +1435,42 @@ const ProjectsPage = () => {
               }
             }
             
-            await uploadAPI.deleteFile(file.filename, resourceType)
+            // If we have a URL but no public_id, try to extract it
+            let finalPublicId = publicId
+            if (!finalPublicId && file.url && file.url.includes('cloudinary.com')) {
+              // Extract public_id from Cloudinary URL
+              const urlParts = file.url.split('/')
+              const uploadIndex = urlParts.findIndex(part => part === 'upload')
+              if (uploadIndex !== -1 && uploadIndex + 2 < urlParts.length) {
+                let extracted = urlParts.slice(uploadIndex + 2).join('/')
+                // Remove query params and extensions
+                if (extracted.includes('?')) extracted = extracted.split('?')[0]
+                const parts = extracted.split('.')
+                if (parts.length > 1) {
+                  extracted = parts.slice(0, -1).join('.')
+                }
+                finalPublicId = extracted
+              }
+            }
+            
+            if (!finalPublicId) {
+              console.warn('⚠️ Cannot delete file: could not extract public_id', file)
+              return
+            }
+            
+            console.log(`🗑️ Deleting file from Cloudinary:`, { publicId: finalPublicId, resourceType, file })
+            await phygitalizedAPI.deleteFile(finalPublicId, resourceType)
+            console.log(`✅ File deleted from Cloudinary:`, finalPublicId)
           } catch (error) {
+            console.error('❌ Error deleting file from Cloudinary:', error)
             // Continue even if deletion fails - file will be removed from DB
           }
         }
 
         // Handle multiple file uploads for qr-links-video and qr-links-pdf-video
         if (campaignType === 'qr-links-video') {
-          // Delete removed videos from Cloudinary
-          if (editFormData.videosToRemove?.length > 0 && editFormData.existingVideos) {
-            for (const index of editFormData.videosToRemove) {
-              const fileToDelete = editFormData.existingVideos[index]
-              if (fileToDelete) {
-                await deleteFileFromCloudinary(fileToDelete)
-              }
-            }
-          }
-
-          // Filter out removed videos from existing array
-          const remainingVideos = (editFormData.existingVideos || []).filter((_, index) => 
-            !(editFormData.videosToRemove || []).includes(index)
-          )
+          // Keep all existing videos (no removal functionality)
+          const remainingVideos = editFormData.existingVideos || []
 
           // Upload new videos if any
           let newlyUploadedVideos = []
@@ -1325,39 +1541,9 @@ const ProjectsPage = () => {
         }
 
         if (campaignType === 'qr-links-pdf-video') {
-          // Delete removed documents from Cloudinary
-          if (editFormData.documentsToRemove?.length > 0 && editFormData.existingDocuments) {
-            setUploadProgress(15)
-            for (const index of editFormData.documentsToRemove) {
-              const fileToDelete = editFormData.existingDocuments[index]
-              if (fileToDelete) {
-                await deleteFileFromCloudinary(fileToDelete)
-              }
-            }
-            setUploadProgress(18)
-          }
-
-          // Delete removed videos from Cloudinary
-          if (editFormData.videosToRemove?.length > 0 && editFormData.existingVideos) {
-            setUploadProgress(20)
-            for (const index of editFormData.videosToRemove) {
-              const fileToDelete = editFormData.existingVideos[index]
-              if (fileToDelete) {
-                await deleteFileFromCloudinary(fileToDelete)
-              }
-            }
-            setUploadProgress(22)
-          }
-
-          // Filter out removed documents from existing array
-          const remainingDocuments = (editFormData.existingDocuments || []).filter((_, index) => 
-            !(editFormData.documentsToRemove || []).includes(index)
-          )
-
-          // Filter out removed videos from existing array
-          const remainingVideos = (editFormData.existingVideos || []).filter((_, index) => 
-            !(editFormData.videosToRemove || []).includes(index)
-          )
+          // Keep all existing documents and videos (no removal functionality)
+          const remainingDocuments = editFormData.existingDocuments || []
+          const remainingVideos = editFormData.existingVideos || []
 
           // Upload new documents if any
           let newlyUploadedDocuments = []
@@ -1410,15 +1596,22 @@ const ProjectsPage = () => {
           if (finalDocuments.length > 0) {
             fileUrlsPayload.documents = finalDocuments
           } else if (remainingDocuments.length === 0 && newlyUploadedDocuments.length === 0) {
-            // If all documents were removed, set empty array
+            // If all documents were removed, set empty array and clear phygitalizedData
             fileUrlsPayload.documents = []
+            // Explicitly clear phygitalizedData fields for documents
+            phygitalizedDataPayload.pdfUrl = null
+            phygitalizedDataPayload.fileUrl = null
+            phygitalizedDataPayload.documentUrls = []
           }
 
           if (finalVideos.length > 0) {
             fileUrlsPayload.videos = finalVideos
           } else if (remainingVideos.length === 0 && newlyUploadedVideos.length === 0) {
-            // If all videos were removed, set empty array
+            // If all videos were removed, set empty array and clear phygitalizedData
             fileUrlsPayload.videos = []
+            // Explicitly clear phygitalizedData fields for videos
+            phygitalizedDataPayload.videoUrl = null
+            phygitalizedDataPayload.fileUrl = null
           }
           
           // Handle single file replacements for backward compatibility
@@ -1503,8 +1696,6 @@ const ProjectsPage = () => {
           removeVideo: false,
           removePdf: false,
           removeDocument: false,
-          videosToRemove: [],
-          documentsToRemove: [],
           socialLinks: {
             instagram: '',
             facebook: '',
@@ -1627,8 +1818,6 @@ const ProjectsPage = () => {
         removeVideo: false,
         removePdf: false,
         removeDocument: false,
-        videosToRemove: [],
-        documentsToRemove: [],
         socialLinks: {
           instagram: '',
           facebook: '',
@@ -1723,8 +1912,6 @@ const ProjectsPage = () => {
       removeVideo: false,
       removePdf: false,
       removeDocument: false,
-      videosToRemove: [],
-      documentsToRemove: [],
       socialLinks: {
         instagram: '',
         facebook: '',
@@ -4397,27 +4584,6 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
     setField({ videos: newVideos })
   }
 
-  // Mark existing document for removal
-  const markDocumentForRemoval = (index) => {
-    const toRemove = new Set(formData.documentsToRemove || [])
-    if (toRemove.has(index)) {
-      toRemove.delete(index)
-    } else {
-      toRemove.add(index)
-    }
-    setField({ documentsToRemove: Array.from(toRemove) })
-  }
-
-  // Mark existing video for removal
-  const markVideoForRemoval = (index) => {
-    const toRemove = new Set(formData.videosToRemove || [])
-    if (toRemove.has(index)) {
-      toRemove.delete(index)
-    } else {
-      toRemove.add(index)
-    }
-    setField({ videosToRemove: Array.from(toRemove) })
-  }
 
   // Check if upgrade tab should be shown
   const hasUpgrades = getAvailableUpgrades && getAvailableUpgrades(campaignType).length > 0
@@ -4572,7 +4738,7 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
                               {(() => {
                                 const existingCount = (formData.existingDocuments || []).length
                                 const newCount = (formData.pdfFiles || []).length
-                                const total = existingCount + newCount - (formData.documentsToRemove?.length || 0)
+                                const total = existingCount + newCount
                                 return <span className="text-slate-400 ml-2">({total}/5)</span>
                               })()}
                             </label>
@@ -4582,29 +4748,17 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
                           {(formData.existingDocuments || []).length > 0 && (
                             <div className="space-y-2">
                               <p className="text-xs text-slate-400 font-medium">Existing Documents:</p>
-                              {(formData.existingDocuments || []).map((doc, index) => {
-                                const isMarkedForRemoval = (formData.documentsToRemove || []).includes(index)
-                                return (
-                                  <div key={index} className={`p-3 bg-slate-800/50 rounded-lg border ${isMarkedForRemoval ? 'border-red-600/50 opacity-60' : 'border-slate-600/30'}`}>
-                                    <div className="flex items-center justify-between">
-                                      <div className="flex items-center flex-1 min-w-0">
-                                        <FileText className="w-4 h-4 mr-2 text-neon-orange flex-shrink-0" />
-                                        <div className="min-w-0 flex-1">
-                                          <p className="text-slate-100 text-sm truncate">{doc.filename || doc.originalName || 'PDF Document'}</p>
-                                          {doc.size && <p className="text-xs text-slate-400">{formatFileSize(doc.size)}</p>}
-                                        </div>
-                                      </div>
-                                      <button
-                                        onClick={() => markDocumentForRemoval(index)}
-                                        disabled={isSaving}
-                                        className={`px-2 py-1 text-xs rounded ${isMarkedForRemoval ? 'bg-red-600/20 text-red-400' : 'bg-slate-700/50 text-slate-300 hover:bg-red-600/20 hover:text-red-400'} transition-colors`}
-                                      >
-                                        {isMarkedForRemoval ? 'Undo' : 'Remove'}
-                                      </button>
+                              {(formData.existingDocuments || []).map((doc, index) => (
+                                <div key={index} className="p-3 bg-slate-800/50 rounded-lg border border-slate-600/30">
+                                  <div className="flex items-center">
+                                    <FileText className="w-4 h-4 mr-2 text-neon-orange flex-shrink-0" />
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-slate-100 text-sm truncate">{doc.filename || doc.originalName || 'PDF Document'}</p>
+                                      {doc.size && <p className="text-xs text-slate-400">{formatFileSize(doc.size)}</p>}
                                     </div>
                                   </div>
-                                )
-                              })}
+                                </div>
+                              ))}
                             </div>
                           )}
 
@@ -4751,7 +4905,7 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
                         {(() => {
                           const existingCount = (formData.existingVideos || []).length
                           const newCount = (formData.videos || []).length
-                          const total = existingCount + newCount - (formData.videosToRemove?.length || 0)
+                          const total = existingCount + newCount
                           return <span className="text-slate-400 ml-2">({total}/5)</span>
                         })()}
                       </label>
@@ -4761,31 +4915,19 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
                     {(formData.existingVideos || []).length > 0 && (
                       <div className="space-y-2">
                         <p className="text-xs text-slate-400 font-medium">Existing Videos:</p>
-                        {(formData.existingVideos || []).map((video, index) => {
-                          const isMarkedForRemoval = (formData.videosToRemove || []).includes(index)
-                          return (
-                            <div key={index} className={`p-3 bg-slate-800/50 rounded-lg border ${isMarkedForRemoval ? 'border-red-600/50 opacity-60' : 'border-slate-600/30'}`}>
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center flex-1 min-w-0">
-                                  <Video className="w-4 h-4 mr-2 text-neon-blue flex-shrink-0" />
-                                  <div className="min-w-0 flex-1">
-                                    <p className="text-slate-100 text-sm truncate">{video.filename || video.originalName || 'Video'}</p>
-                                    {video.size && <p className="text-xs text-slate-400">{formatFileSize(video.size)}</p>}
-                                  </div>
-                                </div>
-                                <button
-                                  onClick={() => markVideoForRemoval(index)}
-                      disabled={isSaving}
-                                  className={`px-2 py-1 text-xs rounded ${isMarkedForRemoval ? 'bg-red-600/20 text-red-400' : 'bg-slate-700/50 text-slate-300 hover:bg-red-600/20 hover:text-red-400'} transition-colors`}
-                                >
-                                  {isMarkedForRemoval ? 'Undo' : 'Remove'}
-                                </button>
+                        {(formData.existingVideos || []).map((video, index) => (
+                          <div key={index} className="p-3 bg-slate-800/50 rounded-lg border border-slate-600/30">
+                            <div className="flex items-center">
+                              <Video className="w-4 h-4 mr-2 text-neon-blue flex-shrink-0" />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-slate-100 text-sm truncate">{video.filename || video.originalName || 'Video'}</p>
+                                {video.size && <p className="text-xs text-slate-400">{formatFileSize(video.size)}</p>}
                               </div>
                             </div>
-                          )
-                        })}
-                  </div>
-                )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                     {/* New Videos */}
                     {(formData.videos || []).length > 0 && (
