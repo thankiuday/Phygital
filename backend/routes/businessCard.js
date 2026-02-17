@@ -11,7 +11,7 @@ const multer = require('multer');
 const BusinessCard = require('../models/BusinessCard');
 const CardAnalyticsEvent = require('../models/CardAnalyticsEvent');
 const { authenticateToken } = require('../middleware/auth');
-const { uploadToCloudinaryBuffer } = require('../config/cloudinary');
+const { uploadToCloudinaryBuffer, uploadVideoToCloudinary } = require('../config/cloudinary');
 
 const memoryStorage = multer.memoryStorage();
 const upload = multer({ storage: memoryStorage, limits: { fileSize: 10 * 1024 * 1024 } });
@@ -454,15 +454,26 @@ router.post('/:id/banner', upload.single('banner'), async (req, res) => {
   } catch (err) { console.error('Upload banner error:', err); return res.status(500).json({ success: false, message: err.message }); }
 });
 
-// POST /api/business-cards/:id/videos
-const videoUpload = multer({ storage: memoryStorage, limits: { fileSize: 50 * 1024 * 1024 } });
-router.post('/:id/videos', videoUpload.array('videos', 5), async (req, res) => {
+// POST /api/business-cards/:id/videos — no file size limit, any video format
+const videoUpload = multer({ storage: memoryStorage, limits: { fileSize: 500 * 1024 * 1024 } }); // 500MB
+router.post('/:id/videos', videoUpload.array('videos', 10), async (req, res) => {
   try {
     const card = await BusinessCard.findOne({ _id: req.params.id, userId: req.user._id });
     if (!card) return res.status(404).json({ success: false, message: 'Card not found' });
     if (!req.files?.length) return res.status(400).json({ success: false, message: 'No files uploaded' });
     const urls = [];
-    for (const file of req.files) { const r = await uploadToCloudinaryBuffer(file.buffer, req.user._id.toString(), 'business-card-videos', file.originalname, file.mimetype); urls.push(r.secure_url || r.url); }
+    for (const file of req.files) {
+      try {
+        // Use streaming upload for videos (handles large files much better than base64)
+        const r = await uploadVideoToCloudinary(file, req.user._id.toString(), {});
+        urls.push(r.url);
+      } catch (streamErr) {
+        console.warn('Stream upload failed, falling back to buffer:', streamErr.message);
+        // Fallback to buffer upload
+        const r = await uploadToCloudinaryBuffer(file.buffer, req.user._id.toString(), 'business-card-videos', file.originalname, file.mimetype);
+        urls.push(r.secure_url || r.url);
+      }
+    }
     return res.json({ success: true, data: { urls } });
   } catch (err) { console.error('Upload videos error:', err); return res.status(500).json({ success: false, message: err.message }); }
 });

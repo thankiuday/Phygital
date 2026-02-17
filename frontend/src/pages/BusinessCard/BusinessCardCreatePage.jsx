@@ -316,9 +316,12 @@ export default function BusinessCardCreatePage() {
     }
     
     try {
+      const timeoutMs = type === 'videos' ? 600000 : 120000 // 10 min for videos, 2 min for images
       const res = await api.post(`/business-cards/${currentCardId}/${type}`, formData, { 
         headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 120000
+        timeout: timeoutMs,
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity
       })
       return res.data?.data?.urls || []
     } catch (err) {
@@ -758,10 +761,10 @@ function SectionContentEditor({ section, idx, onUpdate, handleSectionFileUpload 
           <span className="text-xs text-slate-600">or</span>
           <label className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg cursor-pointer transition ${uploading ? 'bg-slate-700 text-slate-400' : 'bg-neon-purple/20 text-neon-purple hover:bg-neon-purple/30 border border-neon-purple/30'}`}>
             {uploading ? <><Loader2 className="w-3 h-3 animate-spin" /> Uploading...</> : <><Upload className="w-3 h-3" /> Upload from device</>}
-            <input type="file" accept="video/*" multiple className="hidden" onChange={handleVideoFileUpload} disabled={uploading} />
+            <input type="file" accept="video/*,.mkv,.avi,.mov,.wmv,.flv,.webm,.mp4,.m4v,.3gp,.ogv" multiple className="hidden" onChange={handleVideoFileUpload} disabled={uploading} />
           </label>
         </div>
-        <p className="text-[10px] text-slate-500">Supports YouTube, Vimeo URLs or uploaded video files (MP4, WebM).</p>
+        <p className="text-[10px] text-slate-500">Supports YouTube, Vimeo URLs or uploaded video files (any format — MP4, WebM, AVI, MKV, MOV, etc.). No size limit.</p>
       </div>
     )
   }

@@ -1,8 +1,13 @@
 /**
  * PrintableCardPreview
  * Phygital-branded printable card with multiple front/back layout options,
- * field toggles, photo zoom/pan, and ultra-high-res download.
- * Output: 4200x2400 PNG (pixelRatio 4).
+ * field toggles, photo zoom/pan, and premium print-quality download.
+ *
+ * PRINT QUALITY:
+ * - Renders an off-screen 1050x600 CSS node (true business card proportions at 300 DPI)
+ * - Captures with pixelRatio 6 = 6300x3600 output (1800 DPI equivalent)
+ * - QR code generated at 1200px for razor-sharp scanning
+ * - Profile photos loaded at full Cloudinary resolution
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react'
@@ -31,7 +36,16 @@ const B = {
 }
 const NG = `linear-gradient(90deg, ${B.neonBlue}, ${B.neonPurple}, ${B.neonPink})`
 const FONT = "'Inter', system-ui, sans-serif"
-const BASE_W = 1050, BASE_H = 600, PX = 4
+const BASE_W = 1050, BASE_H = 600, PX = 6
+
+// Ensure Cloudinary images load at full resolution for print
+function hiResPhoto(url) {
+  if (!url) return ''
+  if (url.includes('cloudinary.com') && url.includes('/upload/')) {
+    return url.replace('/upload/', '/upload/q_100,f_png/')
+  }
+  return url
+}
 
 // ── Field definitions (no banner) ──
 const FIELD_OPTIONS = [
@@ -122,14 +136,15 @@ function ContactRow({ phone, email, website, whatsapp }) {
     </div>
   )
 }
-function PhotoBox({ src, zoom, offX, offY, size = 90, rounded = '16px' }) {
+function PhotoBox({ src, zoom, offX, offY, size = 90, rounded = '16px', forExport = false }) {
   if (!src) return null
+  const imgSrc = forExport ? hiResPhoto(src) : src
   return (
     <div className="overflow-hidden flex-shrink-0" style={{
       width: `${size}px`, height: `${size}px`, borderRadius: rounded,
       border: `2px solid ${B.glass}`, boxShadow: '0 0 20px rgba(168,85,247,0.15)',
     }}>
-      <img src={src} alt="" draggable={false} className="w-full h-full"
+      <img src={imgSrc} alt="" draggable={false} crossOrigin="anonymous" className="w-full h-full"
         style={{ objectFit: 'cover', transform: `scale(${zoom||1}) translate(${offX||0}px, ${offY||0}px)`, transformOrigin: 'center' }} />
     </div>
   )
@@ -138,7 +153,7 @@ function PhotoBox({ src, zoom, offX, offY, size = 90, rounded = '16px' }) {
 // ═══════════════════════════════════════════════════════════
 //  FRONT LAYOUTS
 // ═══════════════════════════════════════════════════════════
-function FrontClassic({ v, photoZoom, photoOffsetX, photoOffsetY }) {
+function FrontClassic({ v, photoZoom, photoOffsetX, photoOffsetY, forExport }) {
   return (
     <div className="w-full h-full relative overflow-hidden" style={{ backgroundColor: B.bg, fontFamily: FONT }}>
       <NeonLine /><NeonLine pos="bottom" h={2} />
@@ -156,7 +171,7 @@ function FrontClassic({ v, photoZoom, photoOffsetX, photoOffsetY }) {
         </div>
         {v.photo && (
           <div className="flex items-center justify-center flex-shrink-0">
-            <PhotoBox src={v.photo} zoom={photoZoom} offX={photoOffsetX} offY={photoOffsetY} />
+            <PhotoBox src={v.photo} zoom={photoZoom} offX={photoOffsetX} offY={photoOffsetY} forExport={forExport} />
           </div>
         )}
       </div>
@@ -164,7 +179,7 @@ function FrontClassic({ v, photoZoom, photoOffsetX, photoOffsetY }) {
   )
 }
 
-function FrontCentered({ v, photoZoom, photoOffsetX, photoOffsetY }) {
+function FrontCentered({ v, photoZoom, photoOffsetX, photoOffsetY, forExport }) {
   return (
     <div className="w-full h-full relative overflow-hidden" style={{ backgroundColor: B.bg, fontFamily: FONT }}>
       <NeonLine /><NeonLine pos="bottom" h={2} />
@@ -174,7 +189,7 @@ function FrontCentered({ v, photoZoom, photoOffsetX, photoOffsetY }) {
         <BrandTag />
         {v.photo && (
           <div className="mt-2 mb-2">
-            <PhotoBox src={v.photo} zoom={photoZoom} offX={photoOffsetX} offY={photoOffsetY} size={72} rounded="50%" />
+            <PhotoBox src={v.photo} zoom={photoZoom} offX={photoOffsetX} offY={photoOffsetY} size={72} rounded="50%" forExport={forExport} />
           </div>
         )}
         <h1 className="text-[24px] font-extrabold leading-tight tracking-tight" style={{ color: B.white }}>{v.name}</h1>
@@ -190,7 +205,7 @@ function FrontCentered({ v, photoZoom, photoOffsetX, photoOffsetY }) {
   )
 }
 
-function FrontLeftPhoto({ v, photoZoom, photoOffsetX, photoOffsetY }) {
+function FrontLeftPhoto({ v, photoZoom, photoOffsetX, photoOffsetY, forExport }) {
   return (
     <div className="w-full h-full relative overflow-hidden" style={{ backgroundColor: B.bg, fontFamily: FONT }}>
       <NeonLine /><NeonLine pos="bottom" h={2} />
@@ -199,7 +214,7 @@ function FrontLeftPhoto({ v, photoZoom, photoOffsetX, photoOffsetY }) {
         {/* Left: Photo area */}
         {v.photo ? (
           <div className="w-[40%] h-full relative overflow-hidden flex-shrink-0">
-            <img src={v.photo} alt="" className="w-full h-full" style={{
+            <img src={forExport ? hiResPhoto(v.photo) : v.photo} alt="" crossOrigin="anonymous" className="w-full h-full" style={{
               objectFit: 'cover',
               transform: `scale(${photoZoom||1}) translate(${photoOffsetX||0}px, ${photoOffsetY||0}px)`,
               transformOrigin: 'center'
@@ -250,7 +265,7 @@ function FrontMinimal({ v }) {
   )
 }
 
-function FrontBold({ v, photoZoom, photoOffsetX, photoOffsetY }) {
+function FrontBold({ v, photoZoom, photoOffsetX, photoOffsetY, forExport }) {
   return (
     <div className="w-full h-full relative overflow-hidden" style={{ backgroundColor: B.bg, fontFamily: FONT }}>
       <NeonLine /><NeonLine pos="bottom" h={2} />
@@ -258,7 +273,7 @@ function FrontBold({ v, photoZoom, photoOffsetX, photoOffsetY }) {
       <div className="relative z-10 w-full h-full p-5 flex flex-col">
         <div className="flex items-start justify-between">
           <BrandTag />
-          {v.photo && <PhotoBox src={v.photo} zoom={photoZoom} offX={photoOffsetX} offY={photoOffsetY} size={60} rounded="12px" />}
+          {v.photo && <PhotoBox src={v.photo} zoom={photoZoom} offX={photoOffsetX} offY={photoOffsetY} size={60} rounded="12px" forExport={forExport} />}
         </div>
         <div className="flex-1 flex flex-col justify-center">
           <h1 className="text-[32px] font-black leading-[1.1] tracking-tight" style={{
@@ -525,7 +540,8 @@ export default function PrintableCardPreview({ card, slug }) {
   const [side, setSide] = useState('front')
   const [downloading, setDownloading] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState(null)
-  const cardRef = useRef(null)
+  const previewRef = useRef(null)
+  const exportRef = useRef(null)
 
   const [frontLayout, setFrontLayout] = useState('classic')
   const [backLayout, setBackLayout] = useState('qrCenter')
@@ -545,7 +561,7 @@ export default function PrintableCardPreview({ card, slug }) {
 
   useEffect(() => {
     if (!publicUrl) { setQrDataUrl(null); return }
-    generateAdvancedQRCode(publicUrl, {}, 800).then(url => setQrDataUrl(url)).catch(() => {})
+    generateAdvancedQRCode(publicUrl, {}, 1200).then(url => setQrDataUrl(url)).catch(() => {})
   }, [publicUrl])
 
   const toggleField = (key) => {
@@ -563,19 +579,30 @@ export default function PrintableCardPreview({ card, slug }) {
   const resetPhoto = () => { setPhotoZoom(1); setPhotoOffsetX(0); setPhotoOffsetY(0) }
 
   const handleDownload = useCallback(async () => {
-    if (!cardRef.current) return
+    if (!exportRef.current) return
     setDownloading(true)
     try {
-      const dataUrl = await toPng(cardRef.current, {
-        width: BASE_W, height: BASE_H, pixelRatio: PX, quality: 1.0,
-        style: { transform: 'none', width: `${BASE_W}px`, height: `${BASE_H}px` },
+      const outW = BASE_W * PX
+      const outH = BASE_H * PX
+      const dataUrl = await toPng(exportRef.current, {
+        width: BASE_W,
+        height: BASE_H,
+        pixelRatio: PX,
+        quality: 1.0,
+        cacheBust: true,
+        includeQueryParams: true,
+        style: {
+          transform: 'none',
+          width: `${BASE_W}px`,
+          height: `${BASE_H}px`,
+        },
         filter: (node) => node.dataset?.excludeExport !== 'true'
       })
       const link = document.createElement('a')
-      link.download = `phygital-card-${side}-${BASE_W * PX}x${BASE_H * PX}.png`
+      link.download = `phygital-card-${side}-${outW}x${outH}.png`
       link.href = dataUrl
       link.click()
-      toast.success(`${side === 'front' ? 'Front' : 'Back'} downloaded — ${BASE_W * PX}x${BASE_H * PX}px`)
+      toast.success(`${side === 'front' ? 'Front' : 'Back'} downloaded — ${outW}x${outH}px (premium print quality)`)
     } catch (err) {
       console.error('Download error:', err)
       toast.error('Failed to download card image')
@@ -592,8 +619,28 @@ export default function PrintableCardPreview({ card, slug }) {
   const FrontComp = FRONT_COMPONENTS[frontLayout] || FrontClassic
   const BackComp = BACK_COMPONENTS[backLayout] || BackQRCenter
 
+  const outputW = BASE_W * PX
+  const outputH = BASE_H * PX
+  const dpi = Math.round((outputW / 3.5))
+
   return (
     <div className="space-y-5">
+      {/* ══ HIDDEN EXPORT TARGET ══
+          Rendered at full 1050x600 CSS px off-screen.
+          toPng captures THIS node at pixelRatio 6 = 6300x3600 output.
+          This is what makes the printed card razor-sharp. */}
+      <div style={{
+        position: 'fixed', left: '-99999px', top: '-99999px',
+        width: `${BASE_W}px`, height: `${BASE_H}px`,
+        overflow: 'hidden', pointerEvents: 'none', zIndex: -1
+      }}>
+        <div ref={exportRef} style={{ width: `${BASE_W}px`, height: `${BASE_H}px`, overflow: 'hidden' }}>
+          {side === 'front'
+            ? <FrontComp v={v} photoZoom={photoZoom} photoOffsetX={photoOffsetX} photoOffsetY={photoOffsetY} forExport />
+            : <BackComp card={card} qrDataUrl={qrDataUrl} vf={visibleFields} />}
+        </div>
+      </div>
+
       {/* ── Layout Selector ── */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 backdrop-blur-sm">
         <p className="text-xs font-medium text-slate-300 mb-3 flex items-center gap-1.5">
@@ -634,11 +681,11 @@ export default function PrintableCardPreview({ card, slug }) {
         </div>
       </div>
 
-      {/* ── Card Preview ── */}
+      {/* ── Card Preview (visible, scaled down for screen) ── */}
       <div className="flex justify-center">
         <div className="relative" style={{ width: '525px', maxWidth: '100%' }}>
           <div className="relative" style={{ paddingBottom: `${(1 / 1.75) * 100}%` }}>
-            <div ref={cardRef} className="absolute inset-0 rounded-xl overflow-hidden shadow-2xl" style={{ width: '100%', height: '100%' }}>
+            <div ref={previewRef} className="absolute inset-0 rounded-xl overflow-hidden shadow-2xl" style={{ width: '100%', height: '100%' }}>
               {side === 'front'
                 ? <FrontComp v={v} photoZoom={photoZoom} photoOffsetX={photoOffsetX} photoOffsetY={photoOffsetY} />
                 : <BackComp card={card} qrDataUrl={qrDataUrl} vf={visibleFields} />}
@@ -713,10 +760,10 @@ export default function PrintableCardPreview({ card, slug }) {
       <button onClick={handleDownload} disabled={downloading}
         className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink text-white text-sm font-medium hover:shadow-glow-lg transition-all duration-300 hover:scale-[1.02] active:scale-95 disabled:opacity-50">
         {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-        Download {side === 'front' ? 'Front' : 'Back'} — Ultra HD ({BASE_W * PX}x{BASE_H * PX}px)
+        Download {side === 'front' ? 'Front' : 'Back'} — Premium Print ({outputW}x{outputH}px)
       </button>
       <p className="text-[11px] text-slate-500 text-center">
-        Renders at {PX}x resolution ({BASE_W * PX} x {BASE_H * PX} px) for crystal-clear print quality. Download both sides.
+        Renders at full {BASE_W}x{BASE_H} CSS then {PX}x upscale = <strong className="text-slate-400">{outputW} x {outputH}px</strong> ({dpi} DPI). Premium print quality.
       </p>
     </div>
   )

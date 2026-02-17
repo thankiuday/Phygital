@@ -12,14 +12,15 @@ const ImagesSection = ({ section = {}, colors = {} }) => {
           {section.title}
         </h2>
       )}
-      <div className={`grid gap-2 ${images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+      {/* Vertical (stacked) layout — one image per row */}
+      <div className="flex flex-col gap-3">
         {images.filter(Boolean).map((url, i) => (
           <img
             key={i}
             src={url}
             alt={`Gallery ${i + 1}`}
-            className="w-full h-28 sm:h-32 object-cover rounded-lg"
-            style={{ border: `1px solid ${primary}15` }}
+            className="w-full rounded-lg object-cover"
+            style={{ border: `1px solid ${primary}15`, maxHeight: '320px' }}
           />
         ))}
       </div>

@@ -158,7 +158,7 @@ const uploadToCloudinaryBuffer = async (buffer, userId, type, filename, contentT
     // Upload options
     // Determine resource type based on content type or folder
     let resourceType = 'image'; // default
-    if (type === 'video') {
+    if (type === 'video' || type.includes('video') || (contentType && contentType.startsWith('video/'))) {
       resourceType = 'video';
     } else if (type === 'targets' || contentType === 'application/octet-stream' || finalFilename.endsWith('.mind')) {
       resourceType = 'raw'; // For .mind files and other binary files
@@ -176,8 +176,8 @@ const uploadToCloudinaryBuffer = async (buffer, userId, type, filename, contentT
       folder: folderPath,
       public_id: finalFilename,
       resource_type: resourceType,
-      timeout: type === 'video' ? 600000 : 300000, // 10 minutes for videos, 5 minutes for others (increased)
-      chunk_size: type === 'video' ? 6000000 : undefined, // 6MB chunks for videos
+      timeout: (type === 'video' || type.includes('video')) ? 600000 : 300000, // 10 minutes for videos, 5 minutes for others (increased)
+      chunk_size: (type === 'video' || type.includes('video')) ? 6000000 : undefined, // 6MB chunks for videos
       eager_async: true, // Process transformations asynchronously to speed up upload
     };
     
@@ -390,8 +390,7 @@ const uploadVideoToCloudinary = async (file, userId, options = {}) => {
       // Quality and compression settings
       quality: options.quality || 'auto', // auto, 80, 60, etc.
       
-      // Format and codec optimization
-      format: options.format || fileExtension, // Keep original or convert (mp4, webm)
+      // Let Cloudinary auto-detect format for maximum compatibility (accepts any video format)
       
       // Video transformation for faster loading
       transformation: options.compress ? [
