@@ -121,3 +121,6 @@ dist/
 # Temporary uploads
 backend/temp/
 uploads/
+
+# OCR training data (large binary, downloaded at runtime)
+*.traineddata

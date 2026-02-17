@@ -14,36 +14,94 @@ import GoogleAuthButton from '../../components/Auth/GoogleAuthButton'
 const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const { login, isAuthenticated } = useAuth()
+  // Auth mode: 'login' for existing users, 'create' for new users
+  const [authMode, setAuthMode] = useState(() => {
+    // Restore from sessionStorage if available, default to 'login'
+    const saved = sessionStorage.getItem('authMode')
+    return saved === 'create' ? 'create' : 'login'
+  })
+  const { smartAuth, isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  
+  // Save authMode to sessionStorage when it changes
+  useEffect(() => {
+    sessionStorage.setItem('authMode', authMode)
+  }, [authMode])
+  
+  // Clear sessionStorage on successful login
+  useEffect(() => {
+    if (isAuthenticated) {
+      sessionStorage.removeItem('authMode')
+    }
+  }, [isAuthenticated])
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-    setError
+    setError,
+    watch
   } = useForm()
 
+  const termsAccepted = watch('terms')
+
+  // Navigate to dashboard on successful authentication
   useEffect(() => {
     if (isAuthenticated) {
       const from = location.state?.from?.pathname || '/dashboard'
       navigate(from, { replace: true })
     }
-  }, [])
+  }, [isAuthenticated, navigate, location])
 
   const onSubmit = async (data) => {
     try {
       setIsLoading(true)
-      const result = await login(data.email, data.password)
+      
+      // Get terms acceptance status
+      const termsChecked = Boolean(data.terms)
+      
+      // If in create mode and user hasn't accepted terms, require it
+      if (authMode === 'create' && !termsChecked) {
+        setError('terms', {
+          type: 'manual',
+          message: 'You must accept the User Certification & Agreement to create an account'
+        })
+        setIsLoading(false)
+        return
+      }
+
+      // Call smart-auth endpoint - backend handles both login and registration
+      // Pass termsAccepted only if in create mode
+      const result = await smartAuth(data.email, data.password, authMode === 'create' && termsChecked)
       
       if (!result.success) {
-        setError('root', {
-          type: 'manual',
-          message: result.error
-        })
+        // Check if account already exists (user tried to create but account exists)
+        if (result.accountExists) {
+          setError('root', {
+            type: 'manual',
+            message: result.error || 'Account already exists. Please sign in instead.'
+          })
+          // Optionally auto-switch to login mode
+          setAuthMode('login')
+        } else if (result.userNotFound && authMode === 'login') {
+          // User tried to sign in but account doesn't exist
+          setError('root', {
+            type: 'manual',
+            message: result.error || 'Account not found. Would you like to create an account?'
+          })
+          // Optionally suggest switching to create mode
+        } else {
+          // Other errors (wrong password, etc.)
+          setError('root', {
+            type: 'manual',
+            message: result.error
+          })
+        }
       }
+      // Success is handled by useEffect that watches isAuthenticated
     } catch (error) {
+      console.error('Login page error:', error)
       setError('root', {
         type: 'manual',
         message: 'An unexpected error occurred'
@@ -78,10 +136,10 @@ const LoginPage = () => {
           {/* Tagline */}
           <div className="mb-6">
             <h1 className="text-3xl sm:text-4xl font-bold text-slate-100 mb-2">
-              Welcome Back
+              {authMode === 'create' ? 'Create Your Account' : 'Welcome Back'}
             </h1>
             <p className="text-slate-400 text-sm sm:text-base">
-              Sign in to continue your creative journey
+              {authMode === 'create' ? 'Sign up to start your creative journey' : 'Sign in to continue your creative journey'}
             </p>
           </div>
 
@@ -97,6 +155,32 @@ const LoginPage = () => {
 
         {/* Login Form Card */}
         <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-8 shadow-2xl">
+          {/* Mode Selector - Two Buttons */}
+          <div className="flex gap-2 mb-6 p-1 bg-slate-900/50 rounded-xl border border-slate-700/50">
+            <button
+              type="button"
+              onClick={() => setAuthMode('login')}
+              className={`flex-1 py-2.5 px-4 rounded-lg font-medium text-sm transition-all duration-200 ${
+                authMode === 'login'
+                  ? 'bg-gradient-to-r from-neon-blue to-neon-purple text-white shadow-lg shadow-neon-blue/20'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => setAuthMode('create')}
+              className={`flex-1 py-2.5 px-4 rounded-lg font-medium text-sm transition-all duration-200 ${
+                authMode === 'create'
+                  ? 'bg-gradient-to-r from-neon-blue to-neon-purple text-white shadow-lg shadow-neon-blue/20'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Create Account
+            </button>
+          </div>
+
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* Email Field */}
             <div>
@@ -165,15 +249,40 @@ const LoginPage = () => {
               )}
             </div>
 
-            {/* Forgot Password Link */}
-            <div className="flex justify-end">
-              <Link
-                to="/forgot-password"
-                className="text-sm text-neon-blue hover:text-neon-cyan transition-colors"
-              >
-                Forgot password?
-              </Link>
-            </div>
+            {/* Forgot Password Link - Only show in login mode */}
+            {authMode === 'login' && (
+              <div className="flex justify-end">
+                <Link
+                  to="/forgot-password"
+                  className="text-sm text-neon-blue hover:text-neon-cyan transition-colors"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+            )}
+
+            {/* Certification Checkbox - Show only in create mode */}
+            {authMode === 'create' && (
+              <div className="flex items-start gap-3 p-4 bg-slate-900/30 border border-slate-700/30 rounded-lg">
+                <input
+                  {...register('terms', { 
+                    required: authMode === 'create' ? 'You must accept the User Certification & Agreement' : false 
+                  })}
+                  type="checkbox"
+                  id="terms"
+                  className="mt-0.5 h-4 w-4 rounded border-slate-600 bg-slate-800 text-neon-blue focus:ring-neon-blue focus:ring-offset-0 cursor-pointer"
+                />
+                <label htmlFor="terms" className="text-sm text-slate-300 cursor-pointer flex-1">
+                  I certify and agree to all of the following (required to create an account):{' '}
+                  <Link to="/certification" className="text-neon-blue hover:text-neon-cyan font-semibold underline" target="_blank" onClick={(e) => e.stopPropagation()}>
+                    View Certification & Agreement
+                  </Link>
+                </label>
+              </div>
+            )}
+            {errors.terms && (
+              <p className="text-sm text-red-400">{errors.terms.message}</p>
+            )}
 
             {/* Error Message */}
             {errors.root && (
@@ -192,7 +301,7 @@ const LoginPage = () => {
                 <LoadingSpinner size="sm" />
               ) : (
                 <>
-                  Sign In
+                  {authMode === 'create' ? 'Create Account' : 'Sign In'}
                   <ArrowRight className="w-5 h-5" />
                 </>
               )}
@@ -211,20 +320,7 @@ const LoginPage = () => {
 
           {/* Google Sign In */}
           <div className="mt-6">
-            <GoogleAuthButton mode="signin" />
-          </div>
-
-          {/* Divider */}
-          <div className="mt-8 pt-6 border-t border-slate-700/50">
-            <p className="text-center text-sm text-slate-400">
-              Don't have an account?{' '}
-              <Link
-                to="/register"
-                className="text-neon-blue hover:text-neon-cyan font-semibold transition-colors"
-              >
-                Create account
-              </Link>
-            </p>
+            <GoogleAuthButton mode={authMode === 'create' ? "signup" : "signin"} />
           </div>
         </div>
 

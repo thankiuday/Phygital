@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronRight, ChevronLeft, Upload, QrCode, Video, Share2, Download, Sparkles, FileText } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ChevronRight, ChevronLeft, Upload, QrCode, Video, Share2, Download, Sparkles, FileText, Lock } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { isFreePlan, canAccessFeature } from '../../utils/planUtils';
 import PageTransitionLoader from '../UI/PageTransitionLoader';
 import MindFileGenerationLoader from '../UI/MindFileGenerationLoader';
 import HorizontalLevelProgress from './HorizontalLevelProgress';
@@ -88,6 +90,7 @@ const clearDraft = (projectId) => {
 
 const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFromLevel1 = false, currentProject = null, upgradeMode = false }) => {
   const { user } = useAuth();
+  const isFree = isFreePlan(user);
   const [currentLevel, setCurrentLevel] = useState(1);
   const [completedLevels, setCompletedLevels] = useState([]);
   const [levelData, setLevelData] = useState({
@@ -294,8 +297,32 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
   };
 
   // Animate to next level
+  // Check if level is accessible for free plan users
+  const isLevelAccessible = (levelId) => {
+    if (isFree) {
+      // Level 3 (Video) and Level 6 (Final Design/AR) are premium
+      if (levelId === 3 || levelId === 6) {
+        return false;
+      }
+    }
+    return true;
+  };
+
   const animateToNextLevel = () => {
     console.log('animateToNextLevel called, current level:', currentLevel);
+    
+    // Check if next level is accessible
+    const nextLevel = currentLevel + 1;
+    if (!isLevelAccessible(nextLevel)) {
+      if (nextLevel === 6) {
+        toast.error('Phygital QR (AR Experience) is locked. Contact the admin to get access.');
+        window.location.href = '/#/phygital-qr-info';
+      } else {
+        toast.error('Upgrade to Phygital QR plan to unlock Video and AR Experience features');
+        window.location.href = '/#/pricing';
+      }
+      return;
+    }
     console.log('Current level data:', levelData);
     console.log('Completed levels:', completedLevels);
     
@@ -726,6 +753,24 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
           />
         );
       case 'VideoUpload':
+        // Check if user can access video level
+        if (!isLevelAccessible(3)) {
+          return (
+            <div className="text-center py-12">
+              <Lock className="w-16 h-16 text-slate-500 mx-auto mb-4" />
+              <h3 className="text-2xl font-bold text-slate-100 mb-2">Video Feature Locked</h3>
+              <p className="text-slate-400 mb-6">
+                Upgrade to Phygital QR plan to unlock video upload features
+              </p>
+              <button
+                onClick={() => window.location.href = '/pricing'}
+                className="px-6 py-3 bg-gradient-to-r from-neon-purple to-neon-pink text-white font-semibold rounded-lg hover:shadow-lg transition-all"
+              >
+                Upgrade Now
+              </button>
+            </div>
+          );
+        }
         return (
           <VideoUploadLevel 
             onComplete={(data) => {
@@ -768,6 +813,24 @@ const LevelBasedUpload = ({ onComplete, onSaveToHistory, onReset, forceStartFrom
           />
         );
       case 'FinalDesign':
+        // Check if user can access AR Experience (Final Design level)
+        if (!isLevelAccessible(6)) {
+          return (
+            <div className="text-center py-12">
+              <Lock className="w-16 h-16 text-slate-500 mx-auto mb-4" />
+              <h3 className="text-2xl font-bold text-slate-100 mb-2">Phygital QR (AR Experience) Locked</h3>
+              <p className="text-slate-400 mb-4 max-w-md mx-auto">
+                Phygital QR is currently locked. To get access, please contact the admin.
+              </p>
+              <Link
+                to="/phygital-qr-info"
+                className="inline-block px-6 py-3 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-lg hover:shadow-lg transition-all"
+              >
+                Contact Admin & Learn More
+              </Link>
+            </div>
+          );
+        }
         return (
           <FinalDesignLevel 
             onComplete={(finalDesign) => completeCurrentLevel({ finalDesign })}

@@ -27,7 +27,9 @@ export const useDataRefresh = () => {
 
     // Refresh user data when navigating to important pages
     // Support both hash routing (#/analytics) and regular routing (/analytics)
-    const importantPages = ['/dashboard', '/projects', '/analytics', '/profile'];
+    // Note: `/projects` (campaigns page) performs its own heavy data loading,
+    // so we intentionally exclude it here to avoid duplicate work.
+    const importantPages = ['/dashboard', '/analytics', '/profile'];
     const currentPath = location.pathname;
     const hashPath = location.hash.replace('#', '') || location.pathname;
     const currentLocation = `${currentPath}${hashPath}`;

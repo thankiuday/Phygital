@@ -1,7 +1,11 @@
 import React from 'react';
 import { CheckCircle, Circle, Lock } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { isFreePlan } from '../../utils/planUtils';
 
 const HorizontalLevelProgress = ({ currentLevel, completedLevels, totalLevels = 6 }) => {
+  const { user } = useAuth();
+  const isFree = isFreePlan(user);
   const levels = [
     { id: 1, name: 'Design', icon: '🎨' },
     { id: 2, name: 'QR', icon: '📍' },
@@ -67,6 +71,9 @@ const HorizontalLevelProgress = ({ currentLevel, completedLevels, totalLevels = 
         <div className="flex justify-between relative z-10 px-4">
           {levels.map((level, index) => {
             const status = getLevelStatus(level.id);
+            // Check if level is premium and user is on free plan
+            const isPremiumLevel = isFree && (level.id === 3 || level.id === 6); // Level 3 (Video) and Level 6 (AR)
+            const isDisabled = isPremiumLevel && status !== 'completed';
             
             return (
               <div
@@ -77,12 +84,16 @@ const HorizontalLevelProgress = ({ currentLevel, completedLevels, totalLevels = 
                 <div className={`
                   w-8 h-8 rounded-full flex items-center justify-center transition-all duration-500 transform border-2 mb-2
                   ${status === 'completed' ? 'bg-neon-green border-neon-green scale-110 shadow-glow-green' : ''}
-                  ${status === 'current' ? 'bg-neon-blue border-neon-blue scale-110 shadow-glow-blue animate-pulse' : ''}
-                  ${status === 'unlocked' ? 'bg-slate-500 border-slate-500 hover:bg-slate-400 hover:border-slate-400 cursor-pointer' : ''}
+                  ${status === 'current' && !isDisabled ? 'bg-neon-blue border-neon-blue scale-110 shadow-glow-blue animate-pulse' : ''}
+                  ${status === 'current' && isDisabled ? 'bg-slate-600 border-amber-500 scale-110' : ''}
+                  ${status === 'unlocked' && !isDisabled ? 'bg-slate-500 border-slate-500 hover:bg-slate-400 hover:border-slate-400 cursor-pointer' : ''}
+                  ${status === 'unlocked' && isDisabled ? 'bg-slate-600 border-amber-500 opacity-60' : ''}
                   ${status === 'locked' ? 'bg-slate-600 border-slate-600' : ''}
                 `}>
                   {status === 'completed' ? (
                     <CheckCircle className="w-4 h-4 text-white" />
+                  ) : isDisabled ? (
+                    <Lock className="w-4 h-4 text-amber-400" />
                   ) : status === 'current' ? (
                     <span className="text-sm">{level.icon}</span>
                   ) : status === 'unlocked' ? (
@@ -101,18 +112,24 @@ const HorizontalLevelProgress = ({ currentLevel, completedLevels, totalLevels = 
       <div className="flex justify-between text-sm">
         {levels.map((level) => {
           const status = getLevelStatus(level.id);
+          const isPremiumLevel = isFree && (level.id === 3 || level.id === 6);
+          const isDisabled = isPremiumLevel && status !== 'completed';
+          
           return (
             <div
               key={level.id}
               className={`
                 transition-colors duration-300 text-center font-medium
                 ${status === 'completed' ? 'text-neon-green' : ''}
-                ${status === 'current' ? 'text-neon-blue' : ''}
-                ${status === 'unlocked' ? 'text-slate-300' : ''}
+                ${status === 'current' && !isDisabled ? 'text-neon-blue' : ''}
+                ${status === 'current' && isDisabled ? 'text-amber-400' : ''}
+                ${status === 'unlocked' && !isDisabled ? 'text-slate-300' : ''}
+                ${status === 'unlocked' && isDisabled ? 'text-amber-400' : ''}
                 ${status === 'locked' ? 'text-slate-500' : ''}
               `}
             >
               {level.name}
+              {isDisabled && <span className="block text-xs text-amber-400 mt-1">🔒 Premium</span>}
             </div>
           );
         })}

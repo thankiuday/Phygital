@@ -151,7 +151,7 @@ const uploadToS3 = async (file, userId, fieldName) => {
       fs.writeFileSync(localPath, file.buffer);
       
       return {
-        url: `${process.env.FRONTEND_URL?.replace('5173', '5000') || 'http://localhost:5000'}/uploads/users/${sanitizedUserId}/${fieldName}/${localFileName}`,
+        url: `${process.env.API_BASE_URL || process.env.FRONTEND_URL?.replace('5173', '5000') || 'https://phygital.zone'}/uploads/users/${sanitizedUserId}/${fieldName}/${localFileName}`,
         key: `users/${sanitizedUserId}/${fieldName}/${localFileName}`,
         bucket: 'local',
         size: file.size,
@@ -252,7 +252,7 @@ const uploadToS3Buffer = async (buffer, key, contentType) => {
       // Write buffer to file
       fs.writeFileSync(filePath, buffer);
       
-      const baseUrl = process.env.FRONTEND_URL?.replace('5173', '5000') || 'http://localhost:5000';
+      const baseUrl = process.env.API_BASE_URL || process.env.FRONTEND_URL?.replace('5173', '5000') || 'https://phygital.zone';
       
       return {
         url: `${baseUrl}/uploads/${fileName}`,

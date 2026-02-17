@@ -1,4 +1,4 @@
-﻿@tailwind base;
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -71,6 +71,28 @@
   .shadow-glow-lg { box-shadow: 0 0 40px rgba(0, 212, 255, 0.4), 0 0 80px rgba(0, 212, 255, 0.2); }
   .shadow-glow { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
   
+  /* Range slider thumb — neon purple */
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #a855f7;
+    cursor: pointer;
+    border: 2px solid #1e293b;
+    box-shadow: 0 0 8px rgba(168, 85, 247, 0.5);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #a855f7;
+    cursor: pointer;
+    border: 2px solid #1e293b;
+    box-shadow: 0 0 8px rgba(168, 85, 247, 0.5);
+  }
+
   /* Custom scrollbar */
   .custom-scrollbar::-webkit-scrollbar {
     width: 8px;
@@ -85,6 +107,15 @@
   }
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: rgb(100 116 139);
+  }
+  
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
   
   /* Custom Animations */

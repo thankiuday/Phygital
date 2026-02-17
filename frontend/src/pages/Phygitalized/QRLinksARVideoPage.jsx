@@ -145,7 +145,7 @@ const QRLinksARVideoPage = () => {
               setProjectId(upgradeData.projectId)
             }
             
-            toast.success(`Upgrading from ${upgradeFromType || 'previous campaign'} to AR Experience QR!`)
+            toast.success(`Upgrading from ${upgradeFromType || 'previous campaign'} to Phygital QR!`)
           }
         } catch (error) {
           console.error('Error loading upgrade data:', error)
@@ -890,7 +890,7 @@ const QRLinksARVideoPage = () => {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-100 mb-2 flex items-center">
           <Sparkles className="w-8 h-8 mr-3" style={{ color: 'var(--theme-primary, #00D4FF)' }} />
-          AR Experience QR
+          Phygital QR
         </h1>
         <p className="text-slate-300">
           Create a QR code with AR video experience, documents, and contact information

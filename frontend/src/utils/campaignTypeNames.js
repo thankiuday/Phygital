@@ -11,7 +11,7 @@ export const CAMPAIGN_TYPE_DISPLAY_NAMES = {
   'qr-links': 'Multiple Links QR',
   'qr-links-video': 'Links & Video QR',
   'qr-links-pdf-video': 'Links, PDF & Video QR',
-  'qr-links-ar-video': 'AR Experience QR'
+  'qr-links-ar-video': 'Phygital QR'
 };
 
 /**

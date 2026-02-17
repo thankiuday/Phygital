@@ -16,22 +16,28 @@ const Layout = () => {
   const location = useLocation()
 
   // Check if current page is a landing page (phygitalized or AR experience)
-  // Exclude QR creation pages (qr-link, qr-links, etc.) from being treated as landing pages
+  // Exclude QR creation pages and selection page from being treated as landing pages
   const isQRCreationPage = location.pathname.includes('/phygitalized/qr-link') ||
                            location.pathname.includes('/phygitalized/qr-links') ||
                            location.pathname.includes('/phygitalized/qr-links-video') ||
                            location.pathname.includes('/phygitalized/qr-links-pdf-video') ||
-                           location.pathname.includes('/phygitalized/qr-links-ar-video')
+                           location.pathname.includes('/phygitalized/qr-links-ar-video') ||
+                           location.pathname.includes('/phygitalized/select')
   
   const isLandingPage = (location.pathname.includes('/phygitalized/') && !isQRCreationPage) || 
                         location.pathname.includes('/ar/') ||
                         location.pathname.includes('/ar-3d/') ||
-                        location.pathname.includes('/ar-experience/')
+                        location.pathname.includes('/ar-experience/') ||
+                        location.pathname.startsWith('/card/')
+  
+  // Business card pages should not show navbar
+  const isBusinessCardPage = location.pathname.startsWith('/card/')
   
   // Landing pages should show ProfessionalNav (which renders "Powered by" navbar) but NOT footer
   // QR creation pages should show regular navbar and footer
   // Regular pages should show navbar and footer
-  const shouldShowNav = true // Always show navbar - ProfessionalNav handles landing page styling
+  // Business card pages should NOT show navbar
+  const shouldShowNav = !isBusinessCardPage // Hide navbar for business card pages
   const shouldShowFooter = !isLandingPage || isQRCreationPage // Hide footer on landing pages only
 
   // Handle page transition with smooth loader

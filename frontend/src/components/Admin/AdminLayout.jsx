@@ -16,7 +16,9 @@ import {
   Settings,
   LogOut,
   Menu,
-  X
+  X,
+  Sparkles,
+  History
 } from 'lucide-react'
 
 const AdminLayout = () => {
@@ -29,6 +31,8 @@ const AdminLayout = () => {
     { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'Users', href: '/admin/users', icon: Users },
     { name: 'Campaigns', href: '/admin/projects', icon: FolderKanban },
+    { name: 'Create Phygital QR', href: '/admin/phygital/create', icon: Sparkles },
+    { name: 'Phygital History', href: '/admin/phygital/history', icon: History },
     { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
     { name: 'Contacts', href: '/admin/contacts', icon: Mail },
     { name: 'Settings', href: '/admin/settings', icon: Settings },

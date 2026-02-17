@@ -4,7 +4,8 @@
  */
 
 import React from 'react'
-import { X, ArrowRight, Check, Sparkles, Video, FileText, Link as LinkIcon, Zap } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { X, ArrowRight, Check, Sparkles, Video, FileText, Link as LinkIcon, Zap, Lock, Mail } from 'lucide-react'
 import LoadingSpinner from '../UI/LoadingSpinner'
 import { getCampaignTypeDisplayName, getCampaignTypeDescription } from '../../utils/campaignTypeNames'
 
@@ -95,6 +96,7 @@ const CampaignUpgradeModal = ({
   
   const features = getUpgradeFeatures(currentType, newType)
   const isARUpgrade = newType === 'qr-links-ar-video'
+  const isPhygitalLocked = newType === 'qr-links-ar-video'
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
@@ -122,91 +124,133 @@ const CampaignUpgradeModal = ({
 
         {/* Content - Scrollable */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
-          {/* Campaign Type Comparison */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-slate-900/50 rounded-lg border border-slate-700/30">
-            <div className="flex items-center gap-2 sm:gap-3 flex-1">
-              <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                currentInfo.color === 'blue' ? 'bg-blue-900/20 border border-blue-600/50' :
-                currentInfo.color === 'purple' ? 'bg-purple-900/20 border border-purple-600/50' :
-                currentInfo.color === 'indigo' ? 'bg-indigo-900/20 border border-indigo-600/50' :
-                currentInfo.color === 'orange' ? 'bg-orange-900/20 border border-orange-600/50' :
-                'bg-yellow-900/20 border border-yellow-600/50'
-              }`}>
-                <CurrentIcon className={`w-5 h-5 sm:w-6 sm:h-6 ${
-                  currentInfo.color === 'blue' ? 'text-blue-400' :
-                  currentInfo.color === 'purple' ? 'text-purple-400' :
-                  currentInfo.color === 'indigo' ? 'text-indigo-400' :
-                  currentInfo.color === 'orange' ? 'text-orange-400' :
-                  'text-yellow-400'
-                }`} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs sm:text-sm font-medium text-slate-400 mb-0.5">Current Type</p>
-                <p className="text-sm sm:text-lg font-bold text-slate-100 break-words">{currentInfo.name}</p>
-              </div>
-            </div>
-            
-            <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6 text-slate-500 rotate-90 sm:rotate-0 flex-shrink-0 mx-auto sm:mx-0" />
-            
-            <div className="flex items-center gap-2 sm:gap-3 flex-1">
-              <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                newInfo.color === 'blue' ? 'bg-blue-900/20 border border-blue-600/50' :
-                newInfo.color === 'purple' ? 'bg-purple-900/20 border border-purple-600/50' :
-                newInfo.color === 'indigo' ? 'bg-indigo-900/20 border border-indigo-600/50' :
-                newInfo.color === 'orange' ? 'bg-orange-900/20 border border-orange-600/50' :
-                'bg-yellow-900/20 border border-yellow-600/50'
-              }`}>
-                <NewIcon className={`w-5 h-5 sm:w-6 sm:h-6 ${
-                  newInfo.color === 'blue' ? 'text-blue-400' :
-                  newInfo.color === 'purple' ? 'text-purple-400' :
-                  newInfo.color === 'indigo' ? 'text-indigo-400' :
-                  newInfo.color === 'orange' ? 'text-orange-400' :
-                  'text-yellow-400'
-                }`} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs sm:text-sm font-medium text-slate-400 mb-0.5">New Type</p>
-                <p className="text-sm sm:text-lg font-bold text-slate-100 break-words">{newInfo.name}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* New Features */}
-          <div>
-            <h3 className="text-xs sm:text-sm font-semibold text-slate-200 mb-2 sm:mb-3 flex items-center gap-2">
-              <Zap className="w-3 h-3 sm:w-4 sm:h-4 text-neon-yellow flex-shrink-0" />
-              New Features Enabled
-            </h3>
-            <div className="space-y-2">
-              {features.map((feature, index) => (
-                <div key={index} className="flex items-start gap-2 sm:gap-3 p-2.5 sm:p-3 bg-green-900/10 border border-green-600/20 rounded-lg">
-                  <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-400 flex-shrink-0 mt-0.5" />
-                  <span className="text-xs sm:text-sm text-slate-200">{feature}</span>
+          {isPhygitalLocked ? (
+            <>
+              {/* Phygital QR locked: contact admin + explanation */}
+              <div className="p-4 sm:p-5 bg-amber-900/30 border border-amber-600/50 rounded-xl">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-amber-500/20 rounded-lg flex-shrink-0">
+                    <Lock className="w-5 h-5 text-amber-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-100 mb-1">Phygital QR is currently locked</h3>
+                    <p className="text-sm text-slate-300 mb-3">
+                      To upgrade to Phygital QR, please contact the admin. We'll enable the feature for your account and guide you through setup.
+                    </p>
+                    <Link
+                      to="/contact"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold"
+                      onClick={onClose}
+                    >
+                      <Mail className="w-4 h-4" />
+                      Contact Admin
+                    </Link>
+                  </div>
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
+              <div className="p-4 bg-slate-900/50 border border-slate-700/30 rounded-xl space-y-3">
+                <h3 className="text-sm font-semibold text-slate-200">What is Phygital QR?</h3>
+                <p className="text-xs sm:text-sm text-slate-400">
+                  Phygital QR combines a physical design (poster, packaging, sticker) with a QR code that opens an <strong className="text-slate-300">augmented reality (AR) experience</strong>. When someone scans the QR and points their camera at your design, they see video or 3D content overlaid in AR.
+                </p>
+                <h3 className="text-sm font-semibold text-slate-200">How is it different from Dynamic QR?</h3>
+                <p className="text-xs sm:text-sm text-slate-400">
+                  <strong className="text-slate-300">Dynamic QR</strong> scans open a landing page (links, video, PDFs) in the browser. <strong className="text-slate-300">Phygital QR</strong> opens an AR experience that uses your printed design as a trigger—best for events, packaging, and campaigns where the physical item is part of the experience.
+                </p>
+                <Link to="/phygital-qr-info" className="text-sm text-amber-400 hover:text-amber-300 font-medium" onClick={onClose}>
+                  Learn more about Phygital QR →
+                </Link>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Campaign Type Comparison */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-slate-900/50 rounded-lg border border-slate-700/30">
+                <div className="flex items-center gap-2 sm:gap-3 flex-1">
+                  <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                    currentInfo.color === 'blue' ? 'bg-blue-900/20 border border-blue-600/50' :
+                    currentInfo.color === 'purple' ? 'bg-purple-900/20 border border-purple-600/50' :
+                    currentInfo.color === 'indigo' ? 'bg-indigo-900/20 border border-indigo-600/50' :
+                    currentInfo.color === 'orange' ? 'bg-orange-900/20 border border-orange-600/50' :
+                    'bg-yellow-900/20 border border-yellow-600/50'
+                  }`}>
+                    <CurrentIcon className={`w-5 h-5 sm:w-6 sm:h-6 ${
+                      currentInfo.color === 'blue' ? 'text-blue-400' :
+                      currentInfo.color === 'purple' ? 'text-purple-400' :
+                      currentInfo.color === 'indigo' ? 'text-indigo-400' :
+                      currentInfo.color === 'orange' ? 'text-orange-400' :
+                      'text-yellow-400'
+                    }`} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs sm:text-sm font-medium text-slate-400 mb-0.5">Current Type</p>
+                    <p className="text-sm sm:text-lg font-bold text-slate-100 break-words">{currentInfo.name}</p>
+                  </div>
+                </div>
+                
+                <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6 text-slate-500 rotate-90 sm:rotate-0 flex-shrink-0 mx-auto sm:mx-0" />
+                
+                <div className="flex items-center gap-2 sm:gap-3 flex-1">
+                  <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                    newInfo.color === 'blue' ? 'bg-blue-900/20 border border-blue-600/50' :
+                    newInfo.color === 'purple' ? 'bg-purple-900/20 border border-purple-600/50' :
+                    newInfo.color === 'indigo' ? 'bg-indigo-900/20 border border-indigo-600/50' :
+                    newInfo.color === 'orange' ? 'bg-orange-900/20 border border-orange-600/50' :
+                    'bg-yellow-900/20 border border-yellow-600/50'
+                  }`}>
+                    <NewIcon className={`w-5 h-5 sm:w-6 sm:h-6 ${
+                      newInfo.color === 'blue' ? 'text-blue-400' :
+                      newInfo.color === 'purple' ? 'text-purple-400' :
+                      newInfo.color === 'indigo' ? 'text-indigo-400' :
+                      newInfo.color === 'orange' ? 'text-orange-400' :
+                      'text-yellow-400'
+                    }`} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs sm:text-sm font-medium text-slate-400 mb-0.5">New Type</p>
+                    <p className="text-sm sm:text-lg font-bold text-slate-100 break-words">{newInfo.name}</p>
+                  </div>
+                </div>
+              </div>
 
-          {/* Existing Data Preserved */}
-          <div>
-            <h3 className="text-xs sm:text-sm font-semibold text-slate-200 mb-2 sm:mb-3">Your Existing Data</h3>
-            <div className="p-3 sm:p-4 bg-blue-900/10 border border-blue-600/20 rounded-lg">
-              <p className="text-xs sm:text-sm text-slate-300">
-                All your existing data (links, videos, documents, social links) will be preserved and migrated to the new campaign type.
-              </p>
-            </div>
-          </div>
+              {/* New Features */}
+              <div>
+                <h3 className="text-xs sm:text-sm font-semibold text-slate-200 mb-2 sm:mb-3 flex items-center gap-2">
+                  <Zap className="w-3 h-3 sm:w-4 sm:h-4 text-neon-yellow flex-shrink-0" />
+                  New Features Enabled
+                </h3>
+                <div className="space-y-2">
+                  {features.map((feature, index) => (
+                    <div key={index} className="flex items-start gap-2 sm:gap-3 p-2.5 sm:p-3 bg-green-900/10 border border-green-600/20 rounded-lg">
+                      <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-400 flex-shrink-0 mt-0.5" />
+                      <span className="text-xs sm:text-sm text-slate-200">{feature}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-          {/* AR Upgrade Special Note */}
-          {isARUpgrade && (
-            <div className="p-3 sm:p-4 bg-yellow-900/20 border border-yellow-600/30 rounded-lg">
-              <p className="text-xs sm:text-sm text-yellow-200 font-medium mb-1.5 sm:mb-2">
-                AR Video Upgrade Process
-              </p>
-              <p className="text-xs text-yellow-100/80">
-                You'll be redirected to the AR Video setup wizard. Your existing data will be pre-filled, and you'll complete the remaining steps to finalize your AR experience.
-              </p>
-            </div>
+              {/* Existing Data Preserved */}
+              <div>
+                <h3 className="text-xs sm:text-sm font-semibold text-slate-200 mb-2 sm:mb-3">Your Existing Data</h3>
+                <div className="p-3 sm:p-4 bg-blue-900/10 border border-blue-600/20 rounded-lg">
+                  <p className="text-xs sm:text-sm text-slate-300">
+                    All your existing data (links, videos, documents, social links) will be preserved and migrated to the new campaign type.
+                  </p>
+                </div>
+              </div>
+
+              {/* AR Upgrade Special Note */}
+              {isARUpgrade && (
+                <div className="p-3 sm:p-4 bg-yellow-900/20 border border-yellow-600/30 rounded-lg">
+                  <p className="text-xs sm:text-sm text-yellow-200 font-medium mb-1.5 sm:mb-2">
+                    AR Video Upgrade Process
+                  </p>
+                  <p className="text-xs text-yellow-100/80">
+                    You'll be redirected to the AR Video setup wizard. Your existing data will be pre-filled, and you'll complete the remaining steps to finalize your AR experience.
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -219,23 +263,25 @@ const CampaignUpgradeModal = ({
           >
             Cancel
           </button>
-          <button
-            onClick={onConfirm}
-            disabled={isUpgrading}
-            className="w-full sm:w-auto px-4 sm:px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-neon-purple to-neon-pink rounded-xl shadow-lg hover:shadow-neon-purple/50 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2 touch-manipulation"
-          >
-            {isUpgrading ? (
-              <>
-                <LoadingSpinner size="sm" />
-                <span>Upgrading...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4" />
-                <span>Upgrade Campaign</span>
-              </>
-            )}
-          </button>
+          {!isPhygitalLocked && (
+            <button
+              onClick={onConfirm}
+              disabled={isUpgrading}
+              className="w-full sm:w-auto px-4 sm:px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-neon-purple to-neon-pink rounded-xl shadow-lg hover:shadow-neon-purple/50 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2 touch-manipulation"
+            >
+              {isUpgrading ? (
+                <>
+                  <LoadingSpinner size="sm" />
+                  <span>Upgrading...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  <span>Upgrade Campaign</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>

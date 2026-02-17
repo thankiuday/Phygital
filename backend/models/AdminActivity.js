@@ -26,7 +26,9 @@ const adminActivitySchema = new mongoose.Schema({
       'settings_update',
       'maintenance_toggle',
       'contact_update',
-      'analytics_view'
+      'analytics_view',
+      'admin_create_phygital_draft',
+      'admin_grant_phygital'
     ]
   },
   targetType: {

@@ -704,6 +704,48 @@ const uploadQRDesign = async (buffer, userId, designId) => {
   }
 };
 
+/**
+ * Upload file to Cloudinary for admin Phygital draft (separate folder from user uploads)
+ * @param {Object} file - File object from multer (with buffer)
+ * @param {String} draftId - AdminPhygitalDraft _id
+ * @param {String} type - File type (design, video, videos, documents, compositeDesign, mindTarget)
+ * @returns {Object} Upload result with url, public_id, etc.
+ */
+const uploadToCloudinaryDraft = async (file, draftId, type) => {
+  if (!file || !file.buffer) throw new Error('Invalid file object - missing buffer');
+  if (!draftId || !type) throw new Error('draftId and type are required');
+  const folderPath = `phygital-zone/admin-drafts/${draftId}/${type}`;
+  const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+  const fileExtension = (file.originalname || '').split('.').pop() || 'bin';
+  const fileName = `${type}-${uniqueSuffix}.${fileExtension}`;
+  const uploadOptions = {
+    folder: folderPath,
+    public_id: fileName.replace(`.${fileExtension}`, ''),
+    resource_type: type === 'video' || type === 'videos' ? 'video' : 'image',
+    format: fileExtension,
+    timeout: type === 'video' || type === 'videos' ? 600000 : 120000
+  };
+  if (uploadOptions.resource_type !== 'video') {
+    uploadOptions.quality = 'auto';
+    uploadOptions.fetch_format = 'auto';
+  }
+  const result = await cloudinary.uploader.upload(
+    `data:${file.mimetype};base64,${file.buffer.toString('base64')}`,
+    uploadOptions
+  );
+  return {
+    url: result.secure_url,
+    public_id: result.public_id,
+    asset_id: result.asset_id,
+    size: result.bytes,
+    format: result.format,
+    width: result.width,
+    height: result.height,
+    folder: result.folder,
+    created_at: result.created_at
+  };
+};
+
 module.exports = {
   cloudinary,
   uploadToCloudinary,
@@ -711,6 +753,7 @@ module.exports = {
   uploadVideoToCloudinary,
   uploadQRDesign,
   uploadToPhygitalizedCloudinary,
+  uploadToCloudinaryDraft,
   deleteFromCloudinary,
   checkCloudinaryConnection
 };

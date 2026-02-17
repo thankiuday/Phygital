@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
   Home, 
@@ -23,7 +23,8 @@ import {
   AlertCircle,
   Plus,
   Palette,
-  Tag
+  Tag,
+  Lock
 } from 'lucide-react';
 import ProfessionalButton from '../UI/ProfessionalButton';
 import Logo from '../UI/Logo';
@@ -31,6 +32,7 @@ import Logo from '../UI/Logo';
 const ProfessionalNav = () => {
   const { isAuthenticated, user, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isPhygitalizedMenuOpen, setIsPhygitalizedMenuOpen] = useState(false);
@@ -39,38 +41,39 @@ const ProfessionalNav = () => {
   const phygitalizedMenuRef = useRef(null);
 
   // Check if current page is a landing page (phygitalized or AR experience)
-  // Exclude QR creation pages from being treated as landing pages
+  // Exclude QR creation pages and selection page from being treated as landing pages
   const isQRCreationPage = location.pathname.includes('/phygitalized/qr-link') ||
                            location.pathname.includes('/phygitalized/qr-links') ||
                            location.pathname.includes('/phygitalized/qr-links-video') ||
                            location.pathname.includes('/phygitalized/qr-links-pdf-video') ||
-                           location.pathname.includes('/phygitalized/qr-links-ar-video')
+                           location.pathname.includes('/phygitalized/qr-links-ar-video') ||
+                           location.pathname.includes('/phygitalized/select')
   
   const isLandingPage = (location.pathname.includes('/phygitalized/') && !isQRCreationPage) || 
                         location.pathname.includes('/ar/') ||
                         location.pathname.includes('/ar-3d/') ||
-                        location.pathname.includes('/ar-experience/');
+                        location.pathname.includes('/ar-experience/') ||
+                        location.pathname.startsWith('/card/');
 
   const navigation = [
     { name: 'AI Video', href: '/ai-video', icon: Sparkles, public: true, showBoth: true, isNew: true },
     { name: 'Home', href: '/', icon: Home, public: true, showBoth: true },
+    { 
+      name: 'Phygitalize now', 
+      icon: Plus, 
+      public: true,
+      showBoth: true,
+      hasSubmenu: true,
+      submenu: [
+        { name: 'Dynamic QR (Free)', href: '/phygitalized/select', description: 'Free QR codes with links' },
+        { name: 'Digital Business Card', href: '/business-cards', description: 'Create a personal landing page with QR' },
+        { name: 'Phygital QR', href: '/upload', description: 'Full AR experience with video and links', locked: true, infoHref: '/phygital-qr-info' }
+      ]
+    },
     { name: 'About', href: '/about', icon: Info, public: true },
     { name: 'Contact', href: '/contact', icon: Mail, public: true },
     { name: 'Pricing', href: '/pricing', icon: Tag, public: true, showBoth: true },
     { name: 'Dashboard', href: '/dashboard', icon: BarChart3, authOnly: true },
-    { 
-      name: 'Phygitalized', 
-      icon: Plus, 
-      authOnly: true, 
-      hasSubmenu: true,
-      submenu: [
-        { name: 'Single Link QR', href: '/phygitalized/qr-link', description: 'QR code pointing to one URL' },
-        { name: 'Multiple Links QR', href: '/phygitalized/qr-links', description: 'QR code with multiple links' },
-        { name: 'Links & Video QR', href: '/phygitalized/qr-links-video', description: 'QR code with links and video' },
-        { name: 'Links, PDF & Video QR', href: '/phygitalized/qr-links-pdf-video', description: 'QR code with links, PDFs, and video' },
-        { name: 'AR Experience QR', href: '/upload', description: 'Full AR experience with video and links' }
-      ]
-    },
     { name: 'Campaigns', href: '/projects', icon: FolderKanban, authOnly: true },
     { name: 'Analytics', href: '/analytics', icon: BarChart3, authOnly: true },
     { name: 'Profile', href: '/profile', icon: User, authOnly: true },
@@ -86,6 +89,35 @@ const ProfessionalNav = () => {
   });
 
   const isActive = (path) => location.pathname === path;
+
+  const handlePhygitalizeClick = (e) => {
+    e.preventDefault();
+    if (!isAuthenticated) {
+      navigate('/login');
+    } else {
+      setIsPhygitalizedMenuOpen(!isPhygitalizedMenuOpen);
+    }
+  };
+
+  const handlePhygitalizeMobileClick = (e) => {
+    e.preventDefault();
+    if (!isAuthenticated) {
+      navigate('/login');
+      setIsMobileMenuOpen(false);
+    } else {
+      setIsMobilePhygitalizedOpen(!isMobilePhygitalizedOpen);
+    }
+  };
+
+  const handleSubmenuClick = (href, e) => {
+    if (!isAuthenticated) {
+      e.preventDefault();
+      navigate('/login');
+      setIsPhygitalizedMenuOpen(false);
+      setIsMobileMenuOpen(false);
+      setIsMobilePhygitalizedOpen(false);
+    }
+  };
 
   const handleLogout = (e) => {
     // Prevent event bubbling
@@ -157,11 +189,11 @@ const ProfessionalNav = () => {
               
               // Handle dropdown menu items
               if (item.hasSubmenu) {
-                const isSubmenuActive = item.submenu?.some(subItem => isActive(subItem.href));
+                const isSubmenuActive = item.submenu?.some(subItem => isActive(subItem.locked ? subItem.infoHref : subItem.href));
                 return (
                   <div key={item.name} className="relative" ref={phygitalizedMenuRef}>
                     <button
-                      onClick={() => setIsPhygitalizedMenuOpen(!isPhygitalizedMenuOpen)}
+                      onClick={handlePhygitalizeClick}
                       className={`
                         flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors relative
                         ${isSubmenuActive || isPhygitalizedMenuOpen
@@ -175,24 +207,31 @@ const ProfessionalNav = () => {
                       <ChevronDown className={`w-4 h-4 ml-1 transition-transform duration-200 ${isPhygitalizedMenuOpen ? 'rotate-180' : ''}`} />
                     </button>
                     
-                    {isPhygitalizedMenuOpen && (
+                    {isPhygitalizedMenuOpen && isAuthenticated && (
                       <div className="absolute top-full left-0 mt-1 w-56 bg-slate-800/95 backdrop-blur-sm rounded-md shadow-dark-large border border-slate-700/50 py-1 z-50">
-                        {item.submenu.map((subItem) => (
-                          <Link
-                            key={subItem.name}
-                            to={subItem.href}
-                            onClick={() => setIsPhygitalizedMenuOpen(false)}
-                            className={`
-                              flex items-center px-4 py-2 text-sm transition-colors
-                              ${isActive(subItem.href)
-                                ? 'bg-primary-600/20 text-primary-400' 
-                                : 'text-slate-300 hover:bg-slate-700/50 hover:text-slate-100'
-                              }
-                            `}
-                          >
-                            {subItem.name}
-                          </Link>
-                        ))}
+                        {item.submenu.map((subItem) => {
+                          const targetHref = subItem.locked ? subItem.infoHref : subItem.href;
+                          return (
+                            <Link
+                              key={subItem.name}
+                              to={targetHref}
+                              onClick={(e) => {
+                                handleSubmenuClick(targetHref, e);
+                                setIsPhygitalizedMenuOpen(false);
+                              }}
+                              className={`
+                                flex items-center gap-2 px-4 py-2 text-sm transition-colors
+                                ${isActive(targetHref)
+                                  ? 'bg-primary-600/20 text-primary-400' 
+                                  : 'text-slate-300 hover:bg-slate-700/50 hover:text-slate-100'
+                                }
+                              `}
+                            >
+                              {subItem.locked && <Lock className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />}
+                              {subItem.name}
+                            </Link>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -266,17 +305,12 @@ const ProfessionalNav = () => {
             </div>
           )}
 
-          {/* Auth Buttons for non-authenticated users */}
+          {/* Auth Button for non-authenticated users */}
           {!isAuthenticated && (
             <div className="hidden md:flex items-center space-x-3">
               <Link to="/login">
-                <button className="px-5 py-2 text-sm font-semibold rounded-lg bg-slate-800/50 text-slate-200 border border-slate-600/50 hover:bg-slate-700 hover:border-neon-blue/50 hover:text-neon-blue transition-all duration-300 hover:shadow-glow-blue">
-                  Login
-                </button>
-              </Link>
-              <Link to="/register">
                 <button className="px-5 py-2 text-sm font-semibold rounded-lg bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink text-white hover:shadow-glow-lg transition-all duration-300 hover:scale-105 active:scale-95 animate-gradient-x bg-size-200">
-                  Sign Up
+                  Login
                 </button>
               </Link>
             </div>
@@ -307,12 +341,12 @@ const ProfessionalNav = () => {
                 
                 // Handle dropdown menu items in mobile
                 if (item.hasSubmenu) {
-                  const isSubmenuActive = item.submenu?.some(subItem => isActive(subItem.href));
+                  const isSubmenuActive = item.submenu?.some(subItem => isActive(subItem.locked ? subItem.infoHref : subItem.href));
                   
                   return (
                     <div key={item.name}>
                       <button
-                        onClick={() => setIsMobilePhygitalizedOpen(!isMobilePhygitalizedOpen)}
+                        onClick={handlePhygitalizeMobileClick}
                         className={`
                           w-full flex items-center justify-between px-3 py-2 rounded-md text-base font-medium relative
                           ${isSubmenuActive || isMobilePhygitalizedOpen
@@ -328,27 +362,32 @@ const ProfessionalNav = () => {
                         <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isMobilePhygitalizedOpen ? 'rotate-180' : ''}`} />
                       </button>
                       
-                      {isMobilePhygitalizedOpen && (
+                      {isMobilePhygitalizedOpen && isAuthenticated && (
                         <div className="pl-8 space-y-1 mt-1">
-                          {item.submenu.map((subItem) => (
-                            <Link
-                              key={subItem.name}
-                              to={subItem.href}
-                              onClick={() => {
-                                setIsMobileMenuOpen(false);
-                                setIsMobilePhygitalizedOpen(false);
-                              }}
-                              className={`
-                                flex items-center px-3 py-2 rounded-md text-sm font-medium
-                                ${isActive(subItem.href)
-                                  ? 'bg-primary-600/20 text-primary-400' 
-                                  : 'text-slate-300 hover:text-slate-100 hover:bg-slate-800/50'
-                                }
-                              `}
-                            >
-                              {subItem.name}
-                            </Link>
-                          ))}
+                          {item.submenu.map((subItem) => {
+                            const targetHref = subItem.locked ? subItem.infoHref : subItem.href;
+                            return (
+                              <Link
+                                key={subItem.name}
+                                to={targetHref}
+                                onClick={(e) => {
+                                  handleSubmenuClick(targetHref, e);
+                                  setIsMobileMenuOpen(false);
+                                  setIsMobilePhygitalizedOpen(false);
+                                }}
+                                className={`
+                                  flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium
+                                  ${isActive(targetHref)
+                                    ? 'bg-primary-600/20 text-primary-400' 
+                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-800/50'
+                                  }
+                                `}
+                              >
+                                {subItem.locked && <Lock className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />}
+                                {subItem.name}
+                              </Link>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -412,14 +451,9 @@ const ProfessionalNav = () => {
               
               {!isAuthenticated && (
                 <div className="border-t border-slate-700/50 pt-4 px-2">
-                  <Link to="/login" onClick={() => setIsMobileMenuOpen(false)} className="block mb-3">
-                    <button className="w-full px-5 py-3 text-base font-semibold rounded-lg bg-gradient-to-r from-neon-blue to-neon-cyan text-white border border-neon-blue/30 hover:border-neon-cyan/50 hover:shadow-glow-cyan transition-all duration-300 shadow-md">
+                  <Link to="/login" onClick={() => setIsMobileMenuOpen(false)} className="block">
+                    <button className="w-full px-5 py-3 text-base font-semibold rounded-lg bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink text-white hover:shadow-glow-lg transition-all duration-300 hover:scale-105 active:scale-95">
                       Login
-                    </button>
-                  </Link>
-                  <Link to="/register" onClick={() => setIsMobileMenuOpen(false)} className="block">
-                    <button className="w-full px-5 py-3 text-base font-semibold rounded-lg bg-gradient-to-r from-neon-purple to-neon-pink text-white hover:shadow-glow-lg transition-all duration-300 hover:scale-105 active:scale-95">
-                      Sign Up
                     </button>
                   </Link>
                 </div>

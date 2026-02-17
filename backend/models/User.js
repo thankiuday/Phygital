@@ -7,6 +7,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const { generateUniqueUserCode } = require('../utils/urlCodeGenerator');
+const { generateUsernameFromEmail } = require('../utils/usernameGenerator');
 
 const userSchema = new mongoose.Schema({
   // Basic user information
@@ -358,6 +359,11 @@ const userSchema = new mongoose.Schema({
       lastVideoViewAt: Date,
       lastArExperienceStartAt: Date
     },
+
+    // Admin-granted Phygital QR: user can edit content only (links/videos/docs/social), not design/QR position/mind target
+    userEditScope: { type: String, enum: ['full', 'content_only'], default: 'full' },
+    createdByAdmin: { type: Boolean, default: false },
+    adminSourceDraftId: { type: String },
     
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }
@@ -397,9 +403,19 @@ userSchema.index({ email: 1 });
 userSchema.index({ urlCode: 1 });
 userSchema.index({ googleId: 1 });
 
-// Hash password and generate urlCode before saving
+// Hash password, generate urlCode, and auto-generate username before saving
 userSchema.pre('save', async function(next) {
   try {
+    // Auto-generate username from email if missing (for new users or OAuth users)
+    if (!this.username && this.email) {
+      try {
+        this.username = await generateUsernameFromEmail(this.email);
+      } catch (error) {
+        console.error('Error generating username:', error);
+        return next(new Error('Failed to generate username'));
+      }
+    }
+    
     // Generate urlCode if it doesn't exist (for new users)
     if (this.isNew && !this.urlCode) {
       try {

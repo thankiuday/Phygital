@@ -189,8 +189,8 @@ export const AuthProvider = ({ children }) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Login function
-  const login = async (email, password) => {
+  // Login function - now handles both login and auto-registration
+  const login = async (email, password, createAccount = false) => {
     try {
       dispatch({ type: AUTH_ACTIONS.LOGIN_START })
 
@@ -206,7 +206,15 @@ export const AuthProvider = ({ children }) => {
         return { success: false, error: errorMessage }
       }
 
-      const response = await api.post('/auth/login', { email, password })
+      // Call login endpoint with createAccount flag if needed
+      const requestData = { 
+        email, 
+        password,
+        createAccount: createAccount === true // Explicitly set to true or false, never undefined
+      }
+      
+      console.log('Login request:', { email, createAccount: requestData.createAccount, createAccountType: typeof requestData.createAccount })
+      const response = await api.post('/auth/login', requestData)
       const user = response.data.data.user
 
       // Check if user is an admin - if so, prevent login in user context
@@ -225,8 +233,13 @@ export const AuthProvider = ({ children }) => {
         payload: response.data.data
       })
 
-      toast.success('Login successful!')
-      navigate('/dashboard')
+      toast.success(createAccount ? 'Account created successfully!' : 'Login successful!')
+      
+      // Only navigate if not in the middle of account creation flow
+      // Navigation will be handled by LoginPage's useEffect
+      setTimeout(() => {
+        navigate('/dashboard')
+      }, 100)
 
       return { success: true }
     } catch (error) {
@@ -237,15 +250,154 @@ export const AuthProvider = ({ children }) => {
         // Only log non-network errors in production
         console.error('Login error:', error.response?.data?.message || error.message || 'Login failed')
       }
+      
+      // Extract error message - check for user not found scenarios
       const errorMessage = error.response?.data?.message || error.message || 'Login failed'
+      const statusCode = error.response?.status
+      const responseData = error.response?.data || {}
+
+      // Check if backend indicates user not found
+      const userNotFound = responseData.userNotFound === true || 
+                          errorMessage.toLowerCase().includes('account not found') ||
+                          errorMessage.toLowerCase().includes('user not found')
+      
+      if (userNotFound && !createAccount) {
+        const notFoundMessage = responseData.message || errorMessage || 'Account not found'
+        console.log('User not found detected:', { userNotFound, errorMessage, responseData })
+        dispatch({
+          type: AUTH_ACTIONS.LOGIN_FAILURE,
+          payload: notFoundMessage
+        })
+        // Don't show toast for user not found - let UI handle it
+        return { success: false, error: notFoundMessage, userNotFound: true }
+      }
 
       dispatch({
         type: AUTH_ACTIONS.LOGIN_FAILURE,
         payload: errorMessage
       })
 
-      toast.error(errorMessage)
-      return { success: false, error: errorMessage }
+      // Show toast for all errors except user not found
+      if (!userNotFound) {
+        toast.error(errorMessage)
+      }
+      
+      return { success: false, error: errorMessage, userNotFound: userNotFound || false }
+    }
+  }
+
+  // Smart Auth function - handles both login and registration automatically
+  const smartAuth = async (email, password, termsAccepted = false) => {
+    try {
+      dispatch({ type: AUTH_ACTIONS.LOGIN_START })
+
+      // Check if admin is logged in - if so, prevent user login
+      const adminToken = localStorage.getItem('adminToken')
+      if (adminToken) {
+        const errorMessage = 'Please logout from admin panel before logging in as a user'
+        dispatch({
+          type: AUTH_ACTIONS.LOGIN_FAILURE,
+          payload: errorMessage
+        })
+        toast.error(errorMessage)
+        return { success: false, error: errorMessage }
+      }
+
+      // Call smart-auth endpoint
+      const requestData = { 
+        email, 
+        password,
+        termsAccepted: termsAccepted === true
+      }
+      
+      const response = await api.post('/auth/smart-auth', requestData)
+      const user = response.data.data.user
+      const isNewUser = response.data.isNewUser
+
+      // Check if user is an admin - if so, prevent login in user context
+      if (user.email === 'admin@phygital.zone' || user.role === 'admin') {
+        const errorMessage = 'Admin users must use the admin login page'
+        dispatch({
+          type: AUTH_ACTIONS.LOGIN_FAILURE,
+          payload: errorMessage
+        })
+        toast.error(errorMessage)
+        return { success: false, error: errorMessage }
+      }
+
+      dispatch({
+        type: AUTH_ACTIONS.LOGIN_SUCCESS,
+        payload: response.data.data
+      })
+
+      // Show appropriate message
+      if (isNewUser) {
+        toast.success('Account created successfully! Welcome 🎉')
+      } else {
+        toast.success('Welcome back!')
+      }
+      
+      // Navigate to dashboard
+      setTimeout(() => {
+        navigate('/dashboard')
+      }, 100)
+
+      return { success: true, isNewUser }
+    } catch (error) {
+      // Only log network errors in development mode
+      if (import.meta.env.DEV) {
+        console.error('Smart auth error:', error)
+      } else if (error.response) {
+        // Only log non-network errors in production
+        console.error('Smart auth error:', error.response?.data?.message || error.message || 'Authentication failed')
+      }
+      
+      // Extract error message - check for specific error scenarios
+      const errorMessage = error.response?.data?.message || error.message || 'Authentication failed'
+      const statusCode = error.response?.status
+      const responseData = error.response?.data || {}
+
+      // Check if account already exists (user tried to create but account exists)
+      const accountExists = responseData.accountExists === true || 
+                          errorMessage.toLowerCase().includes('account already exists')
+      
+      // Check if backend indicates user not found
+      const userNotFound = responseData.userNotFound === true || 
+                          errorMessage.toLowerCase().includes('account not found') ||
+                          errorMessage.toLowerCase().includes('user not found')
+      
+      if (accountExists) {
+        const existsMessage = responseData.message || errorMessage || 'Account already exists'
+        dispatch({
+          type: AUTH_ACTIONS.LOGIN_FAILURE,
+          payload: existsMessage
+        })
+        // Don't show toast for account exists - let UI handle it
+        return { success: false, error: existsMessage, accountExists: true }
+      }
+      
+      if (userNotFound) {
+        const notFoundMessage = responseData.message || errorMessage || 'Account not found'
+        console.log('User not found detected:', { userNotFound, errorMessage, responseData })
+        dispatch({
+          type: AUTH_ACTIONS.LOGIN_FAILURE,
+          payload: notFoundMessage
+        })
+        // Don't show toast for user not found - let UI handle it
+        return { success: false, error: notFoundMessage, userNotFound: true }
+      }
+
+      dispatch({
+        type: AUTH_ACTIONS.LOGIN_FAILURE,
+        payload: errorMessage
+      })
+
+      // Show toast for all errors except user not found and account exists
+      if (!userNotFound && !accountExists) {
+        toast.error(errorMessage)
+      }
+      
+      return { success: false, error: errorMessage, userNotFound: userNotFound || false, accountExists: accountExists || false }
     }
   }
 
@@ -535,6 +687,7 @@ export const AuthProvider = ({ children }) => {
   const value = {
     ...state,
     login,
+    smartAuth,
     register,
     logout,
     updateUser,

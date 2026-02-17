@@ -19,6 +19,7 @@ const User = require('../models/User');
 const Analytics = require('../models/Analytics');
 const { authenticateToken } = require('../middleware/auth');
 const { uploadToCloudinary, uploadToCloudinaryBuffer, uploadVideoToCloudinary, deleteFromCloudinary, checkCloudinaryConnection } = require('../config/cloudinary');
+const { generateMindTarget } = require('../utils/mindTargetGenerator');
 const cloudinary = require('cloudinary').v2;
 const os = require('os');
 const { generateFinalDesign, cleanupTempFile } = require('../services/qrOverlayService');
@@ -82,6 +83,13 @@ const extractCloudinaryPublicId = (url) => {
     console.error('Error extracting Cloudinary public_id:', error);
     return null;
   }
+};
+
+/**
+ * Check if project is admin-granted with content-only edit scope (user cannot change design/QR/mind target)
+ */
+const isProjectContentOnly = (project) => {
+  return project && (project.userEditScope === 'content_only' || project.createdByAdmin === true);
 };
 
 /**
@@ -158,156 +166,6 @@ const generateCompositeImage = async (designUrl, userId, qrPosition) => {
       } catch (cleanupError) {
         console.error('⚠️ Failed to clean up temporary composite file:', cleanupError);
       }
-    }
-  }
-};
-
-/**
- * Generate .mind file from uploaded design image
- * @param {Buffer} imageBuffer - The uploaded image buffer
- * @param {string} userId - User ID for file naming
- * @returns {Promise<Object>} - Upload result with URL and metadata
- */
-const generateMindTarget = async (imageBuffer, userId) => {
-  let tmpDir = null;
-  let tmpImagePath = null;
-  let outMindPath = null;
-  
-  try {
-    console.log('🧠 Starting .mind file generation...');
-    
-    // Create temporary directory
-    tmpDir = path.join(os.tmpdir(), `phygital_mind_${Date.now()}_${uuidv4()}`);
-    await fsPromises.mkdir(tmpDir, { recursive: true });
-    console.log('📁 Created temp directory:', tmpDir);
-    
-    // Write image buffer to temporary file
-    tmpImagePath = path.join(tmpDir, `design_${uuidv4()}.png`);
-    await fsPromises.writeFile(tmpImagePath, imageBuffer);
-    console.log('💾 Saved temp image:', tmpImagePath);
-    
-    // Output .mind file path
-    outMindPath = path.join(tmpDir, `target_${uuidv4()}.mind`);
-    console.log('🎯 Target .mind path:', outMindPath);
-    
-    // Generate .mind file using MindAR CLI
-    console.log('⚙️ Running MindAR target generation...');
-    await new Promise((resolve, reject) => {
-      // Try different possible commands for MindAR tools
-      const commands = [
-        ['npx', ['mindar-cli', 'build-image-target', '-i', tmpImagePath, '-o', outMindPath]],
-        ['npx', ['@hiukim/mind-ar-js-cli', 'build-image-target', '-i', tmpImagePath, '-o', outMindPath]],
-        ['node', ['-e', `
-          const fs = require('fs');
-          const path = require('path');
-          
-          // Create a basic .mind file structure without external dependencies
-          const mindData = {
-            imageUrl: '${tmpImagePath}',
-            targetData: 'basic_target_data',
-            created: new Date().toISOString(),
-            version: '1.0',
-            type: 'image_target'
-          };
-          
-          try {
-            fs.writeFileSync('${outMindPath}', JSON.stringify(mindData, null, 2));
-            console.log('✅ Created basic .mind file without external dependencies');
-          } catch (error) {
-            console.error('❌ Failed to create .mind file:', error.message);
-            process.exit(1);
-          }
-        `]]
-      ];
-      
-      let commandIndex = 0;
-      
-      const tryNextCommand = () => {
-        if (commandIndex >= commands.length) {
-          return reject(new Error('All MindAR generation methods failed'));
-        }
-        
-        const [cmd, args] = commands[commandIndex];
-        console.log(`🔄 Trying command ${commandIndex + 1}: ${cmd} ${args.join(' ')}`);
-        
-        execFile(cmd, args, { 
-          timeout: 300000, // 5 minutes timeout
-          cwd: tmpDir,
-          env: { ...process.env, NODE_PATH: process.cwd() + '/node_modules' }
-        }, (err, stdout, stderr) => {
-          if (err) {
-            console.log(`❌ Command ${commandIndex + 1} failed:`, err.message);
-            console.log('stdout:', stdout);
-            console.log('stderr:', stderr);
-            commandIndex++;
-            tryNextCommand();
-            return;
-          }
-          
-          console.log('✅ MindAR generation successful!');
-          console.log('stdout:', stdout);
-          if (stderr) console.log('stderr:', stderr);
-          resolve();
-        });
-      };
-      
-      tryNextCommand();
-    });
-    
-    // Check if .mind file was created
-    try {
-      await fsPromises.access(outMindPath);
-      console.log('✅ .mind file created successfully');
-    } catch (accessError) {
-      console.log('⚠️ .mind file not found, creating fallback...');
-      
-      // Create a fallback .mind file with basic structure
-      const fallbackMindData = {
-        version: '1.0',
-        imageTarget: {
-          width: 1,
-          height: 1,
-          name: `target_${userId}`,
-          created: new Date().toISOString()
-        },
-        trackingData: 'fallback_tracking_data'
-      };
-      
-      await fsPromises.writeFile(outMindPath, JSON.stringify(fallbackMindData));
-      console.log('✅ Created fallback .mind file');
-    }
-    
-    // Read generated .mind file
-    const mindBuffer = await fsPromises.readFile(outMindPath);
-    console.log('📖 Read .mind file, size:', mindBuffer.length, 'bytes');
-    
-    // Upload .mind buffer to Cloudinary
-    const mindFilename = `target_${Date.now()}_${uuidv4()}.mind`;
-    console.log('☁️ Uploading .mind to Cloudinary with filename:', mindFilename);
-    
-    const uploadResult = await uploadToCloudinaryBuffer(mindBuffer, userId, 'targets', mindFilename, 'application/octet-stream');
-    console.log('✅ .mind file uploaded to Cloudinary:', uploadResult.url);
-    
-    return {
-      filename: uploadResult.public_id,
-      url: uploadResult.url,
-      size: mindBuffer.length,
-      uploadedAt: new Date(),
-      generated: true
-    };
-    
-  } catch (error) {
-    console.error('❌ .mind generation failed:', error);
-    throw new Error(`Failed to generate .mind file: ${error.message}`);
-  } finally {
-    // Cleanup temporary files
-    try {
-      if (tmpImagePath) await fsPromises.unlink(tmpImagePath).catch(() => {});
-      if (outMindPath) await fsPromises.unlink(outMindPath).catch(() => {});
-      if (tmpDir) await fsPromises.rmdir(tmpDir).catch(() => {});
-      console.log('🧹 Cleaned up temporary files');
-    } catch (cleanupError) {
-      console.warn('⚠️ Cleanup warning:', cleanupError.message);
     }
   }
 };
@@ -474,6 +332,9 @@ router.put('/project/:projectId', authenticateToken, async (req, res) => {
       });
     }
 
+    const project = user.projects[projectIndex];
+    const contentOnly = isProjectContentOnly(project);
+
     // Build update object
     const updateFields = {};
 
@@ -487,19 +348,25 @@ router.put('/project/:projectId', authenticateToken, async (req, res) => {
       updateFields[`projects.${projectIndex}.description`] = updateData.description;
     }
 
-    // Update campaign type if provided
-    if (updateData.campaignType) {
-      updateFields[`projects.${projectIndex}.campaignType`] = updateData.campaignType;
-    }
-
-    // Update phygitalized data if provided
-    if (updateData.phygitalizedData) {
-      // Merge with existing phygitalizedData
-      const existingPhygitalizedData = user.projects[projectIndex].phygitalizedData || {};
+    // Campaign type and phygitalizedData: for content_only projects only allow links and socialLinks
+    if (contentOnly && updateData.phygitalizedData) {
+      const existingPhygitalizedData = project.phygitalizedData || {};
       updateFields[`projects.${projectIndex}.phygitalizedData`] = {
         ...existingPhygitalizedData,
-        ...updateData.phygitalizedData
+        links: updateData.phygitalizedData.links !== undefined ? updateData.phygitalizedData.links : existingPhygitalizedData.links,
+        socialLinks: updateData.phygitalizedData.socialLinks !== undefined ? updateData.phygitalizedData.socialLinks : existingPhygitalizedData.socialLinks
       };
+    } else if (!contentOnly) {
+      if (updateData.campaignType) {
+        updateFields[`projects.${projectIndex}.campaignType`] = updateData.campaignType;
+      }
+      if (updateData.phygitalizedData) {
+        const existingPhygitalizedData = project.phygitalizedData || {};
+        updateFields[`projects.${projectIndex}.phygitalizedData`] = {
+          ...existingPhygitalizedData,
+          ...updateData.phygitalizedData
+        };
+      }
     }
 
     // Update the project
@@ -953,6 +820,12 @@ router.post('/design', authenticateToken, upload.single('design'), async (req, r
       projectIndex = user.projects.findIndex(p => p.id === user.currentProject);
       if (projectIndex !== -1) {
         currentProject = user.projects[projectIndex];
+        if (isProjectContentOnly(currentProject)) {
+          return res.status(403).json({
+            status: 'error',
+            message: 'This campaign was created by admin. You can only edit links, videos, documents, and social links—not the design or AR setup.'
+          });
+        }
         console.log(`📁 Storing design in project: ${currentProject.name} (${currentProject.id})`);
       }
     }
@@ -2091,10 +1964,18 @@ router.post('/qr-position', authenticateToken, [
     // Check if user has uploaded a design (check project first, then root level)
     const user = await User.findById(req.user._id);
     let hasDesign = false;
-    
+    let currentProject = null;
+
     if (user.currentProject && user.projects) {
-      const currentProject = user.projects.find(p => p.id === user.currentProject);
+      currentProject = user.projects.find(p => p.id === user.currentProject);
       hasDesign = !!currentProject?.uploadedFiles?.design?.url;
+    }
+
+    if (isProjectContentOnly(currentProject)) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'This campaign was created by admin. You can only edit links, videos, documents, and social links—not the design or AR setup.'
+      });
     }
     
     // Fallback to root-level check
@@ -2138,7 +2019,7 @@ router.post('/qr-position', authenticateToken, [
         // Generate QR data (user's scan URL for AR experience)
         // Format: /ar/user/{userId}/project/{projectId}
         const currentProjectId = user.currentProject || 'default';
-        const qrData = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/#/ar/user/${req.user._id}/project/${currentProjectId}`;
+        const qrData = `${process.env.FRONTEND_URL || 'https://phygital.zone'}/#/ar/user/${req.user._id}/project/${currentProjectId}`;
         
         // Get design URL from project or root level
         let designUrl;
@@ -2476,12 +2357,19 @@ router.post('/save-composite-design', authenticateToken, [
     let hasDesign = false;
     let designUrl = null;
     
+    let currentProjectForComposite = null;
     if (user.currentProject && user.projects) {
-      const currentProject = user.projects.find(p => p.id === user.currentProject);
-      if (currentProject?.uploadedFiles?.design?.url) {
+      currentProjectForComposite = user.projects.find(p => p.id === user.currentProject);
+      if (currentProjectForComposite?.uploadedFiles?.design?.url) {
         hasDesign = true;
-        designUrl = currentProject.uploadedFiles.design.url;
+        designUrl = currentProjectForComposite.uploadedFiles.design.url;
       }
+    }
+    if (isProjectContentOnly(currentProjectForComposite)) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'This campaign was created by admin. You can only edit links, videos, documents, and social links—not the design or AR setup.'
+      });
     }
     
     // Fallback to root-level design
@@ -2732,6 +2620,12 @@ router.post('/save-mind-target', authenticateToken, [
       targetProjectIndex = user.projects.findIndex(p => p.id === user.currentProject);
       if (targetProjectIndex !== -1) {
         targetProject = user.projects[targetProjectIndex];
+        if (isProjectContentOnly(targetProject)) {
+          return res.status(403).json({
+            status: 'error',
+            message: 'This campaign was created by admin. You can only edit links, videos, documents, and social links—not the design or AR setup.'
+          });
+        }
         console.log(`📁 Storing .mind file in project: ${targetProject.name} (${targetProject.id})`);
       }
     }
@@ -3123,7 +3017,7 @@ router.get('/download-final-design', authenticateToken, async (req, res) => {
     const currentProjectId = user.currentProject || 'default';
     
     // Generate project-specific QR data for AR experience (using hash routing)
-    const qrData = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/#/ar/user/${user._id}/project/${currentProjectId}`;
+    const qrData = `${process.env.FRONTEND_URL || 'https://phygital.zone'}/#/ar/user/${user._id}/project/${currentProjectId}`;
     
     // Generate final design with QR code
     console.log('🎨 Calling generateFinalDesign with:', {
@@ -3247,7 +3141,7 @@ router.get('/preview-final-design', authenticateToken, async (req, res) => {
     // Generate QR data (user's scan URL for AR experience)
     // Format: /ar/user/{userId}/project/{projectId}
     const currentProjectId = user.currentProject || 'default';
-    const qrData = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/#/ar/user/${user._id}/project/${currentProjectId}`;
+    const qrData = `${process.env.FRONTEND_URL || 'https://phygital.zone'}/#/ar/user/${user._id}/project/${currentProjectId}`;
     
     // Generate final design with QR code
     const finalDesignPath = await generateFinalDesign(
@@ -4239,7 +4133,7 @@ router.post('/create-ar-experience', authenticateToken, async (req, res) => {
     console.log('AR experience created with ID:', savedArExperience._id);
     
     // Generate QR code URL pointing to the AR experience
-    const qrData = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/scan/${savedArExperience._id}`;
+    const qrData = `${process.env.FRONTEND_URL || 'https://phygital.zone'}/scan/${savedArExperience._id}`;
     
     res.status(201).json({
       status: 'success',

@@ -210,7 +210,7 @@ export const AdminProvider = ({ children }) => {
   const adminApi = async (method, endpoint, data = null) => {
     try {
       const token = localStorage.getItem('adminToken') || state.token
-      
+
       if (!token) {
         console.error('❌ No admin token available in localStorage or state')
         throw new Error('No admin token available')
@@ -223,6 +223,10 @@ export const AdminProvider = ({ children }) => {
           Authorization: `Bearer ${token}`
         }
       }
+      const body = (method.toLowerCase() === 'post' || method.toLowerCase() === 'put') && data == null ? {} : data
+      if (body && typeof FormData !== 'undefined' && body instanceof FormData) {
+        config.headers['Content-Type'] = false
+      }
 
       let response
       switch (method.toLowerCase()) {
@@ -230,10 +234,10 @@ export const AdminProvider = ({ children }) => {
           response = await api.get(`/admin${endpoint}`, config)
           break
         case 'post':
-          response = await api.post(`/admin${endpoint}`, data, config)
+          response = await api.post(`/admin${endpoint}`, body, config)
           break
         case 'put':
-          response = await api.put(`/admin${endpoint}`, data, config)
+          response = await api.put(`/admin${endpoint}`, body, config)
           break
         case 'delete':
           response = await api.delete(`/admin${endpoint}`, config)

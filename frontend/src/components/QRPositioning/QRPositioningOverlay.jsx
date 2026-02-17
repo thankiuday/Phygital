@@ -16,7 +16,9 @@ const QRPositioningOverlay = ({
   onCaptureComposite,
   qrImageUrl,
   imageWidth = 400,
-  imageHeight = 300 
+  imageHeight = 300,
+  /** When true, image is rendered at imageWidth×imageHeight px (1:1 design pixels). Use for admin original-size display. */
+  displayAtExplicitSize = false
 }) => {
   const [isDragging, setIsDragging] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
@@ -27,9 +29,8 @@ const QRPositioningOverlay = ({
   const [stickerImageUrl, setStickerImageUrl] = useState(null)
   const [stickerAspectRatio, setStickerAspectRatio] = useState(1) // Default to 1:1, will be updated when sticker is generated
   
-  // Minimum dimensions for scannable QR code
-  // QR code itself needs ~80-100px minimum, plus border (8px) + padding (32px) = ~120px sticker width minimum
-  // Height includes "SCAN ME" text (~40px), so minimum height ~160px
+  // Minimum dimensions for QR sticker to remain reliably scannable
+  // QR code itself needs ~80px, plus border/padding/text ≈ 120×160px sticker
   const MIN_STICKER_WIDTH = 120
   const MIN_STICKER_HEIGHT = 160
   
@@ -102,8 +103,15 @@ const QRPositioningOverlay = ({
           })
         }
 
-        // Generate sticker with a reasonable QR size based on current position width
-        const qrSize = Math.max(100, Math.round(qrPosition.width * 0.8)) // Use 80% of position width as QR size
+        // Compute qrSize so sticker aspect (qrSize+40)×(qrSize+80) matches box aspect → no extra padding in preview
+        const boxW = qrPosition.width
+        const boxH = qrPosition.height
+        // stickerWidth = qrSize + 40, stickerHeight = qrSize + 80; match box aspect: (qrSize+40)/(qrSize+80) = boxW/boxH
+        let qrSize = 100
+        if (boxH !== boxW) {
+          const solved = (80 * boxW - 40 * boxH) / (boxH - boxW)
+          qrSize = Math.max(80, Math.round(solved))
+        }
         const stickerDataUrl = await generateQRSticker(qrDataUrl, {
           variant: 'purple',
           qrSize: qrSize,
@@ -119,7 +127,7 @@ const QRPositioningOverlay = ({
     }
 
     generateSticker()
-  }, [qrImageUrl, qrPosition.width])
+  }, [qrImageUrl, qrPosition.width, qrPosition.height])
 
   // Pointer down handler for drag start (supports both mouse and touch)
   const handlePointerDown = useCallback((e) => {
@@ -181,10 +189,12 @@ const QRPositioningOverlay = ({
       // Use pageX/pageY for consistent coordinates across scroll
       const newX = e.pageX - dragStart.x
       const newY = e.pageY - dragStart.y
+      const boundsWidth = imageRef.current?.offsetWidth || imageWidth
+      const boundsHeight = imageRef.current?.offsetHeight || imageHeight
       
       // Constrain to image bounds
-      const constrainedX = Math.max(0, Math.min(newX, imageWidth - qrPosition.width))
-      const constrainedY = Math.max(0, Math.min(newY, imageHeight - qrPosition.height))
+      const constrainedX = Math.max(0, Math.min(newX, boundsWidth - qrPosition.width))
+      const constrainedY = Math.max(0, Math.min(newY, boundsHeight - qrPosition.height))
       
       onPositionChange({ x: constrainedX, y: constrainedY })
     } else if (isResizing && resizeHandle) {
@@ -292,21 +302,23 @@ const QRPositioningOverlay = ({
           break
       }
       
+      const boundsWidth = imageRef.current?.offsetWidth || imageWidth
+      const boundsHeight = imageRef.current?.offsetHeight || imageHeight
       // Constrain to image bounds
-      newX = Math.max(0, Math.min(newX, imageWidth - newWidth))
-      newY = Math.max(0, Math.min(newY, imageHeight - newHeight))
+      newX = Math.max(0, Math.min(newX, boundsWidth - newWidth))
+      newY = Math.max(0, Math.min(newY, boundsHeight - newHeight))
       
       // Ensure size doesn't exceed bounds, but maintain minimums
-      if (newX + newWidth > imageWidth) {
-        newWidth = Math.max(MIN_STICKER_WIDTH, imageWidth - newX)
+      if (newX + newWidth > boundsWidth) {
+        newWidth = Math.max(MIN_STICKER_WIDTH, boundsWidth - newX)
         newHeight = newWidth * stickerAspectRatio
         if (newHeight < MIN_STICKER_HEIGHT) {
           newHeight = MIN_STICKER_HEIGHT
           newWidth = newHeight / stickerAspectRatio
         }
       }
-      if (newY + newHeight > imageHeight) {
-        newHeight = Math.max(MIN_STICKER_HEIGHT, imageHeight - newY)
+      if (newY + newHeight > boundsHeight) {
+        newHeight = Math.max(MIN_STICKER_HEIGHT, boundsHeight - newY)
         newWidth = newHeight / stickerAspectRatio
         if (newWidth < MIN_STICKER_WIDTH) {
           newWidth = MIN_STICKER_WIDTH
@@ -475,10 +487,13 @@ const QRPositioningOverlay = ({
           ref={imageRef}
           src={imageUrl}
           alt="Design preview"
-          className="max-w-full h-auto rounded-lg shadow-sm"
+          className={displayAtExplicitSize ? '' : 'max-w-full h-auto rounded-lg shadow-sm'}
           onLoad={handleImageLoad}
           crossOrigin="anonymous"
-          style={{ maxWidth: `${imageWidth}px` }}
+          style={displayAtExplicitSize
+            ? { width: imageWidth, height: imageHeight }
+            : { maxWidth: `${imageWidth}px` }
+          }
         />
         
         {/* QR Code Overlay */}
@@ -486,10 +501,10 @@ const QRPositioningOverlay = ({
           ref={overlayRef}
           className="absolute border-2 border-primary-500 bg-primary-500 bg-opacity-20 cursor-move select-none qr-overlay"
           style={{
-            left: `${(qrPosition.x / imageWidth) * 100}%`,
-            top: `${(qrPosition.y / imageHeight) * 100}%`,
-            width: `${(qrPosition.width / imageWidth) * 100}%`,
-            height: `${(qrPosition.height / imageHeight) * 100}%`,
+            left: `${qrPosition.x}px`,
+            top: `${qrPosition.y}px`,
+            width: `${qrPosition.width}px`,
+            height: `${qrPosition.height}px`,
             minWidth: '20px',
             minHeight: '20px'
           }}
@@ -500,20 +515,20 @@ const QRPositioningOverlay = ({
             {stickerImageUrl ? 'QR Sticker Position' : 'QR Code Position'}
           </div>
           <div className="absolute -top-6 left-0 text-xs bg-primary-600 text-white px-2 py-1 rounded whitespace-nowrap">
-            {stickerImageUrl ? `Drag to move • Min: ${MIN_STICKER_WIDTH}×${MIN_STICKER_HEIGHT}px for scanning` : 'Drag to move • Resize handles on edges'}
+            Drag to move • Resize with handles
           </div>
           {/* Sticker preview inside overlay (if available) */}
           {stickerImageUrl ? (
             <img
               src={stickerImageUrl}
               alt="QR sticker preview"
-              style={{ width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none' }}
+              style={{ width: '100%', height: '100%', objectFit: 'fill', pointerEvents: 'none' }}
             />
           ) : qrImageUrl ? (
             <img
               src={qrImageUrl}
               alt="QR preview"
-              style={{ width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none' }}
+              style={{ width: '100%', height: '100%', objectFit: 'fill', pointerEvents: 'none' }}
             />
           ) : (
             /* Dummy QR Code Pattern */
@@ -602,7 +617,9 @@ const QRPositioningOverlay = ({
       <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
         <p className="text-sm text-blue-800">
           <strong>💡 Tip:</strong> Position the QR sticker where you want it to appear on your design. 
-          {stickerImageUrl ? ` The preview shows the complete sticker design including the gradient border and "SCAN ME" text. Minimum size: ${MIN_STICKER_WIDTH}×${MIN_STICKER_HEIGHT}px to ensure reliable scanning.` : ' The dummy pattern shows you exactly where the QR code will be placed.'}
+          {stickerImageUrl
+            ? ` The preview shows the complete sticker design including the gradient border and "SCAN ME" text. Minimum size: ${MIN_STICKER_WIDTH}×${MIN_STICKER_HEIGHT}px to ensure reliable scanning.`
+            : ' The dummy pattern shows you exactly where the QR code will be placed.'}
         </p>
       </div>
 

@@ -17,7 +17,6 @@ import ConnectionStatusBanner from './components/UI/ConnectionStatusBanner'
 // Pages
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/Auth/LoginPage'
-import RegisterPage from './pages/Auth/RegisterPage'
 import OAuthCallback from './pages/Auth/OAuthCallback'
 import DashboardPage from './pages/Dashboard/DashboardPage'
 import GameUploadPage from './pages/Upload/GameUploadPage'
@@ -38,6 +37,7 @@ import QRLinksPage from './pages/Phygitalized/QRLinksPage'
 import QRLinksVideoPage from './pages/Phygitalized/QRLinksVideoPage'
 import QRLinksPDFVideoPage from './pages/Phygitalized/QRLinksPDFVideoPage'
 import QRLinksARVideoPage from './pages/Phygitalized/QRLinksARVideoPage'
+import QRSelectionPage from './pages/Phygitalized/QRSelectionPage'
 import LandingPage from './pages/Phygitalized/LandingPage'
 import QRRedirectPage from './pages/Phygitalized/QRRedirectPage'
 import AboutPage from './pages/About/AboutPage'
@@ -46,9 +46,14 @@ import AIVideoPage from './pages/AIVideo/AIVideoPage'
 import ScanPage from './pages/ScanPage'
 import ComingSoonPage from './pages/ComingSoon/ComingSoonPage'
 import PricingPage from './pages/Pricing/PricingPage'
+import PhygitalQRInfoPage from './pages/PhygitalQRInfo/PhygitalQRInfoPage'
 import NotFoundPage from './pages/NotFoundPage'
 import MaintenancePage from './pages/Maintenance/MaintenancePage'
 import CertificationPage from './pages/Legal/CertificationPage'
+import BusinessCardCreatePage from './pages/BusinessCard/BusinessCardCreatePage'
+import BusinessCardListPage from './pages/BusinessCard/BusinessCardListPage'
+import BusinessCardPublicPage from './pages/BusinessCard/BusinessCardPublicPage'
+// BusinessCardFromExistingPage removed — single fixed Phygital card format now
 
 // Admin Pages
 import AdminLoginPage from './pages/Admin/AdminLoginPage'
@@ -58,6 +63,8 @@ import AdminProjectsPage from './pages/Admin/ProjectsPage'
 import AdminAnalyticsPage from './pages/Admin/AdminAnalyticsPage'
 import ContactsPage from './pages/Admin/ContactsPage'
 import SettingsPage from './pages/Admin/SettingsPage'
+import AdminPhygitalCreatePage from './pages/Admin/AdminPhygitalCreatePage'
+import AdminPhygitalHistoryPage from './pages/Admin/AdminPhygitalHistoryPage'
 
 // Maintenance mode check
 import { isMaintenanceModeEnabled } from './config/maintenance'
@@ -94,13 +101,13 @@ function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<HomePage />} />
           <Route path="login" element={<LoginPage />} />
-          <Route path="register" element={<RegisterPage />} />
           <Route path="auth/callback" element={<OAuthCallback />} />
           <Route path="forgot-password" element={<ComingSoonPage />} />
           <Route path="about" element={<AboutPage />} />
           <Route path="contact" element={<ContactPage />} />
           <Route path="ai-video" element={<AIVideoPage />} />
           <Route path="pricing" element={<PricingPage />} />
+          <Route path="phygital-qr-info" element={<PhygitalQRInfoPage />} />
           <Route path="blog" element={<ComingSoonPage />} />
           <Route path="careers" element={<ComingSoonPage />} />
           <Route path="certification" element={<CertificationPage />} />
@@ -127,6 +134,8 @@ function App() {
           {/* 3D AR Experience with vertical video standee and popup animation */}
           <Route path="ar-3d/user/:userId/project/:projectId" element={<ARExperience3DPage />} />
           <Route path="ar-3d/:userId/:projectId" element={<ARExperience3DPage />} />
+          {/* Public Business Card */}
+          <Route path="card/:slug" element={<BusinessCardPublicPage />} />
         </Route>
 
         {/* Protected Routes */}
@@ -176,6 +185,11 @@ function App() {
               <TemplatesPage />
             </ProtectedRoute>
           } />
+          <Route path="phygitalized/select" element={
+            <ProtectedRoute>
+              <QRSelectionPage />
+            </ProtectedRoute>
+          } />
           <Route path="phygitalized/qr-link" element={
             <ProtectedRoute>
               <QRLinkPage />
@@ -199,6 +213,22 @@ function App() {
           <Route path="phygitalized/qr-links-ar-video" element={
             <ProtectedRoute>
               <QRLinksARVideoPage />
+            </ProtectedRoute>
+          } />
+          {/* Business Cards */}
+          <Route path="business-cards" element={
+            <ProtectedRoute>
+              <BusinessCardListPage />
+            </ProtectedRoute>
+          } />
+          <Route path="business-cards/create" element={
+            <ProtectedRoute>
+              <BusinessCardCreatePage />
+            </ProtectedRoute>
+          } />
+          <Route path="business-cards/edit/:id" element={
+            <ProtectedRoute>
+              <BusinessCardCreatePage />
             </ProtectedRoute>
           } />
         </Route>
@@ -234,6 +264,16 @@ function App() {
           <Route path="settings" element={
             <AdminProtectedRoute>
               <SettingsPage />
+            </AdminProtectedRoute>
+          } />
+          <Route path="phygital/create" element={
+            <AdminProtectedRoute>
+              <AdminPhygitalCreatePage />
+            </AdminProtectedRoute>
+          } />
+          <Route path="phygital/history" element={
+            <AdminProtectedRoute>
+              <AdminPhygitalHistoryPage />
             </AdminProtectedRoute>
           } />
         </Route>

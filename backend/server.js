@@ -23,7 +23,9 @@ const historyRoutes = require('./routes/history');
 const arExperienceRoutes = require('./routes/arExperience');
 const contactRoutes = require('./routes/contact');
 const adminRoutes = require('./routes/admin');
+const adminPhygitalRoutes = require('./routes/adminPhygital');
 const phygitalizedRoutes = require('./routes/phygitalized');
+const businessCardRoutes = require('./routes/businessCard');
 
 const app = express();
 
@@ -32,15 +34,18 @@ app.set('trust proxy', 1);
 
 // CORS configuration (must be BEFORE any other middleware)
 const allowedOrigins = [
-  process.env.FRONTEND_URL || 'http://localhost:5173',
-  'http://localhost:3000',
-  'http://localhost:5173',
+  process.env.FRONTEND_URL,
   /^https:\/\/.*\.onrender\.com$/,
-  'http://127.0.0.1:5173',
-  'http://127.0.0.1:3000',
-  'https://phygital-frontend.onrender.com',
-  'https://phygital-backend-wcgs.onrender.com'
-];
+  /^https:\/\/.*\.phygital\.zone$/,
+  'https://phygital.zone',
+  // Development origins (only active in non-production)
+  ...(process.env.NODE_ENV !== 'production' ? [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:3000',
+  ] : [])
+].filter(Boolean);
 
 const corsOptions = {
   origin: function (origin, callback) {
@@ -207,7 +212,9 @@ app.use('/api/history', historyRoutes);
 app.use('/api/ar-experience', arExperienceRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin/phygital', adminPhygitalRoutes);
 app.use('/api/phygitalized', phygitalizedRoutes);
+app.use('/api/business-cards', businessCardRoutes);
 
 // Health check endpoint with detailed status
 app.get('/api/health', async (req, res) => {

@@ -705,7 +705,7 @@ router.post('/upgrade-campaign', authenticateToken, async (req, res) => {
     // Prepare update fields
     const updateFields = {}
     const existingData = upgradeData.existingData || {}
-    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
+    const baseUrl = process.env.FRONTEND_URL || 'https://phygital.zone'
 
     // Update campaign type
     updateFields[`projects.${projectIndex}.campaignType`] = newCampaignType

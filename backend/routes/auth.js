@@ -9,6 +9,7 @@ const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { generateToken, authenticateToken } = require('../middleware/auth');
 const passport = require('../middleware/passport');
+const { generateUsernameFromEmail } = require('../utils/usernameGenerator');
 
 const router = express.Router();
 
@@ -18,8 +19,9 @@ const router = express.Router();
  * Validates input, checks for duplicates, hashes password, and returns JWT token
  */
 router.post('/register', [
-  // Input validation
+  // Input validation - username is now optional (will be auto-generated if not provided)
   body('username')
+    .optional()
     .isLength({ min: 3, max: 30 })
     .withMessage('Username must be between 3 and 30 characters')
     .matches(/^[a-zA-Z0-9_]+$/)
@@ -49,35 +51,50 @@ router.post('/register', [
     
     const { username, email, password } = req.body;
     
-    // Check if email or username already exists - check both separately for better error messages
-    const [existingEmail, existingUsername] = await Promise.all([
-      User.findOne({ email }),
-      User.findOne({ username })
-    ]);
-    
-    // Build error message if either or both exist
-    const duplicateErrors = [];
+    // Check if email already exists
+    const existingEmail = await User.findOne({ email });
     if (existingEmail) {
-      duplicateErrors.push('Email already registered');
-    }
-    if (existingUsername) {
-      duplicateErrors.push('Username already taken');
-    }
-    
-    if (duplicateErrors.length > 0) {
       return res.status(400).json({
         status: 'error',
-        message: duplicateErrors.join('. '),
+        message: 'Email already registered',
         errors: {
-          email: existingEmail ? 'Email already registered' : null,
-          username: existingUsername ? 'Username already taken' : null
+          email: 'Email already registered'
         }
       });
     }
     
+    // If username is provided, check if it already exists
+    if (username) {
+      const existingUsername = await User.findOne({ username });
+      if (existingUsername) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Username already taken',
+          errors: {
+            username: 'Username already taken'
+          }
+        });
+      }
+    }
+    
+    // Generate username from email if not provided
+    let finalUsername = username;
+    if (!finalUsername) {
+      try {
+        finalUsername = await generateUsernameFromEmail(email);
+        console.log('Auto-generated username:', finalUsername);
+      } catch (error) {
+        console.error('Error generating username:', error);
+        return res.status(500).json({
+          status: 'error',
+          message: 'Failed to generate username. Please try again.'
+        });
+      }
+    }
+    
     // Create new user
     const user = new User({
-      username,
+      username: finalUsername,
       email,
       password
     });
@@ -110,6 +127,7 @@ router.post('/register', [
 /**
  * POST /api/auth/login
  * Authenticate user and return JWT token
+ * Also supports auto-account creation if createAccount flag is true and user doesn't exist
  * Validates credentials and returns user data with token
  */
 router.post('/login', [
@@ -134,15 +152,106 @@ router.post('/login', [
       });
     }
     
-    const { email, password } = req.body;
+    const { email, password, createAccount = false } = req.body;
+    
+    // Ensure createAccount is a boolean
+    const shouldCreateAccount = createAccount === true || createAccount === 'true';
+    
+    console.log('Login request received:', { 
+      email, 
+      createAccount: req.body.createAccount, 
+      shouldCreateAccount,
+      createAccountType: typeof req.body.createAccount 
+    });
     
     // Find user by email
-    const user = await User.findOne({ email });
+    let user = await User.findOne({ email });
     
+    // If user doesn't exist and createAccount is true, create new account
+    if (!user && shouldCreateAccount) {
+      console.log('Creating new account for:', email);
+      // Validate password strength for new accounts
+      if (password.length < 6) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Password must be at least 6 characters long'
+        });
+      }
+      
+      if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Password must contain at least one lowercase letter, one uppercase letter, and one number'
+        });
+      }
+      
+      // Check if email already exists (double-check)
+      const existingEmail = await User.findOne({ email });
+      if (existingEmail) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Email already registered'
+        });
+      }
+      
+      // Generate username from email
+      let username;
+      try {
+        username = await generateUsernameFromEmail(email);
+        console.log('Generated username:', username);
+      } catch (error) {
+        console.error('Error generating username:', error);
+        return res.status(500).json({
+          status: 'error',
+          message: 'Failed to generate username. Please try again.'
+        });
+      }
+      
+      // Create new user
+      try {
+        user = new User({
+          username,
+          email,
+          password
+        });
+        
+        await user.save();
+        console.log('User created successfully:', user.email);
+      } catch (error) {
+        console.error('Error creating user:', error);
+        if (error.code === 11000) {
+          const field = Object.keys(error.keyPattern)[0];
+          return res.status(400).json({
+            status: 'error',
+            message: `${field === 'email' ? 'Email' : 'Username'} already exists`
+          });
+        }
+        return res.status(500).json({
+          status: 'error',
+          message: 'Failed to create account. Please try again.'
+        });
+      }
+      
+      // Generate JWT token for new user
+      const token = generateToken(user._id);
+      
+      // Return user data and token
+      return res.status(201).json({
+        status: 'success',
+        message: 'Account created successfully',
+        data: {
+          user: user.getPublicProfile(),
+          token
+        }
+      });
+    }
+    
+    // If user doesn't exist and createAccount is false, return specific error
     if (!user) {
       return res.status(401).json({
         status: 'error',
-        message: 'Invalid email or password'
+        message: 'Account not found. Please check your email or create a new account.',
+        userNotFound: true
       });
     }
     
@@ -160,7 +269,7 @@ router.post('/login', [
     if (!isPasswordValid) {
       return res.status(401).json({
         status: 'error',
-        message: 'Invalid email or password'
+        message: 'Invalid password. Please check your password and try again.'
       });
     }
     
@@ -183,9 +292,204 @@ router.post('/login', [
     
   } catch (error) {
     console.error('Login error:', error);
+    
+    // Handle duplicate key errors (username or email)
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern)[0];
+      return res.status(400).json({
+        status: 'error',
+        message: `${field === 'email' ? 'Email' : 'Username'} already exists`
+      });
+    }
+    
     res.status(500).json({
       status: 'error',
       message: 'Login failed',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+/**
+ * POST /api/auth/smart-auth
+ * Smart authentication endpoint - handles both login and registration automatically
+ * If user exists: login
+ * If user doesn't exist and termsAccepted: create account
+ * If user doesn't exist and !termsAccepted: return userNotFound flag
+ */
+router.post('/smart-auth', [
+  // Input validation
+  body('email')
+    .isEmail()
+    .withMessage('Please provide a valid email')
+    .normalizeEmail(),
+  
+  body('password')
+    .notEmpty()
+    .withMessage('Password is required'),
+  
+  body('termsAccepted')
+    .optional()
+    .isBoolean()
+    .withMessage('termsAccepted must be a boolean')
+], async (req, res) => {
+  try {
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+    
+    const { email, password, termsAccepted = false } = req.body;
+    
+    // Find user by email
+    let user = await User.findOne({ email });
+    
+    // CASE 1: User exists → LOGIN
+    if (user) {
+      // If user exists but termsAccepted is true, user tried to create account but account already exists
+      if (termsAccepted) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Account already exists. Please sign in instead.',
+          accountExists: true
+        });
+      }
+      
+      // Check if account is active
+      if (!user.isActive) {
+        return res.status(401).json({
+          status: 'error',
+          message: 'Account is deactivated. Please contact support.'
+        });
+      }
+      
+      // Verify password
+      const isPasswordValid = await user.comparePassword(password);
+      
+      if (!isPasswordValid) {
+        return res.status(401).json({
+          status: 'error',
+          message: 'Invalid password. Please check your password and try again.'
+        });
+      }
+      
+      // Generate JWT token
+      const token = generateToken(user._id);
+      
+      // Update last login time
+      user.updatedAt = new Date();
+      await user.save();
+      
+      // Return success
+      return res.status(200).json({
+        status: 'success',
+        message: 'Login successful',
+        isNewUser: false,
+        data: {
+          user: user.getPublicProfile(),
+          token
+        }
+      });
+    }
+    
+    // CASE 2: User does NOT exist
+    // If termsAccepted is false, return userNotFound flag (frontend will show checkbox)
+    if (!termsAccepted) {
+      return res.status(401).json({
+        status: 'error',
+        message: 'Account not found. Please accept the certification to create a new account.',
+        userNotFound: true
+      });
+    }
+    
+    // If termsAccepted is true, CREATE ACCOUNT
+    // Validate password strength for new accounts
+    if (password.length < 6) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Password must be at least 6 characters long'
+      });
+    }
+    
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Password must contain at least one lowercase letter, one uppercase letter, and one number'
+      });
+    }
+    
+    // Generate username from email
+    let username;
+    try {
+      username = await generateUsernameFromEmail(email);
+      console.log('Auto-generated username:', username);
+    } catch (error) {
+      console.error('Error generating username:', error);
+      return res.status(500).json({
+        status: 'error',
+        message: 'Failed to generate username. Please try again.'
+      });
+    }
+    
+    // Create new user
+    try {
+      user = new User({
+        username,
+        email,
+        password
+      });
+      
+      await user.save();
+      console.log('User created successfully:', user.email);
+    } catch (error) {
+      console.error('Error creating user:', error);
+      if (error.code === 11000) {
+        const field = Object.keys(error.keyPattern)[0];
+        return res.status(400).json({
+          status: 'error',
+          message: `${field === 'email' ? 'Email' : 'Username'} already exists`
+        });
+      }
+      return res.status(500).json({
+        status: 'error',
+        message: 'Failed to create account. Please try again.'
+      });
+    }
+    
+    // Generate JWT token for new user
+    const token = generateToken(user._id);
+    
+    // Return success with isNewUser flag
+    return res.status(201).json({
+      status: 'success',
+      message: 'Account created successfully',
+      isNewUser: true,
+      data: {
+        user: user.getPublicProfile(),
+        token
+      }
+    });
+    
+  } catch (error) {
+    console.error('Smart auth error:', error);
+    
+    // Handle duplicate key errors
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern)[0];
+      return res.status(400).json({
+        status: 'error',
+        message: `${field === 'email' ? 'Email' : 'Username'} already exists`
+      });
+    }
+    
+    res.status(500).json({
+      status: 'error',
+      message: 'Authentication failed',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
@@ -563,7 +867,7 @@ router.get('/google',
 router.get('/google/callback',
   passport.authenticate('google', { 
     session: false,
-    failureRedirect: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/#/login?error=auth_failed`
+    failureRedirect: `${process.env.FRONTEND_URL || 'https://phygital.zone'}/#/login?error=auth_failed`
   }),
   async (req, res) => {
     try {
@@ -574,7 +878,7 @@ router.get('/google/callback',
       
       if (!user) {
         console.error('❌ No user found after Google authentication');
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        const frontendUrl = process.env.FRONTEND_URL || 'https://phygital.zone';
         console.log('Redirecting to:', `${frontendUrl}/#/login?error=auth_failed`);
         return res.redirect(`${frontendUrl}/#/login?error=auth_failed`);
       }
@@ -589,7 +893,7 @@ router.get('/google/callback',
       // Redirect to frontend with token
       // Frontend will extract token from URL and complete login
       // IMPORTANT: Using HashRouter, so we need to include the # in the URL
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const frontendUrl = process.env.FRONTEND_URL || 'https://phygital.zone';
       const redirectUrl = `${frontendUrl}/#/auth/callback?token=${token}`;
       console.log('🔄 Redirecting to:', redirectUrl);
       res.redirect(redirectUrl);
@@ -597,7 +901,7 @@ router.get('/google/callback',
     } catch (error) {
       console.error('❌ Google callback error:', error);
       console.error('Error stack:', error.stack);
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const frontendUrl = process.env.FRONTEND_URL || 'https://phygital.zone';
       res.redirect(`${frontendUrl}/#/login?error=server_error`);
     }
   }

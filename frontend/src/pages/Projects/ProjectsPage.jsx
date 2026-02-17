@@ -56,6 +56,10 @@ import TemplateCard from '../../components/Templates/TemplateCard'
 import TemplatePreviewModal from '../../components/Templates/TemplatePreviewModal'
 import CampaignUpgradeModal from '../../components/Projects/CampaignUpgradeModal'
 
+// Simple in-memory cache for projects between navigations
+let projectsCache = null
+let projectsCacheTimestamp = 0
+
 const ProjectsPage = () => {
   const { user, loadUser, updateUser, refreshUserData } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -65,8 +69,8 @@ const ProjectsPage = () => {
   const urlParams = new URLSearchParams(location.search)
   const editParam = urlParams.get('edit')
 
-  const [projects, setProjects] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [projects, setProjects] = useState(() => projectsCache || [])
+  const [loading, setLoading] = useState(() => !projectsCache)
   const [viewMode, setViewMode] = useState(() => {
     // On mobile, always use grid. On desktop, load from localStorage or default to 'grid'
     const isMobile = window.innerWidth < 640 // sm breakpoint
@@ -80,6 +84,9 @@ const ProjectsPage = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all') // 'all', 'active', 'paused'
   const [campaignTypeFilter, setCampaignTypeFilter] = useState('all') // 'all', 'qr-link', 'qr-links-ar-video', etc.
+
+  // Track last time we refreshed projects due to window focus
+  const lastFocusRefreshTimeRef = useRef(0)
   
   
   // QR Code state
@@ -406,21 +413,22 @@ const ProjectsPage = () => {
   const handleEditProject = useCallback(async (project) => {
     setEditingProject(project)
 
-    // Refresh user data to ensure we have the latest project data
+    // Show modal immediately with existing data so the UI feels instant.
+    // Optionally refresh user data in the background (do not block opening the modal).
     let refreshedUser = user
-    try {
-      await refreshUserData()
-      // Get fresh user data after refresh
-      const response = await api.get('/auth/profile')
-      refreshedUser = response.data.data.user
-    } catch (error) {
-      console.warn('Failed to refresh user data:', error)
-      // Continue anyway with existing data
-    }
+    refreshUserData()
+      .then(() => api.get('/auth/profile'))
+      .then((response) => {
+        refreshedUser = response?.data?.data?.user
+        // If modal is still open and we have newer user data, we could re-merge here;
+        // for now we only use refreshedUser when building initial form below.
+      })
+      .catch((error) => {
+        console.warn('Failed to refresh user data:', error)
+      })
 
-    // Initialize form data with current project data
-    // Use project prop as primary source (from loadProjects), fallback to userProject from user context
-    const userProject = refreshedUser?.projects?.find(p => p.id === project.id)
+    // Use current user/project so the modal opens immediately (refreshedUser is still = user here)
+    const userProject = user?.projects?.find(p => p.id === project.id)
     // Merge project data - project prop should have the latest data from loadProjects
     // Also merge uploadedFiles from both sources, prioritizing project prop
     const projectData = {
@@ -818,19 +826,37 @@ const ProjectsPage = () => {
   };
 
   // Load projects - memoized to prevent infinite loops
-  const loadProjects = useCallback(async () => {
+  // When options.background is true, skip showing loading spinner (use for revalidation when cache is shown)
+  const loadProjects = useCallback(async (options = {}) => {
+    const isBackground = options.background === true
     try {
-      setLoading(true)
+      if (!isBackground) setLoading(true)
 
       // Test backend connectivity first
-      const isConnected = await testBackendConnection();
+      const isConnected = await testBackendConnection()
       if (!isConnected) {
-        toast.error('Cannot connect to backend server. Please check if the backend is running.');
-        return;
+        toast.error('Cannot connect to backend server. Please check if the backend is running.')
+        return
       }
 
-      const response = await uploadAPI.getProjects()
-      const projectsData = response.data.data?.projects || []
+      // Fetch projects and analytics in parallel where possible
+      const [projectsResponse, analyticsResponse] = await Promise.all([
+        uploadAPI.getProjects(),
+        user?._id
+          ? analyticsAPI
+              .getDashboardComplete(user._id, {
+                period: '30d',
+                campaignType: 'all'
+              })
+              .catch(analyticsError => {
+                console.warn('Failed to fetch analytics for projects:', analyticsError)
+                // Continue without analytics - use project data analytics as fallback
+                return null
+              })
+          : Promise.resolve(null)
+      ])
+
+      const projectsData = projectsResponse.data.data?.projects || []
       
       // Debug: Log raw project data to see structure
       if (import.meta.env.DEV && projectsData.length > 0) {
@@ -839,19 +865,10 @@ const ProjectsPage = () => {
         console.log('📦 First project phygitalizedData:', projectsData[0]?.phygitalizedData)
       }
 
-      // Fetch fresh analytics data for all projects
+      // Extract fresh analytics data for all projects (if available)
       let projectsAnalytics = []
-      if (user?._id && projectsData.length > 0) {
-        try {
-          const analyticsResponse = await analyticsAPI.getDashboardComplete(user._id, {
-            period: '30d',
-            campaignType: 'all'
-          })
-          projectsAnalytics = analyticsResponse.data?.data?.projects || []
-        } catch (analyticsError) {
-          console.warn('Failed to fetch analytics for projects:', analyticsError)
-          // Continue without analytics - use project data analytics as fallback
-        }
+      if (projectsData.length > 0 && analyticsResponse?.data?.data?.projects) {
+        projectsAnalytics = analyticsResponse.data.data.projects || []
       }
 
       // Enhance projects with user data and fresh analytics
@@ -910,6 +927,13 @@ const ProjectsPage = () => {
       })
 
       setProjects(enhancedProjects)
+      // Update in-memory cache so revisiting the page is instant
+      projectsCache = enhancedProjects
+      projectsCacheTimestamp = Date.now()
+      // Initialize focus refresh timestamp after a successful load
+      if (!lastFocusRefreshTimeRef.current) {
+        lastFocusRefreshTimeRef.current = Date.now()
+      }
     } catch (error) {
       console.error('Failed to load projects:', error)
       toast.error('Failed to load projects')
@@ -919,21 +943,39 @@ const ProjectsPage = () => {
   }, [user])
 
   useEffect(() => {
-    loadProjects()
+    // If we have cached data from a previous visit, show it immediately and refresh in background (no loading spinner)
+    if (projectsCache !== null) {
+      loadProjects({ background: true })
+    } else {
+      loadProjects()
+    }
   }, [loadProjects])
 
-  // Refresh projects when page gains focus (e.g., after redirect from upgrade)
+  // Refresh projects when page gains focus (e.g., after redirect from upgrade),
+  // but avoid refetching on every quick tab switch by throttling the refresh.
   useEffect(() => {
+    const MIN_FOCUS_REFRESH_INTERVAL = 5 * 60 * 1000 // 5 minutes
+
     const handleFocus = () => {
+      const now = Date.now()
+      const lastRefresh = lastFocusRefreshTimeRef.current || 0
+
+      // Skip refresh if we refreshed recently
+      if (now - lastRefresh < MIN_FOCUS_REFRESH_INTERVAL) {
+        return
+      }
+
+      lastFocusRefreshTimeRef.current = now
+
       // Small delay to ensure any pending updates are processed
       setTimeout(() => {
-        loadProjects();
-      }, 100);
-    };
+        loadProjects()
+      }, 100)
+    }
 
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [loadProjects]);
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [loadProjects])
 
   // Handle auto-edit from URL parameter - use ref to prevent unnecessary re-runs
   const editProcessedRef = useRef(false);
@@ -3134,7 +3176,7 @@ const ProjectCard = ({
               // Grid view: 2-column button layout
               <div className="grid grid-cols-2 gap-2.5">
                 {/* Resume Button - Show if campaign is incomplete */}
-                {isCampaignIncomplete && isCampaignIncomplete(project) && (
+                {isCampaignIncomplete && isCampaignIncomplete(project) && project.userEditScope !== 'content_only' && !project.createdByAdmin && (
                   <button
                     onClick={() => onResumeCampaign && onResumeCampaign(project)}
                     className="w-full px-3 py-2.5 bg-gradient-to-r from-neon-orange to-orange-500 text-slate-900 text-xs sm:text-sm font-semibold rounded-lg hover:from-orange-400 hover:to-orange-400 transition-all duration-200 flex items-center justify-center gap-1.5 shadow-glow-orange hover:scale-105 active:scale-95"
@@ -3195,7 +3237,7 @@ const ProjectCard = ({
             ) : (
               // List view: Horizontal button layout
               <div className="flex flex-wrap gap-2 sm:flex-nowrap sm:justify-end">
-                {isCampaignIncomplete && isCampaignIncomplete(project) && (
+                {isCampaignIncomplete && isCampaignIncomplete(project) && project.userEditScope !== 'content_only' && !project.createdByAdmin && (
                   <button
                     onClick={() => onResumeCampaign && onResumeCampaign(project)}
                     className="px-3 sm:px-4 py-2 sm:py-2.5 bg-gradient-to-r from-neon-orange to-orange-500 text-slate-900 text-xs sm:text-sm font-semibold rounded-lg hover:from-orange-400 hover:to-orange-400 transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 shadow-glow-orange hover:scale-105 active:scale-95"
@@ -4637,6 +4679,12 @@ const PhygitalizedEditModal = ({ project, formData, isSaving, onChange, onSave, 
             {/* Edit Tab Content */}
             {activeTab === 'edit' && (
               <>
+                {/* Admin-created campaign: content-only edit notice */}
+                {(project?.userEditScope === 'content_only' || project?.createdByAdmin === true) && (
+                  <div className="p-3 rounded-lg bg-amber-900/20 border border-amber-600/40 text-amber-200 text-sm">
+                    This campaign was created by admin. You can only edit links, videos, documents, and social links—not the design or AR setup.
+                  </div>
+                )}
                 {/* Contact + Social links (selection UI like upload) */}
                 {campaignType === 'qr-link' ? (
                   <div className="card border-neon-purple/30 bg-gradient-to-br from-neon-purple/10 to-neon-pink/10">

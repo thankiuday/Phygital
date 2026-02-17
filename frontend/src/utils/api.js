@@ -140,11 +140,24 @@ api.interceptors.response.use(
     if (error.response.status === 401) {
       // Don't redirect for admin login routes - let AdminContext handle it
       const isAdminRoute = error.config?.url?.includes('/auth/admin/login')
+      // Don't redirect for user login routes - let LoginPage handle it (for user not found scenarios)
+      const isUserLoginRoute = error.config?.url?.includes('/auth/login') || 
+                                error.config?.url?.endsWith('/auth/login') ||
+                                error.config?.url === '/auth/login'
       
-      if (!isAdminRoute) {
+      console.log('401 error handler:', { 
+        url: error.config?.url, 
+        isAdminRoute, 
+        isUserLoginRoute,
+        willRedirect: !isAdminRoute && !isUserLoginRoute 
+      })
+      
+      if (!isAdminRoute && !isUserLoginRoute) {
         localStorage.removeItem('token')
         window.location.href = '/login'
         toast.error('Session expired. Please login again.')
+      } else {
+        console.log('Skipping redirect for login route - letting LoginPage handle it')
       }
       return Promise.reject(error)
     }
