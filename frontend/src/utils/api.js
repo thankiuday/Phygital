@@ -313,7 +313,7 @@ export const uploadAPI = {
     if (projectId) {
       formData.append('projectId', projectId);
     }
-    // Append campaignType if provided (for QR Links campaigns with 50MB limit)
+    // Append campaignType if provided (for QR Links campaigns)
     if (campaignType) {
       formData.append('campaignType', campaignType);
     }

@@ -20,34 +20,19 @@ const upload = multer({
   }
 })
 
-// Multer configuration for QR Links Video campaigns (50MB limit for videos)
-const uploadQRLinksVideo = multer({
-  storage: memoryStorage,
-  limits: {
-    fileSize: 50 * 1024 * 1024 // 50MB limit for QR Links Video campaigns
-  }
-})
-
 // Upload file for phygitalized campaign
 // POST /api/phygitalized/upload/:variation
-// For 'qr-links-video' variation, uses 50MB limit for videos
+// No file size limit for videos — Cloudinary handles any size via streaming
 router.post('/upload/:variation', authenticateToken, (req, res, next) => {
-  // Use 50MB limit for QR Links Video campaigns
-  const variation = req.params.variation;
-  const isQRLinksVideo = variation === 'qr-links-video' && req.body.fileType === 'video';
-  const multerConfig = isQRLinksVideo ? uploadQRLinksVideo : upload;
-  
-  multerConfig.single('file')(req, res, (err) => {
+  upload.single('file')(req, res, (err) => {
     if (err) {
-      // Handle multer errors
       if (err.name === 'MulterError') {
         if (err.code === 'LIMIT_FILE_SIZE') {
-          const maxSizeMB = isQRLinksVideo ? 50 : 500;
           return res.status(413).json({
             success: false,
-            message: `File size exceeds the maximum limit of ${maxSizeMB}MB. Please compress your file or use a smaller file.`,
+            message: `File size exceeds the maximum limit of 500MB. Please compress your file or use a smaller file.`,
             code: 'FILE_TOO_LARGE',
-            maxSizeMB: maxSizeMB
+            maxSizeMB: 500
           });
         }
       }

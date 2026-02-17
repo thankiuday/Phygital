@@ -23,7 +23,7 @@ router.use(requireAdmin);
 const memoryStorage = multer.memoryStorage();
 const uploadSingle = multer({
   storage: memoryStorage,
-  limits: { fileSize: 50 * 1024 * 1024, files: 1 },
+  limits: { fileSize: 500 * 1024 * 1024, files: 1 },
   fileFilter: (req, file, cb) => {
     if ((file.fieldname === 'design' || file.fieldname === 'compositeDesign') && file.mimetype.startsWith('image/')) return cb(null, true);
     if (file.fieldname === 'video' && file.mimetype.startsWith('video/')) return cb(null, true);
@@ -42,7 +42,7 @@ const uploadDocuments = multer({
 });
 const uploadVideos = multer({
   storage: memoryStorage,
-  limits: { fileSize: 100 * 1024 * 1024, files: 5 },
+  limits: { fileSize: 500 * 1024 * 1024, files: 5 },
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('video/')) return cb(null, true);
     cb(new Error('Only video files allowed'), false);

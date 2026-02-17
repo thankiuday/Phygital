@@ -223,7 +223,7 @@ const QRLinksARVideoPage = () => {
   const { getRootProps: getVideoRootProps, getInputProps: getVideoInputProps, isDragActive: isVideoDragActive } = useDropzone({
     onDrop: onVideoDrop,
     accept: {
-      'video/*': ['.mp4', '.mov', '.avi', '.webm']
+      'video/*': ['.mp4', '.mov', '.avi', '.webm', '.mkv', '.flv', '.wmv', '.m4v', '.3gp', '.ogv', '.ts', '.mts']
     },
     maxFiles: 1
   })

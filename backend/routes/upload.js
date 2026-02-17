@@ -495,7 +495,7 @@ router.put('/projects/:projectId/social-links', authenticateToken, async (req, r
 const upload = multer({
   storage: memoryStorage,
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit
+    fileSize: 500 * 1024 * 1024, // 500MB limit (no practical limit for videos)
     files: 1
   },
   fileFilter: function (req, file, cb) {
@@ -564,32 +564,15 @@ const uploadDocuments = multer({
 const uploadVideos = multer({
   storage: memoryStorage,
   limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB limit per video (default for general uploads)
+    fileSize: 500 * 1024 * 1024, // 500MB limit per video (no practical limit)
     files: 5 // Allow up to 5 videos
   },
   fileFilter: function (req, file, cb) {
-    // Allow video files
-    if (file.mimetype.startsWith('video/') || file.originalname.match(/\.(mp4|mov|avi|webm|mkv|flv|wmv)$/i)) {
+    // Allow any video files
+    if (file.mimetype.startsWith('video/') || file.originalname.match(/\.(mp4|mov|avi|webm|mkv|flv|wmv|m4v|3gp|ogv|ts|mts)$/i)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only video files (MP4, MOV, AVI, WEBM, MKV, FLV, WMV) are allowed.'), false);
-    }
-  }
-});
-
-// Multer configuration for QR Links Video campaigns (50MB limit per video)
-const uploadVideosQRLinks = multer({
-  storage: memoryStorage,
-  limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit per video for QR Links campaigns
-    files: 5 // Allow up to 5 videos
-  },
-  fileFilter: function (req, file, cb) {
-    // Allow video files
-    if (file.mimetype.startsWith('video/') || file.originalname.match(/\.(mp4|mov|avi|webm|mkv|flv|wmv)$/i)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only video files (MP4, MOV, AVI, WEBM, MKV, FLV, WMV) are allowed.'), false);
+      cb(new Error('Invalid file type. Only video files are allowed.'), false);
     }
   }
 });
@@ -1274,12 +1257,11 @@ router.post('/videos', authenticateToken, (req, res, next) => {
       // Handle multer errors (e.g., file too large)
       if (err.name === 'MulterError') {
         if (err.code === 'LIMIT_FILE_SIZE') {
-          const fileSizeMB = Math.round(uploadVideos.limits?.fileSize / (1024 * 1024)) || 100;
           return res.status(413).json({
             status: 'error',
-            message: `Video file size exceeds the maximum limit of ${fileSizeMB}MB per file. Please compress your video or use a smaller file.`,
+            message: `Video file size exceeds the maximum limit of 500MB per file. Please compress your video or use a smaller file.`,
             code: 'FILE_TOO_LARGE',
-            maxSizeMB: fileSizeMB
+            maxSizeMB: 500
           });
         } else if (err.code === 'LIMIT_FILE_COUNT') {
           return res.status(400).json({
@@ -1480,12 +1462,11 @@ router.post('/videos', authenticateToken, (req, res, next) => {
     // Handle specific error types
     if (error.name === 'MulterError') {
       if (error.code === 'LIMIT_FILE_SIZE') {
-        const fileSizeMB = Math.round((uploadVideos.limits?.fileSize || 100 * 1024 * 1024) / (1024 * 1024));
         return res.status(413).json({
           status: 'error',
-          message: `Video file size exceeds the maximum limit of ${fileSizeMB}MB per file. Please compress your video or use a smaller file.`,
+          message: `Video file size exceeds the maximum limit of 500MB per file. Please compress your video or use a smaller file.`,
           code: 'FILE_TOO_LARGE',
-          maxSizeMB: fileSizeMB
+          maxSizeMB: 500
         });
       }
     }

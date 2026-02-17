@@ -172,21 +172,12 @@ const QRLinksPDFVideoPage = () => {
     // Validate all files are videos and filter out duplicates
     const validFiles = []
     const errors = []
-    const maxSize = 50 * 1024 * 1024 // 50MB limit per video for QR Links PDF/Video campaigns
-    
     acceptedFiles.forEach(file => {
       const isVideo = file.type.startsWith('video/') || 
-                     /\.(mp4|mov|avi|webm|mkv|flv|wmv)$/i.test(file.name)
+                     /\.(mp4|mov|avi|webm|mkv|flv|wmv|m4v|3gp|ogv)$/i.test(file.name)
       
       if (!isVideo) {
         errors.push(`"${file.name}" is not a video file`)
-        return
-      }
-      
-      // Check file size (50MB limit per video)
-      if (file.size > maxSize) {
-        const fileSizeMB = (file.size / 1024 / 1024).toFixed(2)
-        errors.push(`"${file.name}" is ${fileSizeMB}MB. Maximum file size is 50MB per video. Please compress your video or use a shorter clip.`)
         return
       }
       
@@ -236,7 +227,6 @@ const QRLinksPDFVideoPage = () => {
       })
       formData.append('projectId', projectId)
       
-      // Specify campaign type for 50MB limit
       const response = await uploadAPI.uploadVideos(formData, projectId, 'qr-links-pdf-video')
       
       if (response.data?.status === 'success' && response.data?.data?.videos) {
@@ -273,24 +263,16 @@ const QRLinksPDFVideoPage = () => {
       if (error.response?.data?.message) {
         errorMessage = error.response.data.message
       } else if (error.response?.data?.code === 'FILE_TOO_LARGE') {
-        const maxSizeMB = error.response.data.maxSizeMB || 50
+        const maxSizeMB = error.response.data.maxSizeMB || 500
         errorMessage = `Video file size exceeds ${maxSizeMB}MB limit. Please compress your video or use a smaller file.`
       } else if (error.response?.data?.error) {
         errorMessage = error.response.data.error
-      } else if (error.response?.status === 413 || error.message?.includes('too large') || error.message?.includes('File too large')) {
-        errorMessage = 'Video file size exceeds 50MB limit. Please compress your video or use a smaller file.'
-      } else if (error.message) {
-        errorMessage = error.message
-      }
-      
-      // Check for specific error codes
-      if (error.response?.data?.code === 'FILE_TOO_LARGE') {
-        const maxSizeMB = error.response.data.maxSizeMB || 50
-        errorMessage = `Video file size exceeds ${maxSizeMB}MB limit. Please compress your video or use a smaller file.`
       } else if (error.response?.data?.code === 'TOO_MANY_FILES') {
         errorMessage = 'Too many files. Maximum 5 videos allowed.'
-      } else if (error.response?.status === 413 || error.message.includes('too large') || error.message.includes('File too large')) {
-        errorMessage = 'Video file size exceeds 100MB limit. Please compress your video or use a smaller file.'
+      } else if (error.response?.status === 413 || error.message?.includes('too large') || error.message?.includes('File too large')) {
+        errorMessage = 'Upload failed. Please try again or compress your video.'
+      } else if (error.message) {
+        errorMessage = error.message
       }
       
       toast.error(errorMessage, { duration: 5000 })
@@ -313,7 +295,7 @@ const QRLinksPDFVideoPage = () => {
   const { getRootProps: getVideoRootProps, getInputProps: getVideoInputProps, isDragActive: isVideoDragActive } = useDropzone({
     onDrop: onVideoDrop,
     accept: {
-      'video/*': ['.mp4', '.mov', '.avi', '.webm', '.mkv', '.flv', '.wmv']
+      'video/*': ['.mp4', '.mov', '.avi', '.webm', '.mkv', '.flv', '.wmv', '.m4v', '.3gp', '.ogv', '.ts', '.mts']
     },
     maxFiles: 5,
     multiple: true
@@ -548,7 +530,6 @@ const QRLinksPDFVideoPage = () => {
           })
           formData.append('projectId', createdProjectId)
           
-          // Specify campaign type for 50MB limit
           const uploadResponse = await uploadAPI.uploadVideos(formData, createdProjectId, 'qr-links-pdf-video')
           
           if (uploadResponse.data?.status === 'success' && uploadResponse.data?.data?.videos) {

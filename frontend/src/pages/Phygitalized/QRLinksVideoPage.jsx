@@ -78,13 +78,7 @@ const QRLinksVideoPage = () => {
       return
     }
 
-    // Check file size (50MB limit for QR Links Video campaigns)
-    const maxSize = 50 * 1024 * 1024 // 50MB
-    if (file.size > maxSize) {
-      const fileSizeMB = (file.size / 1024 / 1024).toFixed(2)
-      toast.error(`Video file size must be less than 50MB. Your file is ${fileSizeMB}MB. Please compress your video or use a shorter clip.`, { duration: 5000 })
-      return
-    }
+    // No file size limit — Cloudinary handles large videos via streaming
 
     // Need projectId to upload file - store file for later upload when project is created
     if (!projectId) {
@@ -128,10 +122,10 @@ const QRLinksVideoPage = () => {
       if (error.response?.data?.message) {
         errorMessage = error.response.data.message
       } else if (error.response?.data?.code === 'FILE_TOO_LARGE') {
-        const maxSizeMB = error.response.data.maxSizeMB || 50
+        const maxSizeMB = error.response.data.maxSizeMB || 500
         errorMessage = `Video file size exceeds ${maxSizeMB}MB limit. Please compress your video or use a smaller file.`
       } else if (error.response?.status === 413 || error.message?.includes('too large') || error.message?.includes('File too large')) {
-        errorMessage = 'Video file size exceeds 50MB limit. Please compress your video or use a smaller file.'
+        errorMessage = 'Upload failed. Please try again or compress your video.'
       } else if (error.message) {
         errorMessage = error.message
       }
