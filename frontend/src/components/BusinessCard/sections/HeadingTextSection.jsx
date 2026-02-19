@@ -1,9 +1,11 @@
 import React from 'react'
+import DOMPurify from 'dompurify'
 
 const HeadingTextSection = ({ section = {}, colors = {} }) => {
   const { title, content } = section
   const text = typeof content === 'string' ? content : content?.text || ''
   const primary = colors.primary || '#8B5CF6'
+  const isHtml = text.includes('<')
 
   return (
     <div
@@ -19,9 +21,14 @@ const HeadingTextSection = ({ section = {}, colors = {} }) => {
         </h2>
       )}
       {text && (
-        <p className="text-xs sm:text-sm leading-relaxed opacity-80 whitespace-pre-line" style={{ color: colors.text }}>
-          {text}
-        </p>
+        isHtml ? (
+          <div className="text-xs sm:text-sm leading-relaxed opacity-80 rich-text-content" style={{ color: colors.text }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(text) }} />
+        ) : (
+          <p className="text-xs sm:text-sm leading-relaxed opacity-80 whitespace-pre-line" style={{ color: colors.text }}>
+            {text}
+          </p>
+        )
       )}
     </div>
   )

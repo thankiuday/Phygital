@@ -215,13 +215,14 @@ router.use(authenticateToken);
 // POST /api/business-cards — create
 router.post('/', async (req, res) => {
   try {
-    const { profile, contact, sections, socialLinks, theme, templateId, isPublished } = req.body;
+    const { profile, contact, sections, socialLinks, theme, templateId, isPublished, contentOrder } = req.body;
     const slugBase = (profile?.name || req.user.username || 'card');
     const slug = await uniqueSlug(slugBase);
     const card = await BusinessCard.create({
       userId: req.user._id, slug, templateId: templateId || 'professional',
       profile: profile || {}, contact: contact || {}, sections: sections || [],
-      socialLinks: socialLinks || {}, theme: theme || {}, isPublished: !!isPublished
+      socialLinks: socialLinks || {}, theme: theme || {}, isPublished: !!isPublished,
+      ...(contentOrder ? { contentOrder } : {})
     });
     return res.status(201).json({ success: true, data: { card } });
   } catch (err) {
@@ -390,7 +391,7 @@ router.put('/:id', async (req, res) => {
   try {
     const card = await BusinessCard.findOne({ _id: req.params.id, userId: req.user._id });
     if (!card) return res.status(404).json({ success: false, message: 'Card not found' });
-    const allowedFields = ['profile', 'contact', 'sections', 'socialLinks', 'theme', 'templateId', 'isPublished', 'printableCard'];
+    const allowedFields = ['profile', 'contact', 'sections', 'socialLinks', 'theme', 'templateId', 'isPublished', 'printableCard', 'contentOrder'];
     for (const field of allowedFields) { if (req.body[field] !== undefined) card[field] = req.body[field]; }
     if (req.body.slug && req.body.slug !== card.slug) { card.slug = await uniqueSlug(req.body.slug, card._id); }
     await card.save();

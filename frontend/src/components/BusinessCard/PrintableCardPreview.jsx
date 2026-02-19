@@ -12,7 +12,7 @@
  * - Light theme available for physical print (white bg, dark text)
  */
 
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { toPng } from 'html-to-image'
 import toast from 'react-hot-toast'
 import {
@@ -130,17 +130,8 @@ function GlowOrb({ top, left, bottom, right, color, size = 40, opacity = 0.07 })
     }} />
   )
 }
-function BrandTag({ colors }) {
-  const ng = makeGradient(colors)
-  return (
-    <div className="flex items-center gap-1.5">
-      <div className="w-[6px] h-[6px] rounded-full" style={{ backgroundColor: colors.neonBlue }} />
-      <span className="text-[10px] font-bold tracking-[0.25em] uppercase"
-        style={{ background: ng, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-        PHYGITAL
-      </span>
-    </div>
-  )
+function BrandTag() {
+  return null
 }
 
 function ContactRow({ phone, email, website, whatsapp, fontScale = 1, colors }) {
@@ -190,15 +181,8 @@ function QRBlock({ url, size = 96, colors }) {
   )
 }
 
-function BrandFooter({ colors }) {
-  const ng = makeGradient(colors)
-  return (
-    <div className="absolute bottom-3.5 left-0 right-0 flex items-center justify-center gap-2">
-      <div className="w-8 h-[1px]" style={{ background: ng, opacity: 0.4 }} />
-      <span className="text-[10px] font-bold tracking-[0.2em] uppercase" style={{ background: ng, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', opacity: 0.7 }}>phygital.zone</span>
-      <div className="w-8 h-[1px]" style={{ background: ng, opacity: 0.4 }} />
-    </div>
-  )
+function BrandFooter() {
+  return null
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -453,14 +437,9 @@ function BackQRBrand({ card, qrDataUrl, vf, fontScale = 1, colors = DARK }) {
       <NeonLine colors={colors} /><NeonLine pos="bottom" h={2} colors={colors} />
       <GlowOrb top="-10px" right="20%" color={colors.neonPink} size={160} opacity={0.06} />
       <div className="relative z-10 w-full h-full flex flex-col items-center justify-center text-center px-6">
-        <div className="mb-3">
-          <span className="font-bold tracking-[0.3em] uppercase" style={{ background: ng, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: sz(16) }}>PHYGITAL</span>
-        </div>
-        <div className="h-[1px] w-16 rounded-full mb-4" style={{ background: ng, opacity: 0.4 }} />
         <QRBlock url={qrDataUrl} size={96} colors={colors} />
         <p className="font-bold tracking-wide mt-3" style={{ background: ng, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: sz(18) }}>Scan to connect</p>
         {name && <p className="mt-1.5 font-medium" style={{ color: colors.txt2, fontSize: sz(16) }}>{name}</p>}
-        <BrandFooter colors={colors} />
       </div>
     </div>
   )
@@ -498,8 +477,8 @@ function DraggablePhoto({ src, zoom, offsetX, offsetY, onDrag, size = 90 }) {
   const onMU = () => { dragging.current = false; window.removeEventListener('mousemove', onMM); window.removeEventListener('mouseup', onMU) }
   const onTE = () => { dragging.current = false; window.removeEventListener('touchmove', onTM); window.removeEventListener('touchend', onTE) }
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ width: `${size}px`, height: `${size}px`, border: `2px solid ${DARK.glass}`, boxShadow: '0 0 20px rgba(168,85,247,0.15)', cursor: zoom > 1 ? 'grab' : 'default' }}
-      onMouseDown={zoom > 1 ? onMouseDown : undefined} onTouchStart={zoom > 1 ? onTouchStart : undefined}>
+    <div className="rounded-2xl overflow-hidden" style={{ width: `${size}px`, height: `${size}px`, border: `2px solid ${DARK.glass}`, boxShadow: '0 0 20px rgba(168,85,247,0.15)', cursor: 'grab' }}
+      onMouseDown={onMouseDown} onTouchStart={onTouchStart}>
       <img src={src} alt="" draggable={false} className="w-full h-full" style={{ objectFit: 'cover', transform: `scale(${zoom}) translate(${offsetX}px, ${offsetY}px)`, transformOrigin: 'center' }} />
     </div>
   )
@@ -571,14 +550,44 @@ function BackSchematic({ layoutId }) {
   return <div className="w-full h-10 rounded bg-slate-800" />
 }
 
+const REF_W = 525
+const REF_H = Math.round(REF_W / 1.75)
+const PAD_BOTTOM = `${(1 / 1.75) * 100}%`
+
+export function ScaledPrintFrame({ children, innerRef }) {
+  const outerRef = useRef(null)
+  const [scale, setScale] = useState(1)
+  useEffect(() => {
+    if (!outerRef.current) return
+    const obs = new ResizeObserver(([e]) => setScale(Math.min(1, e.contentRect.width / REF_W)))
+    obs.observe(outerRef.current)
+    return () => obs.disconnect()
+  }, [])
+  return (
+    <div ref={outerRef} className="relative w-full">
+      <div className="relative overflow-hidden rounded-xl shadow-2xl" style={{ paddingBottom: PAD_BOTTOM }}>
+        <div ref={innerRef} className="absolute top-0 left-0 overflow-hidden" style={{ width: `${REF_W}px`, height: `${REF_H}px`, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export { FRONT_COMPONENTS, BACK_COMPONENTS, DARK as PRINT_DARK, LIGHT as PRINT_LIGHT, FIELD_OPTIONS as PRINT_FIELDS, gv as printGv }
+
 // ═══════════════════════════════════════════════════════════
 //  MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════
-export default function PrintableCardPreview({ card, slug }) {
+const PrintableCardPreview = forwardRef(function PrintableCardPreview({ card, slug }, ref) {
   const [side, setSide] = useState('front')
   const [downloading, setDownloading] = useState(false)
+  const [downloadingFront, setDownloadingFront] = useState(false)
+  const [downloadingBack, setDownloadingBack] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState(null)
   const previewRef = useRef(null)
+  const frontCaptureRef = useRef(null)
+  const backCaptureRef = useRef(null)
 
   const [frontLayout, setFrontLayout] = useState('classic')
   const [backLayout, setBackLayout] = useState('qrCenter')
@@ -615,7 +624,7 @@ export default function PrintableCardPreview({ card, slug }) {
   }
 
   const handlePhotoDrag = useCallback((dx, dy) => {
-    const max = (photoZoom - 1) * 20
+    const max = 20 + (photoZoom - 1) * 20
     setPhotoOffsetX(prev => Math.max(-max, Math.min(max, prev + dx * 0.5)))
     setPhotoOffsetY(prev => Math.max(-max, Math.min(max, prev + dy * 0.5)))
   }, [photoZoom])
@@ -654,6 +663,216 @@ export default function PrintableCardPreview({ card, slug }) {
     } finally { setDownloading(false) }
   }, [side, cardTheme])
 
+  const handleDownloadFront = useCallback(async () => {
+    // Use visible preview on desktop, hidden capture ref on mobile
+    const useVisiblePreview = !!previewRef.current
+    const captureElement = previewRef.current || frontCaptureRef.current
+    if (!captureElement) return
+    setDownloadingFront(true)
+    
+    // On mobile: temporarily move capture ref into viewport (but keep it hidden) for proper rendering
+    let captureParent = null
+    if (!useVisiblePreview && frontCaptureRef.current?.parentElement) {
+      captureParent = frontCaptureRef.current.parentElement
+      // Force re-render by temporarily making it visible, then hiding again
+      captureParent.style.display = 'block'
+      captureParent.style.left = '0px'
+      captureParent.style.top = '0px'
+      captureParent.style.opacity = '0.01' // Slightly visible to force rendering
+      captureParent.style.zIndex = '-9999'
+      // Force layout recalculation
+      void captureParent.offsetHeight
+    }
+    
+    try {
+      // On desktop: temporarily switch to front side if needed
+      const originalSide = side
+      if (useVisiblePreview && side !== 'front') {
+        setSide('front')
+        // Wait for React to render the front side
+        await new Promise(resolve => setTimeout(resolve, 50))
+      }
+      
+      // Delay to ensure DOM updates are painted and fonts are loaded
+      await new Promise(resolve => setTimeout(resolve, 300))
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      
+      // Force layout recalculation by reading layout properties
+      if (captureElement) {
+        void captureElement.offsetHeight
+        void captureElement.offsetWidth
+      }
+      
+      const outW = BASE_W * PX
+      const outH = BASE_H * PX
+      
+      // Suppress console errors for CSS rules (CORS issue with Google Fonts)
+      const originalError = console.error
+      console.error = (...args) => {
+        if (args[0]?.includes?.('cssRules') || args[0]?.includes?.('CSSStyleSheet')) {
+          return // Ignore CSS CORS errors
+        }
+        originalError(...args)
+      }
+      
+      const dataUrl = await toPng(captureElement, {
+        width: BASE_W,
+        height: BASE_H,
+        pixelRatio: PX,
+        quality: 1.0,
+        cacheBust: true,
+        includeQueryParams: true,
+        useCORS: true,
+        allowTaint: false,
+        style: {
+          transform: 'none',
+          width: `${BASE_W}px`,
+          height: `${BASE_H}px`,
+          borderRadius: '0',
+        },
+        filter: (node) => node.dataset?.excludeExport !== 'true'
+      })
+      
+      console.error = originalError // Restore console.error
+      
+      // Restore original side if it was changed (desktop only)
+      if (useVisiblePreview && originalSide !== 'front') {
+        setSide(originalSide)
+      }
+      
+      // Restore capture ref position (mobile only)
+      if (captureParent) {
+        captureParent.style.left = '-9999px'
+        captureParent.style.top = '-9999px'
+        captureParent.style.opacity = '0'
+        captureParent.style.display = ''
+        captureParent.style.zIndex = ''
+      }
+      
+      const link = document.createElement('a')
+      link.download = `phygital-card-front-${cardTheme}-${outW}x${outH}.png`
+      link.href = dataUrl
+      link.click()
+      toast.success(`Front downloaded — ${outW}x${outH}px (premium print quality)`)
+    } catch (err) {
+      console.error('Download front error:', err)
+      toast.error('Failed to download front image')
+      // Restore capture ref position on error (mobile only)
+      if (captureParent) {
+        captureParent.style.left = '-9999px'
+        captureParent.style.top = '-9999px'
+        captureParent.style.opacity = '0'
+        captureParent.style.display = ''
+        captureParent.style.zIndex = ''
+      }
+    } finally { setDownloadingFront(false) }
+  }, [cardTheme, frontFontScale, photoZoom, photoOffsetX, photoOffsetY, side])
+
+  const handleDownloadBack = useCallback(async () => {
+    // Use visible preview on desktop, hidden capture ref on mobile
+    const useVisiblePreview = !!previewRef.current
+    const captureElement = previewRef.current || backCaptureRef.current
+    if (!captureElement) return
+    setDownloadingBack(true)
+    
+    // On mobile: temporarily move capture ref into viewport (but keep it hidden) for proper rendering
+    let captureParent = null
+    if (!useVisiblePreview && backCaptureRef.current?.parentElement) {
+      captureParent = backCaptureRef.current.parentElement
+      // Force re-render by temporarily making it visible, then hiding again
+      captureParent.style.display = 'block'
+      captureParent.style.left = '0px'
+      captureParent.style.top = '0px'
+      captureParent.style.opacity = '0.01' // Slightly visible to force rendering
+      captureParent.style.zIndex = '-9999'
+      // Force layout recalculation
+      void captureParent.offsetHeight
+    }
+    
+    try {
+      // On desktop: temporarily switch to back side if needed
+      const originalSide = side
+      if (useVisiblePreview && side !== 'back') {
+        setSide('back')
+        // Wait for React to render the back side
+        await new Promise(resolve => setTimeout(resolve, 50))
+      }
+      
+      // Delay to ensure DOM updates are painted and fonts are loaded
+      await new Promise(resolve => setTimeout(resolve, 300))
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      
+      // Force layout recalculation by reading layout properties
+      if (captureElement) {
+        void captureElement.offsetHeight
+        void captureElement.offsetWidth
+      }
+      
+      const outW = BASE_W * PX
+      const outH = BASE_H * PX
+      
+      // Suppress console errors for CSS rules (CORS issue with Google Fonts)
+      const originalError = console.error
+      console.error = (...args) => {
+        if (args[0]?.includes?.('cssRules') || args[0]?.includes?.('CSSStyleSheet')) {
+          return // Ignore CSS CORS errors
+        }
+        originalError(...args)
+      }
+      
+      const dataUrl = await toPng(captureElement, {
+        width: BASE_W,
+        height: BASE_H,
+        pixelRatio: PX,
+        quality: 1.0,
+        cacheBust: true,
+        includeQueryParams: true,
+        useCORS: true,
+        allowTaint: false,
+        style: {
+          transform: 'none',
+          width: `${BASE_W}px`,
+          height: `${BASE_H}px`,
+          borderRadius: '0',
+        },
+        filter: (node) => node.dataset?.excludeExport !== 'true'
+      })
+      
+      console.error = originalError // Restore console.error
+      
+      // Restore original side if it was changed (desktop only)
+      if (useVisiblePreview && originalSide !== 'back') {
+        setSide(originalSide)
+      }
+      
+      // Restore capture ref position (mobile only)
+      if (captureParent) {
+        captureParent.style.left = '-9999px'
+        captureParent.style.top = '-9999px'
+        captureParent.style.opacity = '0'
+        captureParent.style.display = ''
+        captureParent.style.zIndex = ''
+      }
+      
+      const link = document.createElement('a')
+      link.download = `phygital-card-back-${cardTheme}-${outW}x${outH}.png`
+      link.href = dataUrl
+      link.click()
+      toast.success(`Back downloaded — ${outW}x${outH}px (premium print quality)`)
+    } catch (err) {
+      console.error('Download back error:', err)
+      toast.error('Failed to download back image')
+      // Restore capture ref position on error (mobile only)
+      if (captureParent) {
+        captureParent.style.left = '-9999px'
+        captureParent.style.top = '-9999px'
+        captureParent.style.opacity = '0'
+        captureParent.style.display = ''
+        captureParent.style.zIndex = ''
+      }
+    } finally { setDownloadingBack(false) }
+  }, [cardTheme, backFontScale, side])
+
   const v = {}
   for (const f of FIELD_OPTIONS) {
     v[f.key] = visibleFields[f.key] ? gv(card, f.key) : ''
@@ -662,6 +881,14 @@ export default function PrintableCardPreview({ card, slug }) {
 
   const FrontComp = FRONT_COMPONENTS[frontLayout] || FrontClassic
   const BackComp = BACK_COMPONENTS[backLayout] || BackQRCenter
+
+  useImperativeHandle(ref, () => ({
+    FrontComp, BackComp,
+    v, visibleFields,
+    photoZoom, photoOffsetX, photoOffsetY,
+    frontFontScale, backFontScale,
+    colors, qrDataUrl,
+  }))
 
   const outputW = BASE_W * PX
   const outputH = BASE_H * PX
@@ -731,16 +958,26 @@ export default function PrintableCardPreview({ card, slug }) {
         </div>
       </div>
 
+      {/* ── Hidden capture divs for both sides (for combined download) ── */}
+      <div className="fixed -left-[9999px] -top-[9999px] opacity-0 pointer-events-none" style={{ width: `${BASE_W}px`, height: `${BASE_H}px` }}>
+        <div ref={frontCaptureRef} style={{ width: `${BASE_W}px`, height: `${BASE_H}px` }}>
+          <FrontComp v={v} photoZoom={photoZoom} photoOffsetX={photoOffsetX} photoOffsetY={photoOffsetY} fontScale={frontFontScale} colors={colors} />
+        </div>
+      </div>
+      <div className="fixed -left-[9999px] -top-[9999px] opacity-0 pointer-events-none" style={{ width: `${BASE_W}px`, height: `${BASE_H}px` }}>
+        <div ref={backCaptureRef} style={{ width: `${BASE_W}px`, height: `${BASE_H}px` }}>
+          <BackComp card={card} qrDataUrl={qrDataUrl} vf={visibleFields} fontScale={backFontScale} colors={colors} />
+        </div>
+      </div>
+
       {/* ── Card Preview ── */}
       <div className="flex justify-center">
-        <div className="relative" style={{ width: '525px', maxWidth: '100%' }}>
-          <div className="relative" style={{ paddingBottom: `${(1 / 1.75) * 100}%` }}>
-            <div ref={previewRef} className="absolute inset-0 rounded-xl overflow-hidden shadow-2xl" style={{ width: '100%', height: '100%' }}>
-              {side === 'front'
-                ? <FrontComp v={v} photoZoom={photoZoom} photoOffsetX={photoOffsetX} photoOffsetY={photoOffsetY} fontScale={frontFontScale} colors={colors} />
-                : <BackComp card={card} qrDataUrl={qrDataUrl} vf={visibleFields} fontScale={backFontScale} colors={colors} />}
-            </div>
-          </div>
+        <div className="relative w-full" style={{ maxWidth: '525px' }}>
+          <ScaledPrintFrame innerRef={previewRef}>
+            {side === 'front'
+              ? <FrontComp v={v} photoZoom={photoZoom} photoOffsetX={photoOffsetX} photoOffsetY={photoOffsetY} fontScale={frontFontScale} colors={colors} />
+              : <BackComp card={card} qrDataUrl={qrDataUrl} vf={visibleFields} fontScale={backFontScale} colors={colors} />}
+          </ScaledPrintFrame>
           <button
             onClick={() => setSide(s => s === 'front' ? 'back' : 'front')}
             className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800 border border-slate-600 text-xs text-slate-300 hover:bg-slate-700 transition shadow-lg"
@@ -760,7 +997,7 @@ export default function PrintableCardPreview({ card, slug }) {
           <div className="flex items-center gap-4">
             <div className="flex-shrink-0">
               <DraggablePhoto src={gv(card, 'photo')} zoom={photoZoom} offsetX={photoOffsetX} offsetY={photoOffsetY} onDrag={handlePhotoDrag} size={80} />
-              {photoZoom > 1 && <p className="text-[9px] text-slate-500 text-center mt-1 flex items-center justify-center gap-1"><Move className="w-2.5 h-2.5" /> Drag to reposition</p>}
+              <p className="text-[9px] text-slate-500 text-center mt-1 flex items-center justify-center gap-1"><Move className="w-2.5 h-2.5" /> Drag to reposition</p>
             </div>
             <div className="flex-1 space-y-3">
               <div>
@@ -846,14 +1083,25 @@ export default function PrintableCardPreview({ card, slug }) {
       </div>
 
       {/* ── Download ── */}
-      <button onClick={handleDownload} disabled={downloading}
-        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink text-white text-sm font-medium hover:shadow-glow-lg transition-all duration-300 hover:scale-[1.02] active:scale-95 disabled:opacity-50">
-        {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-        Download {side === 'front' ? 'Front' : 'Back'} — Premium Print ({outputW}x{outputH}px)
-      </button>
+      <div className="grid grid-cols-2 gap-2">
+        <button onClick={handleDownloadFront} disabled={downloadingFront || downloadingBack}
+          className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink text-white text-xs sm:text-sm font-medium hover:shadow-glow-lg transition-all duration-300 hover:scale-[1.02] active:scale-95 disabled:opacity-50">
+          {downloadingFront ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+          <span className="hidden sm:inline">Download Front</span>
+          <span className="sm:hidden">Front</span>
+        </button>
+        <button onClick={handleDownloadBack} disabled={downloadingFront || downloadingBack}
+          className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-gradient-to-r from-neon-purple via-neon-pink to-neon-blue text-white text-xs sm:text-sm font-medium hover:shadow-glow-lg transition-all duration-300 hover:scale-[1.02] active:scale-95 disabled:opacity-50">
+          {downloadingBack ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+          <span className="hidden sm:inline">Download Back</span>
+          <span className="sm:hidden">Back</span>
+        </button>
+      </div>
       <p className="text-[11px] text-slate-500 text-center">
         {PX}x upscale = <strong className="text-slate-400">{outputW} x {outputH}px</strong> ({dpi} DPI). {cardTheme === 'light' ? 'Light theme — optimized for physical printing.' : 'Dark theme — switch to Light for best print results.'}
       </p>
     </div>
   )
-}
+})
+
+export default PrintableCardPreview

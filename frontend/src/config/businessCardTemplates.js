@@ -223,7 +223,7 @@ export const mergeThemeColors = (template, theme = {}) => {
   if (theme.secondaryColor) {
     merged.secondary = theme.secondaryColor
   }
-  return { ...merged, ...theme }
+  return merged
 }
 
 export const getBusinessCardTemplate = (id) => {

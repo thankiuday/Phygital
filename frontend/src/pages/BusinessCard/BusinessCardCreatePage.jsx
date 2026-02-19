@@ -12,20 +12,21 @@ import {
   Plus, Trash2, ChevronUp, ChevronDown, Image as ImageIcon, Video, Upload,
   Link as LinkIcon, MessageSquare, MessageCircle, Type, FileText, UserCircle, Globe,
   Copy, Download, Check, Loader2, GripVertical, Cloud, CloudOff, CreditCard,
-  ImagePlus, EyeOff
+  ImagePlus, EyeOff, QrCode, X
 } from 'lucide-react'
 import api from '../../utils/api'
-// QR code generation is now handled in PrintableCardPreview only
 import { downloadVCard } from '../../utils/vcardGenerator'
+import { generateAdvancedQRCode } from '../../utils/qrGenerator'
 import businessCardTemplates, { getBusinessCardTemplate, mergeThemeColors } from '../../config/businessCardTemplates'
 import { getLayout } from '../../components/BusinessCard/layouts'
-import PrintableCardPreview from '../../components/BusinessCard/PrintableCardPreview'
+import PrintableCardPreview, { PRINT_DARK, ScaledPrintFrame } from '../../components/BusinessCard/PrintableCardPreview'
+import ImageCropModal from '../../components/BusinessCard/ImageCropModal'
+import ReactQuill from 'react-quill-new'
+import 'react-quill-new/dist/quill.bubble.css'
 
-// ── Section Type Definitions ─────────────────────────────
 const SECTION_TYPES = [
   { type: 'heading', label: 'Heading & Text', icon: Type },
   { type: 'about', label: 'About', icon: FileText },
-  { type: 'contact', label: 'Contact Buttons', icon: Phone },
   { type: 'images', label: 'Image Gallery', icon: ImageIcon },
   { type: 'videos', label: 'Videos', icon: Video },
   { type: 'social_links', label: 'Social Links', icon: Globe },
@@ -33,14 +34,27 @@ const SECTION_TYPES = [
   { type: 'testimonials', label: 'Testimonials', icon: MessageSquare }
 ]
 
+const DEFAULT_CONTENT_ORDER = ['banner', 'photo', 'nameInfo', 'contact', 'saveContact', 'sections', 'social']
+
+const CONTENT_BLOCKS = [
+  { id: 'banner', label: 'Banner / Header', icon: ImageIcon },
+  { id: 'photo', label: 'Profile Photo', icon: UserCircle },
+  { id: 'nameInfo', label: 'Name, Title & Bio', icon: Type },
+  { id: 'contact', label: 'Contact Buttons', icon: Phone },
+  { id: 'saveContact', label: 'Save Contact', icon: Download },
+  { id: 'sections', label: 'Content Sections', icon: FileText },
+  { id: 'social', label: 'Social Links', icon: Globe },
+]
+
 const DEFAULT_CARD = {
   profile: { photo: '', bannerImage: '', showPhoto: true, showBanner: true, name: '', title: '', company: '', bio: '' },
   contact: { phone: '', email: '', sms: '', whatsapp: '', website: '' },
   sections: [],
   socialLinks: {},
+  contentOrder: DEFAULT_CONTENT_ORDER,
   theme: { primaryColor: '#8B5CF6', secondaryColor: '#EC4899', fontFamily: 'Inter', cardStyle: 'rounded' },
   templateId: 'professional',
-  isPublished: false
+  isPublished: true
 }
 
 const TABS = [
@@ -54,6 +68,7 @@ export default function BusinessCardCreatePage() {
   const { id: editId } = useParams()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState(0)
+  const [tabVisible, setTabVisible] = useState(true)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(!!editId)
   const [cardId, setCardId] = useState(editId || null)
@@ -62,9 +77,19 @@ export default function BusinessCardCreatePage() {
   const [copied, setCopied] = useState(false)
   const [photoUploading, setPhotoUploading] = useState(false)
   const [bannerUploading, setBannerUploading] = useState(false)
-  const [autoSaveStatus, setAutoSaveStatus] = useState('saved') // 'saving', 'saved', 'error'
+  const [autoSaveStatus, setAutoSaveStatus] = useState('saved')
+  const [cropModal, setCropModal] = useState(null)
+  const [showPreviewModal, setShowPreviewModal] = useState(false)
   const autoSaveTimeoutRef = useRef(null)
   const hasUnsavedChangesRef = useRef(false)
+  const previewPanelRef = useRef(null)
+  const printableRef = useRef(null)
+
+  const switchTab = useCallback((idx) => {
+    if (idx === activeTab) return
+    setTabVisible(false)
+    setTimeout(() => { setActiveTab(idx); setTabVisible(true) }, 120)
+  }, [activeTab])
 
   const currentTemplate = useMemo(() => getBusinessCardTemplate(card.templateId), [card.templateId])
   const colors = useMemo(() => mergeThemeColors(currentTemplate, card.theme), [currentTemplate, card.theme])
@@ -169,8 +194,7 @@ export default function BusinessCardCreatePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [card, slug, loading])
 
-  // ── Helpers ──
-  const updateField = (path, value) => {
+  const updateField = useCallback((path, value) => {
     setCard(prev => {
       const next = JSON.parse(JSON.stringify(prev))
       const keys = path.split('.')
@@ -179,7 +203,7 @@ export default function BusinessCardCreatePage() {
       obj[keys[keys.length - 1]] = value
       return next
     })
-  }
+  }, [])
 
   const addSection = (type) => {
     setCard(prev => ({
@@ -246,7 +270,7 @@ export default function BusinessCardCreatePage() {
       const photoUrl = res.data?.data?.card?.profile?.photo
       if (photoUrl) {
         updateField('profile.photo', photoUrl)
-        toast.success('Photo uploaded')
+        setCropModal({ url: photoUrl, field: 'profile.photo', aspect: 1, shape: 'round' })
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to upload photo')
@@ -283,7 +307,7 @@ export default function BusinessCardCreatePage() {
       const bannerUrl = res.data?.data?.card?.profile?.bannerImage
       if (bannerUrl) {
         updateField('profile.bannerImage', bannerUrl)
-        toast.success('Banner uploaded')
+        setCropModal({ url: bannerUrl, field: 'profile.bannerImage', aspect: 16 / 9, shape: 'rect' })
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to upload banner')
@@ -330,6 +354,26 @@ export default function BusinessCardCreatePage() {
     }
   }
 
+  const handleCropConfirm = useCallback(async (blob) => {
+    if (!cropModal || !cardId) { setCropModal(null); return }
+    try {
+      const formData = new FormData()
+      const fieldName = cropModal.field === 'profile.photo' ? 'photo' : 'banner'
+      formData.append(fieldName, blob, 'cropped.png')
+      const endpoint = fieldName === 'photo' ? 'photo' : 'banner'
+      const res = await api.post(`/business-cards/${cardId}/${endpoint}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+      const updatedCard = res.data?.data?.card
+      if (updatedCard) {
+        const url = fieldName === 'photo' ? updatedCard.profile?.photo : updatedCard.profile?.bannerImage
+        if (url) updateField(cropModal.field, url)
+      }
+      toast.success('Image cropped and uploaded')
+    } catch {
+      toast.error('Failed to upload cropped image')
+    }
+    setCropModal(null)
+  }, [cropModal, cardId, updateField])
+
   // ── Manual save (for preview tab) ──
   const handleSave = async () => {
     await autoSave(true)
@@ -359,7 +403,59 @@ export default function BusinessCardCreatePage() {
   // ═══════════════════════════════════════════════════════
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100">
-      {/* Header */}
+      {cropModal && (
+        <ImageCropModal
+          imageUrl={cropModal.url}
+          aspect={cropModal.aspect}
+          cropShape={cropModal.shape}
+          onConfirm={handleCropConfirm}
+          onCancel={() => setCropModal(null)}
+        />
+      )}
+
+      {showPreviewModal && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/80 backdrop-blur-sm overflow-y-auto p-4 pt-6 pb-8">
+          <div className="relative w-full max-w-md">
+            <button
+              onClick={() => setShowPreviewModal(false)}
+              className="absolute -top-2 -right-2 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-slate-800 border border-slate-600 text-slate-300 hover:text-white hover:bg-slate-700 transition shadow-lg"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <div className="rounded-2xl border border-slate-700/50 bg-slate-800/80 p-3 backdrop-blur-sm">
+              {activeTab === 3 && printableRef.current ? (() => {
+                const s = printableRef.current
+                const FC = s.FrontComp
+                const BC = s.BackComp
+                const c = s.colors || PRINT_DARK
+                return (
+                  <div className="space-y-4">
+                    <p className="text-xs text-slate-400 font-medium text-center">Printable Card Preview</p>
+                    <div>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold mb-1.5 text-center">Front</p>
+                      <ScaledPrintFrame>
+                        {FC && <FC v={s.v} photoZoom={s.photoZoom} photoOffsetX={s.photoOffsetX} photoOffsetY={s.photoOffsetY} fontScale={s.frontFontScale} colors={c} />}
+                      </ScaledPrintFrame>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold mb-1.5 text-center">Back</p>
+                      <ScaledPrintFrame>
+                        {BC && <BC card={card} qrDataUrl={s.qrDataUrl} vf={s.visibleFields} fontScale={s.backFontScale} colors={c} />}
+                      </ScaledPrintFrame>
+                    </div>
+                  </div>
+                )
+              })() : (
+                <>
+                  <p className="text-xs text-slate-400 mb-2 font-medium text-center">Live Preview</p>
+                  <LivePreview card={card} colors={colors} currentTemplate={currentTemplate} />
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="border-b border-slate-700/50 bg-slate-800/50 backdrop-blur sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
@@ -399,7 +495,7 @@ export default function BusinessCardCreatePage() {
             {TABS.map((tab, i) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(i)}
+                onClick={() => switchTab(i)}
                 className={`flex items-center gap-2 px-3 sm:px-5 py-3 text-xs sm:text-sm font-medium border-b-2 transition whitespace-nowrap flex-shrink-0 ${
                   activeTab === i
                     ? 'border-neon-purple text-gradient'
@@ -418,18 +514,18 @@ export default function BusinessCardCreatePage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-6">
           {/* ── Main editor ── */}
-          <div className="lg:col-span-3 space-y-4 sm:space-y-6 order-2 lg:order-1">
+          <div className="col-span-1 lg:col-span-3 space-y-4 sm:space-y-6" style={{ opacity: tabVisible ? 1 : 0, transition: 'opacity 0.12s ease' }}>
             {activeTab === 0 && <ContentTab card={card} updateField={updateField} addSection={addSection} removeSection={removeSection} moveSection={moveSection} updateSection={updateSection} handlePhotoUpload={handlePhotoUpload} photoUploading={photoUploading} handleBannerUpload={handleBannerUpload} bannerUploading={bannerUploading} handleSectionFileUpload={handleSectionFileUpload} cardId={cardId} />}
             {activeTab === 1 && <DesignTab card={card} updateField={updateField} slug={slug} setSlug={setSlug} />}
             {activeTab === 2 && <PreviewPublishTab card={card} updateField={updateField} publicUrl={publicUrl} slug={slug} handleCopy={handleCopy} copied={copied} handleSave={handleSave} saving={saving} cardId={cardId} />}
-            {activeTab === 3 && <PrintableTab card={card} slug={slug} />}
+            {activeTab === 3 && <PrintableTab card={card} slug={slug} printableRef={printableRef} />}
           </div>
 
-          {/* ── Live Preview Panel ── */}
-          <div className="lg:col-span-2 order-1 lg:order-2">
-            <div className="sticky top-20 lg:top-24">
-              <h3 className="text-xs sm:text-sm text-slate-400 mb-3 font-medium px-1">Live Preview</h3>
-              <div className="rounded-xl sm:rounded-2xl border border-slate-700/50 bg-slate-800/50 p-2 sm:p-3 backdrop-blur-sm">
+          {/* ── Live Preview Panel (desktop only — mobile uses the Preview modal) ── */}
+          <div ref={previewPanelRef} className="hidden lg:block lg:col-span-2 order-1 lg:order-2">
+            <div className="sticky top-24">
+              <h3 className="text-sm text-slate-400 mb-3 font-medium px-1">Live Preview</h3>
+              <div className="rounded-2xl border border-slate-700/50 bg-slate-800/50 p-3 backdrop-blur-sm">
                 <LivePreview card={card} colors={colors} currentTemplate={currentTemplate} />
               </div>
             </div>
@@ -442,7 +538,7 @@ export default function BusinessCardCreatePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex justify-between items-center gap-2">
             <button 
-              onClick={() => setActiveTab(Math.max(0, activeTab - 1))} 
+              onClick={() => switchTab(Math.max(0, activeTab - 1))} 
               disabled={activeTab === 0} 
               className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg border border-slate-700/50 text-xs sm:text-sm disabled:opacity-30 hover:bg-slate-700/50 transition text-slate-300"
             >
@@ -450,20 +546,28 @@ export default function BusinessCardCreatePage() {
               <span className="hidden sm:inline">Previous</span>
             </button>
             
-            {/* Tab indicators */}
-            <div className="flex items-center gap-1.5">
-              {TABS.map((_, i) => (
-                <div
-                  key={i}
-                  className={`w-1.5 h-1.5 rounded-full transition ${
-                    i === activeTab ? 'bg-neon-purple w-6' : 'bg-slate-600'
-                  }`}
-                />
-              ))}
+            {/* Preview + Tab indicators (center) */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowPreviewModal(true)}
+                className="lg:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neon-purple/40 bg-neon-purple/10 text-neon-purple text-xs font-medium hover:bg-neon-purple/20 transition"
+              >
+                <Eye className="w-3.5 h-3.5" /> Preview
+              </button>
+              <div className="hidden sm:flex items-center gap-1.5">
+                {TABS.map((_, i) => (
+                  <div
+                    key={i}
+                    className={`w-1.5 h-1.5 rounded-full transition ${
+                      i === activeTab ? 'bg-neon-purple w-6' : 'bg-slate-600'
+                    }`}
+                  />
+                ))}
+              </div>
             </div>
             
             <button 
-              onClick={() => setActiveTab(Math.min(TABS.length - 1, activeTab + 1))} 
+              onClick={() => switchTab(Math.min(TABS.length - 1, activeTab + 1))} 
               disabled={activeTab === TABS.length - 1} 
               className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink text-white hover:shadow-glow-lg disabled:opacity-30 text-xs sm:text-sm transition-all duration-300 hover:scale-105 active:scale-95"
             >
@@ -489,7 +593,7 @@ function ContentTab({ card, updateField, addSection, removeSection, moveSection,
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-4">
           <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-slate-700 border-2 border-dashed border-slate-600 flex items-center justify-center overflow-hidden flex-shrink-0">
             {card.profile.photo ? (
-              <img src={card.profile.photo} alt="" className="w-full h-full object-cover" />
+              <img src={card.profile.photo} alt="" className="w-full h-full object-cover" style={{ transition: 'opacity 0.2s ease' }} />
             ) : (
               <User className="w-8 h-8 sm:w-10 sm:h-10 text-slate-500" />
             )}
@@ -533,7 +637,7 @@ function ContentTab({ card, updateField, addSection, removeSection, moveSection,
           {card.profile.bannerImage ? (
             <div className="space-y-2">
               <div className="relative rounded-lg overflow-hidden h-24 sm:h-32">
-                <img src={card.profile.bannerImage} alt="Banner" className="w-full h-full object-cover" />
+                <img src={card.profile.bannerImage} alt="Banner" className="w-full h-full object-cover" style={{ transition: 'opacity 0.2s ease' }} />
                 {bannerUploading && (
                   <div className="absolute inset-0 bg-slate-900/70 flex items-center justify-center backdrop-blur-sm">
                     <Loader2 className="w-5 h-5 animate-spin text-gradient" />
@@ -656,7 +760,22 @@ function SectionContentEditor({ section, idx, onUpdate, handleSectionFileUpload 
 
   if (type === 'heading' || type === 'text' || type === 'about') {
     const text = typeof section.content === 'string' ? section.content : section.content?.text || ''
-    return <TextArea label="Text" value={text} onChange={v => onUpdate(idx, { content: v })} placeholder="Enter text..." />
+    return (
+      <div>
+        <label className="text-xs text-slate-400 block mb-1">Text (use toolbar to bold, italic, underline)</label>
+        <div className="bg-slate-800 border border-slate-700/50 rounded-lg overflow-hidden quill-dark">
+          <ReactQuill
+            theme="bubble"
+            value={text}
+            onChange={v => onUpdate(idx, { content: v })}
+            placeholder="Enter text..."
+            modules={{ toolbar: [['bold', 'italic', 'underline'], ['link']] }}
+            formats={['bold', 'italic', 'underline', 'link']}
+          />
+        </div>
+        <p className="text-[9px] text-slate-500 mt-1">Select text to see formatting toolbar</p>
+      </div>
+    )
   }
 
   if (type === 'links') {
@@ -769,7 +888,82 @@ function SectionContentEditor({ section, idx, onUpdate, handleSectionFileUpload 
     )
   }
 
-  return <p className="text-xs text-slate-500">This section uses the {type === 'contact' ? 'Contact Information' : 'Social Links'} data above.</p>
+  return <p className="text-xs text-slate-500">This section uses the {type === 'social_links' ? 'Social Links' : 'Contact Information'} data above.</p>
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Content Order (drag-to-reorder)
+// ═══════════════════════════════════════════════════════════
+function ContentOrderPanel({ order, onChange }) {
+  const dragItem = useRef(null)
+  const dragOver = useRef(null)
+
+  const moveItem = (fromIdx, toIdx) => {
+    if (fromIdx === toIdx) return
+    const next = [...order]
+    const [moved] = next.splice(fromIdx, 1)
+    next.splice(toIdx, 0, moved)
+    onChange(next)
+  }
+
+  const handleDragStart = (idx) => { dragItem.current = idx }
+  const handleDragEnter = (idx) => { dragOver.current = idx }
+  const handleDragEnd = () => {
+    if (dragItem.current !== null && dragOver.current !== null) {
+      moveItem(dragItem.current, dragOver.current)
+    }
+    dragItem.current = null
+    dragOver.current = null
+  }
+
+  const handleReset = () => onChange([...DEFAULT_CONTENT_ORDER])
+
+  return (
+    <div className="space-y-1.5">
+      {order.map((blockId, idx) => {
+        const block = CONTENT_BLOCKS.find(b => b.id === blockId)
+        if (!block) return null
+        const Icon = block.icon
+        return (
+          <div
+            key={blockId}
+            draggable
+            onDragStart={() => handleDragStart(idx)}
+            onDragEnter={() => handleDragEnter(idx)}
+            onDragEnd={handleDragEnd}
+            onDragOver={e => e.preventDefault()}
+            className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-slate-800/60 border border-slate-700/50 hover:border-slate-600/70 cursor-grab active:cursor-grabbing transition group"
+          >
+            <GripVertical className="w-4 h-4 text-slate-500 group-hover:text-slate-300 flex-shrink-0 transition" />
+            <span className="w-5 h-5 rounded flex items-center justify-center bg-slate-700/60 flex-shrink-0">
+              <Icon className="w-3 h-3 text-slate-300" />
+            </span>
+            <span className="flex-1 text-xs sm:text-sm font-medium text-slate-200 truncate">{block.label}</span>
+            <span className="text-[10px] text-slate-500 font-mono mr-1">{idx + 1}</span>
+            <div className="flex flex-col gap-0.5 flex-shrink-0">
+              <button
+                onClick={() => moveItem(idx, Math.max(0, idx - 1))}
+                disabled={idx === 0}
+                className="p-0.5 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 disabled:opacity-30 disabled:pointer-events-none transition"
+              >
+                <ChevronUp className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => moveItem(idx, Math.min(order.length - 1, idx + 1))}
+                disabled={idx === order.length - 1}
+                className="p-0.5 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 disabled:opacity-30 disabled:pointer-events-none transition"
+              >
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )
+      })}
+      <button onClick={handleReset} className="mt-2 text-[10px] text-slate-500 hover:text-neon-purple transition underline underline-offset-2">
+        Reset to default order
+      </button>
+    </div>
+  )
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -837,6 +1031,12 @@ function DesignTab({ card, updateField, slug, setSlug }) {
         </div>
       </Panel>
 
+      {/* Content Order */}
+      <Panel title="Content Order">
+        <p className="text-xs text-slate-400 mb-3">Drag or use arrows to reorder how content appears on your digital card.</p>
+        <ContentOrderPanel order={card.contentOrder || DEFAULT_CONTENT_ORDER} onChange={newOrder => updateField('contentOrder', newOrder)} />
+      </Panel>
+
       {/* Slug */}
       <Panel title="Card URL">
         <Input label="Custom slug" value={slug} onChange={setSlug} placeholder="john-doe" />
@@ -850,6 +1050,25 @@ function DesignTab({ card, updateField, slug, setSlug }) {
 //  TAB 4: Preview & Publish
 // ═══════════════════════════════════════════════════════════
 function PreviewPublishTab({ card, updateField, publicUrl, slug, handleCopy, copied, handleSave, saving, cardId }) {
+  const [qrDownloading, setQrDownloading] = useState(false)
+
+  const handleDownloadQR = async () => {
+    if (!publicUrl) return
+    setQrDownloading(true)
+    try {
+      const dataUrl = await generateAdvancedQRCode(publicUrl, {}, 1200)
+      const link = document.createElement('a')
+      link.download = `business-card-qr-${slug || 'card'}.png`
+      link.href = dataUrl
+      link.click()
+      toast.success('QR code downloaded')
+    } catch {
+      toast.error('Failed to generate QR code')
+    } finally {
+      setQrDownloading(false)
+    }
+  }
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <Panel title="Publish Settings">
@@ -884,6 +1103,12 @@ function PreviewPublishTab({ card, updateField, publicUrl, slug, handleCopy, cop
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {cardId ? 'Save Changes' : 'Create Card'}
           </button>
+          {publicUrl && (
+            <button onClick={handleDownloadQR} disabled={qrDownloading} className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-neon-purple/50 bg-neon-purple/10 hover:bg-neon-purple/20 text-xs sm:text-sm font-medium transition text-neon-purple disabled:opacity-50">
+              {qrDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <QrCode className="w-4 h-4" />}
+              Download QR
+            </button>
+          )}
           {cardId && (
             <button onClick={() => downloadVCard(card)} className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-slate-700/50 hover:bg-slate-700/50 text-xs sm:text-sm font-medium transition text-slate-300">
               <Download className="w-4 h-4" /> Download vCard
@@ -903,7 +1128,7 @@ function PreviewPublishTab({ card, updateField, publicUrl, slug, handleCopy, cop
 // ═══════════════════════════════════════════════════════════
 //  Live Preview (uses layout router for accurate preview)
 // ═══════════════════════════════════════════════════════════
-function LivePreview({ card, colors, currentTemplate }) {
+const LivePreview = React.memo(function LivePreview({ card, colors, currentTemplate }) {
   const bgStyle = colors.background?.includes('gradient') || colors.background?.includes('linear')
     ? { background: colors.background }
     : { backgroundColor: colors.background || '#FFFFFF' }
@@ -925,7 +1150,7 @@ function LivePreview({ card, colors, currentTemplate }) {
   const LayoutComponent = getLayout(currentTemplate.layout)
 
   return (
-    <div className="mx-auto w-full max-w-[360px] rounded-2xl overflow-hidden shadow-2xl" style={{ ...bgStyle, fontFamily: currentTemplate.fontFamily || 'Inter' }}>
+    <div className="mx-auto w-full max-w-[360px] rounded-2xl overflow-hidden shadow-2xl" style={{ ...bgStyle, fontFamily: currentTemplate.fontFamily || 'Inter', overflowWrap: 'break-word', wordBreak: 'break-word' }}>
       <div style={{ ...cardBg, borderRadius: cardRadius }} className="overflow-hidden">
         <LayoutComponent
           card={card}
@@ -938,7 +1163,7 @@ function LivePreview({ card, colors, currentTemplate }) {
       </div>
     </div>
   )
-}
+})
 
 // ═══════════════════════════════════════════════════════════
 //  Layout Schematic (mini visual preview of each layout)
@@ -1088,7 +1313,7 @@ function TextArea({ label, value, onChange, placeholder, className = '' }) {
 // ═══════════════════════════════════════════════════════════
 //  TAB 5: Printable Card (Fixed Phygital Format)
 // ═══════════════════════════════════════════════════════════
-function PrintableTab({ card, slug }) {
+function PrintableTab({ card, slug, printableRef }) {
   return (
     <div className="space-y-4 sm:space-y-6">
       <Panel title="Phygital Business Card">
@@ -1102,7 +1327,7 @@ function PrintableTab({ card, slug }) {
             <p className="text-xs text-slate-500 mt-1">Go to the "Preview & Publish" tab and enable publishing.</p>
           </div>
         ) : (
-          <PrintableCardPreview card={card} slug={slug} />
+          <PrintableCardPreview ref={printableRef} card={card} slug={slug} />
         )}
       </Panel>
     </div>

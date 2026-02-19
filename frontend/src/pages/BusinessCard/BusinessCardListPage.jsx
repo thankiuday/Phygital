@@ -200,13 +200,13 @@ function AnalyticsPanel({ cardId, onClose }) {
 
       <div className="p-4 space-y-4">
         {/* Summary stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <StatCard icon={Eye} label="Total Views" value={summary.totalViews} sub={`${summary.periodViews} in period`} color="text-blue-400" bgColor="bg-blue-500/10" />
           <StatCard icon={Users} label="Unique Visitors" value={summary.uniqueVisitors} sub={`${summary.periodUnique} in period`} color="text-green-400" bgColor="bg-green-500/10" />
           <StatCard icon={QrCode} label="QR Scans" value={summary.qrScans} color="text-emerald-400" bgColor="bg-emerald-500/10" />
           <StatCard icon={Globe2} label="Direct Visits" value={summary.directVisits} color="text-cyan-400" bgColor="bg-cyan-500/10" />
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <StatCard icon={MousePointerClick} label="Contact Clicks" value={summary.contactClicks} sub={`${summary.periodContactClicks} in period`} color="text-purple-400" bgColor="bg-purple-500/10" />
           <StatCard icon={Share2} label="Social Clicks" value={summary.socialClicks} sub={`${summary.periodSocialClicks} in period`} color="text-pink-400" bgColor="bg-pink-500/10" />
           <StatCard icon={Download} label="vCard Downloads" value={summary.vcardDownloads} sub={`${summary.periodVcardDownloads} in period`} color="text-amber-400" bgColor="bg-amber-500/10" />
@@ -389,47 +389,48 @@ export default function BusinessCardListPage() {
     <div className="min-h-screen bg-slate-900 text-slate-100">
       {/* Header */}
       <div className="border-b border-slate-700/50 bg-slate-800/50 backdrop-blur">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold flex items-center gap-2 text-gradient">
-              <CreditCard className="w-5 h-5" />
-              Digital Business Cards
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 sm:py-4 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-bold flex items-center gap-2 text-gradient">
+              <CreditCard className="w-5 h-5 shrink-0" />
+              <span className="truncate">Digital Business Cards</span>
             </h1>
-            <p className="text-sm text-slate-400 mt-0.5">Create and manage your digital business cards</p>
+            <p className="text-xs sm:text-sm text-slate-400 mt-0.5 hidden sm:block">Create and manage your digital business cards</p>
           </div>
           <button
             onClick={() => navigate('/business-cards/create')}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink text-white hover:shadow-glow-lg transition-all duration-300 hover:scale-105 active:scale-95 text-sm font-medium"
+            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink text-white hover:shadow-glow-lg transition-all duration-300 hover:scale-105 active:scale-95 text-xs sm:text-sm font-medium shrink-0"
           >
-            <Plus className="w-4 h-4" /> New Card
+            <Plus className="w-4 h-4" /> <span className="hidden sm:inline">New</span> Card
           </button>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 py-6">
+      <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[...Array(6)].map((_, i) => (
+          <div className="space-y-4">
+            {[...Array(4)].map((_, i) => (
               <div key={i} className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden backdrop-blur-sm animate-pulse">
-                <div className="p-4 border-b border-slate-700/30">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-slate-700" />
+                <div className="flex flex-col md:flex-row md:items-center">
+                  <div className="flex-1 p-4 flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-slate-700 shrink-0" />
                     <div className="flex-1 min-w-0 space-y-2">
-                      <div className="h-4 bg-slate-700 rounded w-3/4" />
-                      <div className="h-3 bg-slate-700/60 rounded w-1/2" />
+                      <div className="h-4 bg-slate-700 rounded w-2/3" />
+                      <div className="h-3 bg-slate-700/60 rounded w-1/3" />
                     </div>
-                    <div className="h-5 w-16 bg-slate-700 rounded-full" />
+                    <div className="h-5 w-16 bg-slate-700 rounded-full shrink-0" />
                   </div>
-                </div>
-                <div className="px-4 py-3 flex items-center gap-4">
-                  <div className="h-3 bg-slate-700/50 rounded w-16" />
-                  <div className="h-3 bg-slate-700/50 rounded w-16" />
-                </div>
-                <div className="px-4 pb-4 flex items-center gap-2">
-                  <div className="h-7 bg-slate-700/40 rounded-lg w-16" />
-                  <div className="h-7 bg-slate-700/40 rounded-lg w-16" />
-                  <div className="h-7 bg-slate-700/40 rounded-lg w-8" />
-                  <div className="h-7 bg-slate-700/40 rounded-lg w-8 ml-auto" />
+                  <div className="flex items-center gap-3 px-4 py-2 md:py-0 shrink-0">
+                    <div className="h-3 bg-slate-700/50 rounded w-12" />
+                    <div className="h-3 bg-slate-700/50 rounded w-12" />
+                    <div className="h-3 bg-slate-700/50 rounded w-12" />
+                  </div>
+                  <div className="flex items-center gap-1.5 px-4 pb-3 md:pb-0 md:pr-4 shrink-0">
+                    <div className="h-7 bg-slate-700/40 rounded-lg w-20" />
+                    <div className="h-7 bg-slate-700/40 rounded-lg w-14" />
+                    <div className="h-7 bg-slate-700/40 rounded-lg w-8" />
+                    <div className="h-7 bg-slate-700/40 rounded-lg w-8 ml-auto" />
+                  </div>
                 </div>
               </div>
             ))}
@@ -471,14 +472,14 @@ export default function BusinessCardListPage() {
                   </div>
 
                   {/* Quick stats */}
-                  <div className="flex items-center gap-3 px-4 py-2 md:py-0 text-xs text-slate-400 shrink-0">
+                  <div className="flex items-center gap-3 px-3 sm:px-4 py-2 md:py-0 text-xs text-slate-400 shrink-0">
                     <span className="flex items-center gap-1" title="Total views"><Eye className="w-3.5 h-3.5" /> {card.analytics?.totalViews || 0}</span>
                     <span className="flex items-center gap-1" title="Unique visitors"><Users className="w-3.5 h-3.5" /> {card.analytics?.uniqueVisitors || 0}</span>
                     <span className="flex items-center gap-1" title="Total clicks"><MousePointerClick className="w-3.5 h-3.5" /> {(card.analytics?.contactClicks || 0) + (card.analytics?.socialClicks || 0) + (card.analytics?.linkClicks || 0)}</span>
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-1.5 px-4 pb-3 md:pb-0 md:pr-4 shrink-0">
+                  <div className="flex flex-wrap items-center gap-1.5 px-3 sm:px-4 pb-3 md:pb-0 md:pr-4 shrink-0">
                     <button
                       onClick={() => toggleAnalytics(card._id)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition ${

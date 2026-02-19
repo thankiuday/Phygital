@@ -177,3 +177,35 @@
     animation: slideInRight 0.3s ease-out forwards;
   }
 }
+
+/* Quill bubble editor dark theme overrides */
+.quill-dark .ql-editor {
+  color: #f1f5f9;
+  font-size: 0.875rem;
+  min-height: 80px;
+  padding: 0.75rem;
+}
+.quill-dark .ql-editor.ql-blank::before {
+  color: #64748b;
+  font-style: normal;
+}
+.quill-dark .ql-tooltip {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+.quill-dark .ql-tooltip .ql-toolbar .ql-formats button {
+  color: #94a3b8;
+}
+.quill-dark .ql-tooltip .ql-toolbar .ql-formats button:hover,
+.quill-dark .ql-tooltip .ql-toolbar .ql-formats button.ql-active {
+  color: #a855f7;
+}
+
+/* Rich text content in public cards */
+.rich-text-content p { margin-bottom: 0.25rem; }
+.rich-text-content a { text-decoration: underline; opacity: 0.9; }
+.rich-text-content strong { font-weight: 700; }
+.rich-text-content em { font-style: italic; }
+.rich-text-content u { text-decoration: underline; }

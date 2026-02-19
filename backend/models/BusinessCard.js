@@ -74,6 +74,11 @@ const businessCardSchema = new mongoose.Schema({
     telegram: { type: String, default: '' }
   },
 
+  contentOrder: {
+    type: [String],
+    default: ['banner', 'photo', 'nameInfo', 'contact', 'saveContact', 'sections', 'social']
+  },
+
   theme: {
     primaryColor: { type: String, default: '#8B5CF6' },
     secondaryColor: { type: String, default: '#EC4899' },
