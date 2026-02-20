@@ -382,6 +382,25 @@ export default function BusinessCardCreatePage() {
     }
   }
 
+  // ── Save on printable tab then redirect to business cards list ──
+  const handleSavePrintableAndRedirect = useCallback(async () => {
+    const savedId = await autoSave(true)
+    if (savedId != null) {
+      toast.success('Card saved!')
+      navigate('/business-cards')
+    }
+  }, [autoSave, navigate])
+
+  // ── Save then go to next tab (Content, Design, Preview tabs) ──
+  const handleNextWithSave = useCallback(async () => {
+    if (activeTab >= TABS.length - 1) return
+    const savedId = await autoSave(true)
+    if (savedId != null) {
+      toast.success('Saved')
+      switchTab(activeTab + 1)
+    }
+  }, [activeTab, autoSave, switchTab])
+
   // ── Copy URL ──
   const handleCopy = () => {
     if (!publicUrl) return
@@ -566,14 +585,24 @@ export default function BusinessCardCreatePage() {
               </div>
             </div>
             
-            <button 
-              onClick={() => switchTab(Math.min(TABS.length - 1, activeTab + 1))} 
-              disabled={activeTab === TABS.length - 1} 
-              className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink text-white hover:shadow-glow-lg disabled:opacity-30 text-xs sm:text-sm transition-all duration-300 hover:scale-105 active:scale-95"
-            >
-              <span className="hidden sm:inline">Next</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
+            {activeTab === TABS.length - 1 ? (
+              <button 
+                onClick={handleSavePrintableAndRedirect} 
+                disabled={saving} 
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink text-white hover:shadow-glow-lg disabled:opacity-50 text-xs sm:text-sm transition-all duration-300 hover:scale-105 active:scale-95"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                <span className="hidden sm:inline">Save</span>
+              </button>
+            ) : (
+              <button 
+                onClick={handleNextWithSave} 
+                disabled={saving} 
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink text-white hover:shadow-glow-lg disabled:opacity-50 text-xs sm:text-sm transition-all duration-300 hover:scale-105 active:scale-95"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><span className="hidden sm:inline">Next</span><ArrowRight className="w-4 h-4" /></>}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -892,11 +921,14 @@ function SectionContentEditor({ section, idx, onUpdate, handleSectionFileUpload 
 }
 
 // ═══════════════════════════════════════════════════════════
-//  Content Order (drag-to-reorder)
+//  Content Order (drag-to-reorder) + Section sub-order
 // ═══════════════════════════════════════════════════════════
-function ContentOrderPanel({ order, onChange }) {
+function ContentOrderPanel({ order, onChange, sections = [], onSectionsOrderChange }) {
   const dragItem = useRef(null)
   const dragOver = useRef(null)
+  const sectionDragItem = useRef(null)
+  const sectionDragOver = useRef(null)
+  const [sectionsExpanded, setSectionsExpanded] = useState(false)
 
   const moveItem = (fromIdx, toIdx) => {
     if (fromIdx === toIdx) return
@@ -904,6 +936,14 @@ function ContentOrderPanel({ order, onChange }) {
     const [moved] = next.splice(fromIdx, 1)
     next.splice(toIdx, 0, moved)
     onChange(next)
+  }
+
+  const moveSectionItem = (fromIdx, toIdx) => {
+    if (!onSectionsOrderChange || fromIdx === toIdx) return
+    const next = [...sections]
+    const [moved] = next.splice(fromIdx, 1)
+    next.splice(toIdx, 0, moved)
+    onSectionsOrderChange(next.map((s, i) => ({ ...s, order: i })))
   }
 
   const handleDragStart = (idx) => { dragItem.current = idx }
@@ -916,6 +956,16 @@ function ContentOrderPanel({ order, onChange }) {
     dragOver.current = null
   }
 
+  const handleSectionDragStart = (idx) => { sectionDragItem.current = idx }
+  const handleSectionDragEnter = (idx) => { sectionDragOver.current = idx }
+  const handleSectionDragEnd = () => {
+    if (sectionDragItem.current !== null && sectionDragOver.current !== null) {
+      moveSectionItem(sectionDragItem.current, sectionDragOver.current)
+    }
+    sectionDragItem.current = null
+    sectionDragOver.current = null
+  }
+
   const handleReset = () => onChange([...DEFAULT_CONTENT_ORDER])
 
   return (
@@ -924,38 +974,102 @@ function ContentOrderPanel({ order, onChange }) {
         const block = CONTENT_BLOCKS.find(b => b.id === blockId)
         if (!block) return null
         const Icon = block.icon
+        const isSectionsBlock = blockId === 'sections'
+
         return (
-          <div
-            key={blockId}
-            draggable
-            onDragStart={() => handleDragStart(idx)}
-            onDragEnter={() => handleDragEnter(idx)}
-            onDragEnd={handleDragEnd}
-            onDragOver={e => e.preventDefault()}
-            className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-slate-800/60 border border-slate-700/50 hover:border-slate-600/70 cursor-grab active:cursor-grabbing transition group"
-          >
-            <GripVertical className="w-4 h-4 text-slate-500 group-hover:text-slate-300 flex-shrink-0 transition" />
-            <span className="w-5 h-5 rounded flex items-center justify-center bg-slate-700/60 flex-shrink-0">
-              <Icon className="w-3 h-3 text-slate-300" />
-            </span>
-            <span className="flex-1 text-xs sm:text-sm font-medium text-slate-200 truncate">{block.label}</span>
-            <span className="text-[10px] text-slate-500 font-mono mr-1">{idx + 1}</span>
-            <div className="flex flex-col gap-0.5 flex-shrink-0">
-              <button
-                onClick={() => moveItem(idx, Math.max(0, idx - 1))}
-                disabled={idx === 0}
-                className="p-0.5 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 disabled:opacity-30 disabled:pointer-events-none transition"
-              >
-                <ChevronUp className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => moveItem(idx, Math.min(order.length - 1, idx + 1))}
-                disabled={idx === order.length - 1}
-                className="p-0.5 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 disabled:opacity-30 disabled:pointer-events-none transition"
-              >
-                <ChevronDown className="w-3.5 h-3.5" />
-              </button>
+          <div key={blockId} className="space-y-1">
+            <div
+              draggable
+              onDragStart={() => handleDragStart(idx)}
+              onDragEnter={() => handleDragEnter(idx)}
+              onDragEnd={handleDragEnd}
+              onDragOver={e => e.preventDefault()}
+              className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-slate-800/60 border border-slate-700/50 hover:border-slate-600/70 cursor-grab active:cursor-grabbing transition group"
+            >
+              <GripVertical className="w-4 h-4 text-slate-500 group-hover:text-slate-300 flex-shrink-0 transition" />
+              <span className="w-5 h-5 rounded flex items-center justify-center bg-slate-700/60 flex-shrink-0">
+                <Icon className="w-3 h-3 text-slate-300" />
+              </span>
+              <span className="flex-1 text-xs sm:text-sm font-medium text-slate-200 truncate">{block.label}</span>
+              {isSectionsBlock && sections.length > 0 && (
+                <span className="text-[10px] text-slate-500">({sections.length})</span>
+              )}
+              <span className="text-[10px] text-slate-500 font-mono mr-1">{idx + 1}</span>
+              {isSectionsBlock && sections.length > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setSectionsExpanded(s => !s) }}
+                  className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition"
+                  title={sectionsExpanded ? 'Collapse section order' : 'Order section items'}
+                >
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${sectionsExpanded ? 'rotate-180' : ''}`} />
+                </button>
+              )}
+              <div className="flex flex-col gap-0.5 flex-shrink-0">
+                <button
+                  onClick={() => moveItem(idx, Math.max(0, idx - 1))}
+                  disabled={idx === 0}
+                  className="p-0.5 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 disabled:opacity-30 disabled:pointer-events-none transition"
+                >
+                  <ChevronUp className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => moveItem(idx, Math.min(order.length - 1, idx + 1))}
+                  disabled={idx === order.length - 1}
+                  className="p-0.5 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 disabled:opacity-30 disabled:pointer-events-none transition"
+                >
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
+
+            {/* Sub-order: section items when "Content Sections" is expanded */}
+            {isSectionsBlock && sectionsExpanded && sections.length > 0 && (
+              <div className="ml-6 pl-3 border-l-2 border-slate-700/60 space-y-1">
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-1.5">Order of section items</p>
+                {sections.map((sec, secIdx) => {
+                  const typeMeta = SECTION_TYPES.find(s => s.type === sec.type) || {}
+                  const SecIcon = typeMeta.icon || FileText
+                  const label = sec.title || typeMeta.label || sec.type
+                  return (
+                    <div
+                      key={secIdx}
+                      draggable
+                      onDragStart={() => handleSectionDragStart(secIdx)}
+                      onDragEnter={() => handleSectionDragEnter(secIdx)}
+                      onDragEnd={handleSectionDragEnd}
+                      onDragOver={e => e.preventDefault()}
+                      className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-slate-800/80 border border-slate-700/50 hover:border-slate-600/70 cursor-grab active:cursor-grabbing transition group"
+                    >
+                      <GripVertical className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 flex-shrink-0" />
+                      <span className="w-4 h-4 rounded flex items-center justify-center bg-slate-700/60 flex-shrink-0">
+                        <SecIcon className="w-2.5 h-2.5 text-slate-300" />
+                      </span>
+                      <span className="flex-1 text-[11px] font-medium text-slate-200 truncate">{label}</span>
+                      <span className="text-[9px] text-slate-500 font-mono">{secIdx + 1}</span>
+                      <div className="flex flex-col gap-0.5 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => moveSectionItem(secIdx, Math.max(0, secIdx - 1))}
+                          disabled={secIdx === 0}
+                          className="p-0.5 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 disabled:opacity-30 disabled:pointer-events-none transition"
+                        >
+                          <ChevronUp className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveSectionItem(secIdx, Math.min(sections.length - 1, secIdx + 1))}
+                          disabled={secIdx === sections.length - 1}
+                          className="p-0.5 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 disabled:opacity-30 disabled:pointer-events-none transition"
+                        >
+                          <ChevronDown className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )
       })}
@@ -1033,8 +1147,13 @@ function DesignTab({ card, updateField, slug, setSlug }) {
 
       {/* Content Order */}
       <Panel title="Content Order">
-        <p className="text-xs text-slate-400 mb-3">Drag or use arrows to reorder how content appears on your digital card.</p>
-        <ContentOrderPanel order={card.contentOrder || DEFAULT_CONTENT_ORDER} onChange={newOrder => updateField('contentOrder', newOrder)} />
+        <p className="text-xs text-slate-400 mb-3">Drag or use arrows to reorder how content appears on your digital card. Expand &quot;Content Sections&quot; to order individual section items (headers, text, links, etc.).</p>
+        <ContentOrderPanel
+          order={card.contentOrder || DEFAULT_CONTENT_ORDER}
+          onChange={newOrder => updateField('contentOrder', newOrder)}
+          sections={card.sections || []}
+          onSectionsOrderChange={newSections => updateField('sections', newSections)}
+        />
       </Panel>
 
       {/* Slug */}

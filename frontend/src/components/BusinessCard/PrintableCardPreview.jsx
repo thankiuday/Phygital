@@ -21,11 +21,11 @@ import {
 } from 'lucide-react'
 import { generateAdvancedQRCode } from '../../utils/qrGenerator'
 
-// ── Dark Theme ──
+// ── Dark Theme (full black + phygital neon lines top/bottom) ──
 const DARK = {
-  bg: '#0f172a',
-  bgCard: '#1e293b',
-  bgSubtle: '#334155',
+  bg: '#000000',
+  bgCard: '#0a0a0a',
+  bgSubtle: '#1a1a1a',
   neonBlue: '#00d4ff',
   neonPurple: '#a855f7',
   neonPink: '#ec4899',
@@ -106,6 +106,11 @@ const FRONT_LAYOUTS = [
   { id: 'leftPhoto', name: 'Left Photo', desc: 'Large photo left side' },
   { id: 'minimal', name: 'Minimal', desc: 'Text-only, no photo' },
   { id: 'bold', name: 'Bold', desc: 'Large name, compact info' },
+  { id: 'compact', name: 'Compact', desc: 'Dense layout, small photo' },
+  { id: 'rightPhoto', name: 'Right Photo', desc: 'Photo right, text left' },
+  { id: 'stripe', name: 'Stripe', desc: 'Gradient stripe at top' },
+  { id: 'cornerPhoto', name: 'Corner Photo', desc: 'Small photo in corner' },
+  { id: 'modern', name: 'Modern', desc: 'Clean with accent line' },
 ]
 
 const BACK_LAYOUTS = [
@@ -113,6 +118,12 @@ const BACK_LAYOUTS = [
   { id: 'qrLeft', name: 'QR + Info', desc: 'QR left, info right' },
   { id: 'qrMinimal', name: 'QR Minimal', desc: 'Small QR, large name' },
   { id: 'qrBrand', name: 'QR Branded', desc: 'QR with brand strip' },
+  { id: 'qrRight', name: 'QR Right', desc: 'QR right, info left' },
+  { id: 'qrTop', name: 'QR Top', desc: 'QR at top, name below' },
+  { id: 'qrBottom', name: 'QR Bottom', desc: 'QR at bottom' },
+  { id: 'qrCorner', name: 'QR Corner', desc: 'QR in corner' },
+  { id: 'qrSplit', name: 'QR Split', desc: 'Split layout' },
+  { id: 'qrFrame', name: 'QR Frame', desc: 'QR with frame' },
 ]
 
 // ═══════════════════════════════════════════════════════════
@@ -146,9 +157,9 @@ function ContactRow({ phone, email, website, whatsapp, fontScale = 1, colors }) 
   return (
     <div className="space-y-[4px]">
       {items.map((it, i) => (
-        <p key={i} className="flex items-center gap-2" style={{ color: colors.txt2, fontSize: sz(15) }}>
+        <p key={i} className="flex items-center gap-2" style={{ color: colors.white, fontSize: sz(15) }}>
           <span style={{ color: it.color, display: 'flex', alignItems: 'center' }}>{it.icon}</span>
-          <span className="truncate">{it.text}</span>
+          <span className="break-all">{it.text}</span>
         </p>
       ))}
     </div>
@@ -176,7 +187,7 @@ function QRBlock({ url, size = 96, colors }) {
     </div>
   ) : (
     <div className="rounded-xl flex items-center justify-center" style={{ width: `${size + 20}px`, height: `${size + 20}px`, backgroundColor: colors.glassLight, border: `1px solid ${colors.glass}` }}>
-      <span className="text-[10px]" style={{ color: colors.txt3 }}>QR Code</span>
+      <span className="text-[10px]" style={{ color: colors.white }}>QR Code</span>
     </div>
   )
 }
@@ -193,16 +204,16 @@ function FrontClassic({ v, photoZoom, photoOffsetX, photoOffsetY, fontScale = 1,
   const ng = makeGradient(colors)
   return (
     <div className="w-full h-full relative overflow-hidden" style={{ backgroundColor: colors.bg, fontFamily: FONT }}>
-      <NeonLine colors={colors} /><NeonLine pos="bottom" h={2} colors={colors} />
+      <NeonLine colors={colors} /><NeonLine pos="bottom" h={3} colors={colors} />
       <GlowOrb top="-10px" right="-10px" color={colors.neonPurple} size={160} />
       <GlowOrb bottom="-6px" left="-6px" color={colors.neonBlue} size={112} opacity={0.05} />
       <div className="relative z-10 w-full h-full flex items-stretch p-5 gap-4">
         <div className="flex-1 flex flex-col justify-between min-w-0">
           <BrandTag colors={colors} />
           <div className="my-auto">
-            <h1 className="font-extrabold leading-tight tracking-tight truncate" style={{ color: colors.white, fontSize: sz(34) }}>{v.name}</h1>
-            {(v.title || v.company) && <p className="font-medium mt-1.5 truncate" style={{ color: colors.txt2, fontSize: sz(17) }}>{[v.title, v.company].filter(Boolean).join('  ·  ')}</p>}
-            {v.bio && <p className="mt-2 leading-relaxed line-clamp-2" style={{ color: colors.txt3, fontSize: sz(13) }}>{v.bio}</p>}
+            <h1 className="font-extrabold leading-tight tracking-tight line-clamp-2 break-words" style={{ color: colors.white, fontSize: sz(34) }}>{v.name}</h1>
+            {(v.title || v.company) && <p className="font-medium mt-1.5 line-clamp-2 break-words" style={{ color: colors.white, fontSize: sz(17) }}>{[v.title, v.company].filter(Boolean).join('  ·  ')}</p>}
+            {v.bio && <p className="mt-2 leading-relaxed line-clamp-2" style={{ color: colors.white, fontSize: sz(13) }}>{v.bio}</p>}
           </div>
           <ContactRow phone={v.phone} email={v.email} website={v.website} whatsapp={v.whatsapp} fontScale={fontScale} colors={colors} />
         </div>
@@ -220,7 +231,7 @@ function FrontCentered({ v, photoZoom, photoOffsetX, photoOffsetY, fontScale = 1
   const sz = (px) => `${Math.round(px * fontScale)}px`
   return (
     <div className="w-full h-full relative overflow-hidden" style={{ backgroundColor: colors.bg, fontFamily: FONT }}>
-      <NeonLine colors={colors} /><NeonLine pos="bottom" h={2} colors={colors} />
+      <NeonLine colors={colors} /><NeonLine pos="bottom" h={3} colors={colors} />
       <GlowOrb top="-20px" left="50%" color={colors.neonPurple} size={200} opacity={0.06} />
       <GlowOrb bottom="-10px" right="-10px" color={colors.neonBlue} size={120} opacity={0.04} />
       <div className="relative z-10 w-full h-full flex flex-col items-center justify-center text-center px-6">
@@ -231,12 +242,12 @@ function FrontCentered({ v, photoZoom, photoOffsetX, photoOffsetY, fontScale = 1
           </div>
         )}
         <h1 className="font-extrabold leading-tight tracking-tight" style={{ color: colors.white, fontSize: sz(36) }}>{v.name}</h1>
-        {(v.title || v.company) && <p className="font-medium mt-1 truncate max-w-[80%]" style={{ color: colors.txt2, fontSize: sz(17) }}>{[v.title, v.company].filter(Boolean).join('  ·  ')}</p>}
-        {v.bio && <p className="mt-1.5 leading-relaxed line-clamp-2 max-w-[75%]" style={{ color: colors.txt3, fontSize: sz(13) }}>{v.bio}</p>}
+        {(v.title || v.company) && <p className="font-medium mt-1 line-clamp-2 break-words max-w-[80%] mx-auto" style={{ color: colors.white, fontSize: sz(17) }}>{[v.title, v.company].filter(Boolean).join('  ·  ')}</p>}
+        {v.bio && <p className="mt-1.5 leading-relaxed line-clamp-2 max-w-[75%]" style={{ color: colors.white, fontSize: sz(13) }}>{v.bio}</p>}
         <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-[3px]">
-          {v.phone && <p className="flex items-center gap-1.5" style={{ color: colors.txt2, fontSize: sz(15) }}><span style={{ color: colors.neonBlue, display:'flex' }}><PhoneIcon /></span>{v.phone}</p>}
-          {v.email && <p className="flex items-center gap-1.5" style={{ color: colors.txt2, fontSize: sz(15) }}><span style={{ color: colors.neonPurple, display:'flex' }}><EmailIcon /></span>{v.email}</p>}
-          {v.website && <p className="flex items-center gap-1.5" style={{ color: colors.txt2, fontSize: sz(15) }}><span style={{ color: colors.neonPink, display:'flex' }}><WebIcon /></span>{v.website}</p>}
+          {v.phone && <p className="flex items-center gap-1.5" style={{ color: colors.white, fontSize: sz(15) }}><span style={{ color: colors.neonBlue, display:'flex' }}><PhoneIcon /></span>{v.phone}</p>}
+          {v.email && <p className="flex items-center gap-1.5" style={{ color: colors.white, fontSize: sz(15) }}><span style={{ color: colors.neonPurple, display:'flex' }}><EmailIcon /></span>{v.email}</p>}
+          {v.website && <p className="flex items-center gap-1.5" style={{ color: colors.white, fontSize: sz(15) }}><span style={{ color: colors.neonPink, display:'flex' }}><WebIcon /></span>{v.website}</p>}
         </div>
       </div>
     </div>
@@ -247,7 +258,7 @@ function FrontLeftPhoto({ v, photoZoom, photoOffsetX, photoOffsetY, fontScale = 
   const sz = (px) => `${Math.round(px * fontScale)}px`
   return (
     <div className="w-full h-full relative overflow-hidden" style={{ backgroundColor: colors.bg, fontFamily: FONT }}>
-      <NeonLine colors={colors} /><NeonLine pos="bottom" h={2} colors={colors} />
+      <NeonLine colors={colors} /><NeonLine pos="bottom" h={3} colors={colors} />
       <GlowOrb top="-10px" left="-10px" color={colors.neonPurple} size={160} opacity={0.06} />
       <div className="relative z-10 w-full h-full flex items-stretch">
         {v.photo ? (
@@ -268,9 +279,9 @@ function FrontLeftPhoto({ v, photoZoom, photoOffsetX, photoOffsetY, fontScale = 
           <BrandTag colors={colors} />
           <div className="my-auto">
             <h1 className="font-extrabold leading-tight" style={{ color: colors.white, fontSize: sz(32) }}>{v.name}</h1>
-            {v.title && <p className="font-medium mt-1 truncate" style={{ color: colors.txt2, fontSize: sz(17) }}>{v.title}</p>}
-            {v.company && <p className="mt-0.5 truncate" style={{ color: colors.txt3, fontSize: sz(16) }}>{v.company}</p>}
-            {v.bio && <p className="mt-2 leading-relaxed line-clamp-3" style={{ color: colors.txt3, fontSize: sz(13) }}>{v.bio}</p>}
+            {v.title && <p className="font-medium mt-1 line-clamp-2 break-words" style={{ color: colors.white, fontSize: sz(17) }}>{v.title}</p>}
+            {v.company && <p className="mt-0.5 line-clamp-2 break-words" style={{ color: colors.white, fontSize: sz(16) }}>{v.company}</p>}
+            {v.bio && <p className="mt-2 leading-relaxed line-clamp-3" style={{ color: colors.white, fontSize: sz(13) }}>{v.bio}</p>}
           </div>
           <ContactRow phone={v.phone} email={v.email} website={v.website} whatsapp={v.whatsapp} fontScale={fontScale} colors={colors} />
         </div>
@@ -284,19 +295,19 @@ function FrontMinimal({ v, fontScale = 1, colors = DARK }) {
   const ng = makeGradient(colors)
   return (
     <div className="w-full h-full relative overflow-hidden" style={{ backgroundColor: colors.bg, fontFamily: FONT }}>
-      <NeonLine colors={colors} /><NeonLine pos="bottom" h={2} colors={colors} />
+      <NeonLine colors={colors} /><NeonLine pos="bottom" h={3} colors={colors} />
       <GlowOrb bottom="-20px" right="-20px" color={colors.neonPink} size={180} opacity={0.05} />
       <div className="relative z-10 w-full h-full flex flex-col justify-center px-8">
         <BrandTag colors={colors} />
         <div className="h-[2px] w-12 mt-3 mb-4 rounded-full" style={{ background: ng }} />
         <h1 className="font-extrabold leading-tight tracking-tight" style={{ color: colors.white, fontSize: sz(42) }}>{v.name}</h1>
-        {(v.title || v.company) && <p className="font-medium mt-2" style={{ color: colors.txt2, fontSize: sz(18) }}>{[v.title, v.company].filter(Boolean).join('  ·  ')}</p>}
-        {v.bio && <p className="mt-3 leading-relaxed max-w-[70%] line-clamp-2" style={{ color: colors.txt3, fontSize: sz(14) }}>{v.bio}</p>}
+        {(v.title || v.company) && <p className="font-medium mt-2 line-clamp-2 break-words" style={{ color: colors.white, fontSize: sz(18) }}>{[v.title, v.company].filter(Boolean).join('  ·  ')}</p>}
+        {v.bio && <p className="mt-3 leading-relaxed max-w-[70%] line-clamp-2" style={{ color: colors.white, fontSize: sz(14) }}>{v.bio}</p>}
         <div className="mt-auto mb-1">
           <div className="flex flex-wrap gap-x-5 gap-y-[4px]">
-            {v.phone && <p className="flex items-center gap-2" style={{ color: colors.txt2, fontSize: sz(15) }}><span style={{ color: colors.neonBlue, display:'flex' }}><PhoneIcon /></span>{v.phone}</p>}
-            {v.email && <p className="flex items-center gap-2" style={{ color: colors.txt2, fontSize: sz(15) }}><span style={{ color: colors.neonPurple, display:'flex' }}><EmailIcon /></span>{v.email}</p>}
-            {v.website && <p className="flex items-center gap-2" style={{ color: colors.txt2, fontSize: sz(15) }}><span style={{ color: colors.neonPink, display:'flex' }}><WebIcon /></span>{v.website}</p>}
+            {v.phone && <p className="flex items-center gap-2" style={{ color: colors.white, fontSize: sz(15) }}><span style={{ color: colors.neonBlue, display:'flex' }}><PhoneIcon /></span>{v.phone}</p>}
+            {v.email && <p className="flex items-center gap-2" style={{ color: colors.white, fontSize: sz(15) }}><span style={{ color: colors.neonPurple, display:'flex' }}><EmailIcon /></span>{v.email}</p>}
+            {v.website && <p className="flex items-center gap-2" style={{ color: colors.white, fontSize: sz(15) }}><span style={{ color: colors.neonPink, display:'flex' }}><WebIcon /></span>{v.website}</p>}
           </div>
         </div>
       </div>
@@ -309,7 +320,7 @@ function FrontBold({ v, photoZoom, photoOffsetX, photoOffsetY, fontScale = 1, co
   const ng = makeGradient(colors)
   return (
     <div className="w-full h-full relative overflow-hidden" style={{ backgroundColor: colors.bg, fontFamily: FONT }}>
-      <NeonLine colors={colors} /><NeonLine pos="bottom" h={2} colors={colors} />
+      <NeonLine colors={colors} /><NeonLine pos="bottom" h={3} colors={colors} />
       <GlowOrb top="-30px" left="30%" color={colors.neonPurple} size={240} opacity={0.05} />
       <div className="relative z-10 w-full h-full p-5 flex flex-col">
         <div className="flex items-start justify-between">
@@ -321,13 +332,145 @@ function FrontBold({ v, photoZoom, photoOffsetX, photoOffsetY, fontScale = 1, co
             background: ng, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: sz(48),
           }}>{v.name}</h1>
           {v.title && <p className="font-semibold mt-2" style={{ color: colors.white, fontSize: sz(20) }}>{v.title}</p>}
-          {v.company && <p className="mt-0.5" style={{ color: colors.txt3, fontSize: sz(16) }}>{v.company}</p>}
+          {v.company && <p className="mt-0.5" style={{ color: colors.white, fontSize: sz(16) }}>{v.company}</p>}
         </div>
         <div className="flex flex-wrap gap-x-5 gap-y-[4px]">
-          {v.phone && <p className="flex items-center gap-2" style={{ color: colors.txt2, fontSize: sz(15) }}><span style={{ color: colors.neonBlue, display:'flex' }}><PhoneIcon /></span>{v.phone}</p>}
-          {v.email && <p className="flex items-center gap-2" style={{ color: colors.txt2, fontSize: sz(15) }}><span style={{ color: colors.neonPurple, display:'flex' }}><EmailIcon /></span>{v.email}</p>}
-          {v.website && <p className="flex items-center gap-2" style={{ color: colors.txt2, fontSize: sz(15) }}><span style={{ color: colors.neonPink, display:'flex' }}><WebIcon /></span>{v.website}</p>}
-          {v.whatsapp && <p className="flex items-center gap-2" style={{ color: colors.txt2, fontSize: sz(15) }}><span style={{ color: colors.neonBlue, display:'flex' }}><WhatsAppIcon /></span>{v.whatsapp}</p>}
+          {v.phone && <p className="flex items-center gap-2" style={{ color: colors.white, fontSize: sz(15) }}><span style={{ color: colors.neonBlue, display:'flex' }}><PhoneIcon /></span>{v.phone}</p>}
+          {v.email && <p className="flex items-center gap-2" style={{ color: colors.white, fontSize: sz(15) }}><span style={{ color: colors.neonPurple, display:'flex' }}><EmailIcon /></span>{v.email}</p>}
+          {v.website && <p className="flex items-center gap-2" style={{ color: colors.white, fontSize: sz(15) }}><span style={{ color: colors.neonPink, display:'flex' }}><WebIcon /></span>{v.website}</p>}
+          {v.whatsapp && <p className="flex items-center gap-2" style={{ color: colors.white, fontSize: sz(15) }}><span style={{ color: colors.neonBlue, display:'flex' }}><WhatsAppIcon /></span>{v.whatsapp}</p>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function FrontCompact({ v, photoZoom, photoOffsetX, photoOffsetY, fontScale = 1, colors = DARK }) {
+  const sz = (px) => `${Math.round(px * fontScale)}px`
+  return (
+    <div className="w-full h-full relative overflow-hidden" style={{ backgroundColor: colors.bg, fontFamily: FONT }}>
+      <NeonLine colors={colors} /><NeonLine pos="bottom" h={3} colors={colors} />
+      <GlowOrb top="-10px" right="-10px" color={colors.neonBlue} size={120} opacity={0.06} />
+      <div className="relative z-10 w-full h-full flex items-stretch p-4 gap-3">
+        <div className="flex-1 flex flex-col justify-center min-w-0">
+          <h1 className="font-bold leading-tight truncate" style={{ color: colors.white, fontSize: sz(26) }}>{v.name}</h1>
+          {(v.title || v.company) && <p className="font-medium mt-0.5 line-clamp-2 break-words" style={{ color: colors.white, fontSize: sz(14) }}>{[v.title, v.company].filter(Boolean).join('  ·  ')}</p>}
+          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5">
+            {v.phone && <p className="flex items-center gap-1" style={{ color: colors.white, fontSize: sz(12) }}><span style={{ color: colors.neonBlue, display:'flex' }}><PhoneIcon /></span>{v.phone}</p>}
+            {v.email && <p className="flex items-center gap-1" style={{ color: colors.white, fontSize: sz(12) }}><span style={{ color: colors.neonPurple, display:'flex' }}><EmailIcon /></span>{v.email}</p>}
+            {v.website && <p className="flex items-center gap-1" style={{ color: colors.white, fontSize: sz(12) }}><span style={{ color: colors.neonPink, display:'flex' }}><WebIcon /></span>{v.website}</p>}
+          </div>
+        </div>
+        {v.photo && (
+          <div className="flex items-center justify-center flex-shrink-0">
+            <PhotoBox src={v.photo} zoom={photoZoom} offX={photoOffsetX} offY={photoOffsetY} size={56} rounded="12px" colors={colors} />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function FrontRightPhoto({ v, photoZoom, photoOffsetX, photoOffsetY, fontScale = 1, colors = DARK }) {
+  const sz = (px) => `${Math.round(px * fontScale)}px`
+  return (
+    <div className="w-full h-full relative overflow-hidden" style={{ backgroundColor: colors.bg, fontFamily: FONT }}>
+      <NeonLine colors={colors} /><NeonLine pos="bottom" h={3} colors={colors} />
+      <GlowOrb top="-10px" left="-10px" color={colors.neonPink} size={160} opacity={0.06} />
+      <div className="relative z-10 w-full h-full flex items-stretch flex-row-reverse">
+        {v.photo ? (
+          <div className="w-[40%] h-full relative overflow-hidden flex-shrink-0">
+            <img src={hiResPhoto(v.photo)} alt="" crossOrigin="anonymous" className="w-full h-full" style={{
+              objectFit: 'cover',
+              transform: `scale(${photoZoom||1}) translate(${photoOffsetX||0}px, ${photoOffsetY||0}px)`,
+              transformOrigin: 'center'
+            }} />
+            <div className="absolute inset-0" style={{ background: `linear-gradient(to left, transparent 60%, ${colors.bg})` }} />
+          </div>
+        ) : (
+          <div className="w-[40%] h-full flex items-center justify-center" style={{ background: `linear-gradient(225deg, ${colors.neonPink}20, ${colors.neonBlue}10)` }}>
+            <span className="font-black" style={{ color: colors.neonPink + '40', fontSize: sz(48) }}>{(v.name || '?')[0]}</span>
+          </div>
+        )}
+        <div className="flex-1 flex flex-col justify-between p-5 min-w-0">
+          <BrandTag colors={colors} />
+          <div className="my-auto">
+            <h1 className="font-extrabold leading-tight" style={{ color: colors.white, fontSize: sz(32) }}>{v.name}</h1>
+            {v.title && <p className="font-medium mt-1 line-clamp-2 break-words" style={{ color: colors.white, fontSize: sz(17) }}>{v.title}</p>}
+            {v.company && <p className="mt-0.5 line-clamp-2 break-words" style={{ color: colors.white, fontSize: sz(16) }}>{v.company}</p>}
+            {v.bio && <p className="mt-2 leading-relaxed line-clamp-2" style={{ color: colors.white, fontSize: sz(13) }}>{v.bio}</p>}
+          </div>
+          <ContactRow phone={v.phone} email={v.email} website={v.website} whatsapp={v.whatsapp} fontScale={fontScale} colors={colors} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function FrontStripe({ v, photoZoom, photoOffsetX, photoOffsetY, fontScale = 1, colors = DARK }) {
+  const sz = (px) => `${Math.round(px * fontScale)}px`
+  const ng = makeGradient(colors)
+  return (
+    <div className="w-full h-full relative overflow-hidden" style={{ backgroundColor: colors.bg, fontFamily: FONT }}>
+      <div className="absolute top-0 left-0 right-0 h-2 z-20" style={{ background: ng }} />
+      <NeonLine pos="bottom" h={3} colors={colors} />
+      <GlowOrb bottom="-10px" right="-10px" color={colors.neonPurple} size={140} opacity={0.05} />
+      <div className="relative z-10 w-full h-full flex items-stretch pt-6 p-5 gap-4">
+        <div className="flex-1 flex flex-col justify-between min-w-0">
+          <div>
+            <h1 className="font-extrabold leading-tight line-clamp-2 break-words" style={{ color: colors.white, fontSize: sz(30) }}>{v.name}</h1>
+            {(v.title || v.company) && <p className="font-medium mt-1 line-clamp-2 break-words" style={{ color: colors.white, fontSize: sz(15) }}>{[v.title, v.company].filter(Boolean).join('  ·  ')}</p>}
+            {v.bio && <p className="mt-1.5 leading-relaxed line-clamp-2" style={{ color: colors.white, fontSize: sz(12) }}>{v.bio}</p>}
+          </div>
+          <ContactRow phone={v.phone} email={v.email} website={v.website} whatsapp={v.whatsapp} fontScale={fontScale} colors={colors} />
+        </div>
+        {v.photo && (
+          <div className="flex items-center justify-center flex-shrink-0">
+            <PhotoBox src={v.photo} zoom={photoZoom} offX={photoOffsetX} offY={photoOffsetY} size={80} rounded="12px" colors={colors} />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function FrontCornerPhoto({ v, photoZoom, photoOffsetX, photoOffsetY, fontScale = 1, colors = DARK }) {
+  const sz = (px) => `${Math.round(px * fontScale)}px`
+  return (
+    <div className="w-full h-full relative overflow-hidden" style={{ backgroundColor: colors.bg, fontFamily: FONT }}>
+      <NeonLine colors={colors} /><NeonLine pos="bottom" h={3} colors={colors} />
+      <GlowOrb top="-10px" right="-10px" color={colors.neonBlue} size={100} opacity={0.06} />
+      {v.photo && (
+        <div className="absolute top-4 right-4 z-10">
+          <PhotoBox src={v.photo} zoom={photoZoom} offX={photoOffsetX} offY={photoOffsetY} size={64} rounded="12px" colors={colors} />
+        </div>
+      )}
+      <div className="relative z-10 w-full h-full flex flex-col justify-end p-5 pb-6">
+        <h1 className="font-extrabold leading-tight line-clamp-2 break-words" style={{ color: colors.white, fontSize: sz(34) }}>{v.name}</h1>
+        {(v.title || v.company) && <p className="font-medium mt-1 line-clamp-2 break-words" style={{ color: colors.white, fontSize: sz(16) }}>{[v.title, v.company].filter(Boolean).join('  ·  ')}</p>}
+        {v.bio && <p className="mt-1.5 leading-relaxed line-clamp-2" style={{ color: colors.white, fontSize: sz(13) }}>{v.bio}</p>}
+        <ContactRow phone={v.phone} email={v.email} website={v.website} whatsapp={v.whatsapp} fontScale={fontScale} colors={colors} />
+      </div>
+    </div>
+  )
+}
+
+function FrontModern({ v, fontScale = 1, colors = DARK }) {
+  const sz = (px) => `${Math.round(px * fontScale)}px`
+  const ng = makeGradient(colors)
+  return (
+    <div className="w-full h-full relative overflow-hidden" style={{ backgroundColor: colors.bg, fontFamily: FONT }}>
+      <NeonLine colors={colors} /><NeonLine pos="bottom" h={3} colors={colors} />
+      <div className="absolute left-0 top-0 bottom-0 w-1 z-10" style={{ background: ng }} />
+      <GlowOrb bottom="-20px" right="-20px" color={colors.neonPurple} size={160} opacity={0.05} />
+      <div className="relative z-10 w-full h-full flex flex-col justify-center pl-6 pr-8">
+        <h1 className="font-extrabold leading-tight tracking-tight" style={{ color: colors.white, fontSize: sz(38) }}>{v.name}</h1>
+        {(v.title || v.company) && <p className="font-medium mt-1.5 line-clamp-2 break-words" style={{ color: colors.white, fontSize: sz(17) }}>{[v.title, v.company].filter(Boolean).join('  ·  ')}</p>}
+        {v.bio && <p className="mt-2 leading-relaxed line-clamp-2" style={{ color: colors.white, fontSize: sz(14) }}>{v.bio}</p>}
+        <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1">
+          {v.phone && <p className="flex items-center gap-2" style={{ color: colors.white, fontSize: sz(14) }}><span style={{ color: colors.neonBlue, display:'flex' }}><PhoneIcon /></span>{v.phone}</p>}
+          {v.email && <p className="flex items-center gap-2" style={{ color: colors.white, fontSize: sz(14) }}><span style={{ color: colors.neonPurple, display:'flex' }}><EmailIcon /></span>{v.email}</p>}
+          {v.website && <p className="flex items-center gap-2" style={{ color: colors.white, fontSize: sz(14) }}><span style={{ color: colors.neonPink, display:'flex' }}><WebIcon /></span>{v.website}</p>}
         </div>
       </div>
     </div>
@@ -340,6 +483,11 @@ const FRONT_COMPONENTS = {
   leftPhoto: FrontLeftPhoto,
   minimal: FrontMinimal,
   bold: FrontBold,
+  compact: FrontCompact,
+  rightPhoto: FrontRightPhoto,
+  stripe: FrontStripe,
+  cornerPhoto: FrontCornerPhoto,
+  modern: FrontModern,
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -353,13 +501,13 @@ function BackQRCenter({ card, qrDataUrl, vf, fontScale = 1, colors = DARK }) {
   const displayName = name || company
   return (
     <div className="w-full h-full relative overflow-hidden" style={{ backgroundColor: colors.bg, fontFamily: FONT }}>
-      <NeonLine colors={colors} /><NeonLine pos="bottom" h={2} colors={colors} />
+      <NeonLine colors={colors} /><NeonLine pos="bottom" h={3} colors={colors} />
       <GlowOrb bottom="-10px" right="-10px" color={colors.neonPink} size={160} />
       <GlowOrb top="-6px" left="-6px" color={colors.neonBlue} size={112} opacity={0.05} />
       <div className="relative z-10 w-full h-full flex flex-col items-center justify-center text-center px-6">
         <QRBlock url={qrDataUrl} colors={colors} />
         <p className="font-bold tracking-wide mt-3" style={{ background: ng, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: sz(18) }}>Scan to connect</p>
-        {displayName && <p className="mt-1" style={{ color: colors.txt3, fontSize: sz(15) }}>{displayName}</p>}
+        {displayName && <p className="mt-1" style={{ color: colors.white, fontSize: sz(15) }}>{displayName}</p>}
         <BrandFooter colors={colors} />
       </div>
     </div>
@@ -377,7 +525,7 @@ function BackQRLeft({ card, qrDataUrl, vf, fontScale = 1, colors = DARK }) {
   const website = vf.website ? (card?.contact?.website || '') : ''
   return (
     <div className="w-full h-full relative overflow-hidden" style={{ backgroundColor: colors.bg, fontFamily: FONT }}>
-      <NeonLine colors={colors} /><NeonLine pos="bottom" h={2} colors={colors} />
+      <NeonLine colors={colors} /><NeonLine pos="bottom" h={3} colors={colors} />
       <GlowOrb top="-10px" right="-10px" color={colors.neonPurple} size={140} opacity={0.06} />
       <div className="relative z-10 w-full h-full flex items-center p-6 gap-6">
         <div className="flex flex-col items-center flex-shrink-0">
@@ -386,13 +534,13 @@ function BackQRLeft({ card, qrDataUrl, vf, fontScale = 1, colors = DARK }) {
         </div>
         <div className="w-[1px] h-[70%] rounded-full" style={{ background: ng, opacity: 0.3 }} />
         <div className="flex-1 flex flex-col justify-center min-w-0">
-          {name && <h2 className="font-bold truncate" style={{ color: colors.white, fontSize: sz(28) }}>{name}</h2>}
-          {(title || company) && <p className="mt-1 truncate" style={{ color: colors.txt2, fontSize: sz(16) }}>{[title, company].filter(Boolean).join(' · ')}</p>}
+          {name && <h2 className="font-bold line-clamp-2 break-words" style={{ color: colors.white, fontSize: sz(28) }}>{name}</h2>}
+          {(title || company) && <p className="mt-1 line-clamp-2 break-words" style={{ color: colors.white, fontSize: sz(16) }}>{[title, company].filter(Boolean).join(' · ')}</p>}
           {(phone || email || website) && (
-            <div className="mt-3 space-y-[4px]">
-              {phone && <p className="flex items-center gap-2 truncate" style={{ color: colors.txt2, fontSize: sz(15) }}><span style={{ color: colors.neonBlue, display:'flex' }}><PhoneIcon /></span>{phone}</p>}
-              {email && <p className="flex items-center gap-2 truncate" style={{ color: colors.txt2, fontSize: sz(15) }}><span style={{ color: colors.neonPurple, display:'flex' }}><EmailIcon /></span>{email}</p>}
-              {website && <p className="flex items-center gap-2 truncate" style={{ color: colors.txt2, fontSize: sz(15) }}><span style={{ color: colors.neonPink, display:'flex' }}><WebIcon /></span>{website}</p>}
+            <div className="mt-3 space-y-[4px] min-w-0">
+              {phone && <p className="flex items-center gap-2 break-all" style={{ color: colors.white, fontSize: sz(15) }}><span className="flex-shrink-0" style={{ color: colors.neonBlue, display:'flex' }}><PhoneIcon /></span><span className="min-w-0">{phone}</span></p>}
+              {email && <p className="flex items-center gap-2 break-all" style={{ color: colors.white, fontSize: sz(15) }}><span className="flex-shrink-0" style={{ color: colors.neonPurple, display:'flex' }}><EmailIcon /></span><span className="min-w-0">{email}</span></p>}
+              {website && <p className="flex items-center gap-2 break-all" style={{ color: colors.white, fontSize: sz(15) }}><span className="flex-shrink-0" style={{ color: colors.neonPink, display:'flex' }}><WebIcon /></span><span className="min-w-0">{website}</span></p>}
             </div>
           )}
         </div>
@@ -409,13 +557,13 @@ function BackQRMinimal({ card, qrDataUrl, vf, fontScale = 1, colors = DARK }) {
   const title = vf.title ? (card?.profile?.title || '') : ''
   return (
     <div className="w-full h-full relative overflow-hidden" style={{ backgroundColor: colors.bg, fontFamily: FONT }}>
-      <NeonLine colors={colors} /><NeonLine pos="bottom" h={2} colors={colors} />
+      <NeonLine colors={colors} /><NeonLine pos="bottom" h={3} colors={colors} />
       <GlowOrb top="50%" left="-20px" color={colors.neonPurple} size={200} opacity={0.04} />
       <div className="relative z-10 w-full h-full flex items-center justify-between p-6">
         <div className="flex-1 min-w-0">
           <BrandTag colors={colors} />
           <h1 className="font-black leading-tight mt-3" style={{ color: colors.white, fontSize: sz(40) }}>{name || 'Your Name'}</h1>
-          {title && <p className="mt-1.5" style={{ color: colors.txt2, fontSize: sz(17) }}>{title}</p>}
+          {title && <p className="mt-1.5" style={{ color: colors.white, fontSize: sz(17) }}>{title}</p>}
           <p className="mt-4 font-medium tracking-wide" style={{ background: ng, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: sz(15) }}>Scan to connect →</p>
         </div>
         <div className="flex-shrink-0 ml-4">
@@ -434,12 +582,151 @@ function BackQRBrand({ card, qrDataUrl, vf, fontScale = 1, colors = DARK }) {
   return (
     <div className="w-full h-full relative overflow-hidden" style={{ backgroundColor: colors.bg, fontFamily: FONT }}>
       <div className="absolute top-0 left-0 right-0 h-[40%] z-0" style={{ background: `linear-gradient(135deg, ${colors.neonPurple}15, ${colors.neonBlue}10)` }} />
-      <NeonLine colors={colors} /><NeonLine pos="bottom" h={2} colors={colors} />
+      <NeonLine colors={colors} /><NeonLine pos="bottom" h={3} colors={colors} />
       <GlowOrb top="-10px" right="20%" color={colors.neonPink} size={160} opacity={0.06} />
       <div className="relative z-10 w-full h-full flex flex-col items-center justify-center text-center px-6">
         <QRBlock url={qrDataUrl} size={96} colors={colors} />
         <p className="font-bold tracking-wide mt-3" style={{ background: ng, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: sz(18) }}>Scan to connect</p>
-        {name && <p className="mt-1.5 font-medium" style={{ color: colors.txt2, fontSize: sz(16) }}>{name}</p>}
+        {name && <p className="mt-1.5 font-medium" style={{ color: colors.white, fontSize: sz(16) }}>{name}</p>}
+      </div>
+    </div>
+  )
+}
+
+function BackQRRight({ card, qrDataUrl, vf, fontScale = 1, colors = DARK }) {
+  const sz = (px) => `${Math.round(px * fontScale)}px`
+  const ng = makeGradient(colors)
+  const name = vf.name ? (card?.profile?.name || '') : ''
+  const title = vf.title ? (card?.profile?.title || '') : ''
+  const company = vf.company ? (card?.profile?.company || '') : ''
+  const phone = vf.phone ? (card?.contact?.phone || '') : ''
+  const email = vf.email ? (card?.contact?.email || '') : ''
+  const website = vf.website ? (card?.contact?.website || '') : ''
+  return (
+    <div className="w-full h-full relative overflow-hidden" style={{ backgroundColor: colors.bg, fontFamily: FONT }}>
+      <NeonLine colors={colors} /><NeonLine pos="bottom" h={3} colors={colors} />
+      <GlowOrb top="-10px" left="-10px" color={colors.neonBlue} size={140} opacity={0.06} />
+      <div className="relative z-10 w-full h-full flex items-center p-6 gap-6 flex-row-reverse">
+        <div className="flex flex-col items-center flex-shrink-0">
+          <QRBlock url={qrDataUrl} size={100} colors={colors} />
+          <p className="font-bold tracking-wide mt-2" style={{ background: ng, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: sz(14) }}>Scan to connect</p>
+        </div>
+        <div className="w-[1px] h-[70%] rounded-full flex-shrink-0" style={{ background: ng, opacity: 0.3 }} />
+        <div className="flex-1 flex flex-col justify-center min-w-0 text-right">
+          {name && <h2 className="font-bold line-clamp-2 break-words" style={{ color: colors.white, fontSize: sz(28) }}>{name}</h2>}
+          {(title || company) && <p className="mt-1 line-clamp-2 break-words" style={{ color: colors.white, fontSize: sz(16) }}>{[title, company].filter(Boolean).join(' · ')}</p>}
+          {(phone || email || website) && (
+            <div className="mt-3 space-y-[4px] min-w-0 flex flex-col items-end">
+              {phone && <p className="flex items-center gap-2 break-all" style={{ color: colors.white, fontSize: sz(15) }}><span className="min-w-0">{phone}</span><span className="flex-shrink-0" style={{ color: colors.neonBlue, display:'flex' }}><PhoneIcon /></span></p>}
+              {email && <p className="flex items-center gap-2 break-all" style={{ color: colors.white, fontSize: sz(15) }}><span className="min-w-0">{email}</span><span className="flex-shrink-0" style={{ color: colors.neonPurple, display:'flex' }}><EmailIcon /></span></p>}
+              {website && <p className="flex items-center gap-2 break-all" style={{ color: colors.white, fontSize: sz(15) }}><span className="min-w-0">{website}</span><span className="flex-shrink-0" style={{ color: colors.neonPink, display:'flex' }}><WebIcon /></span></p>}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function BackQRTop({ card, qrDataUrl, vf, fontScale = 1, colors = DARK }) {
+  const sz = (px) => `${Math.round(px * fontScale)}px`
+  const ng = makeGradient(colors)
+  const name = vf.name ? (card?.profile?.name || '') : ''
+  const title = vf.title ? (card?.profile?.title || '') : ''
+  return (
+    <div className="w-full h-full relative overflow-hidden" style={{ backgroundColor: colors.bg, fontFamily: FONT }}>
+      <NeonLine colors={colors} /><NeonLine pos="bottom" h={3} colors={colors} />
+      <GlowOrb bottom="-10px" left="50%" color={colors.neonPurple} size={180} opacity={0.05} />
+      <div className="relative z-10 w-full h-full flex flex-col items-center pt-5 pb-6 px-6">
+        <QRBlock url={qrDataUrl} size={88} colors={colors} />
+        <p className="font-bold tracking-wide mt-2" style={{ background: ng, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: sz(14) }}>Scan to connect</p>
+        <div className="flex-1 flex flex-col justify-center text-center mt-2">
+          {name && <h2 className="font-bold line-clamp-2 break-words" style={{ color: colors.white, fontSize: sz(26) }}>{name}</h2>}
+          {title && <p className="mt-1 line-clamp-2 break-words" style={{ color: colors.white, fontSize: sz(15) }}>{title}</p>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function BackQRBottom({ card, qrDataUrl, vf, fontScale = 1, colors = DARK }) {
+  const sz = (px) => `${Math.round(px * fontScale)}px`
+  const ng = makeGradient(colors)
+  const name = vf.name ? (card?.profile?.name || '') : ''
+  return (
+    <div className="w-full h-full relative overflow-hidden" style={{ backgroundColor: colors.bg, fontFamily: FONT }}>
+      <NeonLine colors={colors} /><NeonLine pos="bottom" h={3} colors={colors} />
+      <GlowOrb top="-10px" right="-10px" color={colors.neonPink} size={120} opacity={0.06} />
+      <div className="relative z-10 w-full h-full flex flex-col justify-between p-6">
+        <div className="text-center">
+          {name && <h2 className="font-bold line-clamp-2 break-words" style={{ color: colors.white, fontSize: sz(28) }}>{name}</h2>}
+          <p className="font-medium mt-2 tracking-wide" style={{ background: ng, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: sz(16) }}>Scan to connect</p>
+        </div>
+        <div className="flex justify-center">
+          <QRBlock url={qrDataUrl} size={100} colors={colors} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function BackQRCorner({ card, qrDataUrl, vf, fontScale = 1, colors = DARK }) {
+  const sz = (px) => `${Math.round(px * fontScale)}px`
+  const ng = makeGradient(colors)
+  const name = vf.name ? (card?.profile?.name || '') : ''
+  return (
+    <div className="w-full h-full relative overflow-hidden" style={{ backgroundColor: colors.bg, fontFamily: FONT }}>
+      <NeonLine colors={colors} /><NeonLine pos="bottom" h={3} colors={colors} />
+      <div className="absolute top-4 right-4 z-10">
+        <QRBlock url={qrDataUrl} size={72} colors={colors} />
+      </div>
+      <GlowOrb bottom="-10px" left="-10px" color={colors.neonBlue} size={140} opacity={0.05} />
+      <div className="relative z-10 w-full h-full flex flex-col justify-end p-5 pb-6">
+        <h2 className="font-bold line-clamp-2 break-words" style={{ color: colors.white, fontSize: sz(32) }}>{name || 'Your Name'}</h2>
+        <p className="font-medium mt-1 tracking-wide" style={{ background: ng, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: sz(14) }}>Scan QR to connect</p>
+      </div>
+    </div>
+  )
+}
+
+function BackQRSplit({ card, qrDataUrl, vf, fontScale = 1, colors = DARK }) {
+  const sz = (px) => `${Math.round(px * fontScale)}px`
+  const ng = makeGradient(colors)
+  const name = vf.name ? (card?.profile?.name || '') : ''
+  const phone = vf.phone ? (card?.contact?.phone || '') : ''
+  const email = vf.email ? (card?.contact?.email || '') : ''
+  return (
+    <div className="w-full h-full relative overflow-hidden" style={{ backgroundColor: colors.bg, fontFamily: FONT }}>
+      <NeonLine colors={colors} /><NeonLine pos="bottom" h={3} colors={colors} />
+      <div className="absolute left-0 top-0 bottom-0 w-1/2 flex flex-col items-center justify-center p-4 border-r border-white/10">
+        <QRBlock url={qrDataUrl} size={90} colors={colors} />
+        <p className="font-bold tracking-wide mt-2" style={{ background: ng, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: sz(12) }}>Scan</p>
+      </div>
+      <div className="absolute left-1/2 top-0 bottom-0 right-0 flex flex-col justify-center pl-6 pr-5">
+        {name && <h2 className="font-bold line-clamp-2 break-words" style={{ color: colors.white, fontSize: sz(24) }}>{name}</h2>}
+        <div className="mt-3 space-y-1">
+          {phone && <p className="flex items-center gap-2 break-all" style={{ color: colors.white, fontSize: sz(13) }}><span style={{ color: colors.neonBlue, display:'flex' }}><PhoneIcon /></span>{phone}</p>}
+          {email && <p className="flex items-center gap-2 break-all" style={{ color: colors.white, fontSize: sz(13) }}><span style={{ color: colors.neonPurple, display:'flex' }}><EmailIcon /></span>{email}</p>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function BackQRFrame({ card, qrDataUrl, vf, fontScale = 1, colors = DARK }) {
+  const sz = (px) => `${Math.round(px * fontScale)}px`
+  const ng = makeGradient(colors)
+  const name = vf.name ? (card?.profile?.name || '') : ''
+  return (
+    <div className="w-full h-full relative overflow-hidden" style={{ backgroundColor: colors.bg, fontFamily: FONT }}>
+      <NeonLine colors={colors} /><NeonLine pos="bottom" h={3} colors={colors} />
+      <GlowOrb top="50%" left="50%" color={colors.neonPurple} size={200} opacity={0.04} />
+      <div className="relative z-10 w-full h-full flex flex-col items-center justify-center p-8">
+        <div className="rounded-2xl p-2" style={{ background: ng, boxShadow: `0 0 40px ${colors.neonPurple}30` }}>
+          <QRBlock url={qrDataUrl} size={100} colors={colors} />
+        </div>
+        <p className="font-bold tracking-wide mt-4" style={{ background: ng, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: sz(16) }}>Scan to connect</p>
+        {name && <p className="mt-1 font-medium" style={{ color: colors.white, fontSize: sz(15) }}>{name}</p>}
       </div>
     </div>
   )
@@ -450,6 +737,12 @@ const BACK_COMPONENTS = {
   qrLeft: BackQRLeft,
   qrMinimal: BackQRMinimal,
   qrBrand: BackQRBrand,
+  qrRight: BackQRRight,
+  qrTop: BackQRTop,
+  qrBottom: BackQRBottom,
+  qrCorner: BackQRCorner,
+  qrSplit: BackQRSplit,
+  qrFrame: BackQRFrame,
 }
 
 // ── Tiny SVG icons (slightly larger for print) ──
@@ -518,11 +811,46 @@ function FrontSchematic({ layoutId }) {
       <div className="w-12 h-2.5 rounded-sm" style={{ background: `linear-gradient(90deg, ${c.b}, ${c.p}, ${c.pk})`, opacity: 0.6 }} />
     </div>
   )
+  if (layoutId === 'compact') return (
+    <div className="w-full h-10 rounded bg-slate-800 flex items-center px-2 gap-1.5">
+      <div className="flex-1 space-y-0.5"><div className="w-8 h-1.5 rounded-sm" style={{ backgroundColor: c.p }} /><div className="w-6 h-1 rounded-sm bg-slate-600" /></div>
+      <div className="w-5 h-5 rounded-md flex-shrink-0" style={{ backgroundColor: c.b + '30' }} />
+    </div>
+  )
+  if (layoutId === 'rightPhoto') return (
+    <div className="w-full h-10 rounded bg-slate-800 flex items-stretch overflow-hidden flex-row-reverse">
+      <div className="w-[38%] h-full" style={{ background: `linear-gradient(225deg, ${c.pk}20, ${c.b}15)` }} />
+      <div className="flex-1 flex flex-col justify-center px-1.5 gap-0.5"><div className="w-8 h-1.5 rounded-sm" style={{ backgroundColor: c.p }} /><div className="w-6 h-1 rounded-sm bg-slate-600" /></div>
+    </div>
+  )
+  if (layoutId === 'stripe') return (
+    <div className="w-full h-10 rounded bg-slate-800 flex flex-col">
+      <div className="h-1 w-full rounded-t" style={{ background: `linear-gradient(90deg, ${c.b}, ${c.p}, ${c.pk})` }} />
+      <div className="flex-1 flex items-center px-2 gap-2">
+        <div className="flex-1 space-y-0.5"><div className="w-8 h-1.5 rounded-sm" style={{ backgroundColor: c.p }} /></div>
+        <div className="w-5 h-5 rounded" style={{ backgroundColor: c.b + '20' }} />
+      </div>
+    </div>
+  )
+  if (layoutId === 'cornerPhoto') return (
+    <div className="w-full h-10 rounded bg-slate-800 flex flex-col justify-end px-2 pb-1.5 relative">
+      <div className="absolute top-1 right-1 w-4 h-4 rounded" style={{ backgroundColor: c.b + '40' }} />
+      <div className="w-10 h-2 rounded-sm" style={{ backgroundColor: c.p }} />
+      <div className="w-6 h-1 rounded-sm bg-slate-600 mt-0.5" />
+    </div>
+  )
+  if (layoutId === 'modern') return (
+    <div className="w-full h-10 rounded bg-slate-800 flex items-center">
+      <div className="w-0.5 h-8 rounded-full flex-shrink-0 ml-1" style={{ background: `linear-gradient(180deg, ${c.b}, ${c.pk})` }} />
+      <div className="flex-1 px-2 space-y-0.5"><div className="w-9 h-2 rounded-sm" style={{ backgroundColor: c.p }} /><div className="w-6 h-1 rounded-sm bg-slate-600" /></div>
+    </div>
+  )
   return <div className="w-full h-10 rounded bg-slate-800" />
 }
 
 function BackSchematic({ layoutId }) {
   const c = { p: DARK.neonPurple, b: DARK.neonBlue, pk: DARK.neonPink }
+  const ng = `linear-gradient(90deg, ${c.b}, ${c.p}, ${c.pk})`
   if (layoutId === 'qrCenter') return (
     <div className="w-full h-10 rounded bg-slate-800 flex flex-col items-center justify-center gap-0.5">
       <div className="w-5 h-5 rounded bg-white/80" /><div className="w-6 h-0.5 rounded-sm" style={{ background: `linear-gradient(90deg, ${c.b}, ${c.pk})` }} />
@@ -545,6 +873,43 @@ function BackSchematic({ layoutId }) {
     <div className="w-full h-10 rounded bg-slate-800 flex flex-col items-center justify-center gap-0.5 relative overflow-hidden">
       <div className="absolute top-0 left-0 right-0 h-[40%]" style={{ background: `linear-gradient(135deg, ${c.p}15, ${c.b}10)` }} />
       <div className="w-5 h-5 rounded bg-white/80 relative z-10" />
+    </div>
+  )
+  if (layoutId === 'qrRight') return (
+    <div className="w-full h-10 rounded bg-slate-800 flex items-center px-2 gap-1.5 flex-row-reverse">
+      <div className="w-5 h-5 rounded bg-white/80 flex-shrink-0" />
+      <div className="w-[1px] h-5 rounded-full flex-shrink-0" style={{ background: ng, opacity: 0.4 }} />
+      <div className="flex-1 space-y-0.5 text-right"><div className="w-8 h-1.5 rounded-sm ml-auto" style={{ backgroundColor: c.p }} /></div>
+    </div>
+  )
+  if (layoutId === 'qrTop') return (
+    <div className="w-full h-10 rounded bg-slate-800 flex flex-col items-center justify-center gap-0.5">
+      <div className="w-5 h-5 rounded bg-white/80" />
+      <div className="w-6 h-0.5 rounded-sm" style={{ background: `linear-gradient(90deg, ${c.b}, ${c.pk})` }} />
+      <div className="w-8 h-1.5 rounded-sm" style={{ backgroundColor: c.p }} />
+    </div>
+  )
+  if (layoutId === 'qrBottom') return (
+    <div className="w-full h-10 rounded bg-slate-800 flex flex-col justify-between p-1.5">
+      <div className="w-8 h-2 rounded-sm" style={{ backgroundColor: c.p }} />
+      <div className="w-5 h-5 rounded bg-white/80 self-center" />
+    </div>
+  )
+  if (layoutId === 'qrCorner') return (
+    <div className="w-full h-10 rounded bg-slate-800 flex flex-col justify-end p-1.5 relative">
+      <div className="absolute top-1 right-1 w-4 h-4 rounded bg-white/80" />
+      <div className="w-8 h-2 rounded-sm" style={{ backgroundColor: c.p }} />
+    </div>
+  )
+  if (layoutId === 'qrSplit') return (
+    <div className="w-full h-10 rounded bg-slate-800 flex">
+      <div className="w-1/2 flex items-center justify-center border-r border-slate-600"><div className="w-4 h-4 rounded bg-white/80" /></div>
+      <div className="w-1/2 flex flex-col justify-center px-1"><div className="w-7 h-1.5 rounded-sm" style={{ backgroundColor: c.p }} /></div>
+    </div>
+  )
+  if (layoutId === 'qrFrame') return (
+    <div className="w-full h-10 rounded bg-slate-800 flex flex-col items-center justify-center gap-0.5 p-1">
+      <div className="rounded border-2 flex items-center justify-center" style={{ borderColor: c.p, padding: '2px' }}><div className="w-4 h-4 rounded-sm bg-white/80" /></div>
     </div>
   )
   return <div className="w-full h-10 rounded bg-slate-800" />
@@ -928,12 +1293,12 @@ const PrintableCardPreview = forwardRef(function PrintableCardPreview({ card, sl
         </p>
 
         <p className="text-[10px] text-slate-400 mb-2 uppercase tracking-wider font-semibold">Front Side</p>
-        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-4">
+        <div className="flex gap-2 mb-4 overflow-x-auto pb-2 -mx-1 px-1" style={{ scrollbarGutter: 'stable' }}>
           {FRONT_LAYOUTS.map(l => (
             <button
               key={l.id}
               onClick={() => { setFrontLayout(l.id); setSide('front') }}
-              className={`p-2 rounded-lg border-2 transition-all text-left ${frontLayout === l.id ? 'border-neon-purple bg-neon-purple/10' : 'border-slate-700/50 hover:border-slate-600 bg-slate-800/30'}`}
+              className={`flex-shrink-0 w-[100px] min-w-[100px] p-2 rounded-lg border-2 transition-all text-left ${frontLayout === l.id ? 'border-neon-purple bg-neon-purple/10' : 'border-slate-700/50 hover:border-slate-600 bg-slate-800/30'}`}
             >
               <FrontSchematic layoutId={l.id} />
               <p className="text-[10px] font-medium text-slate-200 mt-1.5 truncate">{l.name}</p>
@@ -943,12 +1308,12 @@ const PrintableCardPreview = forwardRef(function PrintableCardPreview({ card, sl
         </div>
 
         <p className="text-[10px] text-slate-400 mb-2 uppercase tracking-wider font-semibold">Back Side</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1" style={{ scrollbarGutter: 'stable' }}>
           {BACK_LAYOUTS.map(l => (
             <button
               key={l.id}
               onClick={() => { setBackLayout(l.id); setSide('back') }}
-              className={`p-2 rounded-lg border-2 transition-all text-left ${backLayout === l.id ? 'border-neon-purple bg-neon-purple/10' : 'border-slate-700/50 hover:border-slate-600 bg-slate-800/30'}`}
+              className={`flex-shrink-0 w-[100px] min-w-[100px] p-2 rounded-lg border-2 transition-all text-left ${backLayout === l.id ? 'border-neon-purple bg-neon-purple/10' : 'border-slate-700/50 hover:border-slate-600 bg-slate-800/30'}`}
             >
               <BackSchematic layoutId={l.id} />
               <p className="text-[10px] font-medium text-slate-200 mt-1.5 truncate">{l.name}</p>
@@ -989,7 +1354,7 @@ const PrintableCardPreview = forwardRef(function PrintableCardPreview({ card, sl
       </div>
 
       {/* ── Photo Adjustment ── */}
-      {hasPhoto && frontLayout !== 'minimal' && (
+      {hasPhoto && !['minimal', 'modern'].includes(frontLayout) && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 backdrop-blur-sm">
           <p className="text-xs font-medium text-slate-300 mb-3 flex items-center gap-1.5">
             <Move className="w-3.5 h-3.5 text-neon-blue" /> Adjust Photo
