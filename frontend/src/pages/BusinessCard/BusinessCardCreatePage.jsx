@@ -15,6 +15,8 @@ import {
   ImagePlus, EyeOff, QrCode, X
 } from 'lucide-react'
 import api from '../../utils/api'
+import { useAuth } from '../../contexts/AuthContext'
+import { savePendingFlow, getPendingFlow, clearPendingFlow } from '../../utils/pendingFlow'
 import { downloadVCard } from '../../utils/vcardGenerator'
 import { generateAdvancedQRCode } from '../../utils/qrGenerator'
 import businessCardTemplates, { getBusinessCardTemplate, mergeThemeColors } from '../../config/businessCardTemplates'
@@ -67,6 +69,7 @@ const TABS = [
 export default function BusinessCardCreatePage() {
   const { id: editId } = useParams()
   const navigate = useNavigate()
+  const { isAuthenticated } = useAuth()
   const [activeTab, setActiveTab] = useState(0)
   const [tabVisible, setTabVisible] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -91,9 +94,70 @@ export default function BusinessCardCreatePage() {
     setTimeout(() => { setActiveTab(idx); setTabVisible(true) }, 120)
   }, [activeTab])
 
+  // When a previously anonymous user logs in, migrate any temporary blob: images
+  // (profile photo, banner) to real uploads on the server so they persist.
+  const migrateAnonymousMedia = useCallback(async (targetCardId) => {
+    if (!isAuthenticated || !targetCardId) return
+    const tasks = []
+
+    try {
+      if (card.profile?.photo && typeof card.profile.photo === 'string' && card.profile.photo.startsWith('blob:')) {
+        tasks.push((async () => {
+          try {
+            const resp = await fetch(card.profile.photo)
+            const blob = await resp.blob()
+            const formData = new FormData()
+            formData.append('photo', blob, 'photo.png')
+            await api.post(`/business-cards/${targetCardId}/photo`, formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            })
+          } catch (err) {
+            console.error('Failed to migrate profile photo from blob URL:', err)
+          }
+        })())
+      }
+
+      if (card.profile?.bannerImage && typeof card.profile.bannerImage === 'string' && card.profile.bannerImage.startsWith('blob:')) {
+        tasks.push((async () => {
+          try {
+            const resp = await fetch(card.profile.bannerImage)
+            const blob = await resp.blob()
+            const formData = new FormData()
+            formData.append('banner', blob, 'banner.png')
+            await api.post(`/business-cards/${targetCardId}/banner`, formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            })
+          } catch (err) {
+            console.error('Failed to migrate banner image from blob URL:', err)
+          }
+        })())
+      }
+
+      if (tasks.length) {
+        await Promise.allSettled(tasks)
+      }
+    } catch (err) {
+      console.error('Anonymous media migration error:', err)
+    }
+  }, [card, isAuthenticated])
+
   const currentTemplate = useMemo(() => getBusinessCardTemplate(card.templateId), [card.templateId])
   const colors = useMemo(() => mergeThemeColors(currentTemplate, card.theme), [currentTemplate, card.theme])
   const publicUrl = slug ? `${window.location.origin}/#/card/${slug}` : ''
+
+  // ── Restore pending draft after login (for anonymous publish attempts) ──
+  useEffect(() => {
+    const flow = getPendingFlow()
+    if (flow && flow.type === 'business-card') {
+      if (flow.data?.card) {
+        setCard(flow.data.card)
+      }
+      if (typeof flow.data?.slug === 'string') {
+        setSlug(flow.data.slug)
+      }
+      clearPendingFlow()
+    }
+  }, [])
 
   // ── Load card if editing ──
   useEffect(() => {
@@ -122,6 +186,11 @@ export default function BusinessCardCreatePage() {
 
   // ── Auto-save function ──
   const autoSave = useCallback(async (force = false) => {
+    // Skip all auto-save persistence when user is not authenticated.
+    // This lets logged-out users freely fill the form without being redirected by 401 handlers.
+    if (!isAuthenticated && !force) {
+      return null
+    }
     // Skip if no name (required field) unless forced
     if (!card.profile.name?.trim() && !force) return
     
@@ -134,7 +203,34 @@ export default function BusinessCardCreatePage() {
     
     try {
       let res
-      const payload = { ...card, slug: slug || undefined }
+      // Deep clone card so we can safely sanitize payload without mutating UI state
+      const payload = JSON.parse(JSON.stringify(card))
+      if (slug) {
+        payload.slug = slug
+      }
+
+      // Strip any temporary local blob: URLs that were used while the user was logged out,
+      // so we never persist broken object URLs to the backend.
+      if (payload.profile) {
+        if (typeof payload.profile.photo === 'string' && payload.profile.photo.startsWith('blob:')) {
+          payload.profile.photo = ''
+        }
+        if (typeof payload.profile.bannerImage === 'string' && payload.profile.bannerImage.startsWith('blob:')) {
+          payload.profile.bannerImage = ''
+        }
+      }
+      if (Array.isArray(payload.sections)) {
+        payload.sections = payload.sections.map(section => {
+          if ((section.type === 'images' || section.type === 'videos') && Array.isArray(section.content)) {
+            return {
+              ...section,
+              content: section.content.filter(url => typeof url === 'string' && !url.startsWith('blob:'))
+            }
+          }
+          return section
+        })
+      }
+
       const currentCardId = cardId
       
       if (currentCardId) {
@@ -146,6 +242,12 @@ export default function BusinessCardCreatePage() {
       
       const saved = res.data?.data?.card
       if (saved) {
+        const newId = saved._id || currentCardId
+        // Before navigating, upload any anonymous blob: images so they persist on the server.
+        // Otherwise the edit page would load the card without photo/banner.
+        if (isAuthenticated && (card.profile?.photo?.startsWith?.('blob:') || card.profile?.bannerImage?.startsWith?.('blob:'))) {
+          await migrateAnonymousMedia(newId)
+        }
         if (!currentCardId) {
           setCardId(saved._id)
           if (!editId && saved._id) {
@@ -164,12 +266,14 @@ export default function BusinessCardCreatePage() {
     } finally {
       setSaving(false)
     }
-  }, [card, slug, cardId, saving, editId, navigate])
+  }, [card, slug, cardId, saving, editId, navigate, isAuthenticated, migrateAnonymousMedia])
 
   // ── Debounced auto-save ──
   useEffect(() => {
     // Skip initial load
     if (loading) return
+    // Do not trigger background auto-save while logged out
+    if (!isAuthenticated) return
     
     // Clear existing timeout
     if (autoSaveTimeoutRef.current) {
@@ -234,11 +338,37 @@ export default function BusinessCardCreatePage() {
     })
   }
 
+  const handleLoginToPublish = () => {
+    // Save current draft so user returns to same state after login/register
+    savePendingFlow({
+      type: 'business-card',
+      data: { card, slug },
+      redirectTo: editId ? `/business-cards/edit/${editId}` : '/business-cards/create'
+    })
+    toast.error('Login or register to publish your business card.')
+    navigate('/login', {
+      state: {
+        from: {
+          pathname: editId ? `/business-cards/edit/${editId}` : '/business-cards/create'
+        }
+      }
+    })
+  }
+
   // ── Photo upload ──
   const handlePhotoUpload = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
-    
+
+    // When logged out, keep photo purely client-side for preview and cropping,
+    // and avoid hitting authenticated APIs that expect a userId.
+    if (!isAuthenticated) {
+      const objectUrl = URL.createObjectURL(file)
+      updateField('profile.photo', objectUrl)
+      setCropModal({ url: objectUrl, field: 'profile.photo', aspect: 1, shape: 'round' })
+      return
+    }
+
     setPhotoUploading(true)
     
     try {
@@ -283,7 +413,15 @@ export default function BusinessCardCreatePage() {
   const handleBannerUpload = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
-    
+
+    // When logged out, keep banner purely client-side for preview and cropping.
+    if (!isAuthenticated) {
+      const objectUrl = URL.createObjectURL(file)
+      updateField('profile.bannerImage', objectUrl)
+      setCropModal({ url: objectUrl, field: 'profile.bannerImage', aspect: 16 / 9, shape: 'rect' })
+      return
+    }
+
     setBannerUploading(true)
     try {
       let currentCardId = cardId
@@ -319,6 +457,12 @@ export default function BusinessCardCreatePage() {
   // ── Section file upload (images/videos to Cloudinary) ──
   const handleSectionFileUpload = async (files, type = 'images') => {
     if (!files || files.length === 0) return []
+
+    // While logged out, we can't upload to Cloudinary because routes are authenticated.
+    // Use temporary blob: URLs so the user can still see their media in the preview.
+    if (!isAuthenticated) {
+      return Array.from(files).map(file => URL.createObjectURL(file))
+    }
     
     let currentCardId = cardId
     if (!currentCardId) {
@@ -355,7 +499,17 @@ export default function BusinessCardCreatePage() {
   }
 
   const handleCropConfirm = useCallback(async (blob) => {
-    if (!cropModal || !cardId) { setCropModal(null); return }
+    if (!cropModal) { setCropModal(null); return }
+
+    // If the user is not authenticated or we don't have a cardId yet,
+    // apply the crop client-side only and keep a temporary blob: URL.
+    if (!isAuthenticated || !cardId) {
+      const objectUrl = URL.createObjectURL(blob)
+      updateField(cropModal.field, objectUrl)
+      setCropModal(null)
+      return
+    }
+
     try {
       const formData = new FormData()
       const fieldName = cropModal.field === 'profile.photo' ? 'photo' : 'banner'
@@ -372,7 +526,7 @@ export default function BusinessCardCreatePage() {
       toast.error('Failed to upload cropped image')
     }
     setCropModal(null)
-  }, [cropModal, cardId, updateField])
+  }, [cropModal, cardId, updateField, isAuthenticated])
 
   // ── Manual save (for preview tab) ──
   const handleSave = async () => {
@@ -394,12 +548,24 @@ export default function BusinessCardCreatePage() {
   // ── Save then go to next tab (Content, Design, Preview tabs) ──
   const handleNextWithSave = useCallback(async () => {
     if (activeTab >= TABS.length - 1) return
+
+    if (!isAuthenticated) {
+      // On Preview & Publish tab only: require login/register before proceeding.
+      if (TABS[activeTab]?.id === 'preview') {
+        handleLoginToPublish()
+        return
+      }
+      // Content or Design tab: just go to next tab without calling the API (no token).
+      switchTab(activeTab + 1)
+      return
+    }
+
     const savedId = await autoSave(true)
     if (savedId != null) {
       toast.success('Saved')
       switchTab(activeTab + 1)
     }
-  }, [activeTab, autoSave, switchTab])
+  }, [activeTab, autoSave, switchTab, isAuthenticated, handleLoginToPublish])
 
   // ── Copy URL ──
   const handleCopy = () => {
@@ -536,7 +702,21 @@ export default function BusinessCardCreatePage() {
           <div className="col-span-1 lg:col-span-3 space-y-4 sm:space-y-6" style={{ opacity: tabVisible ? 1 : 0, transition: 'opacity 0.12s ease' }}>
             {activeTab === 0 && <ContentTab card={card} updateField={updateField} addSection={addSection} removeSection={removeSection} moveSection={moveSection} updateSection={updateSection} handlePhotoUpload={handlePhotoUpload} photoUploading={photoUploading} handleBannerUpload={handleBannerUpload} bannerUploading={bannerUploading} handleSectionFileUpload={handleSectionFileUpload} cardId={cardId} />}
             {activeTab === 1 && <DesignTab card={card} updateField={updateField} slug={slug} setSlug={setSlug} />}
-            {activeTab === 2 && <PreviewPublishTab card={card} updateField={updateField} publicUrl={publicUrl} slug={slug} handleCopy={handleCopy} copied={copied} handleSave={handleSave} saving={saving} cardId={cardId} />}
+            {activeTab === 2 && (
+              <PreviewPublishTab
+                card={card}
+                updateField={updateField}
+                publicUrl={publicUrl}
+                slug={slug}
+                handleCopy={handleCopy}
+                copied={copied}
+                handleSave={handleSave}
+                saving={saving}
+                cardId={cardId}
+                isAuthenticated={isAuthenticated}
+                onLoginToPublish={handleLoginToPublish}
+              />
+            )}
             {activeTab === 3 && <PrintableTab card={card} slug={slug} printableRef={printableRef} />}
           </div>
 
@@ -1168,7 +1348,19 @@ function DesignTab({ card, updateField, slug, setSlug }) {
 // ═══════════════════════════════════════════════════════════
 //  TAB 4: Preview & Publish
 // ═══════════════════════════════════════════════════════════
-function PreviewPublishTab({ card, updateField, publicUrl, slug, handleCopy, copied, handleSave, saving, cardId }) {
+function PreviewPublishTab({
+  card,
+  updateField,
+  publicUrl,
+  slug,
+  handleCopy,
+  copied,
+  handleSave,
+  saving,
+  cardId,
+  isAuthenticated,
+  onLoginToPublish,
+}) {
   const [qrDownloading, setQrDownloading] = useState(false)
 
   const handleDownloadQR = async () => {
@@ -1197,12 +1389,32 @@ function PreviewPublishTab({ card, updateField, publicUrl, slug, handleCopy, cop
             <p className="text-xs text-slate-400">Make your card publicly accessible</p>
           </div>
           <button
-            onClick={() => updateField('isPublished', !card.isPublished)}
-            className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition ${card.isPublished ? 'bg-neon-purple' : 'bg-slate-700'}`}
+            type="button"
+            onClick={() => {
+              if (!isAuthenticated) return
+              updateField('isPublished', !card.isPublished)
+            }}
+            disabled={!isAuthenticated}
+            className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition ${
+              card.isPublished ? 'bg-neon-purple' : 'bg-slate-700'
+            } ${!isAuthenticated ? 'opacity-60 cursor-not-allowed' : ''}`}
           >
             <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${card.isPublished ? 'translate-x-6' : 'translate-x-1'}`} />
           </button>
         </div>
+        {!isAuthenticated && (
+          <div className="mt-3 text-xs text-amber-400 space-y-1">
+            <p>Login or register to publish your business card.</p>
+            <button
+              type="button"
+              onClick={onLoginToPublish}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-amber-500/20 text-amber-200 hover:bg-amber-500/30 transition text-[11px] font-medium"
+            >
+              <Globe className="w-3.5 h-3.5" />
+              Login to publish
+            </button>
+          </div>
+        )}
         {card.isPublished && publicUrl && (
           <div className="mt-4 p-3 bg-slate-800/50 rounded-lg backdrop-blur-sm">
             <p className="text-xs text-slate-400 mb-2">Public URL</p>

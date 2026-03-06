@@ -17,6 +17,7 @@ import ConnectionStatusBanner from './components/UI/ConnectionStatusBanner'
 // Pages
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/Auth/LoginPage'
+import ReferralCodePage from './pages/Auth/ReferralCodePage'
 import OAuthCallback from './pages/Auth/OAuthCallback'
 import DashboardPage from './pages/Dashboard/DashboardPage'
 import GameUploadPage from './pages/Upload/GameUploadPage'
@@ -47,6 +48,7 @@ import ScanPage from './pages/ScanPage'
 import ComingSoonPage from './pages/ComingSoon/ComingSoonPage'
 import PricingPage from './pages/Pricing/PricingPage'
 import PhygitalQRInfoPage from './pages/PhygitalQRInfo/PhygitalQRInfoPage'
+import PhygitalQRHubPage from './pages/PhygitalQRInfo/PhygitalQRHubPage'
 import NotFoundPage from './pages/NotFoundPage'
 import MaintenancePage from './pages/Maintenance/MaintenancePage'
 import CertificationPage from './pages/Legal/CertificationPage'
@@ -65,6 +67,7 @@ import ContactsPage from './pages/Admin/ContactsPage'
 import SettingsPage from './pages/Admin/SettingsPage'
 import AdminPhygitalCreatePage from './pages/Admin/AdminPhygitalCreatePage'
 import AdminPhygitalHistoryPage from './pages/Admin/AdminPhygitalHistoryPage'
+import ReferralCodesPage from './pages/Admin/ReferralCodesPage'
 
 // Maintenance mode check
 import { isMaintenanceModeEnabled } from './config/maintenance'
@@ -101,6 +104,8 @@ function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<HomePage />} />
           <Route path="login" element={<LoginPage />} />
+          <Route path="register" element={<LoginPage initialMode="create" />} />
+          <Route path="referral-code" element={<ReferralCodePage />} />
           <Route path="auth/callback" element={<OAuthCallback />} />
           <Route path="forgot-password" element={<ComingSoonPage />} />
           <Route path="about" element={<AboutPage />} />
@@ -108,6 +113,7 @@ function App() {
           <Route path="ai-video" element={<AIVideoPage />} />
           <Route path="pricing" element={<PricingPage />} />
           <Route path="phygital-qr-info" element={<PhygitalQRInfoPage />} />
+          <Route path="phygital-qr" element={<PhygitalQRHubPage />} />
           <Route path="blog" element={<ComingSoonPage />} />
           <Route path="careers" element={<ComingSoonPage />} />
           <Route path="certification" element={<CertificationPage />} />
@@ -136,6 +142,8 @@ function App() {
           <Route path="ar-3d/:userId/:projectId" element={<ARExperience3DPage />} />
           {/* Public Business Card */}
           <Route path="card/:slug" element={<BusinessCardPublicPage />} />
+          {/* Allow anyone to start creating a business card; publish is gated in the UI */}
+          <Route path="business-cards/create" element={<BusinessCardCreatePage />} />
         </Route>
 
         {/* Protected Routes */}
@@ -185,45 +193,17 @@ function App() {
               <TemplatesPage />
             </ProtectedRoute>
           } />
-          <Route path="phygitalized/select" element={
-            <ProtectedRoute>
-              <QRSelectionPage />
-            </ProtectedRoute>
-          } />
-          <Route path="phygitalized/qr-link" element={
-            <ProtectedRoute>
-              <QRLinkPage />
-            </ProtectedRoute>
-          } />
-          <Route path="phygitalized/qr-links" element={
-            <ProtectedRoute>
-              <QRLinksPage />
-            </ProtectedRoute>
-          } />
-          <Route path="phygitalized/qr-links-video" element={
-            <ProtectedRoute>
-              <QRLinksVideoPage />
-            </ProtectedRoute>
-          } />
-          <Route path="phygitalized/qr-links-pdf-video" element={
-            <ProtectedRoute>
-              <QRLinksPDFVideoPage />
-            </ProtectedRoute>
-          } />
-          <Route path="phygitalized/qr-links-ar-video" element={
-            <ProtectedRoute>
-              <QRLinksARVideoPage />
-            </ProtectedRoute>
-          } />
+          {/* Dynamic & Phygital QR creation flows (allow anonymous, gate at final step) */}
+          <Route path="phygitalized/select" element={<QRSelectionPage />} />
+          <Route path="phygitalized/qr-link" element={<QRLinkPage />} />
+          <Route path="phygitalized/qr-links" element={<QRLinksPage />} />
+          <Route path="phygitalized/qr-links-video" element={<QRLinksVideoPage />} />
+          <Route path="phygitalized/qr-links-pdf-video" element={<QRLinksPDFVideoPage />} />
+          <Route path="phygitalized/qr-links-ar-video" element={<QRLinksARVideoPage />} />
           {/* Business Cards */}
           <Route path="business-cards" element={
             <ProtectedRoute>
               <BusinessCardListPage />
-            </ProtectedRoute>
-          } />
-          <Route path="business-cards/create" element={
-            <ProtectedRoute>
-              <BusinessCardCreatePage />
             </ProtectedRoute>
           } />
           <Route path="business-cards/edit/:id" element={
@@ -259,6 +239,11 @@ function App() {
           <Route path="contacts" element={
             <AdminProtectedRoute>
               <ContactsPage />
+            </AdminProtectedRoute>
+          } />
+          <Route path="referral-codes" element={
+            <AdminProtectedRoute>
+              <ReferralCodesPage />
             </AdminProtectedRoute>
           } />
           <Route path="settings" element={

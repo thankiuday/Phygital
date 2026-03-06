@@ -9,6 +9,7 @@ import { useDropzone } from 'react-dropzone'
 import { generateQRCode, uploadAPI, phygitalizedAPI } from '../../utils/api'
 import { downloadQRCode, generateAdvancedQRCode } from '../../utils/qrGenerator'
 import { useAuth } from '../../contexts/AuthContext'
+import { savePendingFlow, getPendingFlow, clearPendingFlow } from '../../utils/pendingFlow'
 import { generateHumanReadableCampaignName } from '../../utils/campaignNameGenerator'
 import QRDesignCustomizer from '../../components/QR/QRDesignCustomizer'
 import { 
@@ -23,14 +24,15 @@ import {
   Link as LinkIcon,
   Plus,
   ExternalLink,
-  Tag
+  Tag,
+  Eye
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import LoadingSpinner from '../../components/UI/LoadingSpinner'
 import SocialLinksInput from '../../components/Phygitalized/SocialLinksInput'
 
 const QRLinksPDFVideoPage = () => {
-  const { user, updateUser } = useAuth()
+  const { user, updateUser, isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const [campaignName, setCampaignName] = useState('')
   const [pdfFiles, setPdfFiles] = useState([]) // Array of PDF files
@@ -51,6 +53,7 @@ const QRLinksPDFVideoPage = () => {
   const [qrDesign, setQrDesign] = useState(null)
   const [currentStep, setCurrentStep] = useState(1) // Wizard step: 1 = Enter details, 2 = Design QR
   const [qrGenerated, setQrGenerated] = useState(false) // Track if QR was successfully generated
+  const [showPreviewModal, setShowPreviewModal] = useState(false)
 
   // Auto-generate campaign name based on username with uniqueness check
   useEffect(() => {
@@ -60,6 +63,21 @@ const QRLinksPDFVideoPage = () => {
       setCampaignName(autoName)
     }
   }, [user?.username, campaignName, user?.projects])
+
+  // Restore pending flow after login
+  useEffect(() => {
+    const flow = getPendingFlow()
+    if (flow && flow.type === 'phygital-links-pdf-video') {
+      if (flow.data?.campaignName) setCampaignName(flow.data.campaignName)
+      if (flow.data?.links) setLinks(flow.data.links)
+      if (flow.data?.socialLinks) setSocialLinks(flow.data.socialLinks)
+      if (flow.data?.pdfUrls) setPdfUrls(flow.data.pdfUrls)
+      if (flow.data?.videoUrls) setVideoUrls(flow.data.videoUrls)
+      if (flow.data?.qrDesign) setQrDesign(flow.data.qrDesign)
+      if (flow.step) setCurrentStep(flow.step)
+      clearPendingFlow()
+    }
+  }, [])
 
   const onPdfDrop = useCallback(async (acceptedFiles) => {
     if (acceptedFiles.length === 0) return
@@ -351,6 +369,12 @@ const QRLinksPDFVideoPage = () => {
       return
     }
 
+    // For unauthenticated users, skip backend preview and just move to design step
+    if (!isAuthenticated) {
+      setCurrentStep(2)
+      return
+    }
+
     // Create project immediately to get projectId for preview
     if (!projectId) {
       try {
@@ -418,6 +442,19 @@ const QRLinksPDFVideoPage = () => {
 
     if (!hasPdf && !hasVideo) {
       toast.error('Please upload at least a PDF or video')
+      return
+    }
+
+    // If user is not authenticated, save flow and redirect to login
+    if (!isAuthenticated) {
+      savePendingFlow({
+        type: 'phygital-links-pdf-video',
+        step: currentStep,
+        data: { campaignName, links, socialLinks, pdfUrls, videoUrls, qrDesign },
+        redirectTo: '/phygitalized/qr-links-pdf-video'
+      })
+      toast.error('You are one step away from creating your QR. Please login or register to finish.')
+      navigate('/login', { state: { from: { pathname: '/phygitalized/qr-links-pdf-video' } } })
       return
     }
 
@@ -1090,6 +1127,8 @@ const QRLinksPDFVideoPage = () => {
               onDesignChange={setQrDesign}
               previewUrl={landingPageUrl || (projectId ? `${window.location.origin}/#/phygitalized/pdf-video/${projectId}` : '')}
               disabled={isGenerating}
+              mobilePreviewModalOpen={showPreviewModal}
+              onCloseMobilePreview={() => setShowPreviewModal(false)}
             />
             
             {/* Generate Button at Bottom */}
@@ -1214,6 +1253,24 @@ const QRLinksPDFVideoPage = () => {
         </div>
       </div>
       </div>
+
+      {/* Mobile Live Preview shortcut for Step 2 */}
+      {currentStep === 2 && (
+        <div className="fixed inset-x-0 bottom-0 z-30 md:hidden pointer-events-none">
+          <div className="max-w-4xl mx-auto px-4 pb-4">
+            <button
+              type="button"
+              onClick={() => {
+                setShowPreviewModal(true)
+              }}
+              className="pointer-events-auto w-full flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink text-white shadow-glow-lg py-3 text-sm font-semibold"
+            >
+              <Eye className="w-4 h-4" />
+              Live Preview
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

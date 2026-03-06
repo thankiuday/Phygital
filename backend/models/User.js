@@ -373,6 +373,12 @@ const userSchema = new mongoose.Schema({
   // Account status
   isActive: { type: Boolean, default: true },
   isVerified: { type: Boolean, default: false },
+  // Subscription / plan
+  subscriptionPlan: {
+    type: String,
+    enum: ['free', 'phygital', 'enterprise'],
+    default: 'free'
+  },
   
   // User role (admin or user)
   role: {

@@ -7,6 +7,7 @@
 const express = require('express');
 const { body, validationResult, query } = require('express-validator');
 const User = require('../models/User');
+const ReferralCode = require('../models/ReferralCode');
 const Analytics = require('../models/Analytics');
 const Contact = require('../models/Contact');
 const { authenticateToken } = require('../middleware/auth');
@@ -2295,5 +2296,160 @@ router.post('/maintenance', logAdminAction('maintenance_toggle'), [
   }
 });
 
-module.exports = router;
+/**
+ * POST /api/admin/referral-codes
+ * Generate a new referral code that can upgrade a user's subscription plan
+ */
+router.post('/referral-codes', logAdminAction('referral_code_create'), [
+  body('plan')
+    .optional()
+    .isString()
+    .isIn(['phygital', 'enterprise'])
+    .withMessage('plan must be either phygital or enterprise'),
+  body('usageLimit')
+    .optional()
+    .isInt({ min: 1, max: 100 })
+    .withMessage('usageLimit must be between 1 and 100'),
+  body('note')
+    .optional()
+    .isString()
+    .isLength({ max: 200 })
+    .withMessage('note must be at most 200 characters')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
 
+    const plan = req.body.plan || 'phygital';
+    const usageLimit = req.body.usageLimit || 1;
+    const note = req.body.note || '';
+
+    // Generate a reasonably strong, human-shareable code
+    const generateCode = () => {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Avoid lookalikes
+      let result = '';
+      for (let i = 0; i < 10; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return result;
+    };
+
+    let code = generateCode();
+    // Simple retry loop to avoid collisions
+    // (extremely unlikely with 10-char alphabet, but safe)
+    // eslint-disable-next-line no-constant-condition
+    for (let i = 0; i < 5; i++) {
+      const existing = await ReferralCode.findOne({ code });
+      if (!existing) break;
+      code = generateCode();
+    }
+
+    const referral = new ReferralCode({
+      code,
+      plan,
+      usageLimit,
+      createdByAdminId: req.user._id,
+      note
+    });
+    await referral.save();
+
+    res.status(201).json({
+      status: 'success',
+      message: 'Referral code created successfully',
+      data: {
+        referral
+      }
+    });
+  } catch (error) {
+    console.error('Admin referral code create error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to create referral code',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+/**
+ * GET /api/admin/referral-codes
+ * List referral codes with basic filters
+ */
+router.get('/referral-codes', [
+  query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+  query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
+  query('plan').optional().isString(),
+  query('isActive').optional().isIn(['true', 'false']),
+  query('used').optional().isIn(['true', 'false']),
+  query('search').optional().isString()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+    const { plan, isActive, used, search } = req.query;
+
+    const filter = {};
+    if (plan) {
+      filter.plan = plan;
+    }
+    if (typeof isActive === 'string') {
+      filter.isActive = isActive === 'true';
+    }
+    if (typeof used === 'string') {
+      const usedBool = used === 'true';
+      if (usedBool) {
+        filter.usedCount = { $gt: 0 };
+      } else {
+        filter.usedCount = 0;
+      }
+    }
+    if (search) {
+      filter.code = { $regex: search, $options: 'i' };
+    }
+
+    const [items, total] = await Promise.all([
+      ReferralCode.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      ReferralCode.countDocuments(filter)
+    ]);
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        referralCodes: items,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Admin referral codes list error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch referral codes',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+module.exports = router;

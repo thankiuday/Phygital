@@ -228,19 +228,29 @@ export const AdminProvider = ({ children }) => {
         config.headers['Content-Type'] = false
       }
 
+      // Increase timeout for heavy analytics endpoints to avoid spurious timeouts
+      const isHeavyAnalyticsRequest =
+        method.toLowerCase() === 'get' &&
+        (endpoint.startsWith('/stats') || endpoint.startsWith('/analytics'))
+
+      const axiosConfig = {
+        ...config,
+        ...(isHeavyAnalyticsRequest ? { timeout: 120000 } : {})
+      }
+
       let response
       switch (method.toLowerCase()) {
         case 'get':
-          response = await api.get(`/admin${endpoint}`, config)
+          response = await api.get(`/admin${endpoint}`, axiosConfig)
           break
         case 'post':
-          response = await api.post(`/admin${endpoint}`, body, config)
+          response = await api.post(`/admin${endpoint}`, body, axiosConfig)
           break
         case 'put':
-          response = await api.put(`/admin${endpoint}`, body, config)
+          response = await api.put(`/admin${endpoint}`, body, axiosConfig)
           break
         case 'delete':
-          response = await api.delete(`/admin${endpoint}`, config)
+          response = await api.delete(`/admin${endpoint}`, axiosConfig)
           break
         default:
           throw new Error(`Unsupported HTTP method: ${method}`)

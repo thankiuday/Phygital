@@ -11,14 +11,18 @@ import { Eye, EyeOff, Mail, Lock, ArrowRight, Sparkles } from 'lucide-react'
 import LoadingSpinner from '../../components/UI/LoadingSpinner'
 import GoogleAuthButton from '../../components/Auth/GoogleAuthButton'
 
-const LoginPage = () => {
+const LoginPage = ({ initialMode = 'login' }) => {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   // Auth mode: 'login' for existing users, 'create' for new users
   const [authMode, setAuthMode] = useState(() => {
-    // Restore from sessionStorage if available, default to 'login'
+    // Restore from sessionStorage if available
     const saved = sessionStorage.getItem('authMode')
-    return saved === 'create' ? 'create' : 'login'
+    if (saved === 'create' || saved === 'login') {
+      return saved
+    }
+    // Fallback to prop-provided initial mode (for /register route)
+    return initialMode === 'create' ? 'create' : 'login'
   })
   const { smartAuth, isAuthenticated } = useAuth()
   const navigate = useNavigate()
@@ -46,9 +50,15 @@ const LoginPage = () => {
 
   const termsAccepted = watch('terms')
 
-  // Navigate to dashboard on successful authentication
+  // Navigate to dashboard on successful authentication (for existing users only)
   useEffect(() => {
     if (isAuthenticated) {
+      const redirectOverride = sessionStorage.getItem('redirectAfterAuth')
+      if (redirectOverride) {
+        sessionStorage.removeItem('redirectAfterAuth')
+        navigate(redirectOverride, { replace: true })
+        return
+      }
       const from = location.state?.from?.pathname || '/dashboard'
       navigate(from, { replace: true })
     }
@@ -98,8 +108,12 @@ const LoginPage = () => {
             message: result.error
           })
         }
+      } else if (result.isNewUser) {
+        // New account created: send user to referral-code step
+        sessionStorage.setItem('redirectAfterAuth', '/referral-code')
+        navigate('/referral-code', { replace: true })
       }
-      // Success is handled by useEffect that watches isAuthenticated
+      // Existing-user success is handled by useEffect that watches isAuthenticated
     } catch (error) {
       console.error('Login page error:', error)
       setError('root', {

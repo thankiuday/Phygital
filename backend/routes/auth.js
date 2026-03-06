@@ -7,6 +7,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
+const ReferralCode = require('../models/ReferralCode');
 const { generateToken, authenticateToken } = require('../middleware/auth');
 const passport = require('../middleware/passport');
 const { generateUsernameFromEmail } = require('../utils/usernameGenerator');
@@ -906,5 +907,79 @@ router.get('/google/callback',
     }
   }
 );
+
+/**
+ * POST /api/auth/redeem-referral-code
+ * Redeem a one-time (or limited-use) referral code to upgrade the user's subscription plan
+ */
+router.post('/redeem-referral-code', authenticateToken, [
+  body('code')
+    .trim()
+    .notEmpty()
+    .withMessage('Referral code is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const rawCode = req.body.code || '';
+    const normalizedCode = rawCode.trim().toUpperCase();
+
+    // Find active code and ensure it has remaining uses
+    const referral = await ReferralCode.findOne({
+      code: normalizedCode,
+      isActive: true
+    });
+
+    if (!referral || referral.usedCount >= referral.usageLimit) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Invalid or already used referral code'
+      });
+    }
+
+    // Upgrade user's subscription plan
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'User not found'
+      });
+    }
+
+    user.subscriptionPlan = referral.plan || 'phygital';
+    await user.save();
+
+    // Mark code as used
+    referral.usedCount = (referral.usedCount || 0) + 1;
+    referral.usedBy = user._id;
+    referral.usedAt = new Date();
+    if (referral.usedCount >= referral.usageLimit) {
+      referral.isActive = false;
+    }
+    await referral.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Referral code applied successfully. Your plan has been upgraded.',
+      data: {
+        user: user.getPublicProfile()
+      }
+    });
+  } catch (error) {
+    console.error('Redeem referral code error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to redeem referral code',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
 
 module.exports = router;

@@ -18,7 +18,8 @@ import {
   Menu,
   X,
   Sparkles,
-  History
+  History,
+  KeyRound
 } from 'lucide-react'
 
 const AdminLayout = () => {
@@ -33,6 +34,7 @@ const AdminLayout = () => {
     { name: 'Campaigns', href: '/admin/projects', icon: FolderKanban },
     { name: 'Create Phygital QR', href: '/admin/phygital/create', icon: Sparkles },
     { name: 'Phygital History', href: '/admin/phygital/history', icon: History },
+    { name: 'Referral Codes', href: '/admin/referral-codes', icon: KeyRound },
     { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
     { name: 'Contacts', href: '/admin/contacts', icon: Mail },
     { name: 'Settings', href: '/admin/settings', icon: Settings },

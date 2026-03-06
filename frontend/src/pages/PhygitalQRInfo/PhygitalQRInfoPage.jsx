@@ -59,7 +59,7 @@ const PhygitalQRInfoPage = () => {
           </h2>
           <div className="space-y-4">
             <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-              <h3 className="font-semibold text-slate-100 mb-2">Dynamic QR (free)</h3>
+              <h3 className="font-semibold text-slate-100 mb-2">Dynamic QR (Free Forever)</h3>
               <ul className="text-slate-400 text-sm space-y-1.5">
                 <li className="flex items-start gap-2">
                   <span className="text-slate-500 mt-0.5">•</span>

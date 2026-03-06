@@ -286,6 +286,7 @@ export const authAPI = {
   updateProfile: (userData) => api.put('/auth/profile', userData),
   changePassword: (currentPassword, newPassword) => 
     api.post('/auth/change-password', { currentPassword, newPassword }),
+  redeemReferralCode: (code) => api.post('/auth/redeem-referral-code', { code }),
 }
 
 export const uploadAPI = {

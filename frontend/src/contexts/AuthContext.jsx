@@ -234,13 +234,8 @@ export const AuthProvider = ({ children }) => {
       })
 
       toast.success(createAccount ? 'Account created successfully!' : 'Login successful!')
-      
-      // Only navigate if not in the middle of account creation flow
-      // Navigation will be handled by LoginPage's useEffect
-      setTimeout(() => {
-        navigate('/dashboard')
-      }, 100)
 
+      // Let the calling page decide where to navigate after login
       return { success: true }
     } catch (error) {
       // Only log network errors in development mode
@@ -336,12 +331,8 @@ export const AuthProvider = ({ children }) => {
       } else {
         toast.success('Welcome back!')
       }
-      
-      // Navigate to dashboard
-      setTimeout(() => {
-        navigate('/dashboard')
-      }, 100)
 
+      // Let the calling page decide where to navigate after auth
       return { success: true, isNewUser }
     } catch (error) {
       // Only log network errors in development mode

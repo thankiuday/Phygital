@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom'
 import { generateQRCode, uploadAPI, phygitalizedAPI } from '../../utils/api'
 import { downloadQRCode, generateAdvancedQRCode } from '../../utils/qrGenerator'
 import { useAuth } from '../../contexts/AuthContext'
+import { savePendingFlow, getPendingFlow, clearPendingFlow } from '../../utils/pendingFlow'
 import { generateHumanReadableCampaignName } from '../../utils/campaignNameGenerator'
 import QRDesignCustomizer from '../../components/QR/QRDesignCustomizer'
 import { 
@@ -20,14 +21,15 @@ import {
   Plus,
   X,
   ExternalLink,
-  Tag
+  Tag,
+  Eye
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import LoadingSpinner from '../../components/UI/LoadingSpinner'
 import SocialLinksInput from '../../components/Phygitalized/SocialLinksInput'
 
 const QRLinksPage = () => {
-  const { user, updateUser } = useAuth()
+  const { user, updateUser, isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const [campaignName, setCampaignName] = useState('')
   const [socialLinks, setSocialLinks] = useState({})
@@ -40,6 +42,7 @@ const QRLinksPage = () => {
   const [qrDesign, setQrDesign] = useState(null)
   const [currentStep, setCurrentStep] = useState(1) // Wizard step: 1 = Enter details, 2 = Design QR
   const [qrGenerated, setQrGenerated] = useState(false) // Track if QR was successfully generated
+  const [showPreviewModal, setShowPreviewModal] = useState(false)
 
   // Auto-generate campaign name based on username with uniqueness check
   useEffect(() => {
@@ -49,6 +52,19 @@ const QRLinksPage = () => {
       setCampaignName(autoName)
     }
   }, [user?.username, campaignName, user?.projects])
+
+  // Restore pending flow after login
+  useEffect(() => {
+    const flow = getPendingFlow()
+    if (flow && flow.type === 'dynamic-multi') {
+      if (flow.data?.campaignName) setCampaignName(flow.data.campaignName)
+      if (flow.data?.socialLinks) setSocialLinks(flow.data.socialLinks)
+      if (flow.data?.customLinks) setCustomLinks(flow.data.customLinks)
+      if (flow.data?.qrDesign) setQrDesign(flow.data.qrDesign)
+      if (flow.step) setCurrentStep(flow.step)
+      clearPendingFlow()
+    }
+  }, [])
 
   const addCustomLink = () => {
     setCustomLinks([...customLinks, { id: Date.now(), label: '', url: '' }])
@@ -92,6 +108,12 @@ const QRLinksPage = () => {
     
     if (validLinks.length === 0) {
       toast.error('Please add at least one link')
+      return
+    }
+
+    // For unauthenticated users, skip backend preview and just move to design step
+    if (!isAuthenticated) {
+      setCurrentStep(2)
       return
     }
 
@@ -169,6 +191,19 @@ const QRLinksPage = () => {
     
     if (validLinks.length === 0) {
       toast.error('Please add at least one link')
+      return
+    }
+
+    // If user is not authenticated, save flow and redirect to login
+    if (!isAuthenticated) {
+      savePendingFlow({
+        type: 'dynamic-multi',
+        step: currentStep,
+        data: { campaignName, socialLinks, customLinks, qrDesign },
+        redirectTo: '/phygitalized/qr-links'
+      })
+      toast.error('You are one step away from creating your QR. Please login or register to finish.')
+      navigate('/login', { state: { from: { pathname: '/phygitalized/qr-links' } } })
       return
     }
 
@@ -478,6 +513,8 @@ const QRLinksPage = () => {
               onDesignChange={setQrDesign}
               previewUrl={landingPageUrl || (projectId ? `${window.location.origin}/#/phygitalized/links/${projectId}` : '')}
               disabled={isGenerating}
+              mobilePreviewModalOpen={showPreviewModal}
+              onCloseMobilePreview={() => setShowPreviewModal(false)}
             />
             
             {/* Generate Button at Bottom */}
@@ -592,6 +629,24 @@ const QRLinksPage = () => {
         </div>
       </div>
       </div>
+
+      {/* Mobile Live Preview shortcut for Step 2 */}
+      {currentStep === 2 && (
+        <div className="fixed inset-x-0 bottom-0 z-30 md:hidden pointer-events-none">
+          <div className="max-w-4xl mx-auto px-4 pb-4">
+            <button
+              type="button"
+              onClick={() => {
+                setShowPreviewModal(true)
+              }}
+              className="pointer-events-auto w-full flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink text-white shadow-glow-lg py-3 text-sm font-semibold"
+            >
+              <Eye className="w-4 h-4" />
+              Live Preview
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

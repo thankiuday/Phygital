@@ -9,6 +9,7 @@ import { useDropzone } from 'react-dropzone'
 import { generateQRCode, uploadAPI, phygitalizedAPI } from '../../utils/api'
 import { downloadQRCode, generateAdvancedQRCode } from '../../utils/qrGenerator'
 import { useAuth } from '../../contexts/AuthContext'
+import { savePendingFlow, getPendingFlow, clearPendingFlow } from '../../utils/pendingFlow'
 import { generateHumanReadableCampaignName } from '../../utils/campaignNameGenerator'
 import QRPositioningOverlay from '../../components/QRPositioning/QRPositioningOverlay'
 import { getUserFriendlyError, getFileError } from '../../utils/userFriendlyErrors'
@@ -39,7 +40,7 @@ const MIN_STICKER_WIDTH = 120
 const MIN_STICKER_HEIGHT = 160
 
 const QRLinksARVideoPage = () => {
-  const { user, updateUser } = useAuth()
+  const { user, updateUser, isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   
@@ -167,6 +168,24 @@ const QRLinksARVideoPage = () => {
       setCampaignName(autoName)
     }
   }, [user?.username, campaignName, user?.projects, isUpgradeMode])
+
+  // Restore pending flow after login (only for non-upgrade flows)
+  useEffect(() => {
+    if (isUpgradeMode) return
+    const flow = getPendingFlow()
+    if (flow && flow.type === 'phygital-ar') {
+      if (flow.data?.campaignName) setCampaignName(flow.data.campaignName)
+      if (flow.data?.phoneNumber) setPhoneNumber(flow.data.phoneNumber)
+      if (flow.data?.whatsappNumber) setWhatsappNumber(flow.data.whatsappNumber)
+      if (flow.data?.socialLinks) setSocialLinks(flow.data.socialLinks)
+      if (flow.data?.designUrl) setDesignUrl(flow.data.designUrl)
+      if (flow.data?.arVideoUrl) setArVideoUrl(flow.data.arVideoUrl)
+      if (flow.data?.documentFiles) setDocumentFiles(flow.data.documentFiles)
+      if (flow.data?.qrPosition) setQrPosition(flow.data.qrPosition)
+      if (flow.step) setCurrentStep(flow.step)
+      clearPendingFlow()
+    }
+  }, [isUpgradeMode])
 
   // Design upload dropzone
   const onDesignDrop = useCallback(async (acceptedFiles) => {
@@ -464,6 +483,28 @@ const QRLinksARVideoPage = () => {
         qrPositionSet 
       })
       toast.error('QR positioning function not ready. Please go back to Step 3 and wait for the positioning tool to load.')
+      return
+    }
+
+    // If user is not authenticated, save flow and redirect to login
+    if (!isAuthenticated) {
+      savePendingFlow({
+        type: 'phygital-ar',
+        step: currentStep,
+        data: {
+          campaignName,
+          phoneNumber,
+          whatsappNumber,
+          socialLinks,
+          designUrl,
+          arVideoUrl,
+          documentFiles,
+          qrPosition
+        },
+        redirectTo: '/phygitalized/qr-links-ar-video'
+      })
+      toast.error('You are one step away from creating your Phygital QR. Please login or register to finish.')
+      navigate('/login', { state: { from: { pathname: '/phygitalized/qr-links-ar-video' } } })
       return
     }
 

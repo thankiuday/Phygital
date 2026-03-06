@@ -28,7 +28,8 @@ const adminActivitySchema = new mongoose.Schema({
       'contact_update',
       'analytics_view',
       'admin_create_phygital_draft',
-      'admin_grant_phygital'
+      'admin_grant_phygital',
+      'referral_code_create'
     ]
   },
   targetType: {

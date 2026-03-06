@@ -22,13 +22,13 @@ import {
 import toast from 'react-hot-toast'
 
 const QRSelectionPage = () => {
-  const { user, isAuthenticated } = useAuth()
+  const { user } = useAuth()
   const navigate = useNavigate()
   const [showMessage, setShowMessage] = useState(true) // Always show message for Dynamic QR
 
   const isFree = isFreePlan(user)
 
-  // QR creation options for Dynamic QR
+  // QR creation options for Dynamic QR (Free Forever)
   const qrOptions = [
     {
       id: 'qr-link',
@@ -45,37 +45,10 @@ const QRSelectionPage = () => {
       href: '/phygitalized/qr-links',
       icon: LinkIcon,
       free: true
-    },
-    {
-      id: 'qr-links-video',
-      name: 'Links & Video QR',
-      description: 'QR code with links and video',
-      href: '/phygitalized/qr-links-video',
-      icon: Video,
-      free: true
-    },
-    {
-      id: 'qr-links-pdf-video',
-      name: 'Links, PDF & Video QR',
-      description: 'QR code with links, PDFs, and video',
-      href: '/phygitalized/qr-links-pdf-video',
-      icon: FileText,
-      free: true
-    },
-    {
-      id: 'qr-links-ar-video',
-      name: 'Phygital QR',
-      description: 'Full AR experience with video and links',
-      href: '/upload',
-      icon: Sparkles,
-      free: false,
-      premium: true,
-      locked: true,
-      infoHref: '/phygital-qr-info'
     }
   ]
 
-  // This page is only for Dynamic QR - Phygital QR navigates directly to /upload
+  // This page is only for Dynamic QR (Free Forever) – Phygital QR and advanced types live under the Phygital QR hub
 
   // Handle QR option click
   const handleQROptionClick = (option) => {
@@ -89,12 +62,6 @@ const QRSelectionPage = () => {
       return
     }
     navigate(option.href)
-  }
-
-  // If not authenticated, redirect to login
-  if (!isAuthenticated) {
-    navigate('/login')
-    return null
   }
 
   return (
@@ -125,8 +92,8 @@ const QRSelectionPage = () => {
           </div>
         )}
 
-        {/* QR Creation Options Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* QR Creation Options – compact responsive grid */}
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
           {qrOptions.map((option) => {
             const Icon = option.icon
             const isLocked = option.locked
@@ -137,7 +104,7 @@ const QRSelectionPage = () => {
                 key={option.id}
                 onClick={() => handleQROptionClick(option)}
                 disabled={isDisabled}
-                className={`group relative bg-slate-800/50 backdrop-blur-xl border-2 rounded-xl p-6 transition-all duration-300 text-left ${
+                className={`group relative bg-slate-800/50 backdrop-blur-xl border-2 rounded-xl p-4 sm:p-5 transition-all duration-300 text-left ${
                   isDisabled
                     ? 'border-slate-700/30 opacity-60 cursor-not-allowed'
                     : isLocked

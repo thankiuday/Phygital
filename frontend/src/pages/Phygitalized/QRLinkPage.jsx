@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom'
 import { generateQRCode, uploadAPI } from '../../utils/api'
 import { generateAdvancedQRCode, downloadQRCode } from '../../utils/qrGenerator'
 import { useAuth } from '../../contexts/AuthContext'
+import { savePendingFlow, getPendingFlow, clearPendingFlow } from '../../utils/pendingFlow'
 import { generateHumanReadableCampaignName } from '../../utils/campaignNameGenerator'
 import QRDesignCustomizer from '../../components/QR/QRDesignCustomizer'
 import { 
@@ -15,13 +16,14 @@ import {
   Link as LinkIcon,
   Tag,
   CheckCircle,
-  ExternalLink
+  ExternalLink,
+  Eye
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import LoadingSpinner from '../../components/UI/LoadingSpinner'
 
 const QRLinkPage = () => {
-  const { user, updateUser } = useAuth()
+  const { user, updateUser, isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const [campaignName, setCampaignName] = useState('')
   const [url, setUrl] = useState('')
@@ -31,6 +33,7 @@ const QRLinkPage = () => {
   const [qrDesign, setQrDesign] = useState(null)
   const [currentStep, setCurrentStep] = useState(1) // Wizard step: 1 = Enter details, 2 = Design QR
   const [qrGenerated, setQrGenerated] = useState(false) // Track if QR was successfully generated
+  const [showPreviewModal, setShowPreviewModal] = useState(false)
 
   // Auto-generate campaign name based on username with uniqueness check
   useEffect(() => {
@@ -40,6 +43,18 @@ const QRLinkPage = () => {
       setCampaignName(autoName)
     }
   }, [user?.username, campaignName, user?.projects])
+
+  // Restore pending flow after login
+  useEffect(() => {
+    const flow = getPendingFlow()
+    if (flow && flow.type === 'dynamic-single') {
+      if (flow.data?.campaignName) setCampaignName(flow.data.campaignName)
+      if (flow.data?.url) setUrl(flow.data.url)
+      if (flow.data?.qrDesign) setQrDesign(flow.data.qrDesign)
+      if (flow.step) setCurrentStep(flow.step)
+      clearPendingFlow()
+    }
+  }, [])
 
   const handleContinueToDesign = () => {
     if (!campaignName.trim()) {
@@ -75,6 +90,19 @@ const QRLinkPage = () => {
     }
 
     // Validate URL
+    // If user is not authenticated, save flow and redirect to login
+    if (!isAuthenticated) {
+      savePendingFlow({
+        type: 'dynamic-single',
+        step: currentStep,
+        data: { campaignName, url, qrDesign },
+        redirectTo: '/phygitalized/qr-link'
+      })
+      toast.error('You are one step away from creating your QR. Please login or register to finish.')
+      navigate('/login', { state: { from: { pathname: '/phygitalized/qr-link' } } })
+      return
+    }
+
     try {
       new URL(url)
     } catch {
@@ -332,6 +360,8 @@ const QRLinkPage = () => {
               onDesignChange={setQrDesign}
               previewUrl={url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`}
               disabled={isGenerating}
+              mobilePreviewModalOpen={showPreviewModal}
+              onCloseMobilePreview={() => setShowPreviewModal(false)}
             />
             
             {/* Generate Button at Bottom */}
@@ -448,6 +478,24 @@ const QRLinkPage = () => {
         </div>
       </div>
       </div>
+
+      {/* Mobile Live Preview shortcut for Step 2 */}
+      {currentStep === 2 && (
+        <div className="fixed inset-x-0 bottom-0 z-30 md:hidden pointer-events-none">
+          <div className="max-w-4xl mx-auto px-4 pb-4">
+            <button
+              type="button"
+              onClick={() => {
+                setShowPreviewModal(true)
+              }}
+              className="pointer-events-auto w-full flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink text-white shadow-glow-lg py-3 text-sm font-semibold"
+            >
+              <Eye className="w-4 h-4" />
+              Live Preview
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
