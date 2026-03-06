@@ -140,8 +140,10 @@ api.interceptors.response.use(
     if (error.response.status === 401) {
       // Don't redirect for admin login routes - let AdminContext handle it
       const isAdminRoute = error.config?.url?.includes('/auth/admin/login')
-      // Don't redirect for user login routes - let LoginPage handle it (for user not found scenarios)
+      // Don't redirect for user login/register routes - let LoginPage handle errors (wrong password, user not found, etc.)
       const isUserLoginRoute = error.config?.url?.includes('/auth/login') || 
+                                error.config?.url?.includes('/auth/smart-auth') ||
+                                error.config?.url?.includes('/auth/register') ||
                                 error.config?.url?.endsWith('/auth/login') ||
                                 error.config?.url === '/auth/login'
       
