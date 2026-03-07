@@ -41,7 +41,9 @@ const OAuthCallback = () => {
         try {
           await handleOAuthCallback(token)
           toast.success('Successfully signed in with Google!')
-          navigate('/dashboard', { replace: true })
+          // First-time Google signups go to referral-code page (same as normal registration)
+          const isNewUser = searchParams.get('newUser') === '1'
+          navigate(isNewUser ? '/referral-code' : '/dashboard', { replace: true })
         } catch (error) {
           console.error('Error processing OAuth callback:', error)
           toast.error('Failed to complete authentication. Please try again.')

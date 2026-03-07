@@ -79,7 +79,8 @@ passport.use(new GoogleStrategy({
       
       await user.save();
       console.log('✅ New Google user created successfully');
-      
+      // Flag for auth route so frontend can show referral-code page for first-time signups
+      user.isNewlyCreated = true;
       return done(null, user);
       
     } catch (error) {

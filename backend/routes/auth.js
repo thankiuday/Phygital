@@ -891,12 +891,12 @@ router.get('/google/callback',
       // Log successful authentication
       console.log('✅ Google OAuth successful for user:', user.email);
       
-      // Redirect to frontend with token
-      // Frontend will extract token from URL and complete login
-      // IMPORTANT: Using HashRouter, so we need to include the # in the URL
+      // Redirect to frontend with token (and newUser=1 when first-time Google signup)
+      // Frontend will extract token from URL and complete login; new users get referral-code page
       const frontendUrl = process.env.FRONTEND_URL || 'https://phygital.zone';
-      const redirectUrl = `${frontendUrl}/#/auth/callback?token=${token}`;
-      console.log('🔄 Redirecting to:', redirectUrl);
+      const isNewUser = !!user.isNewlyCreated;
+      const redirectUrl = `${frontendUrl}/#/auth/callback?token=${token}${isNewUser ? '&newUser=1' : ''}`;
+      console.log('🔄 Redirecting to:', redirectUrl, isNewUser ? '(new user → referral code)' : '');
       res.redirect(redirectUrl);
       
     } catch (error) {
