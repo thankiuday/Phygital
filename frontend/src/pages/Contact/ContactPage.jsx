@@ -74,8 +74,13 @@ const ContactPage = () => {
     {
       icon: MapPin,
       title: 'Our Location',
-      details: ['South Carolina, United States'],
-      description: 'Phygital',
+      details: [
+        '3440 Toringdon Way, #205',
+        'Charlotte, NC 28277',
+        '490 Post St STE 500',
+        'San Francisco, CA 94102'
+      ],
+      description: 'United States',
       gradient: 'from-neon-purple to-neon-pink'
     },
     {
@@ -504,7 +509,7 @@ const ContactPage = () => {
                             {info.title === 'Call Us' && 
                               'Give us a call at (704) 966-7158 during our business hours. Our team is available to help you with technical support, account questions, or to discuss how Phygital Zone can help bring your vision to life. If we\'re unavailable, leave a voicemail and we\'ll get back to you as soon as possible.'}
                             {info.title === 'Our Location' && 
-                              'We\'re based in South Carolina, United States. While we primarily operate as a digital platform, we\'re always open to meeting with partners, clients, and collaborators. If you\'re in the area and would like to schedule an in-person meeting, please reach out via email or phone to arrange a time.'}
+                              'We have offices in Charlotte, NC (3440 Toringdon Way, #205) and San Francisco, CA (490 Post St STE 500). We primarily operate as a digital platform and are always open to meeting partners, clients, and collaborators. If you are nearby and would like an in-person visit, please reach out via email or phone to arrange a time.'}
                             {info.title === 'Business Hours' && 
                               'Our team is available Monday through Friday from 9AM to 6PM EST, and on Saturdays from 10AM to 4PM EST. We\'re closed on Sundays and major holidays. For support outside these hours, you can still send us an email and we\'ll respond as soon as we\'re back in the office.'}
                           </p>

@@ -147,8 +147,11 @@ const Footer = () => {
               </li>
               <li className="flex items-start space-x-2">
                 <MapPin className="w-4 h-4 text-neon-pink mt-0.5 flex-shrink-0" />
-                <div className="text-slate-400 text-sm">
-                  <p>South Carolina, USA</p>
+                <div className="text-slate-400 text-sm space-y-2">
+                  <p className="font-medium text-slate-300">Charlotte, NC</p>
+                  <p>3440 Toringdon Way, #205<br />Charlotte, NC 28277</p>
+                  <p className="font-medium text-slate-300 pt-1">San Francisco, CA</p>
+                  <p>490 Post St STE 500<br />San Francisco, CA 94102</p>
                 </div>
               </li>
             </ul>
